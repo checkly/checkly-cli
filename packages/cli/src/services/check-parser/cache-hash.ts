@@ -37,13 +37,41 @@ export interface NpmrcInput {
   hash: Buffer
 }
 
+export interface PnpmfileInput {
+  /**
+   * Forward-slash relative path matching the pnpmfile's location in the
+   * eventual archive (e.g. ".pnpmfile.cjs" or ".pnpmfile.mjs").
+   */
+  path: string
+  /**
+   * Raw 32-byte SHA-256 digest of the pnpmfile contents.
+   */
+  hash: Buffer
+}
+
 export interface EmbeddedPackageInput {
   /** Package name as recorded in the lockfile, e.g. `@acme/foo`. */
   name: string
   /** Exact version, e.g. `1.2.3`. */
   version: string
-  /** The lockfile's recorded integrity for the artifact (SRI string). */
+  /**
+   * The lockfile's recorded content pin for the artifact: an SRI integrity
+   * string, or for Yarn Berry lockfiles (which record no npm tarball
+   * integrity) yarn's own checksum value — equally stable per content.
+   */
   integrity: string
+}
+
+export interface FauxPackageJsonInput {
+  /**
+   * Forward-slash relative path matching the faux manifest's location in the
+   * eventual archive (e.g. "packages/member/package.json").
+   */
+  path: string
+  /**
+   * The faux manifest's raw content bytes.
+   */
+  raw: Buffer
 }
 
 export interface ComposeCacheHashInput {
@@ -51,12 +79,22 @@ export interface ComposeCacheHashInput {
   packageJsons: PackageJsonInput[]
   npmrcs?: NpmrcInput[]
   /**
+   * The workspace root's bundleable pnpmfiles (pnpm workspaces only). pnpm's
+   * install hooks change resolution results without necessarily touching the
+   * lockfile (the recorded `pnpmfileChecksum` only updates when the user
+   * reinstalls), so the bundled files must contribute to the hash. An empty
+   * or absent list writes no records, leaving the digest identical to one
+   * computed before this input existed.
+   */
+  pnpmfiles?: PnpmfileInput[]
+  /**
    * The resolved set of embedded package tarballs shipped in the bundle
-   * (`bundle.packages.embed` after lockfile resolution). Embedded tarballs
-   * change the runner's install-step inputs without necessarily touching the
-   * lockfile, so they must contribute to the hash. An empty or absent list
-   * writes no records, leaving the digest identical to one computed before
-   * this input existed.
+   * (`bundle.packages.embed` after lockfile resolution, filtered to what
+   * the shipped — possibly pruned — bundled lockfile still references).
+   * Embedded tarballs change the runner's install-step inputs without
+   * necessarily touching the lockfile, so they must contribute to the hash.
+   * An empty or absent list writes no records, leaving the digest identical
+   * to one computed before this input existed.
    */
   embeddedPackages?: EmbeddedPackageInput[]
   excludedFields: string[]
@@ -66,6 +104,24 @@ export interface ComposeCacheHashInput {
    * so the digest stays identical to one computed without this input.
    */
   dependencyCacheVersion?: string
+  /**
+   * Every synthesized (non-physical) `package.json` actually shipped in the
+   * bundle — in practice the faux workspace member manifests. Unlike
+   * on-disk manifests — whose `version` is excluded because the pinned
+   * lockfile absorbs it — a synthesized manifest's full content including
+   * its version is load-bearing for the remote install (it decides whether
+   * a specifier resolves to the workspace link, the registry, or fails), so
+   * these are hashed verbatim, exactly as the bytes ship. An empty or
+   * absent list writes no records, leaving the digest unchanged.
+   */
+  fauxPackageJsons?: FauxPackageJsonInput[]
+  /**
+   * The pruned lockfile actually shipped in the bundle, when lockfile
+   * pruning replaced the original. The pruned bytes are the runner's real
+   * install input, so they must contribute to the hash. Absent when the
+   * original lockfile ships unchanged, writing no record.
+   */
+  prunedLockfile?: LockfileInput
 }
 
 const PACKAGE_JSON_EXCLUDED_FIELDS = ['version']
@@ -179,17 +235,27 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *   3. One record per .npmrc sorted by path, labeled
  *      `npmrc:<relative/path>`, whose content is the raw 32-byte SHA-256
  *      digest of the .npmrc contents.
- *   4. One record per embedded package sorted by `name@version`, labeled
+ *   4. One record per bundleable pnpmfile sorted by path, labeled
+ *      `pnpmfile:<relative/path>`, whose content is the raw 32-byte SHA-256
+ *      digest of the pnpmfile contents.
+ *   5. One record per embedded package sorted by `name@version`, labeled
  *      `embedded-package:<name@version>`, whose content is the raw UTF-8
- *      bytes of the lockfile's integrity string for the artifact. Callers
- *      must pass at most one entry per `name@version` (the materializer
- *      already de-duplicates); the record order among duplicate keys is
- *      undefined.
- *   5. The dependency cache version record (if set to a non-empty string),
+ *      bytes of the lockfile's content pin for the artifact — its SRI
+ *      integrity string, or for Yarn Berry lockfiles (which record no npm
+ *      tarball integrity) yarn's own checksum value. Callers must pass at
+ *      most one entry per `name@version` (the materializer already
+ *      de-duplicates); the record order among duplicate keys is undefined.
+ *   6. The dependency cache version record (if set to a non-empty string),
  *      labeled `dependency-cache-version`, whose content is the raw UTF-8
  *      bytes of the user-provided value. An empty string is treated as
  *      absent so that e.g. an unset environment variable interpolated into
  *      the config leaves the digest unchanged.
+ *   7. One record per faux workspace member manifest sorted by path,
+ *      labeled `faux-package.json:<relative/path>`, whose content is the
+ *      manifest's raw UTF-8 bytes.
+ *   8. The pruned lockfile record (if present), labeled
+ *      `pruned-lockfile:<basename>`, whose content is the raw 32-byte
+ *      SHA-256 digest of the pruned lockfile contents.
  *
  * All sorts compare strings by UTF-16 code unit (JavaScript's `<`/`>`),
  * which coincides with byte-wise UTF-8 order for ASCII inputs — the only
@@ -224,6 +290,12 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
     writeRecord(`npmrc:${entry.path}`, entry.hash)
   }
 
+  const sortedPnpmfiles = [...(input.pnpmfiles ?? [])].sort((a, b) => compareStrings(a.path, b.path))
+
+  for (const entry of sortedPnpmfiles) {
+    writeRecord(`pnpmfile:${entry.path}`, entry.hash)
+  }
+
   const sortedEmbedded = (input.embeddedPackages ?? [])
     .map(entry => ({ key: `${entry.name}@${entry.version}`, integrity: entry.integrity }))
     .sort((a, b) => compareStrings(a.key, b.key))
@@ -234,6 +306,16 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
 
   if (input.dependencyCacheVersion) {
     writeRecord('dependency-cache-version', Buffer.from(input.dependencyCacheVersion, 'utf8'))
+  }
+
+  const sortedFaux = [...(input.fauxPackageJsons ?? [])].sort((a, b) => compareStrings(a.path, b.path))
+
+  for (const entry of sortedFaux) {
+    writeRecord(`faux-package.json:${entry.path}`, entry.raw)
+  }
+
+  if (input.prunedLockfile) {
+    writeRecord(`pruned-lockfile:${input.prunedLockfile.name}`, input.prunedLockfile.hash)
   }
 
   return hash.digest('hex')
@@ -263,10 +345,16 @@ function uint64BE (n: number): Buffer {
  * lockfile) invalidates the bundle cache. Packages without an `.npmrc`
  * contribute nothing, so a workspace with no `.npmrc` produces a hash
  * identical to before this input existed.
+ *
+ * The workspace's bundleable pnpmfiles (see {@link Workspace.pnpmfiles}) are
+ * hashed for the same reason: their install hooks change resolution results,
+ * and the lockfile's recorded `pnpmfileChecksum` only updates when the user
+ * reinstalls, so the lockfile bytes alone do not cover them. A workspace
+ * without bundleable pnpmfiles contributes nothing.
  */
 export async function loadWorkspaceCacheHashInputs (
   workspace: Workspace,
-): Promise<{ lockfile?: LockfileInput, packageJsons: PackageJsonInput[], npmrcs: NpmrcInput[] }> {
+): Promise<WorkspaceCacheHashInputs> {
   const allPackages = [workspace.root, ...workspace.packages]
 
   const packageJsons = await Promise.all(allPackages.map(async pkg => {
@@ -311,7 +399,21 @@ export async function loadWorkspaceCacheHashInputs (
     }
   }
 
-  return { lockfile, packageJsons, npmrcs }
+  // Hash exactly the pnpmfiles that get bundled (Workspace.pnpmfiles is the
+  // shared source of truth), so the cache key always reflects the bundle
+  // contents. A read error here must surface: silently dropping a file that
+  // would still be bundled would desync the cache key from the bundle.
+  const pnpmfiles = await Promise.all(workspace.pnpmfiles
+    .filter(info => info.skipReason === undefined)
+    .map(async (info): Promise<PnpmfileInput> => {
+      const bytes = await fs.readFile(info.path)
+      return {
+        path: path.relative(workspace.root.path, info.path).split(path.sep).join('/'),
+        hash: createHash('sha256').update(bytes).digest(),
+      }
+    }))
+
+  return { lockfile, packageJsons, npmrcs, pnpmfiles }
 }
 
 export interface ComputeWorkspaceCacheHashOptions {
@@ -352,6 +454,44 @@ export function normalizeDependencyCacheVersion (version: string | number | unde
   return version
 }
 
+export interface WorkspaceCacheHashInputs {
+  lockfile?: LockfileInput
+  packageJsons: PackageJsonInput[]
+  npmrcs: NpmrcInput[]
+  pnpmfiles: PnpmfileInput[]
+}
+
+export interface ComposeWorkspaceCacheHashOptions extends ComputeWorkspaceCacheHashOptions {
+  /**
+   * See {@link ComposeCacheHashInput.fauxPackageJsons}.
+   */
+  fauxPackageJsons?: FauxPackageJsonInput[]
+  /**
+   * See {@link ComposeCacheHashInput.prunedLockfile}.
+   */
+  prunedLockfile?: LockfileInput
+}
+
+/**
+ * Composes the workspace cache hash from pre-loaded inputs, with the
+ * standard set of excluded package.json fields. Lets callers that need to
+ * recompute the hash later (with bundle-time inputs like faux manifests or
+ * a pruned lockfile) reuse inputs loaded once.
+ */
+export function composeWorkspaceCacheHash (
+  inputs: WorkspaceCacheHashInputs,
+  options?: ComposeWorkspaceCacheHashOptions,
+): string {
+  return composeCacheHash({
+    ...inputs,
+    embeddedPackages: options?.embeddedPackages,
+    fauxPackageJsons: options?.fauxPackageJsons,
+    prunedLockfile: options?.prunedLockfile,
+    excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
+    dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
+  })
+}
+
 /**
  * Convenience wrapper that loads workspace inputs and composes the cache
  * hash with the standard set of excluded package.json fields.
@@ -361,10 +501,5 @@ export async function computeWorkspaceCacheHash (
   options?: ComputeWorkspaceCacheHashOptions,
 ): Promise<string> {
   const inputs = await loadWorkspaceCacheHashInputs(workspace)
-  return composeCacheHash({
-    ...inputs,
-    embeddedPackages: options?.embeddedPackages,
-    excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
-    dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
-  })
+  return composeWorkspaceCacheHash(inputs, options)
 }

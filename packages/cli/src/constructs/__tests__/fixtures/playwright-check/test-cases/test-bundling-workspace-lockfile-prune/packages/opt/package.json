@@ -1,0 +1,8 @@
+{
+  "name": "@fixture-prune/opt",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "ms": "2.1.3"
+  }
+}

@@ -12,7 +12,22 @@ import semver from 'semver'
 export interface LockfileRegistryPackage {
   name: string
   version: string
-  integrity: string
+  /**
+   * SRI integrity of the registry tarball. Absent only for `yarn.lock`
+   * entries: Yarn Berry checksums hash yarn's own cache archive, not the
+   * registry tarball, so the tarball integrity is resolved from registry
+   * metadata at materialization time instead. Entries without either hash
+   * are excluded by the parsers, so `lockfileChecksum` is always present
+   * when this is absent.
+   */
+  integrity?: string
+  /**
+   * The lockfile's own content pin when it is not an SRI tarball hash
+   * (Yarn Berry's `checksum` value). Used in place of `integrity` where a
+   * stable content identifier known at plan time is needed (the dependency
+   * cache hash).
+   */
+  lockfileChecksum?: string
   /**
    * The full tarball URL when the lockfile records one (npm's `resolved`,
    * pnpm's `resolution.tarball`). When absent, the URL is derived from the
@@ -55,23 +70,52 @@ export class UnsupportedLockfileError extends Error {
 /**
  * Enumerates every package entry in a lockfile, classified into embeddable
  * registry packages and excluded (git/file/link/integrity-less) entries.
- * Supports `pnpm-lock.yaml` (v6/v9) and `package-lock.json` (v2/v3).
+ * Supports `pnpm-lock.yaml` (v6/v9), `package-lock.json` (v2/v3),
+ * `bun.lock` (v1) and Yarn Berry's `yarn.lock`.
  */
 export async function loadLockfilePackages (lockfilePath: string): Promise<LockfilePackages> {
   const basename = path.basename(lockfilePath)
   const content = await fs.readFile(lockfilePath, 'utf8')
+  return parseLockfilePackagesContent(content, basename)
+}
 
-  switch (basename) {
+/**
+ * Content-based variant of {@link loadLockfilePackages} for lockfiles that
+ * exist only in memory (e.g. a pruned copy of the bundled lockfile). The
+ * format is dispatched on the lockfile's filename.
+ */
+export function parseLockfilePackagesContent (content: string, lockfileName: string): LockfilePackages {
+  switch (lockfileName) {
     case 'pnpm-lock.yaml':
       return parsePnpmLockfilePackages(content)
     case 'package-lock.json':
       return parseNpmLockfilePackages(content)
+    case 'bun.lock':
+      return parseBunLockfilePackages(content)
+    case 'yarn.lock':
+      return parseYarnLockfilePackages(content)
+    case 'bun.lockb':
+      throw new UnsupportedLockfileError(
+        `Embedded packages are not supported for bun's binary lockfile (bun.lockb).`
+        + ` Regenerate a text lockfile with \`bun install --save-text-lockfile\`.`,
+      )
     default:
       throw new UnsupportedLockfileError(
-        `Embedded packages are not supported for '${basename}' lockfiles yet.`
-        + ` Only pnpm (pnpm-lock.yaml) and npm (package-lock.json) are currently supported.`,
+        `Embedded packages are not supported for '${lockfileName}' lockfiles yet.`
+        + ` Only pnpm (pnpm-lock.yaml), npm (package-lock.json), bun (bun.lock)`
+        + ` and Yarn Berry (yarn.lock) are currently supported.`,
       )
   }
+}
+
+/**
+ * Whether a directory-link target points outside the workspace the bundle
+ * carries. Shared by the parsers' link classification: an in-workspace link
+ * is part of the project (safe for a wildcard to skip silently), while an
+ * escaping one is not.
+ */
+function linkTargetEscapesWorkspace (target: string): boolean {
+  return target === '..' || target.startsWith('../') || path.isAbsolute(target)
 }
 
 /**
@@ -82,6 +126,70 @@ export async function loadLockfilePackages (lockfilePath: string): Promise<Lockf
 function stripPeerSuffix (key: string): string {
   const cut = key.indexOf('(')
   return cut === -1 ? key : key.slice(0, cut)
+}
+
+/**
+ * Splits a `name@ref` package key at the first `@` past the name. Searching
+ * from the front (after the scope, when present) keeps the name intact when
+ * the ref itself contains `@`, as git refs do
+ * (`foo@git+ssh://git@github.com/...`). Shared by the pnpm and bun parsers,
+ * whose keys use the same shape.
+ */
+function splitPackageKey (key: string): { name: string, ref: string } | undefined {
+  const searchFrom = key.startsWith('@') ? key.indexOf('/') + 1 : 1
+  const separator = searchFrom > 0 ? key.indexOf('@', searchFrom) : -1
+  if (separator <= 0) {
+    return undefined
+  }
+  return { name: key.slice(0, separator), ref: key.slice(separator + 1) }
+}
+
+/**
+ * Classifies one `name@ref` entry into a registry package or an unfetchable
+ * exclusion, appending to `result`. Shared by the pnpm and bun parsers,
+ * which record the same information in different places (pnpm's
+ * `resolution.integrity`/`resolution.tarball` vs bun's tuple indices).
+ */
+function classifyRegistryEntry (
+  result: LockfilePackages,
+  name: string,
+  ref: string,
+  integrity: unknown,
+  tarball: unknown,
+): void {
+  // Validate with semver but keep the ref as written: semver.valid()
+  // normalizes away build metadata (`1.0.0+sha.abc` → `1.0.0`), which
+  // would break both version-pin matching and the derived tarball URL.
+  const version = semver.valid(ref) !== null ? ref : null
+  if (version === null) {
+    result.excluded.push({
+      name,
+      reason: `'${name}@${ref}' resolves to a git, file or URL dependency,`
+        + ` which cannot be embedded as a registry tarball`,
+      kind: 'unfetchable',
+    })
+    return
+  }
+
+  if (typeof integrity !== 'string' || integrity === '') {
+    result.excluded.push({
+      name,
+      version,
+      reason: `the lockfile records no integrity hash for '${name}@${version}',`
+        + ` which is required to embed it`,
+      kind: 'unfetchable',
+    })
+    return
+  }
+
+  result.registry.push({
+    name,
+    version,
+    integrity,
+    // Only absolute http(s) URLs are usable for downloading; anything
+    // else falls back to the registry-derived URL.
+    tarballUrl: typeof tarball === 'string' && /^https?:/.test(tarball) ? tarball : undefined,
+  })
 }
 
 export function parsePnpmLockfilePackages (content: string): LockfilePackages {
@@ -119,7 +227,7 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
             // target escapes the workspace is not part of the project the
             // bundle carries.
             const target = version.slice('link:'.length)
-            const escapesWorkspace = target === '..' || target.startsWith('../') || path.isAbsolute(target)
+            const escapesWorkspace = linkTargetEscapesWorkspace(target)
             result.excluded.push({
               name,
               reason: escapesWorkspace
@@ -143,58 +251,196 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
   for (const [rawKey, rawEntry] of Object.entries<any>(packages)) {
     // v6 keys have a leading slash (`/name@1.2.3`), v9 keys do not.
     const key = stripPeerSuffix(rawKey.startsWith('/') ? rawKey.slice(1) : rawKey)
-    // The name/ref separator is the first `@` past the name. Searching from
-    // the front (after the scope, when present) keeps the name intact when
-    // the ref itself contains `@`, as git refs do
-    // (`foo@git+ssh://git@github.com/...`).
-    const searchFrom = key.startsWith('@') ? key.indexOf('/') + 1 : 1
-    const separator = searchFrom > 0 ? key.indexOf('@', searchFrom) : -1
-    if (separator <= 0) {
+    const split = splitPackageKey(key)
+    if (split === undefined) {
       continue
     }
-    const name = key.slice(0, separator)
-    const ref = key.slice(separator + 1)
+    const { name, ref } = split
 
     if (seen.has(`${name}@${ref}`)) {
       continue
     }
     seen.add(`${name}@${ref}`)
 
-    // Validate with semver but keep the ref as written: semver.valid()
-    // normalizes away build metadata (`1.0.0+sha.abc` → `1.0.0`), which
-    // would break both version-pin matching and the derived tarball URL.
-    const version = semver.valid(ref) !== null ? ref : null
+    const resolution = rawEntry?.resolution
+    classifyRegistryEntry(result, name, ref, resolution?.integrity, resolution?.tarball)
+  }
+
+  return result
+}
+
+export function parseBunLockfilePackages (content: string): LockfilePackages {
+  // bun.lock is JSONC (bun writes trailing commas), hence JSON5.
+  const data = JSON5.parse(content)
+
+  const lockfileVersion = data?.lockfileVersion
+  if (lockfileVersion !== 1) {
+    throw new UnsupportedLockfileError(
+      `Embedded packages require bun lockfile version 1`
+      + ` (found '${lockfileVersion ?? 'unknown'}'). Regenerate the lockfile with a supported`
+      + ` bun version, or update the Checkly CLI if the lockfile is newer.`,
+    )
+  }
+
+  const packages = data?.packages
+  const result: LockfilePackages = { registry: [], excluded: [] }
+  if (typeof packages !== 'object' || packages === null) {
+    return result
+  }
+
+  const seen = new Set<string>()
+  for (const tuple of Object.values<any>(packages)) {
+    // Package values are tuples whose first element is `name@ref`; the rest
+    // varies by resolution kind (registry entries carry the tarball URL at
+    // index 1 — '' for the default registry — and the integrity hash at
+    // index 3). An unrecognizable value is skipped rather than guessed at,
+    // like unparseable pnpm keys. Aliased installs appear under the alias
+    // key but record the real package name in the tuple, so the split below
+    // always yields the real name.
+    if (!Array.isArray(tuple) || typeof tuple[0] !== 'string') {
+      continue
+    }
+    const split = splitPackageKey(tuple[0])
+    if (split === undefined) {
+      continue
+    }
+    const { name, ref } = split
+
+    if (seen.has(`${name}@${ref}`)) {
+      continue
+    }
+    seen.add(`${name}@${ref}`)
+
+    if (ref.startsWith('workspace:')) {
+      result.excluded.push({
+        name,
+        reason: `'${name}' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
+      })
+      continue
+    }
+
+    classifyRegistryEntry(result, name, ref, tuple[3], tuple[1])
+  }
+
+  return result
+}
+
+export function parseYarnLockfilePackages (content: string): LockfilePackages {
+  // Yarn Berry lockfiles are YAML; Yarn Classic's v1 format happens to
+  // YAML-parse too, so Berry is recognized by its __metadata section.
+  const data = parseYaml(content)
+  if (data === null || typeof data !== 'object') {
+    throw new UnsupportedLockfileError(
+      `Embedded packages could not parse the yarn.lock file.`,
+    )
+  }
+  const metadata = (data as Record<string, any>).__metadata
+  if (metadata === null || typeof metadata !== 'object' || metadata.version === undefined) {
+    throw new UnsupportedLockfileError(
+      `Embedded packages are not supported for Yarn Classic (v1) lockfiles.`
+      + ` Migrate to Yarn Berry, whose lockfile records the resolution data embedding needs.`,
+    )
+  }
+
+  const result: LockfilePackages = { registry: [], excluded: [] }
+
+  const seen = new Set<string>()
+  for (const [key, entry] of Object.entries<any>(data)) {
+    if (key === '__metadata') {
+      continue
+    }
+    // Every entry records its resolved locator as `name@protocol:ref` in
+    // `resolution` — under an aliased or multi-descriptor key this is the
+    // REAL package locator, so names and refs are always taken from it. An
+    // unrecognizable entry is skipped rather than guessed at, like
+    // unparseable pnpm keys.
+    const resolution = entry?.resolution
+    if (typeof resolution !== 'string') {
+      continue
+    }
+    const split = splitPackageKey(resolution)
+    if (split === undefined) {
+      continue
+    }
+    const { name, ref } = split
+
+    if (seen.has(`${name}@${ref}`)) {
+      continue
+    }
+    seen.add(`${name}@${ref}`)
+
+    if (ref.startsWith('workspace:')) {
+      result.excluded.push({
+        name,
+        reason: `'${name}' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
+      })
+      continue
+    }
+
+    // Directory links (`portal:`/`link:`) carry their target between the
+    // protocol and the `::locator=...` suffix. Same distinction as the
+    // pnpm/npm parsers: an in-workspace link is part of the project itself.
+    const linkPrefix = ['portal:', 'link:'].find(prefix => ref.startsWith(prefix))
+    if (linkPrefix !== undefined) {
+      const target = ref.slice(linkPrefix.length).split('::')[0]
+      const escapesWorkspace = linkTargetEscapesWorkspace(target)
+      result.excluded.push({
+        name,
+        reason: escapesWorkspace
+          ? `'${name}' is a local directory link outside the workspace, which cannot be embedded`
+          + ` as a registry tarball`
+          : `'${name}' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: escapesWorkspace ? 'unfetchable' : 'workspace',
+      })
+      continue
+    }
+
+    // Anything that is not a plain `npm:<semver>` locator cannot be a
+    // registry tarball: patch:, git, https:, file:, exec:, or an npm ref
+    // whose version is not valid semver (a range or tag yarn left
+    // unresolved). file: targets an archive the bundle does not carry, so
+    // unlike directory links it warrants the unfetchable warning; builtin
+    // and user patches always coexist with the underlying npm: entry,
+    // which shadows the exclusion for reporting purposes.
+    const rawVersion = ref.startsWith('npm:') ? ref.slice('npm:'.length) : null
+    // As in the other parsers: validate with semver but keep the version as
+    // written, preserving build metadata.
+    const version = rawVersion !== null && semver.valid(rawVersion) !== null ? rawVersion : null
     if (version === null) {
       result.excluded.push({
         name,
-        reason: `'${name}@${ref}' resolves to a git, file or URL dependency,`
+        reason: `'${name}@${ref}' resolves to a git, file, URL or patched dependency,`
           + ` which cannot be embedded as a registry tarball`,
         kind: 'unfetchable',
       })
       continue
     }
 
-    const resolution = rawEntry?.resolution
-    const integrity = resolution?.integrity
-    if (typeof integrity !== 'string' || integrity === '') {
+    // Berry's checksum hashes yarn's own cache archive rather than the
+    // registry tarball, so it cannot serve as SRI integrity — the
+    // materializer resolves the tarball integrity from registry metadata
+    // instead. It IS a stable content pin, recorded for the dependency
+    // cache hash. Without one (checksumBehavior: ignore) the lockfile pins
+    // nothing, and the entry is excluded like the other parsers'
+    // integrity-less entries.
+    const checksum = entry?.checksum
+    if (typeof checksum !== 'string' || checksum === '') {
       result.excluded.push({
         name,
         version,
-        reason: `the lockfile records no integrity hash for '${name}@${version}',`
+        reason: `the lockfile records no checksum for '${name}@${version}',`
           + ` which is required to embed it`,
         kind: 'unfetchable',
       })
       continue
     }
 
-    const tarball = resolution?.tarball
     result.registry.push({
       name,
       version,
-      integrity,
-      // Only absolute http(s) URLs are usable for downloading; anything
-      // else falls back to the registry-derived URL.
-      tarballUrl: typeof tarball === 'string' && /^https?:/.test(tarball) ? tarball : undefined,
+      lockfileChecksum: checksum,
     })
   }
 
@@ -238,7 +484,7 @@ export function parseNpmLockfilePackages (content: string): LockfilePackages {
       // part of the project the bundle carries, so a wildcard must not
       // skip it silently.
       const target = typeof entry?.resolved === 'string' ? entry.resolved : ''
-      const escapesWorkspace = target === '..' || target.startsWith('../') || path.isAbsolute(target)
+      const escapesWorkspace = linkTargetEscapesWorkspace(target)
       result.excluded.push({
         name: key.slice(lastNodeModules + 'node_modules/'.length),
         reason: escapesWorkspace

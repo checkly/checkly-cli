@@ -122,11 +122,29 @@ export type ChecklyConfig = {
        * transitive dependencies of other private packages — dependencies of
        * listed packages are not embedded automatically.
        *
-       * Only npm and pnpm are supported at this time: packages are resolved
-       * against the workspace lockfile (`pnpm-lock.yaml` or
-       * `package-lock.json`) and always verified against its recorded
-       * integrity hashes. Changing the resolved set of embedded packages
-       * invalidates the runner's dependency cache.
+       * Only npm, pnpm, bun and Yarn Berry are supported at this time:
+       * packages are resolved against the workspace lockfile
+       * (`pnpm-lock.yaml`, `package-lock.json`, the text `bun.lock` —
+       * bun's binary `bun.lockb` is not supported — or a Yarn Berry
+       * `yarn.lock`; Yarn Classic v1 lockfiles are not) and always
+       * verified against its recorded integrity hashes. Yarn Berry
+       * lockfiles record no npm tarball integrity, so it is resolved from
+       * the registry's package metadata instead — one small metadata
+       * request per embedded package on every deploy, even with a warm
+       * cache. Downloads read registry credentials from `.npmrc` only;
+       * bun or yarn users whose credentials live solely in `bunfig.toml`
+       * or `.yarnrc.yml` must duplicate them into `.npmrc` — referencing
+       * them through environment variables (`${NPM_TOKEN}`), never as
+       * plaintext, because `.npmrc` is uploaded with the code bundle. When the bundled lockfile is pruned to the code
+       * bundle's contents, the embedded set follows it: packages the pruned
+       * lockfile no longer references — dependencies of workspace members
+       * that are not part of the bundle — are neither embedded nor
+       * downloaded, even if an entry matches them. That usually means the
+       * runner does not need the package at all; if the checks genuinely
+       * need it, make the depending workspace member part of the bundle
+       * rather than disabling pruning (`CHECKLY_LOCKFILE_PRUNE=0` restores
+       * the unfiltered set, as a last resort). Changing the resolved set of
+       * embedded packages invalidates the runner's dependency cache.
        */
       embed?: string[]
     }
@@ -143,8 +161,10 @@ export type ChecklyConfig = {
     dependencyCache?: {
       /**
        * Optional value mixed into the code bundle's cache hash in addition
-       * to its usual inputs (lockfile, package.json and .npmrc files, and
-       * the resolved `bundle.packages.embed` tarball set).
+       * to its usual inputs — the workspace's dependency-install inputs.
+       * The exhaustive input list lives with the hash itself; see
+       * `ComposeCacheHashInput` in
+       * `services/check-parser/cache-hash.ts`.
        * Change the value to force runners to reinstall the bundle's
        * dependencies. Setting it for the first time invalidates the cache
        * once. Numbers must be safe integers; unset and empty string leave

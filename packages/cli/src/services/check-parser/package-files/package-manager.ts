@@ -8,6 +8,7 @@ import { shellQuote } from '../../../services/shell.js'
 import { PackageJsonFile } from './package-json-file.js'
 import { JsonSourceFile } from './json-source-file.js'
 import { OptionalWorkspaceFile, Package, Workspace, WorkspaceOptions } from './workspace.js'
+import { loadWorkspacePnpmfiles } from './pnpmfile.js'
 import { Err, Ok } from './result.js'
 import {
   LockfilePackageQuery,
@@ -43,6 +44,25 @@ export interface PackageManager {
   installCommand (): Runnable
   addCommand (options: AddCommandOptions): Runnable
   execCommand (args: string[]): Runnable
+  /**
+   * Command that regenerates the lockfile from the manifests on disk without
+   * installing anything (resolution only). Undefined when the package
+   * manager has no such mode the CLI supports.
+   *
+   * The command must read and write the lockfile in the directory it is
+   * spawned in. Package managers that support a lockfile-location setting
+   * must pin it to the working directory explicitly: the setting can come
+   * from config layers the caller cannot inspect (e.g. the user-level
+   * ~/.npmrc), and an inherited value would redirect the subprocess's
+   * lockfile write outside the working directory — potentially over a
+   * real lockfile. When the package manager offers no way to pin the
+   * location (bun re-roots at any ancestor package.json whose workspaces
+   * glob matches the working directory, with no counteracting flag), the
+   * CALLER must verify before spawning that no such ancestor exists — the
+   * lockfile pruner refuses to run when its temp dir sits inside a
+   * workspace.
+   */
+  lockfileOnlyInstallCommand (): Runnable | undefined
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
   /**
    * Resolves the version of a single package as recorded in the package
@@ -126,6 +146,19 @@ export abstract class PackageManagerDetector {
   abstract lookupWorkspace (dir: string): Promise<Workspace | undefined>
 
   /**
+   * Default: no supported lockfile-only resolution mode, so callers skip
+   * lockfile pruning. Package managers with such a mode override this.
+   *
+   * Of the remaining detectors on this default, Yarn Classic simply has no
+   * lockfile-only mode (the yarn override covers Berry only — a Classic
+   * lockfile is rejected when it is parsed), and cnpm/deno have no verified
+   * mode either.
+   */
+  lockfileOnlyInstallCommand (): Runnable | undefined {
+    return undefined
+  }
+
+  /**
    * Default: lockfile parsing is unsupported, so callers fall back. Package
    * managers that can parse their lockfile override this.
    */
@@ -184,6 +217,12 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
 
   installCommand (): Runnable {
     return new Runnable('npm', ['install'])
+  }
+
+  lockfileOnlyInstallCommand (): Runnable {
+    // npm has no lockfile-location setting; package-lock.json always lives
+    // next to the package.json npm operates on, so there is nothing to pin.
+    return new Runnable('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
   }
 
   addCommand (options: AddCommandOptions): Runnable {
@@ -314,6 +353,20 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     return new Runnable('pnpm', ['install'])
   }
 
+  lockfileOnlyInstallCommand (): Runnable {
+    // --no-frozen-lockfile is load-bearing: pnpm auto-enables frozen mode
+    // when CI=true, and a lockfile-only regeneration is by definition not a
+    // frozen install. --lockfile-dir is equally load-bearing: as a CLI flag
+    // it outranks a lockfile-dir setting from every config layer (project,
+    // user and global npmrc, pnpm-workspace.yaml, env), so no inherited
+    // setting can move the lockfile write elsewhere; '.' resolves against
+    // the subprocess working directory. Accepted by pnpm 8-11 (pnpm 11
+    // dropped the npmrc setting but kept the flag).
+    return new Runnable('pnpm', [
+      'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
+    ])
+  }
+
   addCommand (options: AddCommandOptions): Runnable {
     return new Runnable('pnpm', [
       'add',
@@ -352,6 +405,7 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       type PnpmProjectOutput = {
         name: string
         path: string
+        version?: string
       }
 
       const output: PnpmProjectOutput[] = JSON.parse(result.stdout)
@@ -382,13 +436,15 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
       const rootPackage = new Package({
         name: root.name,
         path: root.path,
+        version: root.version,
         workspaces: dependencies.map(dep => dep.path),
       })
 
-      const packages = dependencies.map(({ name, path }) => {
+      const packages = dependencies.map(({ name, path, version }) => {
         return new Package({
           name,
           path,
+          version,
         })
       })
 
@@ -443,6 +499,28 @@ export class YarnDetector extends PackageManagerDetector implements PackageManag
 
   installCommand (): Runnable {
     return new Runnable('yarn', ['install'])
+  }
+
+  lockfileOnlyInstallCommand (): Runnable {
+    // Yarn Berry only — a Yarn Classic lockfile is rejected when it is
+    // parsed, and a Classic BINARY must never run this command: verified
+    // on 1.22.22 that Classic silently ignores --mode=update-lockfile and
+    // performs a full install, scripts included, so the pruner refuses
+    // with a version probe before spawning it. Verified on yarn 4.18.0 and
+    // 3.8.7: this regenerates yarn.lock fully offline, even with a cold
+    // cache — the resolution step reuses locked entries and prunes the
+    // unreachable ones, the fetch step only touches entries that are new
+    // (a prune introduces none), and the link step is skipped entirely, so
+    // no install scripts can run. CI detection and enableImmutableInstalls
+    // do not apply to this mode. With a lockfile present in the working
+    // directory Berry roots there — it does not re-root at ancestor
+    // workspace globs the way bun does. Yarn 3's lockfileFilename setting
+    // could redirect the write, but it would have to live in the unbundled
+    // .yarnrc.yml; the pruner's regenerated-lockfile-missing skip and its
+    // child-env network guard bound that case. The remaining config
+    // hazard, hardened mode revalidating locked entries against the
+    // registry, is disabled via the child environment as well.
+    return new Runnable('yarn', ['install', '--mode=update-lockfile'])
   }
 
   addCommand (options: AddCommandOptions): Runnable {
@@ -621,6 +699,29 @@ export class BunDetector extends PackageManagerDetector implements PackageManage
     return await lookupNearestPackageJsonWorkspace(this, dir)
   }
 
+  lockfileOnlyInstallCommand (): Runnable {
+    // Verified on bun 1.3.11: this regenerates bun.lock offline from the
+    // recorded resolutions, pruning entries no longer reachable from the
+    // manifests on disk, without touching node_modules. One exception: when
+    // a workspace member's name collides with a registry dependency
+    // consumed elsewhere, bun rejects its own lockfile (InvalidPackageKey)
+    // and silently re-resolves from the network with exit 0 — the pruner's
+    // tuple-subset and importer-preservation checks bound that fail-closed.
+    // Bun has no lockfile-location setting to pin (unlike pnpm's
+    // --lockfile-dir) — but it re-roots at any ancestor package.json whose
+    // workspaces glob matches the working directory and then reads AND
+    // writes the lockfile at that root, with no flag to prevent it. Callers
+    // must guard against that themselves; the lockfile pruner refuses to
+    // run when its temp dir sits inside a workspace. CI=true does not imply
+    // a frozen lockfile (unlike pnpm), so no unfreeze flag is needed. The
+    // one freeze vector — bunfig `[install] frozenLockfile = true` — has no
+    // CLI override at all and simply fails the command, which the pruner
+    // reports and falls back on. Only the text lockfile (bun.lock) can be
+    // verified after regeneration; the binary bun.lockb is rejected later,
+    // when the lockfile is parsed.
+    return new Runnable('bun', ['install', '--lockfile-only', '--ignore-scripts'])
+  }
+
   async resolvePackageVersionFromLockfile (
     lockfilePath: string,
     query: LockfilePackageQuery,
@@ -664,14 +765,24 @@ function* chunks<T> (array: T[], size: number): Generator<T[], void> {
 export class PathLookup {
   static win = process.platform.startsWith('win')
 
+  // Mirrors the fallback the `which` package (and through it cross-spawn,
+  // i.e. what execa actually spawns with) applies when PATHEXT is unset —
+  // without it, a lookup on such a system would only probe the
+  // extensionless name and miss every .CMD/.EXE shim.
+  static defaultWinPathext = ['.EXE', '.CMD', '.BAT', '.COM']
+
   paths: string[]
   pathext: string[]
   pathextSet = new Set<string>()
 
   constructor () {
     if (PathLookup.win) {
-      this.paths = process.env['Path']?.split(path.delimiter) ?? []
-      this.pathext = process.env['PATHEXT']?.split(path.delimiter) ?? []
+      // Windows allows individually quoted Path entries
+      // (`C:\Windows;"C:\Program Files\nodejs"`); the spawn's own resolver
+      // strips the quotes, so this lookup must too or the two disagree.
+      this.paths = (process.env['Path']?.split(path.delimiter) ?? [])
+        .map(entry => entry.replace(/^"(.*)"$/, '$1'))
+      this.pathext = process.env['PATHEXT']?.split(path.delimiter) ?? [...PathLookup.defaultWinPathext]
       this.pathext.forEach(ext => this.pathextSet.add(ext.toUpperCase()))
     } else {
       this.paths = process.env['PATH']?.split(path.delimiter) ?? []
@@ -679,6 +790,12 @@ export class PathLookup {
     }
   }
 
+  // FIXME(RED-887): the missing `await` below means `foundPath` is a
+  // Promise — always defined — so this never throws and executable
+  // detection always "succeeds". Fixing it changes package-manager
+  // detection outcomes on machines that lack the executable, so it is
+  // tracked as a follow-up rather than fixed in passing; use lookupPath()
+  // for a working check.
   // eslint-disable-next-line require-await
   async detectPresence (executable: string): Promise<void> {
     const foundPath = this.lookupPath(executable)
@@ -1053,6 +1170,7 @@ export async function fauxWorkspaceFromPackageJson (
   const rootPackage = new Package({
     name: packageJsonFile.name!,
     path: packageJsonFile.basePath,
+    version: packageJsonFile.version,
   })
 
   return await initWorkspace(packageManager.detector(), {
@@ -1104,9 +1222,17 @@ async function initWorkspace (
     reason => Err(reason),
   )
 
+  // Pnpmfiles are only meaningful for pnpm workspaces. Discovering them here
+  // gives the bundler and the cache hash a single source of truth for which
+  // pnpmfiles exist and whether they can be bundled.
+  const pnpmfiles = detector.name === 'pnpm'
+    ? await loadWorkspacePnpmfiles(options.root.path, configFile.ok(), lockfile.ok())
+    : []
+
   return new Workspace({
     ...options,
     lockfile,
     configFile,
+    pnpmfiles,
   })
 }

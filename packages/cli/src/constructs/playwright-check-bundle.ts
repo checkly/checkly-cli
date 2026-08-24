@@ -1,5 +1,5 @@
 import { Bundle } from './construct.js'
-import { BundlePathMarker } from '../services/check-parser/bundler.js'
+import { BundlePathMarker, CacheHashMarker } from '../services/check-parser/bundler.js'
 import { PlaywrightCheck } from './playwright-check.js'
 import { Ref } from './ref.js'
 
@@ -7,7 +7,7 @@ export interface PlaywrightCheckBundleProps {
   groupId?: Ref
   codeBundlePath: BundlePathMarker
   browsers?: string[]
-  cacheHash?: string
+  cacheHash?: CacheHashMarker
   playwrightVersion?: string
   installCommand?: string
   testCommand: string
@@ -19,7 +19,7 @@ export class PlaywrightCheckBundle implements Bundle {
   groupId?: Ref
   codeBundlePath: BundlePathMarker
   browsers?: string[]
-  cacheHash?: string
+  cacheHash?: CacheHashMarker
   playwrightVersion?: string
   installCommand?: string
   testCommand: string

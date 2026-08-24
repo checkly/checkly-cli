@@ -245,6 +245,82 @@ describe('composeCacheHash', () => {
     }))
   })
 
+  test('adding a pnpmfile changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'pnpm-lock.yaml', hash: sha256('lock') }
+    const without = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })
+    const withPnpmfile = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      pnpmfiles: [{ path: '.pnpmfile.cjs', hash: sha256('module.exports = {}') }],
+      excludedFields: ['version'],
+    })
+    expect(without).not.toBe(withPnpmfile)
+    expect(without).toBe(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      pnpmfiles: [],
+      excludedFields: ['version'],
+    }))
+  })
+
+  test('changing pnpmfile content changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'pnpm-lock.yaml', hash: sha256('lock') }
+    const compose = (contents: string) => composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      pnpmfiles: [{ path: '.pnpmfile.cjs', hash: sha256(contents) }],
+      excludedFields: ['version'],
+    })
+    expect(compose('module.exports = {}')).toBe(compose('module.exports = {}'))
+    expect(compose('module.exports = {}')).not.toBe(compose('module.exports = { hooks: {} }'))
+  })
+
+  test('faux package.json records change the hash, including their version', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'pnpm-lock.yaml', hash: sha256('lock') }
+    const compose = (fauxContent?: string) => composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      ...fauxContent !== undefined
+        ? { fauxPackageJsons: [{ path: 'packages/member/package.json', raw: buf(fauxContent) }] }
+        : {},
+      excludedFields: ['version'],
+    })
+    expect(compose()).toBe(composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      fauxPackageJsons: [],
+      excludedFields: ['version'],
+    }))
+    expect(compose()).not.toBe(compose('{"name":"m","version":"1.0.0"}'))
+    // Unlike on-disk manifests, the faux version is load-bearing for the
+    // install and must affect the hash.
+    expect(compose('{"name":"m","version":"1.0.0"}')).not.toBe(compose('{"name":"m","version":"2.0.0"}'))
+  })
+
+  test('a pruned lockfile record changes the hash', () => {
+    const root = buf('{"name":"root"}')
+    const lockfile = { name: 'pnpm-lock.yaml', hash: sha256('lock') }
+    const base = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      excludedFields: ['version'],
+    })
+    const pruned = composeCacheHash({
+      lockfile,
+      packageJsons: [{ path: 'package.json', raw: root }],
+      prunedLockfile: { name: 'pnpm-lock.yaml', hash: sha256('pruned-lock') },
+      excludedFields: ['version'],
+    })
+    expect(base).not.toBe(pruned)
+  })
+
   test('lockfile content change changes the hash', () => {
     const root = buf('{"name":"root"}')
     const a = composeCacheHash({
@@ -406,14 +482,18 @@ describe('composeCacheHash', () => {
   // fixture, mirror the change in the TF provider's test suite.
   //
   // NOTE: composeCacheHash also hashes `npmrc:` records (added for .npmrc
-  // bundling), `embedded-package:` records (the resolved
-  // bundle.packages.embed tarball set), and a `dependency-cache-version`
-  // record (the user-provided caching.dependencyCache.version config
-  // value). This fixture uses none of them so the digest is unchanged, but
-  // projects that DO have an .npmrc, embed packages, or set a dependency
-  // cache version will hash differently until the TF provider mirrors
-  // those record types. The fixture two tests down pins all three optional
-  // record groups together, in order.
+  // bundling), a `pnpmfile:` record (the workspace root's .pnpmfile.cjs),
+  // `embedded-package:` records (the resolved bundle.packages.embed tarball
+  // set, filtered to what the shipped — possibly pruned — bundled lockfile
+  // still references), a `dependency-cache-version` record (the user-provided
+  // caching.dependencyCache.version config value), `faux-package.json:`
+  // records (synthesized workspace member manifests shipped in the bundle),
+  // and a `pruned-lockfile:` record (when lockfile pruning replaced the
+  // bundled lockfile — the last two only occur for bundles that are a
+  // subset of the workspace). This fixture uses none of them so the digest
+  // is unchanged, but projects that DO use them will hash differently until
+  // the TF provider mirrors those record types. The 'every record group'
+  // fixture below pins all optional record groups together, in order.
   test('matches the cross-language parity fixture digest', () => {
     const lockfileBytes = buf('{"lockfileVersion":3}\n')
     const rootPackageJson = buf([
@@ -491,12 +571,12 @@ describe('composeCacheHash', () => {
     expect(digest).toBe('344f037a55163ba59146d9cdb71ef702782e3690a9f666067c0ccdf091214eb6')
   })
 
-  // Same parity contract as above, but with all four optional record groups
-  // present, pinning the full record order (npmrc records, then
-  // embedded-package records, then the dependency-cache-version record) and
-  // the sort of the `name@version` record labels. The TF provider must
-  // produce this exact digest once it mirrors the embedded-package record
-  // type.
+  // Same parity contract as above, but with the npmrc, embedded-package and
+  // dependency-cache-version record groups present, pinning their relative
+  // order and the sort of the `name@version` record labels. The TF provider
+  // must produce this exact digest once it mirrors the embedded-package
+  // record type. (The pnpmfile record group is pinned separately by the next
+  // fixture.)
   test('matches the cross-language parity fixture digest with embedded packages', () => {
     const lockfileBytes = buf('{"lockfileVersion":3}\n')
     const rootPackageJson = buf([
@@ -531,6 +611,100 @@ describe('composeCacheHash', () => {
     })
 
     expect(digest).toBe('4d9ce4b49fe543b4ec303ae17b1e98c7c9d0e37d8e17c57e78b36555abdf5207')
+  })
+
+  // Same parity contract as above, pinning the pnpmfile record's position
+  // between the npmrc records and the dependency-cache-version record. The
+  // TF provider must produce this exact digest once it mirrors the pnpmfile
+  // record type. (The exhaustive every-record-group fixture is the next
+  // test.)
+  test('matches the cross-language parity fixture digest with a pnpmfile', () => {
+    const lockfileBytes = buf('{"lockfileVersion":3}\n')
+    const rootPackageJson = buf([
+      '{',
+      '  "name": "fixture-root",',
+      '  "version": "0.0.0-SNAPSHOT",',
+      '  "private": true,',
+      '  "dependencies": {',
+      '    "@acme/foo": "1.2.3"',
+      '  }',
+      '}',
+      '',
+    ].join('\n'))
+
+    const digest = composeCacheHash({
+      lockfile: {
+        name: 'pnpm-lock.yaml',
+        hash: createHash('sha256').update(lockfileBytes).digest(),
+      },
+      packageJsons: [
+        { path: 'package.json', raw: rootPackageJson },
+      ],
+      npmrcs: [
+        { path: '.npmrc', hash: sha256('registry=https://registry.example.com/\n') },
+      ],
+      pnpmfiles: [
+        { path: '.pnpmfile.cjs', hash: sha256('module.exports = { hooks: {} }\n') },
+      ],
+      embeddedPackages: [
+        { name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa' },
+      ],
+      excludedFields: ['version'],
+      dependencyCacheVersion: '2',
+    })
+
+    expect(digest).toBe('9a5183603a1164e37065bfcc817cf25f978a9e408e153f42b477ad3fae4d1e67')
+  })
+
+  // Same parity contract as above, with every optional record group present
+  // at once, pinning the full record order: npmrc records, then the
+  // pnpmfile record, then embedded-package records, then the
+  // dependency-cache-version record, then faux-package.json records, then
+  // the pruned-lockfile record. The TF provider must produce this exact
+  // digest once it mirrors all record types.
+  test('matches the cross-language parity fixture digest with every record group', () => {
+    const lockfileBytes = buf('{"lockfileVersion":3}\n')
+    const rootPackageJson = buf([
+      '{',
+      '  "name": "fixture-root",',
+      '  "version": "0.0.0-SNAPSHOT",',
+      '  "private": true,',
+      '  "dependencies": {',
+      '    "@acme/member": "workspace:*"',
+      '  }',
+      '}',
+      '',
+    ].join('\n'))
+
+    const digest = composeCacheHash({
+      lockfile: {
+        name: 'pnpm-lock.yaml',
+        hash: createHash('sha256').update(lockfileBytes).digest(),
+      },
+      packageJsons: [
+        { path: 'package.json', raw: rootPackageJson },
+      ],
+      npmrcs: [
+        { path: '.npmrc', hash: sha256('registry=https://registry.example.com/\n') },
+      ],
+      pnpmfiles: [
+        { path: '.pnpmfile.cjs', hash: sha256('module.exports = { hooks: {} }\n') },
+      ],
+      embeddedPackages: [
+        { name: '@acme/embedded', version: '3.0.0', integrity: 'sha512-ccc' },
+      ],
+      fauxPackageJsons: [
+        { path: 'packages/member/package.json', raw: buf('{"name":"@acme/member","version":"1.2.3"}') },
+      ],
+      prunedLockfile: {
+        name: 'pnpm-lock.yaml',
+        hash: sha256('pruned-lockfile-bytes'),
+      },
+      excludedFields: ['version'],
+      dependencyCacheVersion: '2',
+    })
+
+    expect(digest).toBe('0dcfaca5d3b62fd83b03f6165b972e352209f674260457b8778795ffe52ac34f')
   })
 })
 
@@ -574,6 +748,43 @@ describe('computeWorkspaceCacheHash', () => {
     expect(base).not.toBe(await computeWorkspaceCacheHash(workspace, {
       embeddedPackages: [{ name: '@acme/foo', version: '1.2.3', integrity: 'sha512-aaa' }],
     }))
+  })
+
+  test('a bundleable workspace pnpmfile flows into the hash', async () => {
+    const workspace = await makeWorkspace()
+    const base = await computeWorkspaceCacheHash(workspace)
+
+    const pnpmfilePath = path.join(workspace.root.path, '.pnpmfile.cjs')
+    await fs.writeFile(pnpmfilePath, 'module.exports = {}\n')
+    const withPnpmfile = new Workspace({
+      root: workspace.root,
+      packages: [],
+      lockfile: Err(new Error('no lockfile')),
+      configFile: Err(new Error('no config file')),
+      pnpmfiles: [{ path: pnpmfilePath }],
+    })
+    const first = await computeWorkspaceCacheHash(withPnpmfile)
+    expect(base).not.toBe(first)
+
+    await fs.writeFile(pnpmfilePath, 'module.exports = { hooks: {} }\n')
+    expect(first).not.toBe(await computeWorkspaceCacheHash(withPnpmfile))
+  })
+
+  test('a non-bundleable pnpmfile does not affect the hash', async () => {
+    const workspace = await makeWorkspace()
+    const base = await computeWorkspaceCacheHash(workspace)
+
+    const withSkippedPnpmfile = new Workspace({
+      root: workspace.root,
+      packages: [],
+      lockfile: Err(new Error('no lockfile')),
+      configFile: Err(new Error('no config file')),
+      pnpmfiles: [{
+        path: path.join(workspace.root.path, '.pnpmfile.cjs'),
+        skipReason: 'loads modules beyond Node.js builtins',
+      }],
+    })
+    expect(base).toBe(await computeWorkspaceCacheHash(withSkippedPnpmfile))
   })
 })
 

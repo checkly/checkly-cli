@@ -77,6 +77,11 @@ export interface EmbeddedPackagesPlan {
  * to be added to the code bundle.
  */
 export interface MaterializedTarball extends PlannedTarball {
+  /**
+   * SRI integrity the tarball was verified against — the lockfile's, or for
+   * yarn.lock plans the one resolved from registry metadata.
+   */
+  integrity: string
   /** Absolute path of the verified tarball in the CLI cache. */
   filePath: string
   /** Bundle-root-relative archive path (POSIX). */
@@ -138,14 +143,31 @@ function redactUrl (url: string): string {
 }
 
 /**
+ * Wraps an axios error from a registry request in an EmbeddedPackageError,
+ * appending the HTTP status and, for 401/403, a credentials hint. `message`
+ * is the action-specific prefix (e.g. "Failed to download …").
+ */
+function registryHttpError (err: any, message: string): EmbeddedPackageError {
+  const status = err?.response?.status
+  const statusHint = status !== undefined ? ` (HTTP ${status})` : ''
+  const authHint = status === 401 || status === 403
+    ? ` Check that your .npmrc contains valid credentials for this registry.`
+    : ''
+  return new EmbeddedPackageError(`${message}${statusHint}.${authHint}`, { cause: err })
+}
+
+/**
  * Resolves the configured `bundle.packages.embed` specs against the
  * workspace lockfile (plan) and sources the selected tarballs into the CLI
- * cache (materialize), through a chain of CLI cache → npm cacache →
+ * cache (materializeTarballs), through a chain of CLI cache → npm cacache →
  * registry download, always verified against the lockfile integrity.
  *
- * Both stages memoize their in-flight promise: multiple Playwright checks
- * bundle concurrently, and validation and bundling share one instance per
- * parsed project, so the work runs exactly once.
+ * The plan memoizes its in-flight promise: validation and bundling share
+ * one instance per parsed project, so the (purely local) resolution runs
+ * exactly once. Materialization has a single caller — the Bundler, at
+ * finalize time, after the bundled lockfile has been pruned — which passes
+ * the subset of the plan the shipped lockfile still references, so
+ * pruned-away tarballs are never downloaded.
  */
 export class EmbeddedPackagesMaterializer {
   #options: EmbeddedPackagesMaterializerOptions
@@ -154,7 +176,6 @@ export class EmbeddedPackagesMaterializer {
   #homedir: string
 
   #plan?: Promise<EmbeddedPackagesPlan>
-  #materialized?: Promise<MaterializedTarball[]>
 
   constructor (options: EmbeddedPackagesMaterializerOptions) {
     this.#options = options
@@ -173,9 +194,48 @@ export class EmbeddedPackagesMaterializer {
     return this.#plan
   }
 
-  materialize (): Promise<MaterializedTarball[]> {
-    this.#materialized ??= this.#materializeAll()
-    return this.#materialized
+  /**
+   * Sources the given subset of the planned tarballs (CLI cache → npm
+   * cacache → registry download, verified against the lockfile integrity).
+   * Lets the caller materialize only the tarballs a pruned bundled lockfile
+   * still references, so pruned-away packages are never downloaded.
+   */
+  async materializeTarballs (tarballs: PlannedTarball[]): Promise<MaterializedTarball[]> {
+    const { issues } = await this.plan()
+
+    // Commands validate before bundling and exit on fatal diagnostics, so
+    // this is a defensive backstop for direct/programmatic use. Checked
+    // before the empty-list short-circuit: an invalid configuration must
+    // not pass silently just because nothing was requested.
+    if (issues.length > 0) {
+      throw new EmbeddedPackageError(
+        `Cannot embed packages due to configuration issues:\n\n`
+        + issues.map(issue => `  ${issue.message}`).join('\n'),
+      )
+    }
+
+    if (tarballs.length === 0) {
+      return []
+    }
+
+    // Safe to assert: a missing lockfile is a plan issue, and issues abort
+    // above.
+    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
+      this.#projectRoot!,
+      this.#homedir,
+      this.#options.contextDir,
+    ), this.#env)
+
+    const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
+    return await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {
+      const { filePath, integrity } = await this.#obtainTarball(tarball, npmrcConfig)
+      return {
+        ...tarball,
+        integrity,
+        filePath,
+        archivePath: `${EMBEDDED_PACKAGES_ARCHIVE_DIR}/${tarball.archiveFilename}`,
+      }
+    }))
   }
 
   async #createPlan (): Promise<EmbeddedPackagesPlan> {
@@ -335,57 +395,33 @@ export class EmbeddedPackagesMaterializer {
     }
   }
 
-  async #materializeAll (): Promise<MaterializedTarball[]> {
-    const { tarballs, issues } = await this.plan()
-
-    // Commands validate before bundling and exit on fatal diagnostics, so
-    // this is a defensive backstop for direct/programmatic use.
-    if (issues.length > 0) {
-      throw new EmbeddedPackageError(
-        `Cannot embed packages due to configuration issues:\n\n`
-        + issues.map(issue => `  ${issue.message}`).join('\n'),
-      )
+  async #obtainTarball (
+    tarball: PlannedTarball,
+    npmrcConfig: NpmrcConfig,
+  ): Promise<{ filePath: string, integrity: string }> {
+    let { integrity, tarballUrl } = tarball
+    if (integrity === undefined) {
+      // yarn.lock plans carry no SRI tarball integrity (Berry checksums
+      // hash yarn's own cache archive); resolve it from the registry's
+      // per-version metadata before the caches can be consulted.
+      const dist = await this.#resolveDistFromRegistry(tarball, npmrcConfig)
+      integrity = dist.integrity
+      tarballUrl ??= dist.tarballUrl
     }
 
-    if (tarballs.length === 0) {
-      return []
-    }
-
-    // Safe to assert: a missing lockfile is a plan issue, and issues abort
-    // above.
-    const npmrcConfig = await loadNpmrcConfig(defaultNpmrcPaths(
-      this.#projectRoot!,
-      this.#homedir,
-      this.#options.contextDir,
-    ), this.#env)
-
-    const queue = new PQueue({ concurrency: DOWNLOAD_CONCURRENCY })
-    const results = await queue.addAll(tarballs.map(tarball => async (): Promise<MaterializedTarball> => {
-      const filePath = await this.#obtainTarball(tarball, npmrcConfig)
-      return {
-        ...tarball,
-        filePath,
-        archivePath: `${EMBEDDED_PACKAGES_ARCHIVE_DIR}/${tarball.archiveFilename}`,
-      }
-    }))
-
-    return results
-  }
-
-  async #obtainTarball (tarball: PlannedTarball, npmrcConfig: NpmrcConfig): Promise<string> {
-    const cached = await this.#cache.get(tarball.integrity)
+    const cached = await this.#cache.get(integrity)
     if (cached !== undefined) {
       debug('%s@%s: CLI cache hit', tarball.name, tarball.version)
-      return cached
+      return { filePath: cached, integrity }
     }
 
-    const fromNpmCacache = await lookupNpmCacache(tarball.integrity, this.#env, process.platform, this.#homedir)
+    const fromNpmCacache = await lookupNpmCacache(integrity, this.#env, process.platform, this.#homedir)
     if (fromNpmCacache !== undefined) {
       debug('%s@%s: npm cache hit', tarball.name, tarball.version)
-      return await this.#cache.put(tarball.integrity, fromNpmCacache)
+      return { filePath: await this.#cache.put(integrity, fromNpmCacache), integrity }
     }
 
-    const url = tarball.tarballUrl ?? this.#deriveTarballUrl(tarball, npmrcConfig)
+    const url = tarballUrl ?? this.#deriveTarballUrl(tarball, npmrcConfig)
     if (!URL.canParse(url)) {
       throw new EmbeddedPackageError(
         `The tarball URL for embedded package '${tarball.name}@${tarball.version}'`
@@ -396,16 +432,116 @@ export class EmbeddedPackagesMaterializer {
     debug('%s@%s: downloading from %s', tarball.name, tarball.version, redactUrl(url))
     const content = await this.#download(tarball, url, npmrcConfig)
 
-    if (!verifyIntegrity(content, tarball.integrity)) {
+    if (!verifyIntegrity(content, integrity)) {
+      // For yarn.lock plans the integrity came from the registry's own
+      // metadata, not the lockfile, so name the right source to check.
+      const source = tarball.integrity === undefined
+        ? `the integrity hash the registry's metadata reported`
+        : `the integrity hash recorded in the lockfile`
       throw new EmbeddedPackageError(
         `The tarball downloaded for embedded package '${tarball.name}@${tarball.version}'`
-        + ` from '${redactUrl(url)}' does not match the integrity hash recorded in the lockfile`
-        + ` ('${tarball.integrity}'). The registry may be serving a different artifact`
+        + ` from '${redactUrl(url)}' does not match ${source}`
+        + ` ('${integrity}'). The registry may be serving a different artifact`
         + ` than the one the lockfile was created against.`,
       )
     }
 
-    return await this.#cache.put(tarball.integrity, content)
+    return { filePath: await this.#cache.put(integrity, content), integrity }
+  }
+
+  /**
+   * Resolves the npm tarball integrity (and canonical tarball URL) for a
+   * package whose lockfile cannot provide one. Tries the abbreviated
+   * per-version metadata route (`GET <registry>/<name>/<version>`) first,
+   * then falls back to the full packument (`GET <registry>/<name>`, whose
+   * `versions[version].dist` carries the same fields) — some private
+   * registry proxies serve only one of the two. The scope slash stays
+   * unencoded, matching npm's own use of these routes. The requests use
+   * the same registry resolution and credentials as the tarball download
+   * itself, so they add no trust beyond the download; the end-to-end
+   * content pin still holds because the package manager re-verifies its
+   * own lockfile checksums against the served content at install time.
+   */
+  async #resolveDistFromRegistry (
+    tarball: PlannedTarball,
+    npmrcConfig: NpmrcConfig,
+  ): Promise<{ integrity: string, tarballUrl?: string }> {
+    const registryUrl = resolveRegistryUrl(npmrcConfig, tarball.name, this.#env)
+    const versionUrl = `${registryUrl}${tarball.name}/${tarball.version}`
+    const packumentUrl = `${registryUrl}${tarball.name}`
+
+    // Per-version route: dist is at the document root.
+    const perVersion = await this.#fetchMetadataDist(tarball, npmrcConfig, versionUrl, data => data?.dist)
+    // Packument fallback (only when the per-version route was absent, not
+    // when it answered with unusable data): dist is nested per version.
+    const dist = perVersion ?? await this.#fetchMetadataDist(
+      tarball, npmrcConfig, packumentUrl, data => data?.versions?.[tarball.version]?.dist,
+    )
+
+    // Modern publishes carry an SRI `integrity`; very old ones only a hex
+    // sha1 `shasum`, which converts to a (weaker but supported) SRI hash.
+    const integrity = typeof dist?.integrity === 'string' && dist.integrity !== ''
+      ? dist.integrity as string
+      : typeof dist?.shasum === 'string' && /^[0-9a-f]{40}$/.test(dist.shasum)
+        ? `sha1-${Buffer.from(dist.shasum, 'hex').toString('base64')}`
+        : undefined
+    if (integrity === undefined) {
+      throw new EmbeddedPackageError(
+        `The registry metadata for embedded package '${tarball.name}@${tarball.version}'`
+        + ` (from '${redactUrl(versionUrl)}') provides no usable integrity hash, so the`
+        + ` downloaded tarball could not be verified.`,
+      )
+    }
+
+    return {
+      integrity,
+      // Same guard as the lockfile-recorded URLs: only absolute http(s)
+      // URLs are usable for downloading.
+      tarballUrl: typeof dist?.tarball === 'string' && /^https?:/.test(dist.tarball)
+        ? dist.tarball as string
+        : undefined,
+    }
+  }
+
+  /**
+   * Fetches one metadata URL and extracts its `dist` via `select`. Returns
+   * undefined on a 404 (so the caller can try another route); any other
+   * failure — auth, network, malformed response — throws, because retrying
+   * a different route would only mask it.
+   */
+  async #fetchMetadataDist (
+    tarball: PlannedTarball,
+    npmrcConfig: NpmrcConfig,
+    url: string,
+    select: (data: any) => any,
+  ): Promise<any> {
+    if (!URL.canParse(url)) {
+      throw new EmbeddedPackageError(
+        `The registry metadata URL for embedded package '${tarball.name}@${tarball.version}'`
+        + ` is not a valid URL: '${redactUrl(url)}'. Check the 'registry' configuration`
+        + ` in your .npmrc (it must be an absolute URL including the protocol).`,
+      )
+    }
+    const authHeader = resolveAuthHeader(npmrcConfig, url, this.#env)
+    debug('%s@%s: resolving integrity from %s', tarball.name, tarball.version, redactUrl(url))
+    try {
+      const response = await axios.get(url, assignProxy(url, {
+        headers: {
+          ...(authHeader !== undefined ? { authorization: authHeader } : {}),
+        },
+        timeout: DOWNLOAD_TIMEOUT_MS,
+      }))
+      return select(response.data)
+    } catch (err: any) {
+      if (err?.response?.status === 404) {
+        return undefined
+      }
+      throw registryHttpError(
+        err,
+        `Failed to fetch registry metadata for embedded package`
+        + ` '${tarball.name}@${tarball.version}' from '${redactUrl(url)}'`,
+      )
+    }
   }
 
   #deriveTarballUrl (tarball: PlannedTarball, npmrcConfig: NpmrcConfig): string {
@@ -433,15 +569,10 @@ export class EmbeddedPackagesMaterializer {
       }))
       return Buffer.from(response.data)
     } catch (err: any) {
-      const status = err?.response?.status
-      const statusHint = status !== undefined ? ` (HTTP ${status})` : ''
-      const authHint = status === 401 || status === 403
-        ? ` Check that your .npmrc contains valid credentials for this registry.`
-        : ''
-      throw new EmbeddedPackageError(
+      throw registryHttpError(
+        err,
         `Failed to download embedded package '${tarball.name}@${tarball.version}'`
-        + ` from '${redactUrl(url)}'${statusHint}.${authHint}`,
-        { cause: err },
+        + ` from '${redactUrl(url)}'`,
       )
     }
   }

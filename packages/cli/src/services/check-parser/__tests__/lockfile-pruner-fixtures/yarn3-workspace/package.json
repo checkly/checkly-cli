@@ -1,0 +1,13 @@
+{
+  "name": "lockfile-pruner-yarn3-fixture",
+  "private": true,
+  "packageManager": "yarn@3.8.7",
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "@fixture/absent": "workspace:*",
+    "@fixture/shimmed": "workspace:*",
+    "@fixture/used": "workspace:*"
+  }
+}

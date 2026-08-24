@@ -16,6 +16,7 @@ import { pathToPosix } from '../util.js'
 import { Package, Workspace } from './package-files/workspace.js'
 import { isCoreExtension, isTSExtension } from './package-files/extension.js'
 import { createFauxPackageFiles } from './faux-package.js'
+import { isPnpmfilePath } from './package-files/pnpmfile.js'
 import { PlaywrightConfigExpander } from './playwright-config-expander.js'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
@@ -230,6 +231,15 @@ export class Parser {
 
   private determineFileOps (filePath: string): number {
     const extension = path.extname(filePath)
+
+    // Pnpmfiles are pnpm install-time configuration, not check code: they are
+    // bundled verbatim and must never be parsed. Parsing would treat their
+    // require/import statements as check dependencies, and e.g. an optional
+    // `try { require(...) } catch {}` of a gitignored file would fail the
+    // whole bundle as a missing dependency.
+    if (isPnpmfilePath(filePath)) {
+      return 0
+    }
 
     if (this.restricted) {
       if (isLegacySupportedFileExtension(extension)) {

@@ -293,6 +293,7 @@ export default class Test extends AuthCommand {
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
       dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
       embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
+      packageManager: Session.packageManager,
     })
 
     this.style.actionStart('Bundling project resources')

@@ -65,6 +65,12 @@ describe('EmbeddedPackagesMaterializer', () => {
     })
   }
 
+  // Materializes the full plan, the way the Bundler does at finalize time
+  // (production passes the subset the pruned lockfile still references).
+  const materializeAll = async (materializer: EmbeddedPackagesMaterializer) => {
+    return materializer.materializeTarballs((await materializer.plan()).tarballs)
+  }
+
   beforeEach(async () => {
     workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-embed-ws-'))
     homedir = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-embed-home-'))
@@ -232,7 +238,7 @@ packages:
       expect(warnings[0]).toContain('git-dep')
       expect(warnings[0]).toContain('cannot be embedded')
       const written = await captureStderr(async () => {
-        await materializer.materialize()
+        await materializeAll(materializer)
       })
       // Filtered rather than asserting total silence: the debug package
       // also writes to stderr when DEBUG is enabled.
@@ -320,7 +326,7 @@ packages:
       const written = await captureStderr(async () => {
         const { warnings } = await materializer.plan()
         expect(warnings).toEqual([])
-        await materializer.materialize()
+        await materializeAll(materializer)
       })
       // Filtered rather than asserting total silence: the debug package
       // also writes to stderr when DEBUG is enabled.
@@ -427,9 +433,37 @@ packages: {}
     })
   })
 
-  describe('materialize()', () => {
+  describe('materializeTarballs()', () => {
+    it('materializes only the requested subset of the plan', async () => {
+      const materializer = makeMaterializer(['@acme/foo', 'bar@2.0.0'])
+      const { tarballs } = await materializer.plan()
+      const barOnly = tarballs.filter(tarball => tarball.name === 'bar')
+      const materialized = await materializer.materializeTarballs(barOnly)
+      expect(materialized.map(t => t.archivePath)).toEqual([
+        '.checkly/embedded-packages/bar@2.0.0.tgz',
+      ])
+      // The unrequested tarball must produce no registry traffic at all.
+      expect(requests.map(r => r.url)).toEqual(['/bar/-/bar-2.0.0.tgz'])
+    })
+
+    it('returns nothing for an empty subset without touching the registry', async () => {
+      const materialized = await makeMaterializer(['bar@2.0.0']).materializeTarballs([])
+      expect(materialized).toEqual([])
+      expect(requests).toHaveLength(0)
+    })
+
+    it('refuses even an empty subset when the plan has issues', async () => {
+      // The issues backstop is checked before the empty-list short-circuit:
+      // an invalid configuration must not pass silently just because
+      // nothing was requested.
+      const materializer = makeMaterializer(['no-such-package'])
+      await expect(materializer.materializeTarballs([])).rejects.toThrow(EmbeddedPackageError)
+    })
+  })
+
+  describe('materializeTarballs() over the full plan', () => {
     it('downloads tarballs from the registry and verifies them', async () => {
-      const tarballs = await makeMaterializer(['@acme/foo', 'bar@2.0.0']).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['@acme/foo', 'bar@2.0.0']))
       expect(tarballs.map(t => t.archivePath)).toEqual([
         '.checkly/embedded-packages/@acme+foo@1.2.3.tgz',
         '.checkly/embedded-packages/bar@2.0.0.tgz',
@@ -445,23 +479,23 @@ packages: {}
     })
 
     it('defaults the cache to node_modules/.cache/checkly under the workspace root', async () => {
-      const tarballs = await makeMaterializer(['bar@2.0.0'], { env: {} }).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0'], { env: {} }))
       expect(tarballs[0].filePath.startsWith(
         path.join(workspaceRoot, 'node_modules', '.cache', 'checkly', 'embedded-packages'),
       )).toBe(true)
     })
 
     it('derives the project root from the lockfile path when no workspace root is given', async () => {
-      const tarballs = await makeMaterializer(['bar@2.0.0'], { env: {}, workspaceRoot: undefined }).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0'], { env: {}, workspaceRoot: undefined }))
       expect(tarballs[0].filePath.startsWith(path.join(
         path.dirname(lockfilePath), 'node_modules', '.cache', 'checkly', 'embedded-packages',
       ))).toBe(true)
     })
 
     it('reuses the CLI cache instead of downloading again', async () => {
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests).toHaveLength(1)
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests).toHaveLength(1)
     })
 
@@ -481,7 +515,7 @@ packages: {}
       const materializer = makeMaterializer(['bar@2.0.0'], {
         env: { CHECKLY_CACHE_DIR: cacheDir, npm_config_cache: npmCacheDir },
       })
-      const tarballs = await materializer.materialize()
+      const tarballs = await materializeAll(materializer)
       expect(requests).toHaveLength(0)
       await expect(fs.readFile(tarballs[0].filePath)).resolves.toEqual(barTarball)
     })
@@ -492,7 +526,7 @@ packages: {}
         `//127.0.0.1:${(server.address() as AddressInfo).port}/:_authToken=secret`,
       ].join('\n'))
 
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests[0].authorization).toBe('Bearer secret')
     })
 
@@ -509,7 +543,7 @@ packages:
         res.end(barTarball)
       })
 
-      await makeMaterializer(['bar@2.0.0']).materialize()
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests[0].url).toBe('/custom/path/bar-2.0.0.tgz')
     })
 
@@ -517,7 +551,7 @@ packages:
       server.removeAllListeners('request')
       server.on('request', (req, res) => res.end('tampered content'))
 
-      await expect(makeMaterializer(['bar@2.0.0']).materialize())
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
         .rejects.toThrow(/does not match the integrity hash recorded in the lockfile/)
     })
 
@@ -528,12 +562,12 @@ packages:
   secured@1.0.0:
     resolution: {integrity: ${barIntegrity}}
 `)
-      await expect(makeMaterializer(['secured']).materialize())
+      await expect(materializeAll(makeMaterializer(['secured'])))
         .rejects.toThrow(/Failed to download embedded package 'secured@1\.0\.0'.*HTTP 401.*credentials/s)
     })
 
     it('refuses to materialize when the plan has issues', async () => {
-      await expect(makeMaterializer(['no-such-package']).materialize())
+      await expect(materializeAll(makeMaterializer(['no-such-package'])))
         .rejects.toThrow(EmbeddedPackageError)
     })
 
@@ -543,7 +577,7 @@ packages:
       await fs.writeFile(path.join(workspaceRoot, '.npmrc'), 'registry=http://127.0.0.1:1/\n')
       await fs.writeFile(path.join(contextDir, '.npmrc'), `registry=${serverUrl}\n`)
 
-      const tarballs = await makeMaterializer(['bar@2.0.0'], { contextDir }).materialize()
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0'], { contextDir }))
       expect(tarballs).toHaveLength(1)
       expect(requests).toHaveLength(1)
     })
@@ -554,7 +588,7 @@ packages:
       const materializer = makeMaterializer(['bar@2.0.0'], {
         env: { CHECKLY_CACHE_DIR: cacheDir, npm_config_registry: serverUrl },
       })
-      const tarballs = await materializer.materialize()
+      const tarballs = await materializeAll(materializer)
       expect(tarballs).toHaveLength(1)
       expect(requests).toHaveLength(1)
     })
@@ -562,7 +596,7 @@ packages:
     it('fails with a clear error for a registry URL without a protocol', async () => {
       await fs.writeFile(path.join(workspaceRoot, '.npmrc'), 'registry=nexus.local/repository/npm/\n')
 
-      await expect(makeMaterializer(['bar@2.0.0']).materialize())
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
         .rejects.toThrow(/is not a valid URL.*registry/s)
     })
 
@@ -579,17 +613,205 @@ packages:
     resolution: {integrity: ${barIntegrity}}
 `)
 
-      const error = await makeMaterializer(['missing-pkg']).materialize().catch(err => err)
+      const error = await materializeAll(makeMaterializer(['missing-pkg'])).catch(err => err)
       expect(error).toBeInstanceOf(EmbeddedPackageError)
       expect(error.message).not.toContain('super-secret')
       expect(error.message).toContain('missing-pkg')
     })
 
-    it('memoizes materialization within an instance', async () => {
+    it('serves a repeated materialization from the CLI cache without re-downloading', async () => {
       const materializer = makeMaterializer(['bar@2.0.0'])
-      const [first, second] = await Promise.all([materializer.materialize(), materializer.materialize()])
-      expect(first).toBe(second)
+      const first = await materializeAll(materializer)
+      const second = await materializeAll(materializer)
+      expect(second).toEqual(first)
       expect(requests).toHaveLength(1)
+    })
+  })
+
+  describe('materializeTarballs() from a yarn.lock plan', () => {
+    // yarn.lock entries carry no npm tarball integrity (Berry checksums
+    // hash yarn's own cache archive), so the materializer must resolve it
+    // from the registry's per-version metadata before downloading.
+    const writeYarnLockfile = async () => {
+      lockfilePath = path.join(workspaceRoot, 'yarn.lock')
+      await fs.writeFile(lockfilePath, `
+__metadata:
+  version: 10
+  cacheKey: 10c0
+
+"@acme/foo@npm:1.2.3":
+  version: 1.2.3
+  resolution: "@acme/foo@npm:1.2.3"
+  checksum: 10c0/aaa
+  languageName: node
+  linkType: hard
+
+"bar@npm:2.0.0":
+  version: 2.0.0
+  resolution: "bar@npm:2.0.0"
+  checksum: 10c0/bbb
+  languageName: node
+  linkType: hard
+`)
+    }
+
+    const serveMetadata = (routes: Record<string, unknown>) => {
+      server.removeAllListeners('request')
+      server.on('request', (req, res) => {
+        requests.push({
+          url: req.url!,
+          authorization: req.headers.authorization,
+          acceptEncoding: req.headers['accept-encoding'] as string | undefined,
+        })
+        const body = routes[req.url!]
+        if (body === undefined) {
+          res.statusCode = 404
+          res.end('not found')
+        } else if (typeof body === 'number') {
+          // A numeric route value is an HTTP status to return.
+          res.statusCode = body
+          res.end('error')
+        } else if (Buffer.isBuffer(body)) {
+          res.end(body)
+        } else {
+          res.setHeader('content-type', 'application/json')
+          res.end(JSON.stringify(body))
+        }
+      })
+    }
+
+    it('resolves the integrity from registry metadata and verifies the download', async () => {
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar/2.0.0': { dist: { integrity: barIntegrity, tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } },
+        '/bar/-/bar-2.0.0.tgz': barTarball,
+      })
+
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0']))
+      expect(tarballs).toHaveLength(1)
+      expect(tarballs[0].integrity).toEqual(barIntegrity)
+      expect(await fs.readFile(tarballs[0].filePath)).toEqual(barTarball)
+      expect(requests.map(request => request.url)).toEqual(['/bar/2.0.0', '/bar/-/bar-2.0.0.tgz'])
+    })
+
+    it('requests scoped metadata with the scope slash unencoded and derives the tarball URL', async () => {
+      await writeYarnLockfile()
+      // No dist.tarball in the metadata: the download must fall back to the
+      // registry-derived URL.
+      serveMetadata({
+        '/@acme/foo/1.2.3': { dist: { integrity: fooIntegrity } },
+        '/@acme/foo/-/foo-1.2.3.tgz': fooTarball,
+      })
+
+      const tarballs = await materializeAll(makeMaterializer(['@acme/foo']))
+      expect(tarballs[0].integrity).toEqual(fooIntegrity)
+      expect(requests.map(request => request.url)).toEqual(['/@acme/foo/1.2.3', '/@acme/foo/-/foo-1.2.3.tgz'])
+    })
+
+    it('falls back to the full packument when the per-version route 404s', async () => {
+      // Some private registry proxies serve only the full packument, not
+      // the abbreviated per-version route.
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar': { versions: { '2.0.0': { dist: { integrity: barIntegrity, tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } } } },
+        '/bar/-/bar-2.0.0.tgz': barTarball,
+      })
+
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0']))
+      expect(tarballs[0].integrity).toEqual(barIntegrity)
+      // The per-version route was tried first (404), then the packument.
+      expect(requests.map(request => request.url)).toEqual(['/bar/2.0.0', '/bar', '/bar/-/bar-2.0.0.tgz'])
+    })
+
+    it('does not fall back to the packument when the per-version route answers without a hash', async () => {
+      // A per-version response that simply lacks integrity is a real
+      // answer, not an absent route, so it must not trigger a second fetch.
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar/2.0.0': { dist: { tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } },
+        '/bar': { versions: { '2.0.0': { dist: { integrity: barIntegrity } } } },
+      })
+
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
+        .rejects.toThrow(/provides no usable integrity hash/)
+      expect(requests.map(request => request.url)).toEqual(['/bar/2.0.0'])
+    })
+
+    it('falls back to a sha1 shasum when the metadata has no integrity', async () => {
+      await writeYarnLockfile()
+      const shasum = createHash('sha1').update(barTarball).digest('hex')
+      serveMetadata({
+        '/bar/2.0.0': { dist: { shasum, tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } },
+        '/bar/-/bar-2.0.0.tgz': barTarball,
+      })
+
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0']))
+      expect(tarballs[0].integrity).toEqual(`sha1-${Buffer.from(shasum, 'hex').toString('base64')}`)
+    })
+
+    it('fails with a clear error when the metadata request errors (non-404)', async () => {
+      // A 404 means "try the other route"; any other status is a hard
+      // failure that must surface rather than fall through.
+      await writeYarnLockfile()
+      serveMetadata({ '/bar/2.0.0': 500 })
+
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
+        .rejects.toThrow(/Failed to fetch registry metadata for embedded package 'bar@2.0.0'/)
+      // The 500 stops the resolution; the packument fallback is not tried.
+      expect(requests.map(request => request.url)).toEqual(['/bar/2.0.0'])
+    })
+
+    it('fails with a clear error when neither metadata route exists', async () => {
+      await writeYarnLockfile()
+      serveMetadata({})
+
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
+        .rejects.toThrow(/provides no usable integrity hash/)
+      expect(requests.map(request => request.url)).toEqual(['/bar/2.0.0', '/bar'])
+    })
+
+    it('fails with a clear error when the metadata provides no usable hash', async () => {
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar/2.0.0': { dist: { tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } },
+      })
+
+      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
+        .rejects.toThrow(/provides no usable integrity hash/)
+    })
+
+    it('sends registry credentials with the metadata request', async () => {
+      await writeYarnLockfile()
+      const { port } = server.address() as AddressInfo
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), [
+        `registry=${serverUrl}`,
+        `//127.0.0.1:${port}/:_authToken=secret`,
+      ].join('\n'))
+      serveMetadata({
+        '/bar/2.0.0': { dist: { integrity: barIntegrity, tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } },
+        '/bar/-/bar-2.0.0.tgz': barTarball,
+      })
+
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
+      expect(requests[0]).toMatchObject({ url: '/bar/2.0.0', authorization: 'Bearer secret' })
+    })
+
+    it('still resolves metadata on a warm cache, but skips the download', async () => {
+      // The caches are keyed by integrity, which for yarn plans is only
+      // learnable from the registry — so the (small) metadata roundtrip
+      // happens every run, while the tarball itself is served from cache.
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar/2.0.0': { dist: { integrity: barIntegrity, tarball: `${serverUrl}bar/-/bar-2.0.0.tgz` } },
+        '/bar/-/bar-2.0.0.tgz': barTarball,
+      })
+
+      await materializeAll(makeMaterializer(['bar@2.0.0']))
+      const second = await materializeAll(makeMaterializer(['bar@2.0.0']))
+      expect(second).toHaveLength(1)
+      expect(requests.map(request => request.url)).toEqual([
+        '/bar/2.0.0', '/bar/-/bar-2.0.0.tgz', '/bar/2.0.0',
+      ])
     })
   })
 })

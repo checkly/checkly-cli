@@ -1,13 +1,14 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { describe, it, expect, beforeAll, afterAll } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, vi } from 'vitest'
 
 import { Parser } from '../parser.js'
 import { FixtureSandbox } from '../../../testing/fixture-sandbox.js'
 import { BunDetector, NpmDetector, PNpmDetector } from '../package-files/package-manager.js'
 import { FAUX_PACKAGE_DESCRIPTION } from '../faux-package.js'
-import { Workspace } from '../package-files/workspace.js'
+import { Package, Workspace } from '../package-files/workspace.js'
+import { Err } from '../package-files/result.js'
 import { PlaywrightConfig } from '../../playwright-config.js'
 import { pathToPosix } from '../../util.js'
 
@@ -91,10 +92,24 @@ describe('dependency-parser - parser()', () => {
         }
       }
 
+      // Faux manifests must carry the member's real name and version (so that
+      // workspace specifiers still resolve to the workspace package during the
+      // remote install), and nothing else besides the placeholder description
+      // and the private flag.
       const fauxFileEntry = (filePath: string) => {
+        const realPackageJson = JSON.parse(fs.readFileSync(filePath, 'utf8'))
         return {
           filePath,
-          content: expect.stringContaining(FAUX_PACKAGE_DESCRIPTION),
+          content: JSON.stringify(
+            {
+              name: realPackageJson.name,
+              version: realPackageJson.version,
+              description: FAUX_PACKAGE_DESCRIPTION,
+              private: true,
+            },
+            undefined,
+            2,
+          ),
         }
       }
 
@@ -122,6 +137,7 @@ describe('dependency-parser - parser()', () => {
             const { dependencies } = await parser.parse(toAbsolutePath('apps/main/tests/foo.spec.js'))
             const got = dependencies.sort((a, b) => a.filePath.localeCompare(b.filePath))
             const want = [
+              realFileEntry(toAbsolutePath('.pnpmfile.cjs')),
               realFileEntry(toAbsolutePath('apps/depended-on-by-main-and-root/index.js')),
               realFileEntry(toAbsolutePath('apps/depended-on-by-main-and-root/package.json')),
               realFileEntry(toAbsolutePath('apps/depended-on-by-main/index.js')),
@@ -137,6 +153,86 @@ describe('dependency-parser - parser()', () => {
             expect(got.map(({ filePath }) => filePath)).toEqual(want.map(({ filePath }) => filePath))
             expect(got).toEqual(want)
           })
+
+          it('does not bundle the pnpmfile in restricted mode', async () => {
+            const parser = new Parser({
+              checkUnsupportedModules: false,
+              restricted: true,
+              workspace,
+            })
+            const { dependencies } = await parser.parse(toAbsolutePath('apps/main/tests/foo.spec.js'))
+            expect(dependencies.map(({ filePath }) => filePath)).not.toContain(toAbsolutePath('.pnpmfile.cjs'))
+          })
+        })
+
+        describe('pnpm-pnpmfile-no-checksum', () => {
+          it('reports no pnpmfiles when the lockfile records no checksum', async () => {
+            // The fixture has a .pnpmfile.cjs, but its lockfile records no
+            // pnpmfileChecksum — so there is nothing for a remote install to
+            // reproduce and the workspace must not pick up the pnpmfile.
+            const workspace = await new PNpmDetector().lookupWorkspace(fixt.abspath('pnpm-pnpmfile-no-checksum'))
+            expect(workspace).toBeDefined()
+            expect(workspace?.pnpmfiles).toEqual([])
+          })
+        })
+      })
+
+      describe('pnpmfile bundling', () => {
+        // The fixture's .pnpmfile.cjs contains an optional require that would
+        // be reported as a missing dependency if the file were ever parsed as
+        // check code. The Workspace is built by hand so the pnpmfile entries
+        // can be controlled directly, independent of the discovery-time
+        // self-containedness analysis.
+        const root = () => fixt.abspath('pnpmfile-bundling')
+
+        const makeWorkspace = (pnpmfiles: { path: string, skipReason?: string }[]) => {
+          return new Workspace({
+            root: new Package({ name: 'pnpmfile-bundling', path: root() }),
+            packages: [],
+            lockfile: Err(new Error('no lockfile')),
+            configFile: Err(new Error('no config file')),
+            pnpmfiles,
+          })
+        }
+
+        it('bundles the pnpmfile verbatim without parsing it as check code', async () => {
+          const parser = new Parser({
+            checkUnsupportedModules: false,
+            restricted: false,
+            workspace: makeWorkspace([{ path: path.join(root(), '.pnpmfile.cjs') }]),
+          })
+          const { dependencies } = await parser.parse(path.join(root(), 'tests', 'foo.spec.js'))
+          const paths = dependencies.map(({ filePath }) => filePath)
+          expect(paths).toContain(path.join(root(), '.pnpmfile.cjs'))
+          // The pnpmfile's own require must not be treated as a dependency.
+          expect(paths).not.toContain(path.join(root(), 'local-overrides.cjs'))
+        })
+
+        it('does not bundle a pnpmfile with a skip reason, and warns once', async () => {
+          const warnings: string[] = []
+          const stderrSpy = vi.spyOn(process.stderr, 'write')
+            .mockImplementation((chunk: any) => {
+              warnings.push(String(chunk))
+              return true
+            })
+          try {
+            const parser = new Parser({
+              checkUnsupportedModules: false,
+              restricted: false,
+              workspace: makeWorkspace([{
+                path: path.join(root(), '.pnpmfile.cjs'),
+                skipReason: 'not self-contained',
+              }]),
+            })
+            const { dependencies } = await parser.parse(path.join(root(), 'tests', 'foo.spec.js'))
+            expect(dependencies.map(({ filePath }) => filePath))
+              .not.toContain(path.join(root(), '.pnpmfile.cjs'))
+          } finally {
+            stderrSpy.mockRestore()
+          }
+          const pnpmfileWarnings = warnings.filter(w => w.includes('not bundling pnpmfile'))
+          expect(pnpmfileWarnings).toHaveLength(1)
+          expect(pnpmfileWarnings[0]).toContain('not self-contained')
         })
       })
 
@@ -177,6 +273,20 @@ describe('dependency-parser - parser()', () => {
             // Only check paths first, makes missing files easier to see.
             expect(got.map(({ filePath }) => filePath)).toEqual(want.map(({ filePath }) => filePath))
             expect(got).toEqual(want)
+          })
+
+          it('ignores a leftover .pnpmfile.cjs in a non-pnpm workspace', async () => {
+            // The fixture has a root .pnpmfile.cjs, but pnpmfile discovery is
+            // gated on the workspace using pnpm, so it must be neither
+            // registered on the workspace nor bundled.
+            expect(workspace!.pnpmfiles).toEqual([])
+            const parser = new Parser({
+              checkUnsupportedModules: false,
+              restricted: false,
+              workspace,
+            })
+            const { dependencies } = await parser.parse(toAbsolutePath('apps/main/tests/foo.spec.js'))
+            expect(dependencies.map(({ filePath }) => filePath)).not.toContain(toAbsolutePath('.pnpmfile.cjs'))
           })
         })
       })

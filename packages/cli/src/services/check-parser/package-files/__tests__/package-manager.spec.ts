@@ -5,7 +5,9 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
+  BunDetector,
   CNpmDetector,
+  DenoDetector,
   detectNearestConfigFiles,
   detectNearestLockfiles,
   detectPackageManager,
@@ -15,6 +17,8 @@ import {
   NpmDetector,
   npmPackageManager,
   PackageManagerDetector,
+  PathLookup,
+  PNpmDetector,
   YarnDetector,
 } from '../package-manager.js'
 
@@ -567,5 +571,62 @@ describe('detectNearestConfigFiles', () => {
 
     await expect(detectNearestConfigFiles(root, { detectors: pnpmDeno, root }))
       .rejects.toBeInstanceOf(NoConfigFileFoundError)
+  })
+})
+
+describe('lockfileOnlyInstallCommand', () => {
+  it('regenerates the lockfile without installing for pnpm, pinning the lockfile location', () => {
+    const runnable = new PNpmDetector().lockfileOnlyInstallCommand()
+    expect(runnable?.executable).toEqual('pnpm')
+    expect(runnable?.args).toEqual([
+      'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
+    ])
+  })
+
+  it('regenerates the lockfile without installing for npm', () => {
+    const runnable = new NpmDetector().lockfileOnlyInstallCommand()
+    expect(runnable?.executable).toEqual('npm')
+    expect(runnable?.args).toEqual(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
+  })
+
+  it('regenerates the lockfile without installing for bun', () => {
+    const runnable = new BunDetector().lockfileOnlyInstallCommand()
+    expect(runnable.executable).toEqual('bun')
+    expect(runnable.args).toEqual(['install', '--lockfile-only', '--ignore-scripts'])
+  })
+
+  it('regenerates the lockfile without installing for yarn', () => {
+    const runnable = new YarnDetector().lockfileOnlyInstallCommand()
+    expect(runnable.executable).toEqual('yarn')
+    expect(runnable.args).toEqual(['install', '--mode=update-lockfile'])
+  })
+
+  it('is unsupported for cnpm and deno', () => {
+    expect(new CNpmDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+    expect(new DenoDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+  })
+})
+
+describe('PathLookup', () => {
+  // The lookup must resolve like the spawn's own resolver (cross-spawn →
+  // which) or the two disagree about whether an executable exists. The
+  // Windows-specific behaviors depend on the platform's path delimiter, so
+  // they can only run there — Windows CI covers this.
+  it.skipIf(process.platform !== 'win32')('strips quoted Path entries and defaults PATHEXT on Windows', () => {
+    vi.stubEnv('Path', `C:\\Windows;"C:\\Program Files\\nodejs"`)
+    vi.stubEnv('PATHEXT', undefined)
+    try {
+      const lookup = new PathLookup()
+      expect(lookup.paths).toEqual(['C:\\Windows', 'C:\\Program Files\\nodejs'])
+      expect(lookup.pathext).toEqual(['.EXE', '.CMD', '.BAT', '.COM'])
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('resolves an executable that exists on PATH and misses one that does not', async () => {
+    const lookup = new PathLookup()
+    expect(await lookup.lookupPath('node')).toBeDefined()
+    expect(await lookup.lookupPath('checkly-no-such-executable-xyz')).toBeUndefined()
   })
 })

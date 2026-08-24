@@ -1,0 +1,10 @@
+{
+  "name": "@fixture-embed/c",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@playwright/test": "^1.55.1",
+    "@fixture-embed/used": "workspace:*",
+    "@fixture-embed/shimmed": "workspace:*"
+  }
+}

@@ -1,6 +1,7 @@
 import { glob } from 'glob'
 
 import { PackageJsonFile } from './package-json-file.js'
+import { PnpmfileInfo } from './pnpmfile.js'
 import { Result } from './result.js'
 
 export interface PackageOptions {
@@ -15,6 +16,12 @@ export interface PackageOptions {
   path: string
 
   /**
+   * The version of the package, if one is declared. Values that are not
+   * non-empty strings are normalized to undefined by the constructor.
+   */
+  version?: string
+
+  /**
    * Whether the package is a workspace.
    */
   workspaces?: string[]
@@ -23,11 +30,17 @@ export interface PackageOptions {
 export class Package {
   name: string
   path: string
+  version?: string
   workspaces?: string[]
 
-  constructor ({ name, path, workspaces }: PackageOptions) {
+  constructor ({ name, path, version, workspaces }: PackageOptions) {
     this.name = name
     this.path = path
+    // The version usually originates from a plain JSON.parse of a package.json
+    // (or from `pnpm list --json` output), so despite the declared type it may
+    // be any JSON value at runtime. Normalize here so consumers can trust the
+    // declared type.
+    this.version = typeof version === 'string' && version !== '' ? version : undefined
     this.workspaces = workspaces
   }
 
@@ -37,7 +50,7 @@ export class Package {
 
   // eslint-disable-next-line require-await
   static async loadFromPackageJsonFile (packageJson: PackageJsonFile): Promise<Package | undefined> {
-    const { name, workspaces } = packageJson
+    const { name, version, workspaces } = packageJson
     if (name === undefined) {
       return
     }
@@ -45,6 +58,7 @@ export class Package {
     return new Package({
       name,
       path: packageJson.meta.dirname,
+      version,
       workspaces,
     })
   }
@@ -66,6 +80,7 @@ export interface WorkspaceOptions {
   packages: Package[]
   lockfile: OptionalWorkspaceFile
   configFile: OptionalWorkspaceFile
+  pnpmfiles?: PnpmfileInfo[]
 }
 
 export class Workspace {
@@ -89,12 +104,21 @@ export class Workspace {
    */
   configFile: OptionalWorkspaceFile
 
+  /**
+   * The pnpmfiles found at the workspace root, when the workspace uses pnpm.
+   * Entries without a `skipReason` are safe to bundle; see
+   * {@link PnpmfileInfo}. Empty for workspaces that use another package
+   * manager.
+   */
+  pnpmfiles: PnpmfileInfo[]
+
   #membersByName = new Map<string, Package>()
   #membersByPath = new Map<string, Package>()
 
   constructor (options: WorkspaceOptions) {
     this.root = options.root
     this.packages = options.packages
+    this.pnpmfiles = options.pnpmfiles ?? []
     this.#membersByName = [options.root, ...options.packages].reduce(
       (map, pkg) => map.set(pkg.name, pkg),
       new Map<string, Package>(),

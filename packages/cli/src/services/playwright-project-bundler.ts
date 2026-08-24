@@ -142,23 +142,10 @@ export class PlaywrightProjectBundler {
       }))
     }
 
-    // Embedded package tarballs live in the CLI cache, whose on-disk
-    // location (node_modules/.cache, a per-user dir, or CHECKLY_CACHE_DIR)
-    // never corresponds to the contract path the runner expects, so they
-    // carry an explicit archive path instead of relying on the strip
-    // prefix. The materializer memoizes, so concurrent bundles share one
-    // download run, and the Bundler dedupes registrations by archive path
-    // across checks.
-    const materializer = Session.getEmbeddedPackagesMaterializer()
-    if (materializer !== undefined) {
-      for (const tarball of await materializer.materialize()) {
-        files.push({
-          filePath: tarball.filePath,
-          physical: true,
-          archivePath: tarball.archivePath,
-        })
-      }
-    }
+    // Embedded package tarballs are deliberately NOT part of a check's
+    // files: the Bundler materializes them once during finalize(), after
+    // the bundled lockfile has been pruned, so tarballs the shipped
+    // lockfile no longer references are never downloaded.
 
     return {
       browsers: pwConfigParsed.getBrowsers(),
@@ -185,12 +172,29 @@ export function getAutoIncludes (
 ): string[] {
   const autoIncludes: string[] = []
 
-  if (packageManager.name === 'pnpm') {
-    const patchesDir = path.join(basePath, 'patches')
-    const alreadyIncluded = existingIncludes.some(p => path.resolve(globCwd, p).startsWith(patchesDir))
-    if (!alreadyIncluded) {
-      const patchesPattern = pathToPosix(path.join(path.relative(globCwd, basePath), 'patches', '*.patch'))
-      autoIncludes.push(patchesPattern)
+  // The prefix comparison appends a separator so a sibling directory whose
+  // name merely starts with the patches dir (e.g. `patches-archive`) does
+  // not suppress the auto-include.
+  const includesUnder = (dir: string): boolean => existingIncludes.some(p => {
+    const resolved = path.resolve(globCwd, p)
+    return resolved === dir || resolved.startsWith(dir + path.sep)
+  })
+
+  // Dependency patches live in a conventional per-manager directory that
+  // the remote install (and the lockfile pruner's temp-dir install) needs
+  // alongside the manifests: `patches/` for pnpm and bun, `.yarn/patches`
+  // for Yarn Berry's patch: protocol. A patch kept at a nonconventional
+  // path makes the pruner fail closed with a warning instead.
+  const patchesDirByManager: Record<string, string[]> = {
+    pnpm: ['patches'],
+    bun: ['patches'],
+    yarn: ['.yarn', 'patches'],
+  }
+  const patchesSegments = patchesDirByManager[packageManager.name]
+  if (patchesSegments !== undefined) {
+    const patchesDir = path.join(basePath, ...patchesSegments)
+    if (!includesUnder(patchesDir)) {
+      autoIncludes.push(pathToPosix(path.join(path.relative(globCwd, basePath), ...patchesSegments, '*.patch')))
     }
   }
 
