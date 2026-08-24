@@ -539,19 +539,23 @@ export class EmbeddedPackagesMaterializer {
       // by definition here, so nothing can reliably tell a credential in it
       // from a path. Naming the source is both safe and more useful — that
       // is where the reader goes to fix it.
+      // The advice has to match the branch: telling someone to fix their
+      // registry setting when the bad value came out of the lockfile sends
+      // them to a setting that is already correct.
       let source: string
       if ('lockfile' in urlOrigin) {
-        source = `It came from '${urlOrigin.lockfile}'.`
+        source = `It was recorded in '${urlOrigin.lockfile}', whose tarball URL for this package`
+          + ` is not absolute or has no host.`
       } else if (urlOrigin.registryKey !== undefined) {
         source = `It was built from the registry configured by`
-          + ` ${describeConfigKeys([urlOrigin.registryKey], npmrc)}`
+          + ` ${describeConfigKeys([urlOrigin.registryKey], npmrc)}, which must be an absolute URL`
+          + ` including the protocol, and must have a host.`
       } else {
-        source = `It was built from the default registry.`
+        source = `It was built from the default registry, which suggests a malformed package name.`
       }
       throw new EmbeddedPackageError(
         `The tarball URL for embedded package '${tarball.name}@${tarball.version}'`
-        + ` is not a valid URL. ${source} A registry must be an absolute URL`
-        + ` including the protocol, and must have a host.`,
+        + ` is not a valid URL. ${source}`,
       )
     }
     debug('%s@%s: downloading from %s', tarball.name, tarball.version, redactUrl(url))

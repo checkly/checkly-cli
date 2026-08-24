@@ -14,22 +14,21 @@ function npmrc (overrides: Partial<LoadedNpmrcConfig> = {}): LoadedNpmrcConfig {
 }
 
 describe('redactUrl()', () => {
+  // Only scheme and host survive. The path goes too: some registries take
+  // a token as a path segment, and the package name and version the path
+  // encodes are already stated separately in every message that shows a URL.
   it.each([
-    ['userinfo', 'https://user:tok@nexus.local/npm/foo.tgz', 'https://nexus.local/npm/foo.tgz'],
-    ['a port with userinfo', 'https://u:p@nexus.local:8443/npm/f.tgz', 'https://nexus.local:8443/npm/f.tgz'],
+    ['userinfo', 'https://user:tok@nexus.local/npm/foo.tgz', 'https://nexus.local'],
+    ['a port with userinfo', 'https://u:p@nexus.local:8443/npm/f.tgz', 'https://nexus.local:8443'],
     ['a query, which may hold a pre-signed signature',
-      'https://cdn.example.com/f.tgz?X-Amz-Signature=deadbeef', 'https://cdn.example.com/f.tgz'],
-    ['a fragment', 'https://cdn.example.com/f.tgz#tok=deadbeef', 'https://cdn.example.com/f.tgz'],
+      'https://cdn.example.com/f.tgz?X-Amz-Signature=deadbeef', 'https://cdn.example.com'],
+    ['a fragment', 'https://cdn.example.com/f.tgz#tok=deadbeef', 'https://cdn.example.com'],
+    ['a token in a path segment', 'https://nexus.local/s3cret-token/npm/f.tgz', 'https://nexus.local'],
     // The WHATWG parser strips surrounding whitespace, so this is a normal
     // parse rather than one of the malformed shapes below.
-    ['userinfo, ignoring leading whitespace', ' https://user:tok@nexus.local/x', 'https://nexus.local/x'],
-  ])('rebuilds a parseable URL without %s', (_label, input, expected) => {
+    ['userinfo, ignoring leading whitespace', ' https://user:tok@nexus.local/x', 'https://nexus.local'],
+  ])('keeps only scheme and host, dropping %s', (_label, input, expected) => {
     expect(redactUrl(input)).toBe(expected)
-  })
-
-  it('keeps a scoped package name in the path', () => {
-    expect(redactUrl('https://nexus.local/npm/@acme/foo/-/foo-1.0.0.tgz'))
-      .toBe('https://nexus.local/npm/@acme/foo/-/foo-1.0.0.tgz')
   })
 
   // Each of these leaked a credential through an earlier string-surgery

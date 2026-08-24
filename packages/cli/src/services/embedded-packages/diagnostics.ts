@@ -22,9 +22,13 @@ export const UNPRINTABLE_URL = '(withheld: unparseable and may contain credentia
  * Rebuilds a URL from the parts that cannot carry a credential, so it can
  * safely appear in error messages and logs.
  *
- * Only scheme, host and path survive. Userinfo, query and fragment are
+ * Only scheme and host survive. Userinfo, path, query and fragment are
  * dropped by construction rather than stripped: a registry URL may embed a
- * token, and a pre-signed CDN URL puts its signature in the query.
+ * token in its userinfo, a pre-signed CDN URL puts its signature in the
+ * query, and some registries take a token as a PATH segment
+ * (`https://host/<token>/npm/`). The path is the component least worth
+ * keeping anyway — every message that shows a URL already names the
+ * package and version separately, which is what the path encodes.
  *
  * A string that does not parse, or parses without a host, yields the
  * placeholder instead. Earlier revisions tried to redact such strings with
@@ -53,7 +57,7 @@ export function redactUrl (url: string): string {
     return UNPRINTABLE_URL
   }
 
-  return `${parsed.protocol}//${parsed.host}${parsed.pathname}`
+  return `${parsed.protocol}//${parsed.host}`
 }
 
 /**
