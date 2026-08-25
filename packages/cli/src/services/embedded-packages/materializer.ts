@@ -335,7 +335,11 @@ export class EmbeddedPackagesMaterializer {
       // one take anything away from it. Filtering the matches up front,
       // rather than pruning the finished plan, keeps the diagnostics below in
       // step with what actually ships: an entry never warns about, or fails
-      // over, a package the configuration goes on to exclude.
+      // over, a package the configuration goes on to exclude. This applies
+      // the ordered rule `patternsSelectName` (spec.ts) defines canonically,
+      // generalized to embed's version pins via specMatchesPackage — the
+      // name-only helper cannot express `!bar@2.0.0`. A change to the
+      // exclusion semantics must land in both.
       const laterExclusions = specs.slice(index + 1).filter(other => other.exclude)
       const kept = <T extends PackageRef>(entries: T[]) =>
         entries.filter(entry => !laterExclusions.some(other => specMatchesPackage(other, entry)))
@@ -421,7 +425,7 @@ export class EmbeddedPackagesMaterializer {
             detail: `lockfile has: ${versions}`,
           })
         } else {
-          const hint = spec.namePattern !== undefined
+          const hint = spec.wildcard
             ? `pattern matches its name${spec.version !== undefined ? ' and the version is spelled correctly' : ''}`
             : `name ${spec.version !== undefined ? 'and version are' : 'is'} spelled correctly`
           issues.push({
@@ -453,7 +457,7 @@ export class EmbeddedPackagesMaterializer {
           + ` The runner must be able to fetch these itself.`,
         )
       }
-      if (spec.namePattern !== undefined) {
+      if (spec.wildcard) {
         // Wildcards select invisibly, but only the debug log says what they
         // selected. Selections that need attention surface louder: a
         // pattern matching nothing is a fatal validation issue, and matches

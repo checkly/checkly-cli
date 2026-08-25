@@ -26,6 +26,14 @@ export interface PruneBundledLockfileOptions {
    * the workspace root) — the bundler's own registry.
    */
   files: ReadonlyMap<string, File>
+  /**
+   * Archive paths of manifests the bundler rewrote from their on-disk
+   * originals (`bundle.packages.prune`, patch filtering). Unlike a faux
+   * manifest, a rewritten manifest carries the member's real content and
+   * version fields, so it is safe to feed into resolution even for a
+   * member whose version is unknown.
+   */
+  rewrittenManifests?: ReadonlySet<string>
   timeoutMs?: number
   env?: NodeJS.ProcessEnv
 }
@@ -63,6 +71,13 @@ export type PruneBundledLockfileResult =
      * where there is simply nothing to do stay quiet.
      */
     notable?: boolean
+    /**
+     * True when the skip itself proves the shipped lockfile matches the
+     * bundle's manifests: the regeneration ran against them and produced
+     * byte-identical content. Lets a caller that rewrote manifests keep
+     * the rewrite instead of rolling it back.
+     */
+    consistent?: boolean
   }
   | { status: 'failed', reason: string }
 
@@ -97,7 +112,13 @@ const STRIPPED_ENV_KEYS = new Set([
   'npm_config_lockfile_dir',
 ])
 
-function manifestArchivePath (workspace: Workspace, pkg: Package): string {
+/**
+ * A workspace package's manifest path in the archive, posix-relative to
+ * the workspace root — the keying the bundler's file map uses. Exported so
+ * the bundler's manifest pruning derives identical keys; the
+ * `rewrittenManifests` set is matched against these.
+ */
+export function manifestArchivePath (workspace: Workspace, pkg: Package): string {
   return pathToPosix(path.relative(workspace.root.path, pkg.packageJsonPath))
 }
 
@@ -105,7 +126,8 @@ function unknownVersionReason (pkg: Package): string {
   return `the version of workspace package '${pkg.name}' could not be determined`
 }
 
-function lockfileArchivePath (workspace: Workspace): string | undefined {
+/** The workspace lockfile's archive path, when the workspace has one. */
+export function lockfileArchivePath (workspace: Workspace): string | undefined {
   if (!workspace.lockfile.isOk()) {
     return undefined
   }
@@ -126,6 +148,7 @@ export function shouldPruneLockfile (
   workspace: Workspace,
   files: ReadonlyMap<string, File>,
   env: NodeJS.ProcessEnv = process.env,
+  rewrittenManifests: ReadonlySet<string> = new Set(),
 ): ShouldPruneResult {
   // '0' is the documented spelling; 'false' is a tolerated alias for the
   // common boolean-env habit and must keep working.
@@ -145,14 +168,23 @@ export function shouldPruneLockfile (
 
   let bundleMatchesWorkspace = true
   for (const pkg of [workspace.root, ...workspace.packages]) {
-    const manifest = files.get(manifestArchivePath(workspace, pkg))
+    const archivePath = manifestArchivePath(workspace, pkg)
+    const manifest = files.get(archivePath)
     if (manifest === undefined || !manifest.physical) {
       bundleMatchesWorkspace = false
     }
     // A faux manifest for a member with an unknown version carries the
     // 0.0.0 fallback, which could make specifiers resolve differently than
-    // they did for the user; do not feed it into resolution.
-    if (manifest !== undefined && !manifest.physical && pkg.version === undefined) {
+    // they did for the user; do not feed it into resolution. A manifest
+    // the bundler rewrote from its on-disk original is exempt: it carries
+    // the member's real content, version field included (or legitimately
+    // absent, as on most workspace roots).
+    if (
+      manifest !== undefined
+      && !manifest.physical
+      && pkg.version === undefined
+      && !rewrittenManifests.has(archivePath)
+    ) {
       return { prune: false, reason: unknownVersionReason(pkg), notable: true }
     }
   }
@@ -941,11 +973,12 @@ export async function pruneBundledLockfile (
     workspace,
     packageManager,
     files,
+    rewrittenManifests = new Set(),
     timeoutMs = DEFAULT_TIMEOUT_MS,
     env = process.env,
   } = options
 
-  const decision = shouldPruneLockfile(workspace, files, env)
+  const decision = shouldPruneLockfile(workspace, files, env, rewrittenManifests)
   if (!decision.prune) {
     return { status: 'skipped', reason: decision.reason, notable: decision.notable }
   }
@@ -1275,7 +1308,11 @@ export async function pruneBundledLockfile (
     // without a manifest breaks the remote install), and the verification
     // below passes trivially for identical content.
     if (regeneratedContent === originalContent && backfill.manifests.size === 0) {
-      return { status: 'skipped', reason: 'the regenerated lockfile is identical to the original' }
+      return {
+        status: 'skipped',
+        reason: 'the regenerated lockfile is identical to the original',
+        consistent: true,
+      }
     }
 
     let regenerated: LockfileSnapshot

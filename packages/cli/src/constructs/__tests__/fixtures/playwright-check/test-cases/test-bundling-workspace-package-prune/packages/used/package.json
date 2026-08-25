@@ -1,0 +1,17 @@
+{
+  "name": "@fixture-prune/used",
+  "version": "1.0.0",
+  "private": true,
+  "main": "src/index.js",
+  "dependencies": {
+    "ms": "2.1.3"
+  },
+  "peerDependencies": {
+    "ee-first": "1.1.1"
+  },
+  "peerDependenciesMeta": {
+    "ee-first": {
+      "optional": false
+    }
+  }
+}

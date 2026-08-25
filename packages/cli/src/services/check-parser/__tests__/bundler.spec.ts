@@ -1101,6 +1101,516 @@ describe('Bundler.finalize() patch filtering', () => {
   })
 })
 
+describe('Bundler.finalize() package pruning', () => {
+  let dir: string
+  let stderrWrites: string[]
+
+  const rootManifest = (extra: object = {}) => JSON.stringify({
+    // Deliberately versionless, like most workspace roots: pruning the root
+    // manifest must not trip the pruner's unknown-version bail.
+    name: 'prune-fixture-root',
+    private: true,
+    devDependencies: {
+      '@acme/tooling': '^1.0.0',
+      'typescript': '^5.4.0',
+    },
+    ...extra,
+  }, null, 2)
+
+  const memberManifest = (version = '1.0.0') => JSON.stringify({
+    name: '@fixture/m',
+    version,
+    dependencies: { ms: '2.1.3' },
+    peerDependencies: {
+      '@acme/heavy-icons': '^6.0.0',
+      'react': '^18.0.0',
+    },
+    peerDependenciesMeta: {
+      '@acme/heavy-icons': { optional: false },
+    },
+  }, null, 2)
+
+  // The `packages/absent` importer is not a workspace member, so the stub
+  // "regeneration" below may drop it — and must produce output that differs
+  // from the original, or the pruner reports a byte-identical regeneration
+  // as a skip.
+  const originalLockfile = () => [
+    `lockfileVersion: '9.0'`,
+    ``,
+    `importers:`,
+    ``,
+    `  .: {}`,
+    ``,
+    `  packages/m:`,
+    `    dependencies:`,
+    `      ms:`,
+    `        specifier: 2.1.3`,
+    `        version: 2.1.3`,
+    ``,
+    `  packages/absent:`,
+    `    dependencies:`,
+    `      ee-first:`,
+    `        specifier: 1.1.1`,
+    `        version: 1.1.1`,
+    ``,
+  ].join('\n')
+
+  const prunedLockfile = () => [
+    `lockfileVersion: '9.0'`,
+    ``,
+    `importers:`,
+    ``,
+    `  .: {}`,
+    ``,
+    `  packages/m:`,
+    `    dependencies:`,
+    `      ms:`,
+    `        specifier: 2.1.3`,
+    `        version: 2.1.3`,
+    ``,
+  ].join('\n')
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-prune-')))
+    await fs.mkdir(path.join(dir, 'packages/m'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'package.json'), rootManifest())
+    await fs.writeFile(path.join(dir, 'packages/m/package.json'), memberManifest())
+    await fs.writeFile(path.join(dir, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n')
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), originalLockfile())
+
+    stderrWrites = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      const text = String(chunk)
+      if (!text.includes('checkly:cli:')) {
+        stderrWrites.push(text)
+      }
+      return true
+    })
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+  })
+
+  afterEach(async () => {
+    vi.restoreAllMocks()
+    vi.unstubAllEnvs()
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  const makeWorkspace = () => new Workspace({
+    root: new Package({ name: 'prune-fixture-root', path: dir }),
+    packages: [new Package({ name: '@fixture/m', path: path.join(dir, 'packages/m'), version: '1.0.0' })],
+    lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+    configFile: Ok(path.join(dir, 'pnpm-workspace.yaml')),
+  })
+
+  const stubPruningPackageManager = async (options: { fail?: boolean, copySeenManifests?: boolean } = {}) => {
+    await fs.writeFile(path.join(dir, 'pruned-lock.yaml'), prunedLockfile())
+    const scriptPath = path.join(dir, 'prune.cjs')
+    const lines = [`const fs = require('fs')`]
+    if (options.fail) {
+      lines.push(`process.exit(1)`)
+    }
+    if (options.copySeenManifests) {
+      // Captures what the lockfile-only install actually resolves against:
+      // the manifests materialized into the temp dir, which must already be
+      // the pruned ones.
+      lines.push(`fs.copyFileSync('package.json', ${JSON.stringify(path.join(dir, 'seen-root.json'))})`)
+      lines.push(
+        `fs.copyFileSync('packages/m/package.json', ${JSON.stringify(path.join(dir, 'seen-member.json'))})`,
+      )
+    }
+    lines.push(
+      `fs.writeFileSync('pnpm-lock.yaml', fs.readFileSync(${
+        JSON.stringify(path.join(dir, 'pruned-lock.yaml'))}, 'utf8'))`,
+    )
+    await fs.writeFile(scriptPath, lines.join('\n'))
+    return Object.assign(Object.create(new PNpmDetector()), {
+      lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+    })
+  }
+
+  const makeBundler = async (options: {
+    prune?: any
+    packageManager?: any
+    materializer?: EmbeddedPackagesMaterializer
+    skipLockfile?: boolean
+  } = {}) => {
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: options.packageManager ?? await stubPruningPackageManager(),
+      embeddedPackagesMaterializer: options.materializer,
+      packagePrune: options.prune,
+    })
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'package.json'), physical: true },
+      { filePath: path.join(dir, 'pnpm-workspace.yaml'), physical: true },
+      { filePath: path.join(dir, 'packages/m/package.json'), physical: true },
+    )
+    if (!options.skipLockfile) {
+      bundler.registerFiles({ filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true })
+    }
+    return bundler
+  }
+
+  const readArchive = async (archiveFile: string): Promise<Map<string, string>> => {
+    const contents = new Map<string, string>()
+    await list({ file: archiveFile, onReadEntry: entry => {
+      const chunks: Buffer[] = []
+      entry.on('data', chunk => chunks.push(chunk as Buffer))
+      entry.on('end', () => contents.set(entry.path, Buffer.concat(chunks).toString('utf8')))
+      entry.resume()
+    } })
+    return contents
+  }
+
+  it('removes matching packages from the bundled manifests and prunes the lockfile', async () => {
+    const bundler = await makeBundler({ prune: ['@acme/*'] })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    const root = JSON.parse(contents.get('package.json')!)
+    expect(root.devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(root.name).toEqual('prune-fixture-root')
+
+    const member = JSON.parse(contents.get('packages/m/package.json')!)
+    expect(member.peerDependencies).toEqual({ react: '^18.0.0' })
+    expect(member.peerDependenciesMeta).toBeUndefined()
+    expect(member.dependencies).toEqual({ ms: '2.1.3' })
+    expect(member.version).toEqual('1.0.0')
+
+    // The versionless-root bundle still went through lockfile pruning.
+    expect(contents.get('pnpm-lock.yaml')).toEqual(prunedLockfile())
+
+    // The on-disk manifests are untouched.
+    expect(await fs.readFile(path.join(dir, 'package.json'), 'utf8')).toEqual(rootManifest())
+    expect(await fs.readFile(path.join(dir, 'packages/m/package.json'), 'utf8')).toEqual(memberManifest())
+
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('removes a whole dependency class with true, meta included', async () => {
+    const bundler = await makeBundler({ prune: { peerDependencies: true } })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    const member = JSON.parse(contents.get('packages/m/package.json')!)
+    expect(member.peerDependencies).toBeUndefined()
+    expect(member.peerDependenciesMeta).toBeUndefined()
+    expect(member.dependencies).toEqual({ ms: '2.1.3' })
+
+    // The root has no peerDependencies, so it ships physical and verbatim.
+    expect(contents.get('package.json')).toEqual(rootManifest())
+  })
+
+  it('mixes the pruned manifests and lockfile into the cache hash', async () => {
+    const bundler = await makeBundler({ prune: ['@acme/*'] })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // Rewritten manifests hash canonicalized — like the on-disk manifests
+    // they replace — from the shipped bytes.
+    const expected = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace()), {
+      embeddedPackages: undefined,
+      fauxPackageJsons: [
+        {
+          path: 'package.json',
+          raw: canonicalizePackageJson(
+            Buffer.from(contents.get('package.json')!, 'utf8'),
+            PACKAGE_JSON_EXCLUDED_FIELDS,
+          ),
+        },
+        {
+          path: 'packages/m/package.json',
+          raw: canonicalizePackageJson(
+            Buffer.from(contents.get('packages/m/package.json')!, 'utf8'),
+            PACKAGE_JSON_EXCLUDED_FIELDS,
+          ),
+        },
+      ],
+      prunedLockfile: {
+        name: 'pnpm-lock.yaml',
+        hash: createHash('sha256').update(contents.get('pnpm-lock.yaml')!).digest(),
+      },
+    })
+    expect(bundler.cacheHash.toJSON()).toEqual(expected)
+
+    const baseline = await makeBundler()
+    await baseline.finalize()
+    expect(bundler.cacheHash.toJSON()).not.toEqual(baseline.cacheHash.toJSON())
+  })
+
+  it('does not change the cache key when only a manifest version is bumped', async () => {
+    const before = await makeBundler({ prune: ['@acme/*'] })
+    await before.finalize()
+
+    await fs.writeFile(path.join(dir, 'packages/m/package.json'), memberManifest('1.0.1'))
+    const after = await makeBundler({ prune: ['@acme/*'] })
+    await after.finalize()
+
+    expect(after.cacheHash.toJSON()).toEqual(before.cacheHash.toJSON())
+  })
+
+  it('leaves everything alone when the prune matches nothing', async () => {
+    const bundler = await makeBundler({ prune: ['@other/*'] })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // Untouched manifests stay physical, so the full-workspace bundle skips
+    // lockfile pruning exactly as it does without the option.
+    expect(contents.get('package.json')).toEqual(rootManifest())
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    expect(contents.get('pnpm-lock.yaml')).toEqual(originalLockfile())
+
+    const baseline = await makeBundler()
+    await baseline.finalize()
+    expect(bundler.cacheHash.toJSON()).toEqual(baseline.cacheHash.toJSON())
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('feeds the pruned manifests into the lockfile-only install', async () => {
+    const bundler = await makeBundler({
+      prune: ['@acme/*'],
+      packageManager: await stubPruningPackageManager({ copySeenManifests: true }),
+    })
+    await bundler.finalize()
+
+    const seenRoot = JSON.parse(await fs.readFile(path.join(dir, 'seen-root.json'), 'utf8'))
+    expect(seenRoot.devDependencies).toEqual({ typescript: '^5.4.0' })
+    const seenMember = JSON.parse(await fs.readFile(path.join(dir, 'seen-member.json'), 'utf8'))
+    expect(seenMember.peerDependencies).toEqual({ react: '^18.0.0' })
+  })
+
+  it('rolls the manifests back when the lockfile prune fails', async () => {
+    const bundler = await makeBundler({
+      prune: ['@acme/*'],
+      packageManager: await stubPruningPackageManager({ fail: true }),
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // Pruned manifests must never ship next to the original lockfile.
+    expect(contents.get('package.json')).toEqual(rootManifest())
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    expect(contents.get('pnpm-lock.yaml')).toEqual(originalLockfile())
+
+    const stderr = stderrWrites.join('')
+    expect(stderr).toContain('could not prune the bundled lockfile')
+    expect(stderr).toContain('bundle.packages.prune was not applied')
+
+    // The rolled-back bundle must also share the unpruned bundle's cache
+    // key: the shipped bytes are identical.
+    const baseline = await makeBundler()
+    await baseline.finalize()
+    expect(bundler.cacheHash.toJSON()).toEqual(baseline.cacheHash.toJSON())
+  })
+
+  it('rolls the manifests back when pruning is disabled via CHECKLY_LOCKFILE_PRUNE=0', async () => {
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '0')
+    const bundler = await makeBundler({ prune: ['@acme/*'] })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(contents.get('package.json')).toEqual(rootManifest())
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    expect(contents.get('pnpm-lock.yaml')).toEqual(originalLockfile())
+    expect(stderrWrites.join('')).toContain('bundle.packages.prune was not applied')
+  })
+
+  it('keeps the pruned manifests when the bundle ships no lockfile', async () => {
+    const bundler = await makeBundler({ prune: ['@acme/*'], skipLockfile: true })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // Without a bundled lockfile the manifests are the install's only
+    // input, so nothing can fall out of sync and the prune stands.
+    expect(JSON.parse(contents.get('package.json')!).devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(JSON.parse(contents.get('packages/m/package.json')!).peerDependencies).toEqual({ react: '^18.0.0' })
+    expect([...contents.keys()]).not.toContain('pnpm-lock.yaml')
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('warns and ships the original when a bundled manifest cannot be pruned', async () => {
+    // A manifest whose serialization is lossy (-0 stringifies as 0, which
+    // isDeepStrictEqual distinguishes) fails the rewrite verification,
+    // standing in for any unrewritable manifest.
+    const lossyManifest = memberManifest().replace(
+      '"dependencies"',
+      '"someTool": { "limit": -0 },\n  "dependencies"',
+    )
+    await fs.writeFile(path.join(dir, 'packages/m/package.json'), lossyManifest)
+    const bundler = await makeBundler({ prune: ['@acme/*'] })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // The member shipped unchanged; the root was still pruned, and the
+    // lockfile pruned with it.
+    expect(contents.get('packages/m/package.json')).toEqual(lossyManifest)
+    expect(JSON.parse(contents.get('package.json')!).devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(contents.get('pnpm-lock.yaml')).toEqual(prunedLockfile())
+    expect(stderrWrites.join(''))
+      .toContain('could not apply bundle.packages.prune to packages/m/package.json')
+  })
+
+  it('skips a faux member manifest without a warning', async () => {
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: await stubPruningPackageManager(),
+      packagePrune: ['@acme/*'],
+    })
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'package.json'), physical: true },
+      { filePath: path.join(dir, 'pnpm-workspace.yaml'), physical: true },
+      { filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true },
+      {
+        filePath: path.join(dir, 'packages/m/package.json'),
+        physical: false,
+        content: '{"name":"@fixture/m","version":"1.0.0"}',
+      },
+    )
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // A synthesized shim has nothing to prune; only the root is rewritten.
+    expect(contents.get('packages/m/package.json')).toEqual('{"name":"@fixture/m","version":"1.0.0"}')
+    expect(JSON.parse(contents.get('package.json')!).devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('keeps the pruned manifests when the regenerated lockfile is byte-identical', async () => {
+    // An identical regeneration proves the shipped lockfile already matches
+    // the pruned manifests — e.g. peers never recorded in the importers —
+    // so there is nothing to roll back and nothing to warn about.
+    const bundler = await makeBundler({ prune: ['@acme/*'] })
+    await fs.writeFile(path.join(dir, 'pruned-lock.yaml'), originalLockfile())
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(JSON.parse(contents.get('package.json')!).devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(JSON.parse(contents.get('packages/m/package.json')!).peerDependencies).toEqual({ react: '^18.0.0' })
+    expect(contents.get('pnpm-lock.yaml')).toEqual(originalLockfile())
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('composes with the patch filtering on the same root manifest', async () => {
+    const MS_HASH = 'a'.repeat(64)
+    const EE_HASH = 'b'.repeat(64)
+    await fs.writeFile(path.join(dir, 'package.json'), rootManifest({
+      pnpm: {
+        patchedDependencies: {
+          'ms@2.1.3': 'patches/ms@2.1.3.patch',
+          'ee-first@1.1.1': 'patches/ee-first@1.1.1.patch',
+        },
+      },
+    }))
+    await fs.mkdir(path.join(dir, 'patches'), { recursive: true })
+    await fs.writeFile(path.join(dir, 'patches/ms@2.1.3.patch'), 'ms patch\n')
+    await fs.writeFile(path.join(dir, 'patches/ee-first@1.1.1.patch'), 'ee-first patch\n')
+    const patchSection = [
+      `patchedDependencies:`,
+      `  ee-first@1.1.1:`,
+      `    hash: ${EE_HASH}`,
+      `    path: patches/ee-first@1.1.1.patch`,
+      `  ms@2.1.3:`,
+      `    hash: ${MS_HASH}`,
+      `    path: patches/ms@2.1.3.patch`,
+      ``,
+    ].join('\n')
+    await fs.writeFile(
+      path.join(dir, 'pnpm-lock.yaml'),
+      originalLockfile()
+        .replace(`        version: 2.1.3`, `        version: 2.1.3(patch_hash=${MS_HASH})`)
+        .replace(`        version: 1.1.1`, `        version: 1.1.1(patch_hash=${EE_HASH})`)
+        .replace(`importers:`, `${patchSection}\nimporters:`),
+    )
+
+    const bundler = await makeBundler({ prune: ['@acme/*'] })
+    // After makeBundler: creating the stub package manager rewrites
+    // pruned-lock.yaml with the plain fixture content.
+    await fs.writeFile(
+      path.join(dir, 'pruned-lock.yaml'),
+      prunedLockfile()
+        .replace(`        version: 2.1.3`, `        version: 2.1.3(patch_hash=${MS_HASH})`)
+        .replace(`importers:`, `${patchSection}\nimporters:`),
+    )
+    bundler.registerFiles(
+      { filePath: path.join(dir, 'patches/ms@2.1.3.patch'), physical: true },
+      { filePath: path.join(dir, 'patches/ee-first@1.1.1.patch'), physical: true },
+    )
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // Both rewrites land in the same shipped manifest: the pruned dev
+    // dependency is gone, and so is the unused patch declaration.
+    const root = JSON.parse(contents.get('package.json')!)
+    expect(root.devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(root.pnpm.patchedDependencies).toEqual({ 'ms@2.1.3': 'patches/ms@2.1.3.patch' })
+    expect([...contents.keys()]).not.toContain('patches/ee-first@1.1.1.patch')
+  })
+
+  it('drops embedded packages whose referents were pruned away', async () => {
+    const tarballBytes = Buffer.from('heavy-icons-tarball')
+    await fs.writeFile(path.join(dir, 'heavy-icons.tgz'), tarballBytes)
+    const integrity = `sha512-${createHash('sha512').update(tarballBytes).digest('base64')}`
+    // The original lockfile records the package the member's pruned
+    // dependency class referenced; the stub-pruned lockfile no longer does.
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), [
+      originalLockfile(),
+      `packages:`,
+      ``,
+      `  '@acme/heavy-icons@6.6.0':`,
+      `    resolution: {integrity: ${integrity}}`,
+      ``,
+      `snapshots:`,
+      ``,
+      `  '@acme/heavy-icons@6.6.0': {}`,
+      ``,
+    ].join('\n'))
+
+    const materializeCalls: unknown[][] = []
+    const materializer = {
+      // eslint-disable-next-line require-await
+      plan: async () => ({
+        tarballs: [{
+          name: '@acme/heavy-icons',
+          version: '6.6.0',
+          integrity,
+          archiveFilename: 'acme-heavy-icons-6.6.0.tgz',
+        }],
+        issues: [],
+        warnings: [],
+      }),
+      // eslint-disable-next-line require-await
+      materializeTarballs: async (kept: any[]) => {
+        materializeCalls.push(kept)
+        return kept.map(tarball => ({
+          ...tarball,
+          filePath: path.join(dir, 'heavy-icons.tgz'),
+          archivePath: `.checkly/embedded-packages/${tarball.archiveFilename}`,
+        }))
+      },
+    } as unknown as EmbeddedPackagesMaterializer
+
+    const bundler = await makeBundler({ prune: ['@acme/*'], materializer })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(materializeCalls).toEqual([[]])
+    expect([...contents.keys()].some(key => key.startsWith('.checkly/embedded-packages/'))).toBe(false)
+  })
+
+  it('does nothing on an empty bundle', async () => {
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: await stubPruningPackageManager(),
+      packagePrune: ['@acme/*'],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(contents.size).toEqual(0)
+    expect(stderrWrites.join('')).toEqual('')
+  })
+})
+
 // The tests above stub the prune. This one runs the real thing end to end:
 // real pnpm regenerates the lockfile, and the filtering decides from what it
 // actually wrote — the only place the flag, the prune and the filtering are

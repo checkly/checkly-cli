@@ -10,6 +10,7 @@ import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
 import { FileLoader } from '../loader/index.js'
 import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
+import { BundlePackagesPrune, normalizePackagePrune } from './check-parser/package-prune.js'
 import { parseEmbeddedPackageSpec } from './embedded-packages/spec.js'
 
 export type CheckConfigDefaults =
@@ -166,6 +167,57 @@ export type ChecklyConfig = {
        * embedded packages invalidates the runner's dependency cache.
        */
       embed?: string[]
+      /**
+       * Dependencies to remove from the `package.json` files shipped inside
+       * the code bundle — the workspace root's and every bundled workspace
+       * member's. Applies to Playwright Check Suites only. The files on
+       * disk are never modified; only the bundled copies are rewritten.
+       *
+       * The manifests are rewritten before the bundled lockfile is pruned
+       * to the code bundle's contents, so the removed dependencies fall out
+       * of the bundled lockfile too. This is the escape hatch for
+       * dependencies that lockfile pruning alone cannot drop: with pnpm's
+       * `auto-install-peers`, a bundled member's unused `peerDependencies`
+       * are resolved as real dependencies of the regenerated lockfile even
+       * though the bundled code never imports them. Because the rewritten
+       * manifests only make sense next to a matching lockfile, the option
+       * requires lockfile pruning: if the bundled lockfile cannot be pruned
+       * in the same run — an unsupported package manager, a failed
+       * regeneration, or `CHECKLY_LOCKFILE_PRUNE=0` — the original
+       * manifests ship unchanged, with a warning. A bundle that ships no
+       * lockfile has nothing to fall out of sync with, so the pruned
+       * manifests always ship there.
+       *
+       * Accepts either an array of package name patterns, removed from
+       * every dependency class (`dependencies`, `devDependencies`,
+       * `peerDependencies` and `optionalDependencies`), or an object keyed
+       * by dependency class whose values are `true` (remove the whole
+       * class) or a pattern array (remove matching entries from that class
+       * only). Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
+       * a wildcard never crosses the `/` scope separator, so a bare `'*'`
+       * matches only unscoped names — to remove a whole class, use `true`,
+       * not `['*']`. A `!` prefix turns an entry into an exclusion that
+       * removes what it matches from the entries *before* it selected,
+       * with `bundle.packages.embed`'s order-sensitive semantics:
+       * `['@acme/*', '!@acme/keep']` removes the scope except
+       * `@acme/keep`, while the reverse order removes the whole scope
+       * because the exclusion runs before anything has been selected. To
+       * remove a whole class *except* some packages, select everything
+       * first: `['*', '@*\/*', '!@acme/keep']` — remove the `\` when
+       * copying; it exists only because `*` followed by `/` would end
+       * this comment. `true` cannot be combined with exclusions. Unlike
+       * `bundle.packages.embed` there are no
+       * `name@version` pins; they are rejected at config load. Removed
+       * `peerDependencies` take their `peerDependenciesMeta` entries with
+       * them, and `peerDependencies: true` clears `peerDependenciesMeta`
+       * entirely.
+       *
+       * Pruning is not validated against the code: you are responsible for
+       * not removing anything the bundled code actually needs at runtime.
+       * A pattern that matches nothing is not an error. Changing the
+       * pruned output invalidates the runner's dependency cache.
+       */
+      prune?: BundlePackagesPrune
     }
   }
   /**
@@ -371,6 +423,12 @@ function validateBundle (config: ChecklyConfig): void {
 
   if (packages === null || typeof packages !== 'object' || Array.isArray(packages)) {
     throw new Error(`Config field 'bundle.packages' must be an object if set`)
+  }
+
+  try {
+    normalizePackagePrune(packages.prune)
+  } catch (cause) {
+    throw new Error(`Config field 'bundle.packages.prune' is invalid: ${(cause as Error).message}`, { cause })
   }
 
   const embeddedPackages = packages.embed

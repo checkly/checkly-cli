@@ -9,7 +9,12 @@ import { list } from 'tar'
 import { FixtureSandbox, RunOptions } from '../../testing/fixture-sandbox.js'
 import { ParseProjectOutput } from '../../commands/debug/parse-project.js'
 import { TarballCache } from '../../services/embedded-packages/cache.js'
-import { composeWorkspaceCacheHash, loadWorkspaceCacheHashInputs } from '../../services/check-parser/cache-hash.js'
+import {
+  canonicalizePackageJson,
+  composeWorkspaceCacheHash,
+  loadWorkspaceCacheHashInputs,
+  PACKAGE_JSON_EXCLUDED_FIELDS,
+} from '../../services/check-parser/cache-hash.js'
 import { PNpmDetector } from '../../services/check-parser/package-files/package-manager.js'
 
 async function parseProject (
@@ -1522,6 +1527,97 @@ describe('PlaywrightCheck', () => {
         ],
       })
       expect(cacheHash).toEqual(expectedHash)
+    }, DEFAULT_TEST_TIMEOUT)
+  })
+
+  describe('bundling a pnpm workspace with bundle.packages.prune', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-bundling-workspace-package-prune'),
+      })
+    }, DEFAULT_TEST_TIMEOUT)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('prunes the configured packages from the bundled manifests and the lockfile', async () => {
+      const output = await parseProject(fixt, '--config', 'packages/c/checkly.config.ts')
+
+      const {
+        codeBundlePath,
+        cacheHash,
+      } = output.payload.resources[0].payload as any
+
+      // The bundled copy of the imported member's manifest lost its pruned
+      // peer — the section and its meta emptied out and dropped entirely.
+      const usedManifest = await readTarEntryContent(codeBundlePath, 'packages/used/package.json')
+      expect(JSON.parse(usedManifest)).toEqual({
+        name: '@fixture-prune/used',
+        version: '1.0.0',
+        private: true,
+        main: 'src/index.js',
+        dependencies: { ms: '2.1.3' },
+      })
+
+      // The fixture's own file is untouched: pruning only rewrites the
+      // bundled copy.
+      const onDisk = JSON.parse(await fs.readFile(fixt.abspath('packages/used/package.json'), 'utf8'))
+      expect(onDisk.peerDependencies).toEqual({ 'ee-first': '1.1.1' })
+
+      // With the peer gone from the bundled manifest, the lockfile-only
+      // regeneration cannot re-promote it (auto-install-peers is exactly
+      // what put it into the committed lockfile's packages/used importer),
+      // so it falls out of the pruned lockfile entirely.
+      const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+      expect(lockfile).toContain('packages/used')
+      expect(lockfile).toContain('ms@2.1.3')
+      expect(lockfile).not.toContain('ee-first')
+
+      // The cache hash reflects the shipped install inputs: the faux
+      // manifests hash verbatim, while the prune-rewritten manifest hashes
+      // canonicalized, like the on-disk manifest it replaces.
+      const optManifest = await readTarEntryContent(codeBundlePath, 'packages/opt/package.json')
+      const shimmedManifest = await readTarEntryContent(codeBundlePath, 'packages/shimmed/package.json')
+      const workspace = await new PNpmDetector().lookupWorkspace(fixt.root)
+      const expectedHash = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(workspace!), {
+        fauxPackageJsons: [
+          { path: 'packages/opt/package.json', raw: Buffer.from(optManifest, 'utf8') },
+          { path: 'packages/shimmed/package.json', raw: Buffer.from(shimmedManifest, 'utf8') },
+          {
+            path: 'packages/used/package.json',
+            raw: canonicalizePackageJson(Buffer.from(usedManifest, 'utf8'), PACKAGE_JSON_EXCLUDED_FIELDS),
+          },
+        ],
+        prunedLockfile: {
+          name: 'pnpm-lock.yaml',
+          hash: createHash('sha256').update(lockfile).digest(),
+        },
+      })
+      expect(cacheHash).toEqual(expectedHash)
+    }, DEFAULT_TEST_TIMEOUT)
+
+    it('does not apply the prune when lockfile pruning is disabled', async () => {
+      const output = await parseProjectWithOptions(
+        fixt,
+        { env: { CHECKLY_LOCKFILE_PRUNE: '0' } },
+        '--config', 'packages/c/checkly.config.ts',
+      )
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      // Pruned manifests must never ship next to the original lockfile, so
+      // disabling lockfile pruning rolls the manifest prune back too.
+      const usedManifest = await readTarEntryContent(codeBundlePath, 'packages/used/package.json')
+      const onDisk = await fs.readFile(fixt.abspath('packages/used/package.json'), 'utf8')
+      expect(usedManifest).toEqual(onDisk)
+      const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+      const originalLockfile = await fs.readFile(fixt.abspath('pnpm-lock.yaml'), 'utf8')
+      expect(lockfile).toEqual(originalLockfile)
     }, DEFAULT_TEST_TIMEOUT)
   })
 

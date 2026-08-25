@@ -26,7 +26,13 @@ import {
   LockfileInput,
   PACKAGE_JSON_EXCLUDED_FIELDS,
 } from './cache-hash.js'
-import { pruneBundledLockfile } from './lockfile-pruner.js'
+import { lockfileArchivePath, manifestArchivePath, pruneBundledLockfile } from './lockfile-pruner.js'
+import {
+  BundlePackagesPrune,
+  NormalizedPackagePrune,
+  normalizePackagePrune,
+  prunePackageJson,
+} from './package-prune.js'
 import {
   findUnrepairedPatchKeys,
   isRemovablePatchPath,
@@ -496,6 +502,18 @@ export type CreateBundlerForWorkspaceOptions =
      * bundle's actual set of manifests.
      */
     packageManager: PackageManager
+
+    /**
+     * The project's `bundle.packages.prune` option, when set. Matching
+     * entries are removed from the workspace manifests shipped in the
+     * bundle during finalize(), before lockfile pruning, so the removed
+     * dependencies fall out of the pruned lockfile too. The rewritten
+     * manifests are mixed into the cache hash the same way patch-rewritten
+     * manifests are. Because the rewritten manifests only make sense next
+     * to a matching lockfile, the rewrite is rolled back when a bundled
+     * lockfile cannot be pruned in the same run.
+     */
+    packagePrune?: BundlePackagesPrune
   }
 
 interface PrunedLockfile extends LockfileInput {
@@ -557,6 +575,11 @@ interface WorkspaceBundleContext {
    */
   embeddedPackagesMaterializer?: EmbeddedPackagesMaterializer
   /**
+   * The normalized `bundle.packages.prune` option, applied to the bundled
+   * workspace manifests at the start of finalize().
+   */
+  packagePrune?: NormalizedPackagePrune
+  /**
    * Composes the cache hash from the workspace inputs captured at
    * construction time, plus the given bundle-time inputs — including the
    * embedded set actually shipped, which every caller passes explicitly.
@@ -583,13 +606,14 @@ export class Bundler {
   #workspaceContext?: WorkspaceBundleContext
   #files = new Map<string, File>()
   /**
-   * Archive paths of manifests the patch filtering rewrote. Unlike a
+   * Archive paths of manifests a finalize-time rewrite replaced — package
+   * pruning (`bundle.packages.prune`) or the patch filtering. Unlike a
    * synthesized member manifest, a rewritten manifest has an on-disk original,
    * so it is hashed the way on-disk manifests are — with `version` stripped —
    * rather than verbatim. Hashing the raw bytes would make a release bump
    * alone change the dependency cache key even though no install input did.
    */
-  #patchRewrittenManifests = new Set<string>()
+  #rewrittenManifests = new Set<string>()
 
   private constructor (options: BundlerOptions) {
     const {
@@ -631,6 +655,7 @@ export class Bundler {
       dependencyCacheVersion,
       embeddedPackagesMaterializer,
       packageManager,
+      packagePrune,
     } = options
 
     const embeddedPackages = (await embeddedPackagesMaterializer?.plan())?.tarballs
@@ -656,6 +681,7 @@ export class Bundler {
         workspace,
         packageManager,
         embeddedPackagesMaterializer,
+        packagePrune: normalizePackagePrune(packagePrune),
         composeCacheHash,
       },
     })
@@ -724,7 +750,34 @@ export class Bundler {
       return
     }
 
-    const pruned = await this.#dropUnusedPatches(context, await this.#pruneLockfile(context))
+    const prunedManifestOriginals = await this.#pruneManifestPackages(context)
+
+    const lockfilePrune = await this.#pruneLockfile(context)
+    const pruned = await this.#dropUnusedPatches(context, lockfilePrune.pruned)
+
+    // Pruned manifests must never ship alongside an unpruned lockfile: the
+    // lockfile's importer sections would declare dependencies the shipped
+    // manifests lack, failing the runner's frozen install. When lockfile
+    // pruning skipped or failed for any reason, roll the manifest rewrite
+    // back — unless the skip itself proved the original lockfile already
+    // matches the pruned manifests (a byte-identical regeneration), or the
+    // bundle ships no lockfile at all, in which case the manifests are the
+    // install's only input and nothing can fall out of sync.
+    if (
+      pruned === undefined
+      && !lockfilePrune.consistent
+      && prunedManifestOriginals.size > 0
+      && this.#bundledLockfilePath(context) !== undefined
+    ) {
+      for (const [manifestPath, original] of prunedManifestOriginals) {
+        this.#files.set(manifestPath, original)
+        this.#rewrittenManifests.delete(manifestPath)
+      }
+      process.stderr.write(
+        `Warning: bundle.packages.prune was not applied because the bundled lockfile could `
+        + `not be pruned to match; the original manifests ship unchanged.\n`,
+      )
+    }
     const embeddedPackages = await this.#materializeEmbeddedPackages(context, pruned)
 
     const fauxPackageJsons: FauxPackageJsonInput[] = []
@@ -735,7 +788,7 @@ export class Bundler {
       const raw = Buffer.from(file.content, 'utf8')
       fauxPackageJsons.push({
         path: archivePath,
-        raw: this.#patchRewrittenManifests.has(archivePath)
+        raw: this.#rewrittenManifests.has(archivePath)
           ? canonicalizePackageJson(raw, PACKAGE_JSON_EXCLUDED_FIELDS)
           : raw,
       })
@@ -749,6 +802,117 @@ export class Bundler {
       prunedLockfile: pruned,
       embeddedPackages: embeddedPackageHashInputs(embeddedPackages),
     }))
+  }
+
+  /**
+   * Applies `bundle.packages.prune` to the workspace manifests in the
+   * bundle — the root's and every bundled member's — replacing each
+   * affected entry with a rewritten virtual copy. Runs before lockfile
+   * pruning so the lockfile-only install resolves against the reduced
+   * manifests and the removed dependencies fall out of the pruned lockfile.
+   * Only manifests at the workspace's own locations are touched: a
+   * package.json an `include` glob dragged in is not an install input.
+   *
+   * Returns the replaced original entries, keyed by archive path, so
+   * {@link Bundler.refreshWorkspaceBundle} can roll the rewrite back when
+   * the bundled lockfile cannot be pruned to match.
+   */
+  async #pruneManifestPackages (context: WorkspaceBundleContext): Promise<Map<string, File>> {
+    const replaced = new Map<string, File>()
+
+    const prune = context.packagePrune
+    if (prune === undefined) {
+      return replaced
+    }
+
+    const { workspace } = context
+    for (const pkg of [workspace.root, ...workspace.packages]) {
+      const manifestPath = manifestArchivePath(workspace, pkg)
+      const file = this.#files.get(manifestPath)
+      if (file === undefined) {
+        continue
+      }
+      if (!file.physical) {
+        // The only virtual member manifests are synthesized ones (faux
+        // shims), which carry no dependency classes — and only a rewrite
+        // of a physical original may join #rewrittenManifests, whose
+        // consumers rely on the rewritten content being the real manifest.
+        debug(`Not pruning ${manifestPath}: not a physical manifest`)
+        continue
+      }
+      if (file.symlinkTarget !== undefined) {
+        this.#warnManifestPruneFailure(manifestPath, `the manifest is bundled as a symlink`)
+        continue
+      }
+      // A virtual entry's archive name is always derived from its filePath,
+      // so a replacement can only stand in for an entry that already
+      // archives at that derived path (same rule as #readPatchConfigs).
+      const replacementArchivePath = pathToPosix(
+        path.relative(this.#stripPrefix ?? '', file.filePath),
+      )
+      if (replacementArchivePath !== manifestPath) {
+        this.#warnManifestPruneFailure(
+          manifestPath,
+          `the rewritten manifest would move to ${replacementArchivePath}`,
+        )
+        continue
+      }
+
+      let content: string
+      try {
+        content = await fs.readFile(file.filePath, 'utf8')
+      } catch (err) {
+        this.#warnManifestPruneFailure(manifestPath, `the bundled manifest could not be read (${err})`)
+        continue
+      }
+
+      const result = prunePackageJson(content, prune)
+      if (result === undefined) {
+        this.#warnManifestPruneFailure(manifestPath, `the manifest could not be rewritten safely`)
+        continue
+      }
+      if (!result.changed) {
+        // Left physical: the entry hashes and ships exactly as before, and
+        // an untouched manifest must not force lockfile pruning.
+        continue
+      }
+
+      replaced.set(manifestPath, file)
+      this.#files.set(manifestPath, {
+        // The archive name is derived from filePath, so the rewritten entry
+        // has to keep the original's.
+        filePath: file.filePath,
+        physical: false,
+        content: result.content,
+      })
+      this.#rewrittenManifests.add(manifestPath)
+      debug(`Pruned ${manifestPath}: ${result.removed.join(', ') || '(structural cleanup only)'}`)
+    }
+
+    return replaced
+  }
+
+  #warnManifestPruneFailure (manifestPath: string, reason: string): void {
+    // A stderr warning rather than a debug line: pruning is a user-requested
+    // transformation, and silently shipping the original manifest
+    // reintroduces the exact lockfile bloat the user configured it to
+    // remove.
+    process.stderr.write(
+      `Warning: could not apply bundle.packages.prune to ${manifestPath}: ${reason}; `
+      + `its original contents ship unchanged.\n`,
+    )
+  }
+
+  /**
+   * The archive path of the workspace's lockfile when the bundle ships it,
+   * mirroring the checks lockfile pruning performs before running.
+   */
+  #bundledLockfilePath (context: WorkspaceBundleContext): string | undefined {
+    const archivePath = lockfileArchivePath(context.workspace)
+    if (archivePath === undefined || !this.#files.has(archivePath)) {
+      return undefined
+    }
+    return archivePath
   }
 
   /**
@@ -966,7 +1130,7 @@ export class Bundler {
       content: plan.rewrittenConfig.content,
     })
     if (path.posix.basename(plan.rewrittenConfig.archivePath) === 'package.json') {
-      this.#patchRewrittenManifests.add(plan.rewrittenConfig.archivePath)
+      this.#rewrittenManifests.add(plan.rewrittenConfig.archivePath)
     }
 
     for (const patchPath of plan.droppedPatchPaths) {
@@ -998,11 +1162,14 @@ export class Bundler {
     }
   }
 
-  async #pruneLockfile (context: WorkspaceBundleContext): Promise<PrunedLockfile | undefined> {
+  async #pruneLockfile (
+    context: WorkspaceBundleContext,
+  ): Promise<{ pruned?: PrunedLockfile, consistent?: boolean }> {
     const result = await pruneBundledLockfile({
       workspace: context.workspace,
       packageManager: context.packageManager,
       files: this.#files,
+      rewrittenManifests: this.#rewrittenManifests,
     })
 
     if (result.status === 'failed') {
@@ -1013,7 +1180,7 @@ export class Bundler {
         + `run your package manager's install to refresh it; set CHECKLY_LOCKFILE_PRUNE=0 `
         + `to disable pruning.\n`,
       )
-      return
+      return {}
     }
     if (result.status === 'skipped') {
       if (result.notable) {
@@ -1029,7 +1196,7 @@ export class Bundler {
       } else {
         debug(`Lockfile pruning skipped: ${result.reason}`)
       }
-      return
+      return { consistent: result.consistent }
     }
 
     // Set entries directly rather than through registerFiles: its
@@ -1047,11 +1214,13 @@ export class Bundler {
     debug(`Pruned bundled lockfile ${result.archivePath}`)
 
     return {
-      name: path.posix.basename(result.archivePath),
-      hash: createHash('sha256').update(result.content).digest(),
-      content: result.content,
-      archivePath: result.archivePath,
-      originalContent: result.originalContent,
+      pruned: {
+        name: path.posix.basename(result.archivePath),
+        hash: createHash('sha256').update(result.content).digest(),
+        content: result.content,
+        archivePath: result.archivePath,
+        originalContent: result.originalContent,
+      },
     }
   }
 

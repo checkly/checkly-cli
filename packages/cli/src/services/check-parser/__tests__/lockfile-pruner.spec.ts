@@ -222,6 +222,33 @@ describe('lockfile-pruner', () => {
         lockfileArchivePath: 'pnpm-lock.yaml',
       })
     })
+
+    it('does not bail on a versionless member whose manifest the bundler rewrote', () => {
+      const { workspace, files, shimmed } = makePnpmScenario()
+      shimmed.version = undefined
+      // A rewritten manifest is real content, not a faux 0.0.0 shim, so it
+      // is safe to feed into resolution even without a version field.
+      files.set('packages/shimmed/package.json', {
+        filePath: path.join(PNPM_FIXTURE_ROOT, 'packages/shimmed/package.json'),
+        physical: false,
+        content: '{"name":"@fixture/shimmed"}',
+      })
+      const rewritten = new Set(['packages/shimmed/package.json'])
+      expect(shouldPruneLockfile(workspace, files, {}, rewritten)).toEqual({
+        prune: true,
+        lockfileArchivePath: 'pnpm-lock.yaml',
+      })
+    })
+
+    it('still bails on a versionless faux member the bundler did not rewrite', () => {
+      const { workspace, files, shimmed } = makePnpmScenario()
+      shimmed.version = undefined
+      const rewritten = new Set(['packages/used/package.json'])
+      expect(shouldPruneLockfile(workspace, files, {}, rewritten)).toMatchObject({
+        prune: false,
+        reason: expect.stringContaining('@fixture/shimmed'),
+      })
+    })
   })
 
   describe('selectMaterializationEntries()', () => {

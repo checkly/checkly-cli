@@ -143,6 +143,53 @@ describe('loadChecklyConfig()', () => {
       ['embedded-packages-range-version.js'],
     )).rejects.toThrow(`is not an exact semver version`)
   })
+  it('accepts a bundle.packages.prune pattern array', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-valid.ts'],
+    )
+    expect(config.bundle?.packages?.prune).toEqual(['@acme/*', '!@acme/keep', 'left-pad'])
+  })
+  it('accepts a bundle.packages.prune per-class map', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-valid-classes.ts'],
+    )
+    expect(config.bundle?.packages?.prune).toEqual({
+      peerDependencies: true,
+      devDependencies: ['@acme/*'],
+    })
+  })
+  it('rejects a bundle.packages.prune that is neither array nor object', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-bad-shape.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: must be an array of package name patterns`
+      + ` or an object keyed by dependency class`,
+    )
+  })
+  it('rejects a bundle.packages.prune with an unknown dependency class', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-bad-class.js'],
+    )).rejects.toThrow(`Config field 'bundle.packages.prune' is invalid: 'peerDependences' is not a dependency class`)
+  })
+  it('rejects a bundle.packages.prune class value that is neither true nor an array', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-bad-class-value.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: 'peerDependencies' must be true`
+      + ` or an array of package name patterns`,
+    )
+  })
+  it('rejects a bundle.packages.prune entry with an embed-style version pin', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-bad-pattern.js'],
+    )).rejects.toThrow(`'name@version' pins are not supported here`)
+  })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'
     const configFile = `./fixtures/configs/${filename}`
