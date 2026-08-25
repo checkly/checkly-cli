@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 
 import {
   parseEmbeddedPackageSpec,
+  parsePackageNamePattern,
   InvalidEmbeddedPackageSpecError,
+  InvalidPackageNamePatternError,
   specLooselyMatchesPackage,
   specMatchesPackage,
   specMatchesPackageName,
@@ -273,5 +275,73 @@ describe('specLooselyMatchesPackage()', () => {
     // Without this the assertions above pass vacuously if the matrix stops
     // matching anything.
     expect(matched.length).toBeGreaterThan(0)
+  })
+})
+
+describe('parsePackageNamePattern()', () => {
+  it('parses a bare package name', () => {
+    expect(parsePackageNamePattern('some-package')).toEqual({
+      name: 'some-package',
+      namePattern: undefined,
+    })
+  })
+
+  it('parses a scoped package name', () => {
+    expect(parsePackageNamePattern('@acme/private-utils')).toEqual({
+      name: '@acme/private-utils',
+      namePattern: undefined,
+    })
+  })
+
+  it('compiles a wildcard name into a pattern', () => {
+    const pattern = parsePackageNamePattern('@acme/*')
+    expect(pattern.name).toBe('@acme/*')
+    expect(pattern.namePattern).toBeInstanceOf(RegExp)
+    expect(specMatchesPackageName(pattern, '@acme/utils')).toBe(true)
+    expect(specMatchesPackageName(pattern, '@other/utils')).toBe(false)
+  })
+
+  it('never matches across the scope separator with a wildcard', () => {
+    const scoped = parsePackageNamePattern('@acme/*')
+    expect(specMatchesPackageName(scoped, '@acme/nested/thing')).toBe(false)
+    const bare = parsePackageNamePattern('*')
+    expect(specMatchesPackageName(bare, 'unscoped')).toBe(true)
+    expect(specMatchesPackageName(bare, '@acme/utils')).toBe(false)
+  })
+
+  it('supports infix wildcards', () => {
+    const pattern = parsePackageNamePattern('@acme/*-utils')
+    expect(specMatchesPackageName(pattern, '@acme/private-utils')).toBe(true)
+    expect(specMatchesPackageName(pattern, '@acme/private-tools')).toBe(false)
+  })
+
+  it('rejects an empty entry', () => {
+    expect(() => parsePackageNamePattern('')).toThrow(InvalidPackageNamePatternError)
+    expect(() => parsePackageNamePattern('')).toThrow(/must be a non-empty string/)
+  })
+
+  it('rejects a non-string entry', () => {
+    expect(() => parsePackageNamePattern(42 as any)).toThrow(/must be a non-empty string/)
+    expect(() => parsePackageNamePattern(undefined as any)).toThrow(/must be a non-empty string/)
+  })
+
+  it('rejects a ! exclusion with a pointed message', () => {
+    expect(() => parsePackageNamePattern('!@acme/legacy')).toThrow(/'!' exclusions are not supported here/)
+  })
+
+  it('rejects a name@version pin with a pointed message', () => {
+    expect(() => parsePackageNamePattern('some-package@2.1.0'))
+      .toThrow(/'name@version' pins are not supported here/)
+    expect(() => parsePackageNamePattern('@acme/utils@2.1.0'))
+      .toThrow(/'name@version' pins are not supported here/)
+  })
+
+  it('rejects an invalid package name', () => {
+    expect(() => parsePackageNamePattern('.hidden')).toThrow(/is not a valid npm package name/)
+    expect(() => parsePackageNamePattern('has spaces')).toThrow(/is not a valid npm package name/)
+  })
+
+  it('rejects an invalid wildcard pattern, calling it a pattern', () => {
+    expect(() => parsePackageNamePattern('.hidden-*')).toThrow(/is not a valid npm package name pattern/)
   })
 })

@@ -481,6 +481,10 @@ function rewritePackageJson (content: string, removed: Set<string>): string | un
  * Exported so that the rejection path — which no legitimate serializer output
  * reaches, and which therefore cannot be driven through the callers — is
  * directly testable.
+ *
+ * Package pruning keeps an analogous fail-closed verifier in
+ * package-prune.ts (`verifyPrunedManifest`); hardening either against a
+ * manifest quirk likely applies to both.
  */
 export function verifyRewrite (
   original: string,

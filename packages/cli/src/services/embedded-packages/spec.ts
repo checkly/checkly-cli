@@ -45,7 +45,10 @@ export interface PackageRef {
  * Whether a spec selects the given package name: exact comparison for
  * plain specs, pattern match for wildcard specs.
  */
-export function specMatchesPackageName (spec: EmbeddedPackageSpec, packageName: string): boolean {
+export function specMatchesPackageName (
+  spec: PackageNamePattern,
+  packageName: string,
+): boolean {
   if (spec.namePattern !== undefined) {
     return spec.namePattern.test(packageName)
   }
@@ -165,4 +168,60 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
   }
 
   return { raw, name, version, namePattern, exclude }
+}
+
+/**
+ * A parsed package name pattern: a plain package name, or a name pattern
+ * with `*` wildcards — the name-matching subset of
+ * {@link EmbeddedPackageSpec}, without the version pin and `!` exclusion.
+ * See the spec's field docs for the wildcard semantics.
+ */
+export type PackageNamePattern = Pick<EmbeddedPackageSpec, 'name' | 'namePattern'>
+
+export class InvalidPackageNamePatternError extends Error {
+  constructor (raw: string, reason: string) {
+    super(`Invalid package name pattern '${raw}': ${reason}`)
+    this.name = 'InvalidPackageNamePatternError'
+  }
+}
+
+/**
+ * Parses a package name pattern: a package name that may contain `*`
+ * wildcards (`@acme/*`, `acme-*`, `@acme/*-utils`), each matching any run
+ * of characters except `/` — so a wildcard never crosses the scope
+ * separator, and a bare `*` matches only unscoped names. Unlike
+ * {@link parseEmbeddedPackageSpec} there are no `name@version` pins and no
+ * `!` exclusions; both are rejected with a pointed message so an
+ * embed-style entry fails loudly instead of silently matching nothing.
+ */
+export function parsePackageNamePattern (raw: string): PackageNamePattern {
+  if (typeof raw !== 'string' || raw === '') {
+    throw new InvalidPackageNamePatternError(String(raw), `must be a non-empty string`)
+  }
+
+  if (raw.startsWith('!')) {
+    throw new InvalidPackageNamePatternError(
+      raw,
+      `'!' exclusions are not supported here; list the names to remove instead`,
+    )
+  }
+
+  // Any `@` past the first character would be an embed-style version
+  // separator; the one at index 0 is the scope marker of `@scope/name`.
+  if (raw.lastIndexOf('@') > 0) {
+    throw new InvalidPackageNamePatternError(raw, `'name@version' pins are not supported here`)
+  }
+
+  const wildcard = raw.includes('*')
+  if (!PACKAGE_NAME_RE.test(wildcard ? raw.replace(/\*/g, 'a') : raw)) {
+    throw new InvalidPackageNamePatternError(
+      raw,
+      `'${raw}' is not a valid npm package name${wildcard ? ' pattern' : ''}`,
+    )
+  }
+
+  return {
+    name: raw,
+    namePattern: wildcard ? compileNamePattern(raw) : undefined,
+  }
 }
