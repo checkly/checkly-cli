@@ -145,11 +145,16 @@ export type ChecklyConfig = {
        * lockfiles record no npm tarball integrity, so it is resolved from
        * the registry's package metadata instead — one small metadata
        * request per embedded package on every deploy, even with a warm
-       * cache. Downloads read registry credentials from `.npmrc` only;
-       * bun or yarn users whose credentials live solely in `bunfig.toml`
-       * or `.yarnrc.yml` must duplicate them into `.npmrc` — referencing
-       * them through environment variables (`${NPM_TOKEN}`), never as
-       * plaintext, because `.npmrc` is uploaded with the code bundle. When the bundled lockfile is pruned to the code
+       * cache. Downloads read registry credentials from `npm_config_*`
+       * environment variables, the project, workspace-root and user
+       * `.npmrc` files, and pnpm's global `auth.ini` (where `pnpm login`
+       * writes tokens on pnpm 11 and later), including the
+       * scope-qualified keys `pnpm login --scope` writes. bun or yarn
+       * users whose credentials live solely in `bunfig.toml` or
+       * `.yarnrc.yml` must duplicate them into `.npmrc` or set
+       * `npm_config_*` — referencing a token through an environment
+       * variable (`${NPM_TOKEN}`), never as plaintext, because `.npmrc`
+       * is uploaded with the code bundle. When the bundled lockfile is pruned to the code
        * bundle's contents, the embedded set follows it: packages the pruned
        * lockfile no longer references — dependencies of workspace members
        * that are not part of the bundle — are neither embedded nor
