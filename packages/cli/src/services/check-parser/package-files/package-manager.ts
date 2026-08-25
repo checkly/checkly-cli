@@ -370,12 +370,29 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     // and pnpm 10+ fails the install with ERR_PNPM_UNUSED_PATCH. The flag
     // downgrades that to a warning, so the prune produces a lockfile instead
     // of falling back; the unused declaration itself is filtered out of the
-    // bundle afterwards. Verified on pnpm 10 and 11: the setting does not
-    // reach the regenerated lockfile's `settings` section, so the snapshot
+    // bundle afterwards.
+    //
+    // --config.trustLockfile skips pnpm 11's pre-install supply-chain
+    // verification, which re-resolves every lockfile entry against the
+    // registry to re-apply minimumReleaseAge/trustPolicy. Left enabled, it
+    // fails the lockfile-only install for any entry the registry cannot
+    // resolve from this environment (private packages without auth,
+    // air-gapped runs) with e.g. ERR_PNPM_FETCH_404. The input lockfile was
+    // produced by the user's own install, where those policies were already
+    // enforced, and pruning only ever removes entries — the
+    // "already-verified lockfile" case the setting is documented for. The
+    // --config. form is deliberate: pnpm 10 accepts and ignores unknown
+    // --config. settings but rejects a bare --trust-lockfile flag, and the
+    // npm_config_trust_lockfile env var does not disable the verification
+    // on pnpm 11.
+    //
+    // Verified on pnpm 10 and 11: neither --config. setting reaches the
+    // regenerated lockfile's `settings` section, so the snapshot
     // comparisons below are unaffected.
     return new Runnable('pnpm', [
       'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
       '--config.allowUnusedPatches=true',
+      '--config.trustLockfile=true',
     ])
   }
 
