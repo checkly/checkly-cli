@@ -106,14 +106,19 @@ export interface ComposeCacheHashInput {
   dependencyCacheVersion?: string
   /**
    * Every synthesized (non-physical) `package.json` actually shipped in the
-   * bundle: the faux workspace member manifests, and a root manifest rewritten
-   * to drop patch declarations the bundle no longer needs. Unlike
-   * on-disk manifests — whose `version` is excluded because the pinned
-   * lockfile absorbs it — a synthesized manifest's full content including
-   * its version is load-bearing for the remote install (it decides whether
-   * a specifier resolves to the workspace link, the registry, or fails), so
-   * these are hashed verbatim, exactly as the bytes ship. An empty or
-   * absent list writes no records, leaving the digest unchanged.
+   * bundle: the faux workspace member manifests, and any workspace manifest
+   * rewritten at finalize time — pruned by `bundle.packages.prune`, or the
+   * root manifest with patch declarations the bundle no longer needs
+   * dropped. Unlike on-disk manifests — whose `version` is excluded because
+   * the pinned lockfile absorbs it — a synthesized manifest's full content
+   * including its version is load-bearing for the remote install (it
+   * decides whether a specifier resolves to the workspace link, the
+   * registry, or fails), so faux manifests are hashed verbatim, exactly as
+   * the bytes ship. Rewritten manifests have an on-disk original whose
+   * `version` the lockfile absorbs the same way, so the bundler passes
+   * their shipped bytes pre-canonicalized (`version` stripped, keys
+   * sorted) instead. An empty or absent list writes no records, leaving
+   * the digest unchanged.
    */
   fauxPackageJsons?: FauxPackageJsonInput[]
   /**
@@ -256,9 +261,11 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *      bytes of the user-provided value. An empty string is treated as
  *      absent so that e.g. an unset environment variable interpolated into
  *      the config leaves the digest unchanged.
- *   7. One record per faux workspace member manifest sorted by path,
- *      labeled `faux-package.json:<relative/path>`, whose content is the
- *      manifest's raw UTF-8 bytes.
+ *   7. One record per synthesized (non-physical) manifest shipped in the
+ *      bundle sorted by path, labeled `faux-package.json:<relative/path>`,
+ *      whose content is the manifest's UTF-8 bytes: raw for faux member
+ *      manifests, pre-canonicalized by the caller for manifests rewritten
+ *      from an on-disk original (see `fauxPackageJsons`).
  *   8. The pruned lockfile record (if present), labeled
  *      `pruned-lockfile:<basename>`, whose content is the raw 32-byte
  *      SHA-256 digest of the pruned lockfile contents.
