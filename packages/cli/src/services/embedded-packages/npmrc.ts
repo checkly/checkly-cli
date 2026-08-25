@@ -339,7 +339,8 @@ function getExpandedEntry (
  * same reason.
  *
  * What it falls through to is another *key*: another credential kind at the
- * same prefix, or a shallower nerf dart. That is as far as it goes, and
+ * same prefix, the other slash-spelling of the same dart, or a shallower
+ * nerf dart. That is as far as it goes, and
  * deliberately so — it matches npm, whose `hasAuth` likewise only tries
  * other credential kinds at the same or a shallower dart. It does not fall
  * through to the other case spelling of the same key, which would reach
@@ -352,6 +353,9 @@ function getExpandedEntry (
  * CLI send a credential npm and pnpm would not — they keep blank values
  * read from files — so a project that deliberately blanks an entry to force
  * anonymous access would have the developer's personal token sent instead.
+ * The mask covers only the spelling that is blank: the walk still probes
+ * the other slash-spelling of the same dart, whichever file supplies it,
+ * exactly as npm's walk does.
  *
  * Deliberately confined to credentials. A blank `registry` is a broken
  * setting rather than an absent one, and treating it as absent would fall
@@ -489,6 +493,10 @@ export interface ResolvedAuth {
  * `https://host/a/b` yields `//host/a/b/`, `//host/a/`, `//host/`. The path
  * is walked upward because a credential configured for a registry root
  * also applies to everything served beneath it.
+ *
+ * Only the canonical slash-terminated spelling is produced;
+ * lookup-candidate construction in `resolveAuthHeader` expands each dart
+ * into both accepted spellings with `dartSpellings`.
  */
 function nerfDarts (url: URL): string[] {
   const segments = url.pathname.split('/').filter(segment => segment !== '')
@@ -502,14 +510,34 @@ function nerfDarts (url: URL): string[] {
 }
 
 /**
+ * Both accepted spellings of a nerf dart, in npm's probe order: the
+ * canonical slash-terminated form (`//host/a/`), then the slashless one
+ * (`//host/a`). npm probes both at every depth of its walk, and pnpm
+ * normalises the slashless spelling to the canonical one when it loads the
+ * config, so a hand-written `//host/a:_authToken` authenticates under both
+ * package managers — and must do so here too.
+ *
+ * That parity argument is established for plain darts only. The expansion
+ * is nevertheless applied to every candidate spelling — the
+ * scope-qualified colon form and the path form included — because those
+ * spellings are already read more generously than npm reads them (see
+ * `resolveAuthHeader`), and tolerating the missing slash uniformly beats a
+ * per-form rule about which keys forgive it.
+ */
+function dartSpellings (dart: string): string[] {
+  return [dart, dart.slice(0, -1)]
+}
+
+/**
  * The credentials configured under one key prefix, in npm's own order:
  * `_authToken` (Bearer), then `username` + `_password` (base64-encoded, per
  * npm convention), then `_auth` (pre-encoded Basic).
  *
- * A prefix is a nerf dart, optionally qualified by a scope
- * (`//host/:@acme`). Both halves of a `username` + `_password` pair must
- * live under the same prefix: pairing a scoped username with an unscoped
- * password would send a credential neither entry describes.
+ * A prefix is a nerf dart in either slash-spelling, optionally qualified by
+ * a scope (`//host/:@acme`). Both halves of a `username` + `_password` pair
+ * must live under the same prefix: pairing a scoped username with an
+ * unscoped password — or one spelling's username with the other spelling's
+ * password — would send a credential neither entry describes.
  *
  * pnpm's `tokenHelper` is deliberately absent from this list. It names an
  * external command to run for a token, and running a command found in a
@@ -609,7 +637,12 @@ function attempt<T> (lookup: () => T): { value?: T, error?: NpmrcEnvVarError } {
 /**
  * Resolves the `Authorization` header applicable to a URL, matching npm's
  * "nerf dart" scheme: credentials are keyed by the registry URL minus its
- * protocol (`//host/path/:_authToken=...`).
+ * protocol (`//host/path/:_authToken=...`). Every dart is probed in both
+ * slash-spellings, canonical first at each depth — `dartSpellings` says
+ * why both are honored. npm's walk agrees at every depth above the
+ * request's own; at that deepest depth npm probes only the URL's literal
+ * spelling, a difference observable only with a key at exactly the
+ * request's full path — not a key anything writes.
  *
  * `pnpm login --scope=@acme` writes a scope-qualified key instead
  * (`//host/:@acme:_authToken=...`, or equivalently `//host/@acme/:_authToken`),
@@ -644,7 +677,8 @@ export function resolveAuthHeader (
     return undefined
   }
 
-  const darts = nerfDarts(parsed)
+  const canonicalDarts = nerfDarts(parsed)
+  const darts = canonicalDarts.flatMap(dartSpellings)
   const scope = packageScope(packageName)
 
   const scoped = scope !== undefined ? darts.map(dart => `${dart}:${scope}`) : []
@@ -680,7 +714,13 @@ export function resolveAuthHeader (
   //
   // A skip is only visible on the debug channel, so a download that then
   // fails to authenticate reports finding no credentials at all.
-  const pathForm = scope !== undefined ? darts.map(dart => `${dart}${scope}/`) : []
+  // Composed from the canonical darts alone: the concatenation relies on
+  // the dart's trailing slash — a slashless dart would yield `//host@acme/`,
+  // a key nothing writes. The composed key then gets both of its own
+  // spellings, like every other candidate.
+  const pathForm = scope !== undefined
+    ? canonicalDarts.flatMap(dart => dartSpellings(`${dart}${scope}/`))
+    : []
   for (const prefix of pathForm) {
     const credentials = credentialsAt(config, prefix, env, { skipUnexpandable: true })
     if (credentials !== undefined) {
