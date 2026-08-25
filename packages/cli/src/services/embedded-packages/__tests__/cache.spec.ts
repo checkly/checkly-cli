@@ -3,7 +3,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 import { TarballCache, lookupNpmCacache, resolveCacheDirs } from '../cache.js'
 
@@ -52,6 +52,7 @@ describe('TarballCache', () => {
   })
 
   afterEach(async () => {
+    vi.restoreAllMocks()
     await fs.rm(dir, { recursive: true, force: true })
   })
 
@@ -74,6 +75,47 @@ describe('TarballCache', () => {
 
   it('rejects put without a supported integrity hash', async () => {
     await expect(cache.put('md5-abcdef', content)).rejects.toThrow(/supported integrity hash/)
+  })
+
+  // On Windows, a rename losing a race against a concurrent writer of the
+  // same content-addressed path fails with EPERM instead of replacing the
+  // destination like POSIX does. The spied rename pins that shape
+  // deterministically on every platform.
+  const failRename = () => {
+    vi.spyOn(fs, 'rename').mockRejectedValue(
+      Object.assign(new Error('EPERM: operation not permitted, rename'), { code: 'EPERM' }),
+    )
+  }
+
+  it('treats a failed rename as success when the destination already holds verified content', async () => {
+    const putPath = await cache.put(integrity, content)
+    failRename()
+    await expect(cache.put(integrity, content)).resolves.toBe(putPath)
+    await expect(cache.get(integrity)).resolves.toBe(putPath)
+  })
+
+  it('keeps failing the put when a failed rename leaves no destination', async () => {
+    failRename()
+    await expect(cache.put(integrity, content)).rejects.toThrow(/Unable to write the embedded-packages cache/)
+  })
+
+  it('does not accept a mismatching destination when the rename fails', async () => {
+    const putPath = await cache.put(integrity, content)
+    await fs.writeFile(putPath, 'corrupted')
+    failRename()
+    await expect(cache.put(integrity, content)).rejects.toThrow(/Unable to write the embedded-packages cache/)
+  })
+
+  it('recovers against the failing root itself, not an earlier root', async () => {
+    // The blocking regular file makes the first root fail before anything
+    // exists at its destination, so a recovery that consulted anything but
+    // the failing root's own destination could not find the seeded entry.
+    const blocked = path.join(dir, 'blocked')
+    await fs.writeFile(blocked, 'not a directory')
+    const fallback = path.join(dir, 'fallback')
+    const seeded = await new TarballCache(fallback).put(integrity, content)
+    failRename()
+    await expect(new TarballCache([blocked, fallback]).put(integrity, content)).resolves.toBe(seeded)
   })
 })
 
