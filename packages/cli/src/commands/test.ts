@@ -294,6 +294,7 @@ export default class Test extends AuthCommand {
       dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
       embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
       packageManager: Session.packageManager,
+      packagePrune: checklyConfig.bundle?.packages?.prune,
     })
 
     this.style.actionStart('Bundling project resources')

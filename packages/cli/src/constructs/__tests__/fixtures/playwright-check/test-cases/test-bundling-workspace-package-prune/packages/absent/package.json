@@ -1,0 +1,8 @@
+{
+  "name": "@fixture-prune/absent",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "ee-first": "1.1.1"
+  }
+}

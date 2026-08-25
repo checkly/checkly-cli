@@ -1,0 +1,26 @@
+import { defineConfig } from 'checkly'
+
+const config = defineConfig({
+  projectName: 'Check Fixture',
+  logicalId: 'check-fixture',
+  bundle: {
+    packages: {
+      prune: {
+        peerDependencies: ['ee-first'],
+      },
+    },
+  },
+  checks: {
+    checkMatch: '**/*.check.ts',
+    ignoreDirectoriesMatch: [],
+    playwrightConfigPath: './playwright.config.ts',
+    playwrightChecks: [
+      {
+        logicalId: 'playwright-check-suite',
+        name: 'Playwright Check Suite',
+      }
+    ],
+  },
+})
+
+export default config

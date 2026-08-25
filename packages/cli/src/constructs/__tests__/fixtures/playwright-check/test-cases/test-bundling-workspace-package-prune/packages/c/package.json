@@ -1,0 +1,13 @@
+{
+  "name": "@fixture-prune/c",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@playwright/test": "^1.55.1",
+    "@fixture-prune/used": "workspace:*",
+    "@fixture-prune/shimmed": "workspace:*"
+  },
+  "optionalDependencies": {
+    "@fixture-prune/opt": "workspace:*"
+  }
+}
