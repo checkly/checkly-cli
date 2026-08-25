@@ -1,4 +1,5 @@
 import { LoadedNpmrcConfig, NPM_CONFIG_ENV_PREFIX } from './npmrc.js'
+import { FETCHABLE_URL_REQUIREMENT, parseFetchableUrl } from './url.js'
 
 /**
  * Joins up to 8 items, appending `<overflow>N more` for the rest — the
@@ -30,8 +31,10 @@ export const UNPRINTABLE_URL = '(withheld: unparseable and may contain credentia
  * keeping anyway — every message that shows a URL already names the
  * package and version separately, which is what the path encodes.
  *
- * A string that does not parse, or parses without a host, yields the
- * placeholder instead. Earlier revisions tried to redact such strings with
+ * A string that does not parse, parses without a host, or names a scheme
+ * nothing here fetches over yields the placeholder instead — deliberately
+ * the same rule as what may be requested, so a URL is echoable exactly when
+ * it was fetchable. Earlier revisions tried to redact such strings with
  * a regex and leaked a credential four times over as many review rounds —
  * through the first `@` only, through an empty userinfo, through a
  * host-less parse, and through an authority that did not start at offset
@@ -42,43 +45,82 @@ export const UNPRINTABLE_URL = '(withheld: unparseable and may contain credentia
  * where the reader would go to look anyway.
  */
 export function redactUrl (url: string): string {
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return UNPRINTABLE_URL
-  }
-
-  // `admin:s3cret@nexus.local/x` parses — as the opaque scheme `admin:`
-  // with an EMPTY host — leaving the credential in the path, so a host is
-  // required before anything is echoed. `origin` is not used to rebuild it
-  // because it is the string "null" for non-special schemes.
-  if (parsed.host === '') {
-    return UNPRINTABLE_URL
-  }
-
-  return `${parsed.protocol}//${parsed.host}`
+  // `origin` is deliberately not used to rebuild it: that is the string
+  // "null" for non-special schemes.
+  const parsed = parseFetchableUrl(url)
+  return parsed === undefined ? UNPRINTABLE_URL : `${parsed.protocol}//${parsed.host}`
 }
 
 /**
- * Where the credentials sent with a request came from. `config` covers a
- * nerf-darted entry; `url` covers userinfo embedded in the registry URL,
- * which is configured elsewhere and so carries its own provenance.
+ * Where the credentials sent with a request came from: a nerf-darted
+ * config entry, or userinfo embedded in the URL itself.
+ *
+ * The `url` case carries a whole `UrlOrigin` rather than mirroring its
+ * members, because the two must agree on every variant and a hand-kept
+ * copy did not: a variant added to `UrlOrigin` alone once reported
+ * registry-issued credentials as coming from a config line that contained
+ * none. Reusing the type makes the compiler enforce what review had to.
  */
 export type SentCredentials =
   | { from: 'config', keys: string[] }
-  | { from: 'url', registryKey: string }
-  | { from: 'url', lockfile: string }
+  | { from: 'url', origin: UrlOrigin }
 
 /**
- * Where a tarball URL came from: the lockfile recorded it verbatim, or it
- * was built from a registry (`registryKey` absent when nothing configured
- * one and the public npm registry was assumed). Needed only to attribute
- * credentials the URL itself carries.
+ * Where a tarball URL came from: the lockfile recorded it verbatim, the
+ * registry returned it in this package's metadata, or the CLI built it from
+ * a registry. `registryKey` is absent when nothing configured one and the
+ * public npm registry was assumed.
+ *
+ * Read both to attribute credentials the URL itself carries and to say
+ * which setting produced a URL nothing can be fetched from — and the two
+ * answers differ, so the variants are not interchangeable: a metadata URL
+ * is the registry's to fix, not the project's.
  */
 export type UrlOrigin =
-  | { lockfile: string }
+  | RecordedUrlOrigin
   | { registryKey?: string }
+
+/**
+ * Names the registry a URL came from, by the key that configured it or as
+ * the assumed default when nothing did.
+ */
+function describeRegistrySource (registryKey: string | undefined, npmrc: LoadedNpmrcConfig): string {
+  return registryKey !== undefined
+    ? `the registry configured by ${describeConfigKeys([registryKey], npmrc)}`
+    : 'the default registry'
+}
+
+/**
+ * A URL this CLI did not compose: something else handed it over already
+ * formed, so it can be unusable however it likes.
+ *
+ * A URL the CLI builds itself cannot be. The registry it is built from is
+ * checked first, and appending a path to a URL that parses with a host
+ * leaves both intact — so those origins never reach a message about an
+ * unusable URL, and are not in this type.
+ */
+export type RecordedUrlOrigin =
+  | { lockfile: string }
+  | { metadata: { registryKey?: string } }
+
+/**
+ * Says where an unusable URL came from, and therefore whose it is to fix.
+ * The advice has to match the branch: telling someone to correct their
+ * registry setting when the bad value came out of the lockfile sends them
+ * to a setting that is already correct.
+ */
+export function describeUnusableUrlOrigin (origin: RecordedUrlOrigin, npmrc: LoadedNpmrcConfig): string {
+  if ('lockfile' in origin) {
+    return `It was recorded in '${origin.lockfile}', whose tarball URL for this package`
+      + ` is not ${FETCHABLE_URL_REQUIREMENT}.`
+  }
+  const registry = describeRegistrySource(origin.metadata.registryKey, npmrc)
+  const whose = origin.metadata.registryKey !== undefined
+    ? `so check that the setting points at the registry you meant before taking it up with whoever runs it.`
+    : `and nothing here configures a registry, so this came from the public one.`
+  return `It came from the package metadata served by ${registry}, which returned a tarball URL`
+    + ` that is not ${FETCHABLE_URL_REQUIREMENT}. The URL is the registry's to correct, ${whose}`
+}
 
 /** What a redirect did to the credentials on a request. */
 export interface RedirectOutcome {
@@ -131,10 +173,15 @@ function describeSentCredentials (sent: SentCredentials, npmrc: LoadedNpmrcConfi
   if (sent.from === 'config') {
     return `${describeConfigKeys(sent.keys, npmrc)}.`
   }
-  if ('registryKey' in sent) {
-    return `the registry URL configured by ${describeConfigKeys([sent.registryKey], npmrc)}.`
+  const { origin } = sent
+  if ('lockfile' in origin) {
+    return `the tarball URL recorded in '${origin.lockfile}'.`
   }
-  return `the tarball URL recorded in '${sent.lockfile}'.`
+  if ('metadata' in origin) {
+    return `the tarball URL that ${describeRegistrySource(origin.metadata.registryKey, npmrc)} returned`
+      + ` in this package's metadata, so they were issued by that registry rather than configured here.`
+  }
+  return `the URL of ${describeRegistrySource(origin.registryKey, npmrc)}.`
 }
 
 /**
@@ -215,12 +262,22 @@ export function downloadFailureHint (
     }
   }
 
-  if (npmrc.unreadable.length > 0) {
-    sentences.push(
-      `Note that ${quotedList(npmrc.unreadable)} could not be read, so any credentials it holds`
-      + ` were not used.`,
-    )
-  }
+  return ` ${sentences.join(' ')}${describeUnreadableConfig(npmrc)}`
+}
 
-  return ` ${sentences.join(' ')}`
+/**
+ * Names any config file that existed but could not be read, as a sentence
+ * with a leading space or the empty string.
+ *
+ * Worth saying on any failure a credential could explain, not only the ones
+ * that got as far as a status code: a skipped `auth.ini` is invisible
+ * otherwise, and it is the likeliest thing to be missing when a private
+ * package cannot be resolved at all.
+ */
+export function describeUnreadableConfig (npmrc: LoadedNpmrcConfig): string {
+  if (npmrc.unreadable.length === 0) {
+    return ''
+  }
+  return ` Note that ${quotedList(npmrc.unreadable)} could not be read, so any credentials it holds`
+    + ` were not used.`
 }

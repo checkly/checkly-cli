@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { UNPRINTABLE_URL, downloadFailureHint, redactUrl } from '../diagnostics.js'
+import { UNPRINTABLE_URL, describeUnusableUrlOrigin, downloadFailureHint, redactUrl } from '../diagnostics.js'
 import { ConfigOrigin, LoadedNpmrcConfig } from '../npmrc.js'
 
 function npmrc (overrides: Partial<LoadedNpmrcConfig> = {}): LoadedNpmrcConfig {
@@ -42,6 +42,9 @@ describe('redactUrl()', () => {
     ['an extra leading slash', '///user:tok@nexus.local/x'],
     ['an unencoded slash in the password', '//user:pa/ss@nexus.local/x'],
     ['a scheme-less host and port', 'nexus.local:8443/npm/@acme/foo.tgz'],
+    // Withheld for the same reason it cannot be requested: what may be
+    // echoed and what may be fetched are one rule.
+    ['a scheme nothing here fetches', 'ftp://user:tok@nexus.local/x'],
   ])('withholds an unusable URL with %s', (_label, input) => {
     const redacted = redactUrl(input)
     expect(redacted).toBe(UNPRINTABLE_URL)
@@ -153,5 +156,58 @@ describe('downloadFailureHint()', () => {
     const config = new Map([['//h/:_authToken', 'super-secret']])
     const hint = downloadFailureHint(401, { from: 'config', keys: ['//h/:_authToken'] }, npmrc({ config }))
     expect(hint).not.toContain('super-secret')
+  })
+})
+
+describe('describeUnusableUrlOrigin()', () => {
+  const origins = new Map<string, ConfigOrigin>([
+    ['registry', { kind: 'file', path: '/ws/.npmrc' }],
+  ])
+
+  it('sends the reader to the lockfile when the lockfile recorded the URL', () => {
+    const described = describeUnusableUrlOrigin({ lockfile: '/ws/pnpm-lock.yaml' }, npmrc())
+    expect(described).toContain('recorded in \'/ws/pnpm-lock.yaml\'')
+    expect(described).not.toContain('registry')
+  })
+
+  it('does not send the reader to a registry setting that does not exist', () => {
+    // The metadata branch also covers the case where nothing configures a
+    // registry, where telling someone to check "the setting" is a dead end.
+    const described = describeUnusableUrlOrigin({ metadata: {} }, npmrc())
+    expect(described).toContain('nothing here configures a registry')
+    expect(described).not.toContain('check that the setting')
+  })
+
+  it('says a metadata URL is the registry\'s to correct, not the project\'s', () => {
+    const described = describeUnusableUrlOrigin({ metadata: { registryKey: 'registry' } }, npmrc({ origins }))
+    expect(described).toContain('package metadata served by')
+    expect(described).toContain('\'registry\' in \'/ws/.npmrc\'')
+    // Not the wording used when the project itself composed the URL.
+    expect(described).not.toContain('malformed package name')
+  })
+})
+
+describe('credentials carried by a URL', () => {
+  const origins = new Map<string, ConfigOrigin>([
+    ['registry', { kind: 'file', path: '/ws/.npmrc' }],
+  ])
+
+  it('names the registry URL once, not twice', () => {
+    // An earlier revision nested 'the registry configured by' inside 'the
+    // registry URL configured by', which read as gibberish.
+    const hint = downloadFailureHint(401, { from: 'url', origin: { registryKey: 'registry' } }, npmrc({ origins }))
+    expect(hint).toContain('came from the URL of the registry configured by \'registry\' in \'/ws/.npmrc\'.')
+    expect(hint).not.toContain('configured by the registry configured by')
+  })
+
+  it('says a metadata-supplied URL was issued by the registry, not configured locally', () => {
+    const sent = { from: 'url', origin: { metadata: { registryKey: 'registry' } } } as const
+    const hint = downloadFailureHint(401, sent, npmrc({ origins }))
+    expect(hint).toContain('issued by that registry rather than configured here')
+  })
+
+  it('names the lockfile for a URL it recorded', () => {
+    const sent = { from: 'url', origin: { lockfile: '/ws/yarn.lock' } } as const
+    expect(downloadFailureHint(401, sent, npmrc())).toContain('recorded in \'/ws/yarn.lock\'')
   })
 })

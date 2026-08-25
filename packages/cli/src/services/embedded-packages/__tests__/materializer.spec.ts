@@ -677,6 +677,18 @@ packages: {}
       expect(requests[0].authorization).toBe('Bearer secret')
     })
 
+    it('sends a scope-qualified credential for a package in that scope', async () => {
+      // The key `pnpm login --scope=@acme` writes. It only resolves if the
+      // package being downloaded reaches the credential lookup.
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), [
+        `registry=${serverUrl}`,
+        `//127.0.0.1:${(server.address() as AddressInfo).port}/:@acme:_authToken=scoped-secret`,
+      ].join('\n'))
+
+      await materializeAll(makeMaterializer(['@acme/foo']))
+      expect(requests[0].authorization).toBe('Bearer scoped-secret')
+    })
+
     // Both cases deliberately put a *different* token in each file: with a
     // token in only one of them, either ordering resolves the same
     // credential and the test could not detect inverted precedence.
@@ -730,6 +742,23 @@ packages:
 
       await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests[0].url).toBe('/custom/path/bar-2.0.0.tgz')
+    })
+
+    it('blames the lockfile, not the registry config, for an unusable recorded URL', async () => {
+      // The advice has to match the source: sending someone to fix a
+      // registry setting that is already correct wastes the whole message.
+      await fs.writeFile(lockfilePath, `
+lockfileVersion: '9.0'
+packages:
+  bar@2.0.0:
+    resolution: {integrity: ${barIntegrity}, tarball: 'https://'}
+`)
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toMatch(/tarball URL.*is not a valid URL/s)
+      expect(error.message).toContain(`recorded in '${lockfilePath}'`)
+      expect(error.message).not.toContain('registry')
+      expect(requests).toHaveLength(0)
     })
 
     it('fails with a clear error on an integrity mismatch', async () => {
@@ -1020,7 +1049,10 @@ packages:
         ].join('\n'))
 
         const error = await materializeAll(makeMaterializer(['secured'])).catch(err => err)
-        expect(error.message).toMatch(/came from the registry URL configured by/)
+        // The whole clause: an earlier revision nested 'the registry
+        // configured by' inside 'the registry URL configured by', and a
+        // prefix match did not notice.
+        expect(error.message).toMatch(/came from the URL of the registry configured by '[^']+' in '[^']+'\.$/)
         expect(error.message).toContain(`'registry' in '${workspaceNpmrc}'`)
         expect(error.message).not.toContain('unused-token')
         expect(error.message).not.toContain('pass@')
@@ -1060,11 +1092,31 @@ packages:
       expect(requests).toHaveLength(1)
     })
 
-    it('fails with a clear error for a registry URL without a protocol', async () => {
-      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), 'registry=nexus.local/repository/npm/\n')
+    it.each([
+      // Each breaks a different one of the three rules, and the message
+      // states all three rather than guessing which: telling the reader of
+      // a `file:` URL to add a protocol sends them looking for one it has.
+      ['no protocol', 'nexus.local/repository/npm/'],
+      ['no host, so the package name would become one', 'https://'],
+      ['one slash, so the package name would become the host', 'https:/'],
+      ['a scheme nothing here can fetch', 'ftp://nexus.local/npm/'],
+      ['a scheme that never has a host', 'file:///srv/npm-mirror/'],
+      // A query absorbs whatever is appended to it, so the package path
+      // would vanish into it and every request would hit the root.
+      ['a query', 'https://nexus.local/repository/npm/?token=abc'],
+      ['a fragment', 'https://nexus.local/repository/npm/#tok'],
+      ['a bare query delimiter', 'https://nexus.local/repository/npm/?'],
+      ['a bare fragment delimiter', 'https://nexus.local/repository/npm/#'],
+    ])('refuses a registry with %s', async (_label, registry) => {
+      // `https://` composes into `https://bar/-/bar-2.0.0.tgz`, whose host
+      // is the package name — a real host somebody else may own.
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), `registry=${registry}\n`)
 
-      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
-        .rejects.toThrow(/is not a valid URL.*registry/s)
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toMatch(/registry URL.*is not usable/s)
+      expect(error.message).toMatch(/must be an absolute http or https URL with a host/)
+      expect(error.message).toContain(`'registry' in '${path.join(workspaceRoot, '.npmrc')}'`)
+      expect(requests).toHaveLength(0)
     })
 
     // Each of these registry values produces a URL the parser cannot make
@@ -1079,7 +1131,7 @@ packages:
       await fs.writeFile(path.join(workspaceRoot, '.npmrc'), `registry=${registry}\n`)
 
       const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
-      expect(error.message).toMatch(/is not a valid URL/)
+      expect(error.message).toMatch(/is not usable/)
       for (const secret of forbidden) {
         expect(error.message).not.toContain(secret)
       }
@@ -1250,9 +1302,145 @@ __metadata:
       await writeYarnLockfile()
       serveMetadata({})
 
-      await expect(materializeAll(makeMaterializer(['bar@2.0.0'])))
-        .rejects.toThrow(/provides no usable integrity hash/)
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      // Not "no usable integrity hash": there was no metadata at all, and a
+      // private registry answers 404 for packages the caller may not see.
+      expect(error.message).toMatch(/has no metadata for embedded package/)
+      expect(error.message).not.toMatch(/provides no usable integrity hash/)
+      expect(error.message).toMatch(/No credentials for this registry were found/)
       expect(requests.map(request => request.url)).toEqual(['/bar/2.0.0', '/bar'])
+    })
+
+    it('names the rejected credentials when neither metadata route exists', async () => {
+      await writeYarnLockfile()
+      const { port } = server.address() as AddressInfo
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), [
+        `registry=${serverUrl}`,
+        `//127.0.0.1:${port}/:_authToken=stale`,
+      ].join('\n'))
+      serveMetadata({})
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toContain(`'//127.0.0.1:${port}/:_authToken'`)
+      expect(error.message).not.toContain('stale')
+    })
+
+    it('does not blame credentials when the metadata answers without this version', async () => {
+      // The registry accepted the request and simply lacks the version, so
+      // an authentication hint would send the reader to rotate a token the
+      // registry had just honoured.
+      await writeYarnLockfile()
+      const { port } = server.address() as AddressInfo
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), [
+        `registry=${serverUrl}`,
+        `//127.0.0.1:${port}/:_authToken=works`,
+      ].join('\n'))
+      serveMetadata({ '/bar': { versions: { '1.0.0': { dist: {} } } } })
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toMatch(/does not describe embedded package 'bar@2.0.0'/)
+      expect(error.message).not.toMatch(/[Cc]redentials/)
+      expect(error.message).not.toMatch(/has no metadata/)
+    })
+
+    it('reports a config file it could not read when the metadata has nothing', async () => {
+      // A skipped `auth.ini` is invisible otherwise, and it is the likeliest
+      // thing to be missing when a private package cannot be resolved at all.
+      await writeYarnLockfile()
+      const authIni = path.join(homedir, 'pnpm', 'auth.ini')
+      await fs.mkdir(path.dirname(authIni), { recursive: true })
+      await fs.writeFile(authIni, '//127.0.0.1/:_authToken=unreadable\n')
+      await fs.chmod(authIni, 0o000)
+      try {
+        await fs.readFile(authIni, 'utf8')
+        // Root ignores the permission bits, and Windows honours only the
+        // write bit, so there is nothing unreadable to report. Probing
+        // beats testing the platform: it is the read that has to fail.
+        return
+      } catch {
+        // Expected: the file is genuinely unreadable.
+      }
+      // The registry must ANSWER without the version: a 404 from both
+      // routes takes the other branch, which already said this.
+      serveMetadata({ '/bar': { versions: { '1.0.0': { dist: {} } } } })
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'], {
+        env: { CHECKLY_CACHE_DIR: cacheDir, XDG_CONFIG_HOME: homedir },
+      })).catch(err => err)
+      expect(error.message).toMatch(/does not describe embedded package/)
+      expect(error.message).toMatch(/could not be read/)
+      expect(error.message).toContain(authIni)
+    })
+
+    it('treats an explicit null dist as absent and falls back to the packument', async () => {
+      // A registry may answer with `"dist": null` rather than omitting it.
+      // Read literally that is neither absent nor usable, and it once both
+      // suppressed this fallback and crashed on the property read below.
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar/2.0.0': { dist: null },
+        '/bar': { versions: { '2.0.0': { dist: { integrity: barIntegrity, tarball: `${serverUrl}bar.tgz` } } } },
+        '/bar.tgz': barTarball,
+      })
+
+      const tarballs = await materializeAll(makeMaterializer(['bar@2.0.0']))
+      expect(tarballs).toHaveLength(1)
+      expect(requests.map(request => request.url)).toContain('/bar')
+    })
+
+    it('refuses a host-less registry before requesting metadata', async () => {
+      // `https://` composes into `https://bar/2.0.0`, whose host is the
+      // package name — a real host somebody else may own. The composed form
+      // parses, so only checking the registry URL itself catches it.
+      await writeYarnLockfile()
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), 'registry=https://\n')
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toMatch(/registry URL.*is not usable/s)
+      expect(requests).toHaveLength(0)
+    })
+
+    it('attributes credentials in a metadata-supplied tarball URL to the registry', async () => {
+      // The registry minted them into the URL its own metadata returned, so
+      // they are in no file the reader can open — naming the registry
+      // config line would send them somewhere that holds no credentials.
+      await writeYarnLockfile()
+      const { port } = server.address() as AddressInfo
+      serveMetadata({
+        '/bar/2.0.0': {
+          dist: { integrity: barIntegrity, tarball: `http://svc:tok@127.0.0.1:${port}/bar/-/bar-2.0.0.tgz` },
+        },
+        '/bar/-/bar-2.0.0.tgz': 401,
+      })
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toContain('returned in this package\'s metadata')
+      expect(error.message).toContain('issued by that registry rather than configured here')
+      // The userinfo itself must never appear; 'tok' alone would match the
+      // word "token" in the hint's own wording.
+      expect(error.message).not.toContain('svc:')
+      expect(error.message).not.toContain('tok@')
+    })
+
+    it('blames the registry URL for credentials it carries when metadata is rejected', async () => {
+      // axios sends userinfo from the URL itself and drops the
+      // Authorization header when it does, so reporting no credentials
+      // would tell the reader to add what was in fact sent and rejected.
+      await writeYarnLockfile()
+      const { port } = server.address() as AddressInfo
+      await fs.writeFile(
+        path.join(workspaceRoot, '.npmrc'),
+        `registry=http://ci-user:tok@127.0.0.1:${port}/\n`,
+      )
+      serveMetadata({ '/bar/2.0.0': 401 })
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      // The whole clause: an earlier revision nested 'the registry
+      // configured by' inside 'the registry URL configured by', and a
+      // prefix match did not notice.
+      expect(error.message).toMatch(/came from the URL of the registry configured by '[^']+' in '[^']+'\.$/)
+      expect(error.message).not.toMatch(/No credentials for this registry were found/)
+      expect(error.message).not.toContain('ci-user')
     })
 
     it('fails with a clear error when the metadata provides no usable hash', async () => {
@@ -1279,6 +1467,62 @@ __metadata:
 
       await materializeAll(makeMaterializer(['bar@2.0.0']))
       expect(requests[0]).toMatchObject({ url: '/bar/2.0.0', authorization: 'Bearer secret' })
+    })
+
+    it('sends a scope-qualified credential with the metadata request', async () => {
+      // The metadata route resolves credentials separately from the
+      // download, so it needs its own proof that the package name reaches
+      // the lookup — a scoped key resolves only if it does.
+      await writeYarnLockfile()
+      const { port } = server.address() as AddressInfo
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), [
+        `registry=${serverUrl}`,
+        `//127.0.0.1:${port}/:@acme:_authToken=scoped-secret`,
+      ].join('\n'))
+      serveMetadata({
+        '/@acme/foo/1.2.3': { dist: { integrity: fooIntegrity, tarball: `${serverUrl}@acme/foo/-/foo-1.2.3.tgz` } },
+        '/@acme/foo/-/foo-1.2.3.tgz': fooTarball,
+      })
+
+      await materializeAll(makeMaterializer(['@acme/foo']))
+      expect(requests[0]).toMatchObject({ url: '/@acme/foo/1.2.3', authorization: 'Bearer scoped-secret' })
+    })
+
+    // The metadata route resolves its own registry URL, so the guard on it
+    // needs its own coverage: the tarball-path cases above run on a pnpm
+    // lockfile and never reach this code.
+    it.each([
+      ['registry', 'registry=nexus.local/repository/npm/', 'bar@2.0.0'],
+      // The key named must be the one at fault, not the global default.
+      ['@acme:registry', '@acme:registry=nexus.local/npm/', '@acme/foo'],
+      // Parses, but as the opaque scheme `admin:` with no host, so nothing
+      // can separate the credential from a path — it is withheld entirely.
+      ['registry', 'registry=admin:s3cret@nexus.local/npm/', 'bar@2.0.0'],
+    ])('refuses an unusable %s before requesting metadata', async (key, line, spec) => {
+      await writeYarnLockfile()
+      await fs.writeFile(path.join(workspaceRoot, '.npmrc'), `${line}\n`)
+
+      const error = await materializeAll(makeMaterializer([spec])).catch(err => err)
+      expect(error.message).toMatch(/registry URL.*is not usable/s)
+      expect(error.message).toContain(`'${key}' in '${path.join(workspaceRoot, '.npmrc')}'`)
+      expect(error.message).not.toContain('s3cret')
+      expect(error.message).not.toContain('admin:')
+      expect(requests).toHaveLength(0)
+    })
+
+    it('blames the registry, not the lockfile, for an unusable metadata tarball URL', async () => {
+      // Yarn plans learn the tarball URL from the registry's own metadata,
+      // so a bad one is not something the project can fix in its lockfile.
+      await writeYarnLockfile()
+      serveMetadata({
+        '/bar/2.0.0': { dist: { integrity: barIntegrity, tarball: 'https://' } },
+      })
+
+      const error = await materializeAll(makeMaterializer(['bar@2.0.0'])).catch(err => err)
+      expect(error.message).toMatch(/tarball URL.*is not a valid URL/s)
+      expect(error.message).toContain('package metadata served by')
+      expect(error.message).not.toContain(lockfilePath)
+      expect(error.message).not.toContain('malformed package name')
     })
 
     it('still resolves metadata on a warm cache, but skips the download', async () => {

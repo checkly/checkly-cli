@@ -53,6 +53,41 @@ describe('loadNpmrcConfig()', () => {
     await fs.rm(dir, { recursive: true, force: true })
   })
 
+  it('lets a blank credential mask the same key in a lower-precedence file', async () => {
+    // Deliberate parity with npm and pnpm, which both keep blank values
+    // read from files. Skipping blanks during the merge would let a working
+    // lower-precedence token through, but then a project that blanks an
+    // entry on purpose — to force anonymous access — would have the
+    // developer's personal token sent instead, which npm would never do.
+    // (Nothing writes these blanks automatically: `npm logout` deletes the
+    // lines. They come from hand edits, or a script writing an absent
+    // secret.)
+    const blank = path.join(dir, 'blank.npmrc')
+    const working = path.join(dir, 'working.npmrc')
+    await fs.writeFile(blank, '//nexus.local/:_authToken=\n')
+    await fs.writeFile(working, '//nexus.local/:_authToken=works\n')
+
+    const { config } = await loadNpmrcConfig([{ path: blank }, { path: working }], {})
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+
+    const { config: reversed } = await loadNpmrcConfig([{ path: working }, { path: blank }], {})
+    expect(resolveAuthHeader(reversed, 'https://nexus.local/foo', 'foo', {})?.header).toBe('Bearer works')
+  })
+
+  it('does not reach past a blank into another file, even under a different spelling', async () => {
+    // The case the same-spelling test cannot catch: the two files disagree
+    // on capitalisation, so the merge keeps both keys and a naive
+    // case-fallback would send the personal token the project deliberately
+    // blanked out. npm would go anonymous here.
+    const blank = path.join(dir, 'blank-cased.npmrc')
+    const personal = path.join(dir, 'personal-cased.npmrc')
+    await fs.writeFile(blank, '//nexus.local/:_authToken=\n')
+    await fs.writeFile(personal, '//nexus.local/:_authtoken=personal-token\n')
+
+    const { config } = await loadNpmrcConfig([{ path: blank }, { path: personal }], {})
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+  })
+
   it('gives earlier files precedence and merges the rest', async () => {
     const { config } = await loadNpmrcConfig([
       { path: path.join(dir, 'project.npmrc') },
@@ -141,7 +176,7 @@ describe('loadNpmrcConfig()', () => {
     await fs.writeFile(lowercased, '//nexus.local/:_authtoken=lower-token\n')
 
     const { config, origins } = await loadNpmrcConfig([{ path: lowercased }], {})
-    const auth = resolveAuthHeader(config, 'https://nexus.local/foo', {})
+    const auth = resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})
 
     // resolveAuthHeader asks for the canonical `_authToken` spelling but
     // matches the lowercase one; the reported key has to be the spelling
@@ -182,7 +217,7 @@ describe('npmrcConfigFromEnv()', () => {
     const config = npmrcConfigFromEnv({
       'npm_config_//nexus.local/:_authToken': 'env-secret',
     })
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.header).toBe('Bearer env-secret')
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})?.header).toBe('Bearer env-secret')
   })
 })
 
@@ -322,13 +357,81 @@ describe('resolveRegistry()', () => {
     expect(() => resolveRegistry(config, 'some-package', {})).toThrow(NpmrcEnvVarError)
   })
 
+  it('does not fall back to the public registry when the configured one is blank', () => {
+    // A blank registry is a broken setting, not an absent one. Silently
+    // using the public registry would send private package names to it;
+    // the unusable URL and the key that produced it let the caller report
+    // which entry to fix. `${VAR}` set to the empty string is how a missing
+    // CI secret usually arrives.
+    for (const config of [
+      parseNpmrc('registry='),
+      parseNpmrc('registry=${EMPTY_REGISTRY}'),
+    ]) {
+      // Reported as unusable rather than handed back as a URL nothing can
+      // fetch: the caller cannot compose onto it by accident.
+      expect(resolveRegistry(config, '@acme/private-utils', { EMPTY_REGISTRY: '' }))
+        .toEqual({ usable: false, key: 'registry' })
+    }
+  })
+
+  it('does not fall back to the public registry when a scoped registry is blank', () => {
+    const config = parseNpmrc('@acme:registry=')
+    expect(resolveRegistry(config, '@acme/private-utils', {}))
+      .toEqual({ usable: false, key: '@acme:registry' })
+  })
+
+  it('falls back to the global registry when the scoped one is blank', () => {
+    // npm and pnpm both read a blank `@scope:registry` as unset. The
+    // fallback here is the user's own private registry, so refusing it
+    // would fail a configuration both package managers install from.
+    const config = parseNpmrc([
+      'registry=https://nexus.local/repository/npm/',
+      '@acme:registry=${EMPTY_REGISTRY}',
+    ].join('\n'))
+    expect(resolveRegistry(config, '@acme/private-utils', { EMPTY_REGISTRY: '' }).url)
+      .toBe('https://nexus.local/repository/npm/')
+  })
+
+  it('keeps the blank scoped registry when the global one is unusable', () => {
+    // With nothing usable to fall back to, the blank entry is kept: the
+    // caller reports which key to fix instead of defaulting to the public
+    // registry and disclosing a private package name to it.
+    const config = parseNpmrc([
+      'registry=',
+      '@acme:registry=',
+    ].join('\n'))
+    expect(resolveRegistry(config, '@acme/private-utils', {}))
+      .toEqual({ usable: false, key: '@acme:registry' })
+  })
+
+  it('keeps a blank scoped registry when the global one references an unset variable', () => {
+    // The global entry is no more usable than a missing one, and reporting
+    // it would name a key that is not the one in use.
+    const config = parseNpmrc([
+      '@acme:registry=',
+      'registry=${UNSET_REGISTRY}',
+    ].join('\n'))
+    expect(resolveRegistry(config, '@acme/private-utils', {}))
+      .toEqual({ usable: false, key: '@acme:registry' })
+  })
+
+  it('ignores a blank npm_config_registry rather than failing on it', () => {
+    // The exception the blank-registry hard failure depends on: a pipeline
+    // exporting the variable from an unset secret must still reach the
+    // default registry, not an unusable URL that aborts every download.
+    // Empty environment values never reach the config, matching npm.
+    const registry = resolveRegistry(npmrcConfigFromEnv({ npm_config_registry: '' }), 'foo', {})
+    expect(registry.url).toBe(DEFAULT_REGISTRY_URL)
+    expect(registry.key).toBeUndefined()
+  })
+
   it('ignores unset ${VAR} references in entries that are not used', () => {
     const config = parseNpmrc([
       'registry=https://nexus.local/repository/npm/',
       '//unrelated.example.com/:_authToken=${SOME_UNSET_TOKEN}',
     ].join('\n'))
     expect(resolveRegistry(config, 'some-package', {}).url).toBe('https://nexus.local/repository/npm/')
-    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', {})).toBeUndefined()
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', {})).toBeUndefined()
   })
 })
 
@@ -338,6 +441,7 @@ describe('resolveAuthHeader()', () => {
     const auth = resolveAuthHeader(
       config,
       'https://nexus.local/repository/npm-private/@acme/foo/-/foo-1.0.0.tgz',
+      '@acme/foo',
       {},
     )
     expect(auth?.header).toBe('Bearer secret')
@@ -354,26 +458,50 @@ describe('resolveAuthHeader()', () => {
     // Precedence is per key, so the two halves can come from different
     // files; naming only the username would point at the half that is not
     // secret and cannot expire.
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.keys)
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})?.keys)
       .toEqual(['//nexus.local/:username', '//nexus.local/:_password'])
   })
 
   it('walks the URL path upward to find host-level credentials', () => {
     const config = parseNpmrc('//nexus.local/:_authToken=host-secret')
-    const auth = resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo/-/foo-1.0.0.tgz', {})
+    const auth = resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo/-/foo-1.0.0.tgz', 'foo', {})
     expect(auth?.header).toBe('Bearer host-secret')
   })
 
   it('includes the port in the nerf dart', () => {
     const config = parseNpmrc('//nexus.local:8443/:_authToken=port-secret')
-    expect(resolveAuthHeader(config, 'https://nexus.local:8443/foo/-/foo-1.0.0.tgz', {})?.header)
+    expect(resolveAuthHeader(config, 'https://nexus.local:8443/foo/-/foo-1.0.0.tgz', 'foo', {})?.header)
       .toBe('Bearer port-secret')
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo/-/foo-1.0.0.tgz', {})).toBeUndefined()
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo/-/foo-1.0.0.tgz', 'foo', {})).toBeUndefined()
   })
 
   it('supports pre-encoded _auth as Basic', () => {
     const config = parseNpmrc('//nexus.local/:_auth=dXNlcjpwYXNz')
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.header).toBe('Basic dXNlcjpwYXNz')
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})?.header).toBe('Basic dXNlcjpwYXNz')
+  })
+
+  it('prefers a username/_password pair over a legacy _auth at the same dart', () => {
+    // npm's getCredentialsByURI order: _authToken, then the pair, then
+    // _auth. A stale `_auth` left behind by an older CI image beside a pair
+    // written later must not win, or `checkly deploy` authenticates as
+    // somebody `npm install` stopped using.
+    const config = parseNpmrc([
+      `//nexus.local/:_auth=${Buffer.from('stale:stale').toString('base64')}`,
+      '//nexus.local/:username=user',
+      `//nexus.local/:_password=${Buffer.from('works').toString('base64')}`,
+    ].join('\n'))
+    const auth = resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})
+    expect(auth?.header).toBe(`Basic ${Buffer.from('user:works').toString('base64')}`)
+    expect(auth?.keys).toEqual(['//nexus.local/:username', '//nexus.local/:_password'])
+  })
+
+  it('falls through to _auth when no pair can form', () => {
+    const config = parseNpmrc([
+      '//nexus.local/:username=user',
+      '//nexus.local/:_auth=dXNlcjpwYXNz',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})?.header)
+      .toBe('Basic dXNlcjpwYXNz')
   })
 
   it('supports username and base64 _password as Basic', () => {
@@ -381,18 +509,353 @@ describe('resolveAuthHeader()', () => {
       '//nexus.local/:username=user',
       `//nexus.local/:_password=${Buffer.from('pass').toString('base64')}`,
     ].join('\n'))
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})?.header)
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})?.header)
       .toBe(`Basic ${Buffer.from('user:pass').toString('base64')}`)
   })
 
   it('expands ${VAR} tokens from the environment', () => {
     const config = parseNpmrc('//nexus.local/:_authToken=${NPM_TOKEN}')
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', { NPM_TOKEN: 'env-secret' })?.header)
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', { NPM_TOKEN: 'env-secret' })?.header)
       .toBe('Bearer env-secret')
   })
 
   it('returns undefined without matching credentials', () => {
     const config = parseNpmrc('//other.example.com/:_authToken=secret')
-    expect(resolveAuthHeader(config, 'https://nexus.local/foo', {})).toBeUndefined()
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+  })
+
+  it.each([
+    ['does not parse', 'nexus.local/foo'],
+    ['parses without a host', 'admin:s3cret@nexus.local/foo'],
+    ['names a scheme nothing here fetches', 'ftp://nexus.local/foo'],
+  ])('sends no credentials to a URL that %s', (_label, url) => {
+    // Callers check the URL before requesting it, so this is belt and
+    // braces — but the safe answer for one that could not be validated is
+    // to send nothing, not to throw or to hand a token to a scheme this
+    // CLI never fetches over.
+    const config = parseNpmrc('//nexus.local/:_authToken=secret')
+    expect(resolveAuthHeader(config, url, 'foo', {})).toBeUndefined()
+  })
+
+  it('matches a scope-qualified _authToken', () => {
+    // The spelling `pnpm login --scope=@acme` writes.
+    const config = parseNpmrc('//nexus.local/:@acme:_authToken=scoped-secret')
+    const auth = resolveAuthHeader(config, 'https://nexus.local/@acme/foo/-/foo-1.0.0.tgz', '@acme/foo', {})
+    expect(auth?.header).toBe('Bearer scoped-secret')
+    expect(auth?.keys).toEqual(['//nexus.local/:@acme:_authToken'])
+  })
+
+  it('supports scope-qualified _auth and username/_password', () => {
+    const config = parseNpmrc([
+      '//nexus.local/:@acme:_auth=dXNlcjpwYXNz',
+      '//other.local/:@acme:username=user',
+      `//other.local/:@acme:_password=${Buffer.from('pass').toString('base64')}`,
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Basic dXNlcjpwYXNz')
+    expect(resolveAuthHeader(config, 'https://other.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe(`Basic ${Buffer.from('user:pass').toString('base64')}`)
+  })
+
+  it('prefers a scope-qualified key over an unscoped one at the same depth', () => {
+    const config = parseNpmrc([
+      '//nexus.local/:_authToken=unscoped-secret',
+      '//nexus.local/:@acme:_authToken=scoped-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer scoped-secret')
+  })
+
+  it('exhausts the scoped walk before considering any unscoped key', () => {
+    // pnpm walks the whole scoped table first, so a shallow scoped key wins
+    // over a deeper unscoped one instead of the two interleaving by depth.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:_authToken=deep-unscoped-secret',
+      '//nexus.local/:@acme:_authToken=shallow-scoped-secret',
+    ].join('\n'))
+    const url = 'https://nexus.local/repository/npm/@acme/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})?.header).toBe('Bearer shallow-scoped-secret')
+  })
+
+  it('falls back to an unscoped key when the scope has none', () => {
+    const config = parseNpmrc([
+      '//nexus.local/:_authToken=unscoped-secret',
+      '//nexus.local/:@other:_authToken=other-scope-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer unscoped-secret')
+  })
+
+  it('never sends a scoped credential for a package outside that scope', () => {
+    // A scoped token belongs to one organisation, so an unscoped package
+    // must not borrow it.
+    const config = parseNpmrc('//nexus.local/:@acme:_authToken=scoped-secret')
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+    expect(resolveAuthHeader(config, 'https://nexus.local/@other/foo', '@other/foo', {})).toBeUndefined()
+  })
+
+  it('treats a name with no scope separator as unscoped', () => {
+    // `@acme` alone is a malformed package name, not a scope: reading it as
+    // one would send @acme's credential to a package that is not in it.
+    const config = parseNpmrc('//nexus.local/:@acme:_authToken=scoped-secret')
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme', '@acme', {})).toBeUndefined()
+  })
+
+  it('never pairs a scoped username with an unscoped password', () => {
+    // Both halves must come from the same key prefix: combining them would
+    // send a credential that neither entry describes.
+    const encoded = Buffer.from('pass').toString('base64')
+    const config = parseNpmrc([
+      '//nexus.local/:@acme:username=scoped-user',
+      '//nexus.local/:username=unscoped-user',
+      `//nexus.local/:_password=${encoded}`,
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.keys)
+      .toEqual(['//nexus.local/:username', '//nexus.local/:_password'])
+  })
+
+  it('reports an unset ${VAR} in a scope-qualified key instead of silently using another', () => {
+    // Probing a scoped key makes an unexpandable one fatal where it was
+    // previously never read. That is deliberate: the config asks for that
+    // scope's token specifically, and quietly sending a different one would
+    // authenticate as the wrong identity. The error names the key and the
+    // variable, which is what the reader has to fix.
+    const config = parseNpmrc([
+      '//nexus.local/:@acme:_authToken=${ACME_TOKEN}',
+      '//nexus.local/:_authToken=unscoped-secret',
+    ].join('\n'))
+    expect(() => resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {}))
+      .toThrow(NpmrcEnvVarError)
+    // A package outside the scope never reads that key, so it still resolves.
+    expect(resolveAuthHeader(config, 'https://nexus.local/bar', 'bar', {})?.header)
+      .toBe('Bearer unscoped-secret')
+  })
+
+  it('treats a blank credential as absent rather than sending it', () => {
+    // An entry emptied instead of deleted must not shadow a working
+    // credential further along the walk — least of all a scope-qualified
+    // one, which outranks every unscoped key at every depth.
+    const config = parseNpmrc([
+      '//nexus.local/:@acme:_authToken=',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer working-secret')
+  })
+
+  it('treats a blank _auth as absent and falls through to a shallower dart', () => {
+    // The blank has to sit where `_auth` would actually be consulted, and
+    // the working credential out of that prefix's reach — a pair beside it
+    // would win on order alone and the test could not fail.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:_auth=',
+      '//nexus.local/:_authToken=works',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', {})?.header)
+      .toBe('Bearer works')
+  })
+
+  it('treats a blank username as absent and falls through to a shallower dart', () => {
+    // Half a pair is no pair: the blank username must not combine with the
+    // password beside it, nor stop the walk before the working key above.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:username=',
+      `//nexus.local/repository/npm/:_password=${Buffer.from('pass').toString('base64')}`,
+      '//nexus.local/:_authToken=host-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', {})?.header)
+      .toBe('Bearer host-secret')
+  })
+
+  it('never sends a username with a blank password', () => {
+    // The regression this guards is a credential on the wire, not a missing
+    // one: pairing the username with an empty password would send
+    // `Basic <user>:` and read as a rejected login rather than a
+    // misconfiguration.
+    const config = parseNpmrc([
+      '//nexus.local/:username=user',
+      '//nexus.local/:_password=',
+      '//nexus.local/:_authToken=',
+      '//other.local/:_authToken=elsewhere',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+  })
+
+  it('lets a blank value mask the other spelling of the same key', () => {
+    // Reading past a blank spelling to the other one is what lets a blank
+    // in a higher-precedence file reach a token in a lower-precedence one,
+    // so the first spelling that exists settles the key. npm looks up one
+    // spelling and goes anonymous on a blank; so does this.
+    const config = parseNpmrc([
+      '//nexus.local/:_authToken=',
+      '//nexus.local/:_authtoken=real-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+  })
+
+  it('still matches a lowercase spelling when it is the only one present', () => {
+    // Masking is about a blank, not about the spelling: with nothing under
+    // the canonical name, the other spelling is still the key.
+    const config = parseNpmrc('//nexus.local/:_authtoken=real-secret')
+    const auth = resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})
+    expect(auth?.header).toBe('Bearer real-secret')
+    expect(auth?.keys).toEqual(['//nexus.local/:_authtoken'])
+  })
+
+  it('matches the path form of a scope-qualified key', () => {
+    // pnpm strips a trailing scope segment off the key and binds the
+    // credential to the registry above it, so the key covers packages in
+    // that scope wherever the registry serves them.
+    const config = parseNpmrc('//npm.pkg.github.com/@acme/:_authToken=path-form-secret')
+    const url = 'https://npm.pkg.github.com/download/@acme/foo/1.0.0/abcdef'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})?.header).toBe('Bearer path-form-secret')
+  })
+
+  it('does not lend a path-form key to another scope', () => {
+    const config = parseNpmrc('//npm.pkg.github.com/@acme/:_authToken=path-form-secret')
+    const url = 'https://npm.pkg.github.com/download/@other/foo/1.0.0/abcdef'
+    expect(resolveAuthHeader(config, url, '@other/foo', {})).toBeUndefined()
+  })
+
+  it('prefers the colon form over the path form at the same nerf dart', () => {
+    const config = parseNpmrc([
+      '//nexus.local/@acme/:_authToken=path-form-secret',
+      '//nexus.local/:@acme:_authToken=colon-form-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/x/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer colon-form-secret')
+  })
+
+  it('lets a deeper unscoped key win over the path form', () => {
+    // The path form is spelled exactly like a nerf dart for the path
+    // `/@acme/`, which is how npm, yarn and bun read it. Ranking it below
+    // the unscoped walk keeps a setup that authenticates today sending the
+    // same credential it sends today.
+    const config = parseNpmrc([
+      '//nexus.local/@acme/:_authToken=path-form-secret',
+      '//nexus.local/repository/npm/:_authToken=deeper-unscoped-secret',
+    ].join('\n'))
+    const url = 'https://nexus.local/repository/npm/@acme/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})?.header).toBe('Bearer deeper-unscoped-secret')
+  })
+
+  it('skips a path-form key whose ${VAR} is unset when the URL never touches that path', () => {
+    // `//nexus.local/@acme/` is not a prefix of this URL, so under every
+    // reading but pnpm's it says nothing about this request. Failing here
+    // would abort a download that would otherwise have gone out.
+    const config = parseNpmrc('//nexus.local/@acme/:_authToken=${UNSET_TOKEN}')
+    const url = 'https://nexus.local/repository/npm/@acme/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})).toBeUndefined()
+  })
+
+  it('still fails on an unset ${VAR} when the scope path is part of the URL', () => {
+    // Here the same key IS a nerf dart of the request, which every package
+    // manager reads as applying to it, so the missing variable is fatal as
+    // it would be for any other applicable key. The tolerance above is not
+    // a blanket rule about the spelling.
+    const config = parseNpmrc([
+      '//nexus.local/@acme/:_authToken=${UNSET_TOKEN}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    const url = 'https://nexus.local/@acme/foo/-/foo-1.0.0.tgz'
+    expect(() => resolveAuthHeader(config, url, '@acme/foo', {})).toThrow(NpmrcEnvVarError)
+  })
+
+  it('still uses a working key when a path-form one cannot be expanded', () => {
+    const config = parseNpmrc([
+      '//nexus.local/@acme/:_authToken=${UNSET_TOKEN}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/x/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer working-secret')
+  })
+
+  it('keeps a usable credential kind beside an unexpandable one at a path-form prefix', () => {
+    // The tolerance is per key: one entry referencing a missing variable
+    // must not discard the credential configured next to it.
+    const config = parseNpmrc([
+      '//nexus.local/@acme/:_authToken=${UNSET_TOKEN}',
+      '//nexus.local/@acme/:_auth=dXNlcjpwYXNz',
+    ].join('\n'))
+    const url = 'https://nexus.local/repository/npm/@acme/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})?.header).toBe('Basic dXNlcjpwYXNz')
+  })
+
+  it('skips a _password whose ${VAR} is unset when no username sits beside it', () => {
+    // Half a pair can never produce a credential, so expanding it would
+    // fail the download over a key that was never going to be used.
+    const config = parseNpmrc([
+      '//nexus.local/:@acme:_password=${UNSET_PASSWORD}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer working-secret')
+  })
+
+  it('skips a username whose ${VAR} is unset when no password sits beside it', () => {
+    // The mirror of the _password case: a leftover username from a setup
+    // that moved to a token must not be fatal either.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:username=${UNSET_USER}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', {})?.header)
+      .toBe('Bearer working-secret')
+  })
+
+  it('skips an unexpandable half of a pair whose other half is blank', () => {
+    // A blank half is absent by the same rule an omitted one is, so the
+    // pair can never form and the surviving half must not be expanded.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:username=',
+      '//nexus.local/repository/npm/:_password=${UNSET_PASSWORD}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', {})?.header)
+      .toBe('Bearer working-secret')
+  })
+
+  it('treats a ${VAR} that expands to the empty string as absent', () => {
+    // How a missing CI secret usually arrives: the variable exists, its
+    // value does not.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:_authToken=${CI_TOKEN}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', { CI_TOKEN: '' })?.header)
+      .toBe('Bearer working-secret')
+  })
+
+  it('skips an unexpandable half whose partner expands to blank', () => {
+    // The blank arrives through a variable rather than a literal, which is
+    // the same thing once expanded — so the pair cannot form and the unset
+    // variable in the other half must not abort the download.
+    const config = parseNpmrc([
+      '//nexus.local/repository/npm/:username=${CI_USER}',
+      '//nexus.local/repository/npm/:_password=${CI_PASSWORD}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    const url = 'https://nexus.local/repository/npm/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, 'foo', { CI_USER: '' })?.header).toBe('Bearer working-secret')
+  })
+
+  it('reports the missing variable when the pair was real', () => {
+    // Both halves are usable references, so the user meant a pair and one
+    // variable is genuinely missing — worth naming rather than skipping.
+    const config = parseNpmrc([
+      '//nexus.local/:username=${CI_USER}',
+      '//nexus.local/:_password=${CI_PASSWORD}',
+    ].join('\n'))
+    expect(() => resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', { CI_USER: 'user' }))
+      .toThrow(NpmrcEnvVarError)
+  })
+
+  it('still reports an unset ${VAR} in a _password that completes a pair', () => {
+    const config = parseNpmrc([
+      '//nexus.local/:username=user',
+      '//nexus.local/:_password=${UNSET_PASSWORD}',
+    ].join('\n'))
+    expect(() => resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {}))
+      .toThrow(NpmrcEnvVarError)
   })
 })

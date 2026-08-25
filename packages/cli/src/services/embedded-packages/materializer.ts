@@ -15,6 +15,9 @@ import {
   downloadFailureHint,
   capList,
   describeConfigKeys,
+  describeUnreadableConfig,
+  describeUnusableUrlOrigin,
+  RecordedUrlOrigin,
   redactUrl,
 } from './diagnostics.js'
 import { verifyIntegrity } from './integrity.js'
@@ -29,7 +32,9 @@ import {
   defaultNpmrcPaths,
   loadNpmrcConfig,
   pnpmAuthIniPath,
+  ResolvedAuth,
   resolveAuthHeader,
+  UsableRegistry,
   resolveRegistry,
 } from './npmrc.js'
 import {
@@ -41,6 +46,7 @@ import {
   specMatchesPackage,
   specMatchesPackageName,
 } from './spec.js'
+import { COMPOSABLE_URL_REQUIREMENT, parseFetchableUrl } from './url.js'
 
 const debug = Debug('checkly:cli:services:embedded-packages')
 
@@ -487,18 +493,86 @@ export class EmbeddedPackagesMaterializer {
     }
   }
 
+  /**
+   * Resolves the registry a package comes from, refusing one nothing can be
+   * fetched from.
+   *
+   * The registry URL is checked before anything is composed onto it:
+   * `registry=https://` composes into `https://<package name>/...`, which
+   * parses cleanly with the package name as its HOST, so the request would
+   * go to whatever host bears that name. A query or fragment is refused for
+   * the mirror-image reason — it absorbs the path instead of the host.
+   */
+  #resolveFetchableRegistry (
+    tarball: PlannedTarball,
+    npmrc: LoadedNpmrcConfig,
+  ): UsableRegistry {
+    const registry = resolveRegistry(npmrc.config, tarball.name, this.#env)
+    if (registry.usable) {
+      return registry
+    }
+
+    // One sentence covering every way it can fail — it parses or it does
+    // not, it has a host or it does not, its scheme is fetchable or it is
+    // not, it carries a query or it does not — because splitting them
+    // produced advice that was wrong for the case it did not cover:
+    // `file:///srv/mirror/` is absolute and has a protocol, and being told
+    // to add one sends the reader nowhere.
+    //
+    // The value is not echoed, for the same reason a composed URL is not:
+    // one this malformed could carry a credential anywhere in it.
+    throw new EmbeddedPackageError(
+      `The registry URL for embedded package '${tarball.name}@${tarball.version}' is not usable:`
+      + ` it must be ${COMPOSABLE_URL_REQUIREMENT}.`
+      + ` It is configured by ${describeConfigKeys([registry.key], npmrc)}.`,
+    )
+  }
+
+  /**
+   * Rejects a tarball URL nothing can be fetched from, naming whoever
+   * handed it over. Only a URL this CLI did not compose can get here — see
+   * `RecordedUrlOrigin`.
+   *
+   * The offending value is deliberately not echoed: it is unusable by
+   * definition here, so nothing can reliably tell a credential in it from a
+   * path. Naming the source is both safe and more useful — that is where
+   * the reader goes to fix it.
+   */
+  #assertFetchableTarballUrl (
+    url: string,
+    tarball: PlannedTarball,
+    npmrc: LoadedNpmrcConfig,
+    origin: RecordedUrlOrigin,
+  ): void {
+    if (parseFetchableUrl(url) !== undefined) {
+      return
+    }
+
+    throw new EmbeddedPackageError(
+      `The tarball URL for embedded package '${tarball.name}@${tarball.version}'`
+      + ` is not a valid URL. ${describeUnusableUrlOrigin(origin, npmrc)}`,
+    )
+  }
+
   async #obtainTarball (
     tarball: PlannedTarball,
     npmrc: LoadedNpmrcConfig,
   ): Promise<{ filePath: string, integrity: string }> {
     let { integrity, tarballUrl } = tarball
+    // Set when the URL below came from package metadata rather than the
+    // lockfile, so a failure blames the registry that served it instead of
+    // a lockfile that never mentioned it.
+    let metadataOrigin: RecordedUrlOrigin | undefined
     if (integrity === undefined) {
       // yarn.lock plans carry no SRI tarball integrity (Berry checksums
       // hash yarn's own cache archive); resolve it from the registry's
       // per-version metadata before the caches can be consulted.
       const dist = await this.#resolveDistFromRegistry(tarball, npmrc)
       integrity = dist.integrity
-      tarballUrl ??= dist.tarballUrl
+      if (tarballUrl === undefined && dist.tarballUrl !== undefined) {
+        tarballUrl = dist.tarballUrl
+        metadataOrigin = { metadata: { registryKey: dist.registryKey } }
+      }
     }
 
     const cached = await this.#cache.get(integrity)
@@ -522,42 +596,18 @@ export class EmbeddedPackagesMaterializer {
       url = tarballUrl
       // Safe to assert: a missing lockfile is a plan issue, and materialize
       // aborts on issues before any tarball is obtained.
-      urlOrigin = { lockfile: this.#options.lockfilePath! }
+      const recorded = metadataOrigin ?? { lockfile: this.#options.lockfilePath! }
+      // Only a URL handed over already formed can be unusable: the one the
+      // else-branch composes is built on a registry checked beforehand.
+      this.#assertFetchableTarballUrl(url, tarball, npmrc, recorded)
+      urlOrigin = recorded
     } else {
-      const registry = resolveRegistry(npmrc.config, tarball.name, this.#env)
+      const registry = this.#resolveFetchableRegistry(tarball, npmrc)
       const basename = tarball.name.split('/').pop()
       url = `${registry.url}${tarball.name}/-/${basename}-${tarball.version}.tgz`
       urlOrigin = { registryKey: registry.key }
     }
 
-    // `URL.canParse` accepts host-less forms: `admin:s3cret@nexus.local/x`
-    // parses as the opaque scheme `admin:` with no host. Nothing can be
-    // fetched from one, so require a host and give the configuration error
-    // rather than letting the request fail obscurely further down.
-    if (!URL.canParse(url) || new URL(url).host === '') {
-      // The offending value is deliberately not echoed: it is unparseable
-      // by definition here, so nothing can reliably tell a credential in it
-      // from a path. Naming the source is both safe and more useful — that
-      // is where the reader goes to fix it.
-      // The advice has to match the branch: telling someone to fix their
-      // registry setting when the bad value came out of the lockfile sends
-      // them to a setting that is already correct.
-      let source: string
-      if ('lockfile' in urlOrigin) {
-        source = `It was recorded in '${urlOrigin.lockfile}', whose tarball URL for this package`
-          + ` is not absolute or has no host.`
-      } else if (urlOrigin.registryKey !== undefined) {
-        source = `It was built from the registry configured by`
-          + ` ${describeConfigKeys([urlOrigin.registryKey], npmrc)}, which must be an absolute URL`
-          + ` including the protocol, and must have a host.`
-      } else {
-        source = `It was built from the default registry, which suggests a malformed package name.`
-      }
-      throw new EmbeddedPackageError(
-        `The tarball URL for embedded package '${tarball.name}@${tarball.version}'`
-        + ` is not a valid URL. ${source}`,
-      )
-    }
     debug('%s@%s: downloading from %s', tarball.name, tarball.version, redactUrl(url))
     const content = await this.#download(tarball, url, npmrc, urlOrigin)
 
@@ -594,24 +644,57 @@ export class EmbeddedPackagesMaterializer {
   async #resolveDistFromRegistry (
     tarball: PlannedTarball,
     npmrc: LoadedNpmrcConfig,
-  ): Promise<{ integrity: string, tarballUrl?: string }> {
-    const registryUrl = resolveRegistry(npmrc.config, tarball.name, this.#env).url
-    const versionUrl = `${registryUrl}${tarball.name}/${tarball.version}`
-    const packumentUrl = `${registryUrl}${tarball.name}`
+  ): Promise<{ integrity: string, tarballUrl?: string, registryKey?: string }> {
+    // Both routes are this URL plus the package name, so checking it covers
+    // them and the composed forms need no guard of their own.
+    const registry = this.#resolveFetchableRegistry(tarball, npmrc)
+    const versionUrl = `${registry.url}${tarball.name}/${tarball.version}`
+    const packumentUrl = `${registry.url}${tarball.name}`
 
     // Per-version route: dist is at the document root.
-    const perVersion = await this.#fetchMetadataDist(tarball, npmrc, versionUrl, data => data?.dist)
-    // Packument fallback (only when the per-version route was absent, not
-    // when it answered with unusable data): dist is nested per version.
-    const dist = perVersion ?? await this.#fetchMetadataDist(
-      tarball, npmrc, packumentUrl, data => data?.versions?.[tarball.version]?.dist,
+    const perVersion = await this.#fetchMetadataDist(
+      tarball, npmrc, versionUrl, registry.key, data => data?.dist,
     )
+    // Packument fallback (only when the per-version route yielded no dist,
+    // whether it 404'd or answered without one): dist is nested per version.
+    const packument = perVersion?.dist !== undefined
+      ? undefined
+      : await this.#fetchMetadataDist(
+          tarball, npmrc, packumentUrl, registry.key, data => data?.versions?.[tarball.version]?.dist,
+        )
+    const dist = perVersion?.dist ?? packument?.dist
+
+    if (dist === undefined) {
+      // Distinguish "the registry has nothing for us" from "it answered but
+      // this version is not in it": only the first can be an authorization
+      // failure, since a private registry hides packages the caller may not
+      // see behind a 404, and claiming so for the second sends the reader to
+      // rotate a token the registry just accepted.
+      const answered = perVersion !== undefined || packument !== undefined
+      if (answered) {
+        throw new EmbeddedPackageError(
+          `The registry metadata at '${redactUrl(versionUrl)}' does not describe embedded package`
+          + ` '${tarball.name}@${tarball.version}', so its integrity could not be resolved.`
+          + ` The version may have been unpublished, the registry may serve only some versions, or`
+          + ` something in front of it — a proxy or an SSO gateway — may have answered instead of`
+          + ` the registry.${describeUnreadableConfig(npmrc)}`,
+        )
+      }
+
+      const auth = resolveAuthHeader(npmrc.config, versionUrl, tarball.name, this.#env)
+      const sent = this.#sentCredentials(versionUrl, { registryKey: registry.key }, auth)
+      throw new EmbeddedPackageError(
+        `The registry at '${redactUrl(versionUrl)}' has no metadata for embedded package`
+        + ` '${tarball.name}@${tarball.version}', so its integrity could not be resolved.`
+        + downloadFailureHint(404, sent, npmrc),
+      )
+    }
 
     // Modern publishes carry an SRI `integrity`; very old ones only a hex
     // sha1 `shasum`, which converts to a (weaker but supported) SRI hash.
-    const integrity = typeof dist?.integrity === 'string' && dist.integrity !== ''
+    const integrity = typeof dist.integrity === 'string' && dist.integrity !== ''
       ? dist.integrity as string
-      : typeof dist?.shasum === 'string' && /^[0-9a-f]{40}$/.test(dist.shasum)
+      : typeof dist.shasum === 'string' && /^[0-9a-f]{40}$/.test(dist.shasum)
         ? `sha1-${Buffer.from(dist.shasum, 'hex').toString('base64')}`
         : undefined
     if (integrity === undefined) {
@@ -624,34 +707,56 @@ export class EmbeddedPackagesMaterializer {
 
     return {
       integrity,
-      // Same guard as the lockfile-recorded URLs: only absolute http(s)
-      // URLs are usable for downloading.
-      tarballUrl: typeof dist?.tarball === 'string' && /^https?:/.test(dist.tarball)
+      registryKey: registry.key,
+      // The same cheap prefilter the lockfile readers apply, and no more:
+      // anything that survives it is checked properly by
+      // `#assertFetchableTarballUrl`, which reports a URL the registry
+      // returned rather than silently composing a different one.
+      tarballUrl: typeof dist.tarball === 'string' && /^https?:/.test(dist.tarball)
         ? dist.tarball as string
         : undefined,
     }
   }
 
   /**
-   * Fetches one metadata URL and extracts its `dist` via `select`. Returns
-   * undefined on a 404 (so the caller can try another route); any other
-   * failure — auth, network, malformed response — throws, because retrying
-   * a different route would only mask it.
+   * Who supplied the credentials on a request, for the failure message.
+   *
+   * Userinfo embedded in the URL wins: axios sends that itself and drops
+   * the Authorization header when it does, so naming the config entry
+   * would name credentials that never reached the wire. A URL with no
+   * userinfo falls back to the config keys — including one derived from the
+   * default registry, whose URL carries none by construction.
+   */
+  #sentCredentials (
+    url: string,
+    origin: UrlOrigin,
+    auth: ResolvedAuth | undefined,
+  ): SentCredentials | undefined {
+    if (hasUrlCredentials(url)) {
+      return { from: 'url', origin }
+    }
+    return auth !== undefined ? { from: 'config', keys: auth.keys } : undefined
+  }
+
+  /**
+   * Fetches one metadata URL and extracts its `dist` via `select`.
+   *
+   * Returns undefined on a 404 — distinct from `{ dist: undefined }`, which
+   * means the route answered but carried nothing usable. The caller needs
+   * both apart: only a route that never answered can be an authorization
+   * failure. Any other failure — auth, network, malformed response — throws,
+   * because retrying a different route would only mask it.
    */
   async #fetchMetadataDist (
     tarball: PlannedTarball,
     npmrc: LoadedNpmrcConfig,
     url: string,
+    registryKey: string | undefined,
     select: (data: any) => any,
-  ): Promise<any> {
-    if (!URL.canParse(url)) {
-      throw new EmbeddedPackageError(
-        `The registry metadata URL for embedded package '${tarball.name}@${tarball.version}'`
-        + ` is not a valid URL: '${redactUrl(url)}'. Check the 'registry' configuration`
-        + ` in your .npmrc (it must be an absolute URL including the protocol).`,
-      )
-    }
-    const auth = resolveAuthHeader(npmrc.config, url, this.#env)
+  ): Promise<{ dist: any } | undefined> {
+    const auth = resolveAuthHeader(npmrc.config, url, tarball.name, this.#env)
+    // This URL is always one the CLI built from the registry.
+    const sent = this.#sentCredentials(url, { registryKey }, auth)
     debug('%s@%s: resolving integrity from %s', tarball.name, tarball.version, redactUrl(url))
     try {
       const response = await axios.get(url, assignProxy(url, {
@@ -660,7 +765,7 @@ export class EmbeddedPackagesMaterializer {
         },
         timeout: DOWNLOAD_TIMEOUT_MS,
       }))
-      return select(response.data)
+      return { dist: select(response.data) ?? undefined }
     } catch (err: any) {
       if (err?.response?.status === 404) {
         return undefined
@@ -669,11 +774,7 @@ export class EmbeddedPackagesMaterializer {
         err,
         `Failed to fetch registry metadata for embedded package`
         + ` '${tarball.name}@${tarball.version}' from '${redactUrl(url)}'`,
-        status => downloadFailureHint(
-          status,
-          auth !== undefined ? { from: 'config', keys: auth.keys } : undefined,
-          npmrc,
-        ),
+        status => downloadFailureHint(status, sent, npmrc),
       )
     }
   }
@@ -684,25 +785,9 @@ export class EmbeddedPackagesMaterializer {
     npmrc: LoadedNpmrcConfig,
     urlOrigin: UrlOrigin,
   ): Promise<Buffer> {
-    const auth = resolveAuthHeader(npmrc.config, url, this.#env)
+    const auth = resolveAuthHeader(npmrc.config, url, tarball.name, this.#env)
 
-    // A URL carrying userinfo wins: axios sends those itself and drops the
-    // Authorization header when it does, so the hint must report them
-    // rather than the config entry that never reached the wire.
-    let sent: SentCredentials | undefined
-    if (hasUrlCredentials(url)) {
-      if ('lockfile' in urlOrigin) {
-        sent = { from: 'url', lockfile: urlOrigin.lockfile }
-      } else if (urlOrigin.registryKey !== undefined) {
-        sent = { from: 'url', registryKey: urlOrigin.registryKey }
-      }
-      // Credentials in a URL built from the default registry are not
-      // reachable: the default carries none. Leaving `sent` unset would
-      // misreport, so fall through to the config attribution below.
-    }
-    if (sent === undefined && auth !== undefined) {
-      sent = { from: 'config', keys: auth.keys }
-    }
+    const sent = this.#sentCredentials(url, urlOrigin, auth)
 
     // A redirect can make the credentials moot: follow-redirects drops
     // confidential headers rather than hand them to another host, so

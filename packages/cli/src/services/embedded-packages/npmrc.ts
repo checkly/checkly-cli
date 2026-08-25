@@ -4,6 +4,8 @@ import path from 'node:path'
 
 import Debug from 'debug'
 
+import { parseComposableUrl, parseFetchableUrl } from './url.js'
+
 const debug = Debug('checkly:cli:services:embedded-packages')
 
 export const DEFAULT_REGISTRY_URL = 'https://registry.npmjs.org/'
@@ -263,7 +265,8 @@ export interface NpmrcPathsOptions {
    * higher-ranked file's `username`/`_password` for the same registry,
    * because the credential kinds are distinct keys and `resolveAuthHeader`
    * prefers a token over basic auth. npm's own config cascade behaves the
-   * same way.
+   * same way, and a scope-qualified key beats an unscoped one for the same
+   * registry for the same reason.
    */
   pnpmAuthFilePreferred?: boolean
 }
@@ -318,6 +321,7 @@ function getExpandedEntry (
   key: string,
   env: NodeJS.ProcessEnv,
 ): { value: string, key: string } | undefined {
+  // npm matches config keys case-insensitively, so both spellings count.
   for (const candidate of key === key.toLowerCase() ? [key] : [key, key.toLowerCase()]) {
     const value = config.get(candidate)
     if (value !== undefined) {
@@ -325,6 +329,52 @@ function getExpandedEntry (
     }
   }
   return undefined
+}
+
+/**
+ * The same lookup for a credential, where a blank value counts as no value
+ * at all: an entry left empty rather than deleted — by a token rotation, or
+ * a logout that clears the line — must not shadow a credential that still
+ * works. npm and pnpm both test credential values for truthiness for the
+ * same reason.
+ *
+ * What it falls through to is another *key*: another credential kind at the
+ * same prefix, or a shallower nerf dart. That is as far as it goes, and
+ * deliberately so — it matches npm, whose `hasAuth` likewise only tries
+ * other credential kinds at the same or a shallower dart. It does not fall
+ * through to the other case spelling of the same key, which would reach
+ * past a blank into a different file.
+ *
+ * It does not reach the same key in a lower-precedence file: the merge in
+ * `loadNpmrcConfig` is first-writer-wins per key, so a blank `_authToken`
+ * in a project `.npmrc` still masks a working one in `~/.npmrc`. Skipping
+ * blanks during the merge would fix that, and was tried, but it makes this
+ * CLI send a credential npm and pnpm would not — they keep blank values
+ * read from files — so a project that deliberately blanks an entry to force
+ * anonymous access would have the developer's personal token sent instead.
+ *
+ * Deliberately confined to credentials. A blank `registry` is a broken
+ * setting rather than an absent one, and treating it as absent would fall
+ * back to the public registry and send private package names to it. That
+ * holds for values read from files; a blank `npm_config_registry` never
+ * reaches the config at all, because `npmConfigEnvEntries` drops empty
+ * environment values at load, matching npm.
+ *
+ * A blank value and an unset `${VAR}` are deliberately not the same thing,
+ * here as in npm and pnpm: a blank value is an entry that exists and holds
+ * nothing, while an unset variable is a reference to something that does
+ * not exist — a typo, or a secret missing from the environment — which
+ * `expandValue` reports by name rather than papering over.
+ */
+function getCredentialEntry (
+  config: NpmrcConfig,
+  key: string,
+  env: NodeJS.ProcessEnv,
+): { value: string, key: string } | undefined {
+  // `getExpandedEntry` already stops at the first spelling that exists, so
+  // mapping its blank result to undefined is the whole difference.
+  const entry = getExpandedEntry(config, key, env)
+  return entry?.value === '' ? undefined : entry
 }
 
 /**
@@ -340,15 +390,30 @@ function packageScope (packageName: string): string | undefined {
   return separator > 1 ? packageName.slice(0, separator) : undefined
 }
 
-export interface ResolvedRegistry {
-  /** The registry URL, always ending in a slash. */
+/**
+ * The registry a package resolves to, or the reason nothing can be
+ * requested from it.
+ *
+ * A configured value is never quietly replaced by a default — resolving a
+ * private package against the public registry would disclose its name — so
+ * a broken one has to be reported rather than substituted. That is a
+ * discriminated result rather than an unusable URL string because the
+ * caller composes a path onto `url` and requests it: with
+ * `registry=https://` the composed URL parses with the PACKAGE NAME as its
+ * host, and the request, along with any credential nerf-darted to it, goes
+ * to whoever owns that name. A rule that can send a token somewhere
+ * unintended belongs in the type rather than in a comment a future caller
+ * may not read.
+ *
+ * `key` names the entry to blame, absent only when nothing configured a
+ * registry and the public npm one was assumed — which is always usable.
+ */
+export type ResolvedRegistry = UsableRegistry | { usable: false, key: string }
+
+/** A registry a request can actually be composed for and sent to. */
+export interface UsableRegistry {
+  usable: true
   url: string
-  /**
-   * The config key that supplied it, absent when nothing configured one and
-   * the public npm registry was assumed. Reported for the same reason as
-   * `ResolvedAuth.key`: a registry URL can itself carry credentials, and a
-   * failure needs to name where that URL was configured.
-   */
   key?: string
 }
 
@@ -367,18 +432,41 @@ export function resolveRegistry (
   const scope = packageScope(packageName)
   if (scope !== undefined) {
     registry = getExpandedEntry(config, `${scope}:registry`, env)
+
+    // npm and pnpm both treat a blank `@scope:registry` as unset and use the
+    // global `registry`, whatever that points at — including the public
+    // registry, if that is what the project configured. Only a usable value
+    // counts as the fallback: with nothing to fall back to, the blank entry
+    // is kept, so the caller reports the key to fix instead of quietly
+    // assuming the public registry nobody configured.
+    if (registry?.value === '') {
+      // An unexpandable global entry is no more usable than a missing one,
+      // and reporting it would name a key that is not the one in use, so it
+      // counts as nothing to fall back to.
+      const fallback = attempt(() => getExpandedEntry(config, 'registry', env))
+      if (fallback.error !== undefined) {
+        debug('ignoring unusable global registry while %s is blank: %s', registry.key, fallback.error.message)
+      }
+
+      if (fallback.value !== undefined && fallback.value.value !== '') {
+        debug('%s is blank, falling back to the registry configured by %s', registry.key, fallback.value.key)
+        registry = fallback.value
+      }
+    }
   }
 
   registry ??= getExpandedEntry(config, 'registry', env)
 
   if (registry === undefined) {
-    return { url: DEFAULT_REGISTRY_URL }
+    return { usable: true, url: DEFAULT_REGISTRY_URL }
   }
 
-  return {
-    url: registry.value.endsWith('/') ? registry.value : `${registry.value}/`,
-    key: registry.key,
-  }
+  // The trailing slash goes on first: it is part of what a registry URL
+  // means here, and `//host/npm` composes differently from `//host/npm/`.
+  const url = registry.value.endsWith('/') ? registry.value : `${registry.value}/`
+  return parseComposableUrl(url) !== undefined
+    ? { usable: true, url, key: registry.key }
+    : { usable: false, key: registry.key }
 }
 
 export interface ResolvedAuth {
@@ -397,41 +485,206 @@ export interface ResolvedAuth {
 }
 
 /**
+ * The nerf darts a URL's credentials may be keyed by, deepest path first:
+ * `https://host/a/b` yields `//host/a/b/`, `//host/a/`, `//host/`. The path
+ * is walked upward because a credential configured for a registry root
+ * also applies to everything served beneath it.
+ */
+function nerfDarts (url: URL): string[] {
+  const segments = url.pathname.split('/').filter(segment => segment !== '')
+
+  const darts: string[] = []
+  for (let depth = segments.length; depth >= 0; depth--) {
+    const prefix = segments.slice(0, depth).map(segment => `${segment}/`).join('')
+    darts.push(`//${url.host}/${prefix}`)
+  }
+  return darts
+}
+
+/**
+ * The credentials configured under one key prefix, in npm's own order:
+ * `_authToken` (Bearer), then `username` + `_password` (base64-encoded, per
+ * npm convention), then `_auth` (pre-encoded Basic).
+ *
+ * A prefix is a nerf dart, optionally qualified by a scope
+ * (`//host/:@acme`). Both halves of a `username` + `_password` pair must
+ * live under the same prefix: pairing a scoped username with an unscoped
+ * password would send a credential neither entry describes.
+ *
+ * pnpm's `tokenHelper` is deliberately absent from this list. It names an
+ * external command to run for a token, and running a command found in a
+ * config file is a decision well beyond resolving a credential. A user who
+ * has only that configured resolves no credential here and fails as if
+ * none were configured.
+ */
+function credentialsAt (
+  config: NpmrcConfig,
+  prefix: string,
+  env: NodeJS.ProcessEnv,
+  { skipUnexpandable = false }: { skipUnexpandable?: boolean } = {},
+): ResolvedAuth | undefined {
+  // `skipUnexpandable` is per key, not per prefix: one entry referencing a
+  // variable that is not set says nothing about the other credential kinds
+  // configured beside it.
+  const entry = (kind: string) => {
+    const key = `${prefix}:${kind}`
+    try {
+      return getCredentialEntry(config, key, env)
+    } catch (err) {
+      if (skipUnexpandable && err instanceof NpmrcEnvVarError) {
+        debug('skipping credential %s: %s', key, err.message)
+        return undefined
+      }
+      throw err
+    }
+  }
+
+  const authToken = entry('_authToken')
+  if (authToken !== undefined) {
+    return { header: `Bearer ${authToken.value}`, keys: [authToken.key] }
+  }
+
+  // The pair outranks `_auth`, which is npm's order (`getCredentialsByURI`
+  // tries `_authToken`, then `username` + `_password`, then `_auth`) and
+  // matters when a legacy `_auth` line has been left behind beside a pair
+  // written later: npm authenticates with the pair, and so must this.
+  //
+  // Neither half is worth failing over alone — a leftover `username` from a
+  // setup that moved to a token must not abort a download that a credential
+  // further along the walk would have authenticated. Whether a half is
+  // usable is only knowable after expanding it, since a `${VAR}` set to the
+  // empty string is as absent as a literal blank, so both are attempted and
+  // an unexpandable one is held rather than thrown.
+  const username = attempt(() => entry('username'))
+  const password = attempt(() => entry('_password'))
+
+  if (username.value !== undefined && password.value !== undefined) {
+    const decodedPassword = Buffer.from(password.value.value, 'base64').toString('utf8')
+    const encoded = Buffer.from(`${username.value.value}:${decodedPassword}`, 'utf8').toString('base64')
+    return { header: `Basic ${encoded}`, keys: [username.value.key, password.value.key] }
+  }
+
+  // Both halves are here in some form, so the pair was meant and a variable
+  // is genuinely missing — worth naming rather than falling through to a
+  // credential the user did not intend to use.
+  const unexpandable = username.error ?? password.error
+  if (unexpandable !== undefined) {
+    if (found(username) && found(password)) {
+      throw unexpandable
+    }
+    // Dropped because its other half never materialised, so no pair was
+    // ever going to form here. Traceable rather than silent: "the CLI
+    // ignored my entry" is the report this explains.
+    debug('ignoring half a credential pair at %s: %s', prefix, unexpandable.message)
+  }
+
+  const auth = entry('_auth')
+  if (auth !== undefined) {
+    return { header: `Basic ${auth.value}`, keys: [auth.key] }
+  }
+
+  return undefined
+}
+
+/** Whether a held lookup produced anything at all, usable or not. */
+function found (attempted: { value?: unknown, error?: NpmrcEnvVarError }): boolean {
+  return attempted.value !== undefined || attempted.error !== undefined
+}
+
+/**
+ * Runs a lookup, holding an `NpmrcEnvVarError` instead of raising it so the
+ * caller can decide whether the key it names was ever going to be used.
+ */
+function attempt<T> (lookup: () => T): { value?: T, error?: NpmrcEnvVarError } {
+  try {
+    return { value: lookup() }
+  } catch (err) {
+    if (err instanceof NpmrcEnvVarError) {
+      return { error: err }
+    }
+    throw err
+  }
+}
+
+/**
  * Resolves the `Authorization` header applicable to a URL, matching npm's
  * "nerf dart" scheme: credentials are keyed by the registry URL minus its
- * protocol (`//host/path/:_authToken=...`). The URL's path is walked
- * upward so credentials configured for a registry root also apply to
- * tarball URLs beneath it. Supports `_authToken` (Bearer), `_auth`
- * (pre-encoded Basic), and `username` + `_password` (base64-encoded, per
- * npm convention). Returns undefined when no credentials match.
+ * protocol (`//host/path/:_authToken=...`).
+ *
+ * `pnpm login --scope=@acme` writes a scope-qualified key instead
+ * (`//host/:@acme:_authToken=...`, or equivalently `//host/@acme/:_authToken`),
+ * so the package being downloaded decides which keys apply. Mirroring pnpm,
+ * every scoped key is tried before any unscoped one — a shallow scoped
+ * credential outranks a deeper unscoped one, rather than the two being
+ * interleaved by depth. An unscoped package never falls back to a scoped
+ * key: a scoped token belongs to one organisation by construction, and
+ * reusing it elsewhere would send that organisation's credential somewhere
+ * it was never meant to go.
+ *
+ * Scope-qualified keys are honored for every project, not only pnpm ones:
+ * npm, yarn, bun and pnpm 10 ignore the spelling entirely, but writing one
+ * is an unambiguous statement of which token that scope should use, and
+ * refusing to read it would leave a user whose only login is
+ * `pnpm login --scope` unauthenticated for exactly the packages the key
+ * names.
+ *
+ * Returns undefined when no credentials match.
  */
 export function resolveAuthHeader (
   config: NpmrcConfig,
   url: string,
+  packageName: string,
   env: NodeJS.ProcessEnv = process.env,
 ): ResolvedAuth | undefined {
-  const parsed = new URL(url)
+  // The same rule the request itself has to pass. Callers check it first,
+  // so this is belt and braces — but the safe answer for a URL that could
+  // not be validated is no credentials rather than a thrown parse error.
+  const parsed = parseFetchableUrl(url)
+  if (parsed === undefined) {
+    return undefined
+  }
 
-  const segments = parsed.pathname.split('/').filter(segment => segment !== '')
-  for (let depth = segments.length; depth >= 0; depth--) {
-    const nerfDart = `//${parsed.host}/${segments.slice(0, depth).map(segment => `${segment}/`).join('')}`
+  const darts = nerfDarts(parsed)
+  const scope = packageScope(packageName)
 
-    const authToken = getExpandedEntry(config, `${nerfDart}:_authToken`, env)
-    if (authToken !== undefined) {
-      return { header: `Bearer ${authToken.value}`, keys: [authToken.key] }
+  const scoped = scope !== undefined ? darts.map(dart => `${dart}:${scope}`) : []
+  for (const prefix of [...scoped, ...darts]) {
+    const credentials = credentialsAt(config, prefix, env)
+    if (credentials !== undefined) {
+      return credentials
     }
+  }
 
-    const auth = getExpandedEntry(config, `${nerfDart}:_auth`, env)
-    if (auth !== undefined) {
-      return { header: `Basic ${auth.value}`, keys: [auth.key] }
-    }
-
-    const username = getExpandedEntry(config, `${nerfDart}:username`, env)
-    const password = getExpandedEntry(config, `${nerfDart}:_password`, env)
-    if (username !== undefined && password !== undefined) {
-      const decodedPassword = Buffer.from(password.value, 'base64').toString('utf8')
-      const encoded = Buffer.from(`${username.value}:${decodedPassword}`, 'utf8').toString('base64')
-      return { header: `Basic ${encoded}`, keys: [username.key, password.key] }
+  // pnpm accepts a second spelling, `//host/@acme/:_authToken`, which it
+  // binds to the registry the scope segment was stripped from rather than to
+  // the path — so it covers every `@acme` package on that host, including
+  // tarball URLs that never mention the scope at that depth, as GitHub
+  // Packages' `/download/@acme/...` URLs do not.
+  //
+  // It is tried last rather than with the colon form, which is where pnpm
+  // ranks it. The spelling is indistinguishable from an ordinary nerf dart
+  // for the path `/@acme/`, which is exactly how npm, yarn and bun read it,
+  // so giving it pnpm's rank would let it outrank a deeper unscoped key that
+  // authenticates a working setup today.
+  //
+  // Tried last it can only supply a credential where nothing else matched,
+  // and an unexpandable one is skipped rather than fatal — but only when
+  // this walk is the sole reading of that key. For a URL whose path does
+  // contain the scope, such as the `${registry}/@acme/foo/-/…` this CLI
+  // composes, `//host/@acme/` is an ordinary nerf dart the unscoped walk
+  // above already visited, and there it is a key that plainly applies to
+  // this request, so a variable missing from it is fatal like any other.
+  // The tolerance is for the other shape — GitHub Packages' `/download/…`,
+  // or a CDN URL — where the key names a location this request never
+  // touches and must not abort a download that would otherwise go out.
+  //
+  // A skip is only visible on the debug channel, so a download that then
+  // fails to authenticate reports finding no credentials at all.
+  const pathForm = scope !== undefined ? darts.map(dart => `${dart}${scope}/`) : []
+  for (const prefix of pathForm) {
+    const credentials = credentialsAt(config, prefix, env, { skipUnexpandable: true })
+    if (credentials !== undefined) {
+      return credentials
     }
   }
 
