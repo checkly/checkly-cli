@@ -858,4 +858,101 @@ describe('resolveAuthHeader()', () => {
     expect(() => resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {}))
       .toThrow(NpmrcEnvVarError)
   })
+
+  it('matches a slashless _authToken at the host root', () => {
+    // The hand-written spelling without the trailing slash, which npm and
+    // pnpm both accept: npm probes both forms at every depth, and pnpm
+    // normalises this one to the canonical form at config load.
+    const config = parseNpmrc('//nexus.local:_authToken=slashless-secret')
+    const auth = resolveAuthHeader(config, 'https://nexus.local/foo/-/foo-1.0.0.tgz', 'foo', {})
+    expect(auth?.header).toBe('Bearer slashless-secret')
+    // The matched spelling is reported verbatim: it is the literal config
+    // key, which is what `origins` is keyed by.
+    expect(auth?.keys).toEqual(['//nexus.local:_authToken'])
+  })
+
+  it('matches a slashless key deeper in the path', () => {
+    const config = parseNpmrc('//nexus.local/repository/npm:_authToken=deep-slashless-secret')
+    const url = 'https://nexus.local/repository/npm/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, 'foo', {})?.header).toBe('Bearer deep-slashless-secret')
+  })
+
+  it('prefers the slash-terminated spelling at the same depth', () => {
+    // npm's probe order: `//host/a/` before `//host/a`.
+    const config = parseNpmrc([
+      '//nexus.local/repository:_authToken=slashless-secret',
+      '//nexus.local/repository/:_authToken=canonical-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/foo', 'foo', {})?.header)
+      .toBe('Bearer canonical-secret')
+  })
+
+  it('lets a deeper slashless key win over a shallower canonical one', () => {
+    // The spellings are probed per depth, not the canonical walk first.
+    const config = parseNpmrc([
+      '//nexus.local/:_authToken=shallow-canonical-secret',
+      '//nexus.local/repository/npm:_authToken=deep-slashless-secret',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/npm/foo', 'foo', {})?.header)
+      .toBe('Bearer deep-slashless-secret')
+  })
+
+  it('falls through a blank canonical spelling to the slashless one', () => {
+    // npm's walk tests each probe for truthiness, so a blank entry under
+    // the slash-terminated spelling does not stop it reading the slashless
+    // one right behind it.
+    const config = parseNpmrc([
+      '//nexus.local/repository/:_authToken=',
+      '//nexus.local/repository:_authToken=works',
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/repository/foo', 'foo', {})?.header)
+      .toBe('Bearer works')
+  })
+
+  it('matches a slashless scope-qualified key', () => {
+    const config = parseNpmrc('//nexus.local:@acme:_authToken=scoped-slashless-secret')
+    expect(resolveAuthHeader(config, 'https://nexus.local/@acme/foo', '@acme/foo', {})?.header)
+      .toBe('Bearer scoped-slashless-secret')
+  })
+
+  it('matches a slashless path-form key', () => {
+    const config = parseNpmrc('//npm.pkg.github.com/@acme:_authToken=path-form-slashless-secret')
+    const url = 'https://npm.pkg.github.com/download/@acme/foo/1.0.0/abcdef'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})?.header)
+      .toBe('Bearer path-form-slashless-secret')
+  })
+
+  it('never pairs a username with a _password under the other spelling', () => {
+    // Both halves must share one exact prefix — the spellings are distinct
+    // prefixes like any other. npm behaves the same, since its walk checks
+    // one probe at a time.
+    const config = parseNpmrc([
+      '//nexus.local/:username=user',
+      `//nexus.local:_password=${Buffer.from('pass').toString('base64')}`,
+    ].join('\n'))
+    expect(resolveAuthHeader(config, 'https://nexus.local/foo', 'foo', {})).toBeUndefined()
+  })
+
+  it('reports an unset ${VAR} in a slashless key instead of a shallower credential', () => {
+    // A slashless key used to be invisible, so the shallower credential
+    // went out. Now the key plainly applies to the request, which makes
+    // its missing variable fatal like any other applicable key's — quietly
+    // sending a different credential would authenticate as an identity the
+    // config asked to replace.
+    const config = parseNpmrc([
+      '//nexus.local/repository:_authToken=${UNSET_TOKEN}',
+      '//nexus.local/:_authToken=working-secret',
+    ].join('\n'))
+    expect(() => resolveAuthHeader(config, 'https://nexus.local/repository/foo', 'foo', {}))
+      .toThrow(NpmrcEnvVarError)
+  })
+
+  it('skips a slashless path-form key whose ${VAR} is unset when the URL never touches that path', () => {
+    // The slashless spelling gets the same tolerance as the canonical one:
+    // the key names a location this request never touches, so a variable
+    // missing from it must not abort the download.
+    const config = parseNpmrc('//nexus.local/@acme:_authToken=${UNSET_TOKEN}')
+    const url = 'https://nexus.local/repository/npm/@acme/foo/-/foo-1.0.0.tgz'
+    expect(resolveAuthHeader(config, url, '@acme/foo', {})).toBeUndefined()
+  })
 })
