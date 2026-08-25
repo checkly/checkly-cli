@@ -5,7 +5,7 @@ const config = defineConfig({
   logicalId: 'test-config-project',
   bundle: {
     packages: {
-      prune: ['@acme/*', 'left-pad'],
+      prune: ['@acme/*', '!@acme/keep', 'left-pad'],
     },
   },
 })

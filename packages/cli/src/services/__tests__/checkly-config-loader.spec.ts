@@ -148,7 +148,7 @@ describe('loadChecklyConfig()', () => {
       path.join(__dirname, 'fixtures', 'configs'),
       ['bundle-packages-prune-valid.ts'],
     )
-    expect(config.bundle?.packages?.prune).toEqual(['@acme/*', 'left-pad'])
+    expect(config.bundle?.packages?.prune).toEqual(['@acme/*', '!@acme/keep', 'left-pad'])
   })
   it('accepts a bundle.packages.prune per-class map', async () => {
     const { config } = await loadChecklyConfig(
@@ -184,11 +184,11 @@ describe('loadChecklyConfig()', () => {
       + ` or an array of package name patterns`,
     )
   })
-  it('rejects a bundle.packages.prune entry with embed-style syntax', async () => {
+  it('rejects a bundle.packages.prune entry with an embed-style version pin', async () => {
     await expect(loadChecklyConfig(
       path.join(__dirname, 'fixtures', 'configs'),
       ['bundle-packages-prune-bad-pattern.js'],
-    )).rejects.toThrow(`'!' exclusions are not supported here`)
+    )).rejects.toThrow(`'name@version' pins are not supported here`)
   })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'

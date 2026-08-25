@@ -196,7 +196,18 @@ export type ChecklyConfig = {
        * only). Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
        * a wildcard never crosses the `/` scope separator, so a bare `'*'`
        * matches only unscoped names — to remove a whole class, use `true`,
-       * not `['*']`. Removed
+       * not `['*']`. A `!` prefix turns an entry into an exclusion that
+       * removes what it matches from the entries *before* it selected,
+       * with `bundle.packages.embed`'s order-sensitive semantics:
+       * `['@acme/*', '!@acme/keep']` removes the scope except
+       * `@acme/keep`, while the reverse order removes the whole scope
+       * because the exclusion runs before anything has been selected. To
+       * remove a whole class *except* some packages, select everything
+       * first: `['*', '@*\/*', '!@acme/keep']` — remove the `\` when
+       * copying; it exists only because `*` followed by `/` would end
+       * this comment. `true` cannot be combined with exclusions. Unlike
+       * `bundle.packages.embed` there are no
+       * `name@version` pins; they are rejected at config load. Removed
        * `peerDependencies` take their `peerDependenciesMeta` entries with
        * them, and `peerDependencies: true` clears `peerDependenciesMeta`
        * entirely.

@@ -5,7 +5,7 @@ import Debug from 'debug'
 import {
   PackageNamePattern,
   parsePackageNamePattern,
-  specMatchesPackageName,
+  patternsSelectName,
 } from '../embedded-packages/spec.js'
 
 const debug = Debug('checkly:cli:services:check-parser:package-prune')
@@ -168,7 +168,7 @@ function applyPrune (parsed: any, prune: NormalizedPackagePrune): { removed: str
 
     let lost = false
     for (const name of Object.keys(section)) {
-      if (!matcher.some(pattern => specMatchesPackageName(pattern, name))) {
+      if (!patternsSelectName(matcher, name)) {
         continue
       }
       delete section[name]
@@ -285,7 +285,7 @@ export function verifyPrunedManifest (
     const name = label.slice(separator + 1)
     const matcher = DEPENDENCY_CLASSES.includes(dependencyClass) ? prune[dependencyClass] : undefined
     if (matcher === undefined
-      || (matcher !== true && !matcher.some(pattern => specMatchesPackageName(pattern, name)))) {
+      || (matcher !== true && !patternsSelectName(matcher, name))) {
       debug(`A pruned package.json removed '${label}', which the configuration does not select;`
         + ` leaving the bundle alone`)
       return undefined

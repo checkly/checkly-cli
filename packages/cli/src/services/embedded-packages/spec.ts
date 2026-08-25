@@ -57,6 +57,26 @@ export function specMatchesPackageName (
 }
 
 /**
+ * Whether an ordered pattern list selects the given name: a matching
+ * plain entry selects it, a matching `!` exclusion deselects it, and the
+ * last matching entry wins. This is the canonical definition of the
+ * order-sensitive exclusion rule both `bundle.packages` options share
+ * (`['@acme/*', '!@acme/keep']` selects the scope except `@acme/keep`,
+ * while the reverse order selects the whole scope because the exclusion
+ * ran before anything was selected); the embed materializer applies the
+ * same rule per spec so it can attribute diagnostics to entries.
+ */
+export function patternsSelectName (patterns: PackageNamePattern[], name: string): boolean {
+  let selected = false
+  for (const pattern of patterns) {
+    if (specMatchesPackageName(pattern, name)) {
+      selected = !pattern.exclude
+    }
+  }
+  return selected
+}
+
+/**
  * Whether a spec selects the given package: the name must match, and so
  * must an exact version pin. An entry the lockfile records without a
  * version never satisfies a pin.
@@ -212,11 +232,12 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
 
 /**
  * A parsed package name pattern: a plain package name, or a name pattern
- * with `*` wildcards — the name-matching subset of
- * {@link EmbeddedPackageSpec}, without the version pin and `!` exclusion.
- * See the spec's field docs for the wildcard semantics.
+ * with `*` wildcards, optionally prefixed with `!` to make it an
+ * exclusion — the name-matching subset of {@link EmbeddedPackageSpec},
+ * without the version pin. See the spec's field docs for the wildcard
+ * and exclusion semantics.
  */
-export type PackageNamePattern = Pick<EmbeddedPackageSpec, 'name' | 'wildcard'>
+export type PackageNamePattern = Pick<EmbeddedPackageSpec, 'name' | 'wildcard' | 'exclude'>
 
 export class InvalidPackageNamePatternError extends Error {
   constructor (raw: string, reason: string) {
@@ -229,39 +250,30 @@ export class InvalidPackageNamePatternError extends Error {
  * Parses a package name pattern: a package name that may contain `*`
  * wildcards (`@acme/*`, `acme-*`, `@acme/*-utils`), each matching any run
  * of characters except `/` — so a wildcard never crosses the scope
- * separator, and a bare `*` matches only unscoped names. Unlike
- * {@link parseEmbeddedPackageSpec} there are no `name@version` pins and no
- * `!` exclusions; both are rejected with a pointed message so an
- * embed-style entry fails loudly instead of silently matching nothing.
+ * separator, and a bare `*` matches only unscoped names. A `!` prefix
+ * marks the entry as an exclusion, subtracting from what the entries
+ * before it selected, exactly as in `bundle.packages.embed`. Unlike
+ * {@link parseEmbeddedPackageSpec} there are no `name@version` pins;
+ * they are rejected with a pointed message so an embed-style pin fails
+ * loudly instead of silently matching nothing.
  */
 export function parsePackageNamePattern (raw: string): PackageNamePattern {
-  if (typeof raw !== 'string' || raw === '') {
-    throw new InvalidPackageNamePatternError(String(raw), `must be a non-empty string`)
-  }
-
-  if (raw.startsWith('!')) {
-    throw new InvalidPackageNamePatternError(
-      raw,
-      `'!' exclusions are not supported here; list the names to remove instead`,
-    )
-  }
-
-  // Any `@` past the first character would be an embed-style version
-  // separator; the one at index 0 is the scope marker of `@scope/name`.
-  if (raw.lastIndexOf('@') > 0) {
+  // The pin rejection must run before the delegation below, which would
+  // otherwise accept `name@version` the way embed does. The `!` comes off
+  // first so the scope marker of `!@scope/name` at index 1 is not read as
+  // a version separator; any `@` past the first character of what remains
+  // would be one.
+  if (typeof raw === 'string' && raw.replace(/^!/, '').lastIndexOf('@') > 0) {
     throw new InvalidPackageNamePatternError(raw, `'name@version' pins are not supported here`)
   }
 
-  const wildcard = raw.includes('*')
-  if (!PACKAGE_NAME_RE.test(wildcard ? raw.replace(/\*/g, 'a') : raw)) {
-    throw new InvalidPackageNamePatternError(
-      raw,
-      `'${raw}' is not a valid npm package name${wildcard ? ' pattern' : ''}`,
-    )
-  }
-
-  return {
-    name: raw,
-    wildcard,
+  try {
+    const { name, wildcard, exclude } = parseEmbeddedPackageSpec(raw)
+    return { name, wildcard, exclude }
+  } catch (err) {
+    if (err instanceof InvalidEmbeddedPackageSpecError) {
+      throw new InvalidPackageNamePatternError(String(raw), err.reason)
+    }
+    throw err
   }
 }

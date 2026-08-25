@@ -125,7 +125,7 @@ describe('normalizePackagePrune()', () => {
   })
 
   it('rejects invalid patterns in either shape', () => {
-    expect(() => normalizePackagePrune(['!@acme/utils'])).toThrow(InvalidPackageNamePatternError)
+    expect(() => normalizePackagePrune(['pkg@1.0.0'])).toThrow(InvalidPackageNamePatternError)
     expect(() => normalizePackagePrune({ dependencies: ['pkg@1.0.0'] }))
       .toThrow(InvalidPackageNamePatternError)
   })
@@ -205,6 +205,60 @@ describe('prunePackageJson()', () => {
       'dependencies:left-pad',
       'devDependencies:@acme/eslint-config',
       'devDependencies:typescript',
+    ])
+  })
+
+  it('applies exclusions in order, last matching entry winning', () => {
+    const prune = normalizePackagePrune({ peerDependencies: ['@acme/*', '!@acme/heavy-icons'] })!
+    const result = prunePackageJson(manifest(), prune)
+    // The exclusion spares the one peer the earlier wildcard selected.
+    expect(result).toEqual({ content: manifest(), removed: [], changed: false })
+
+    const reSelected = normalizePackagePrune({
+      peerDependencies: ['@acme/*', '!@acme/*', '@acme/heavy-icons'],
+    })!
+    const reResult = prunePackageJson(manifest(), reSelected)
+    expect(reResult!.removed).toEqual(['peerDependencies:@acme/heavy-icons'])
+  })
+
+  it('treats an exclusion before any selection as a no-op', () => {
+    const prune = normalizePackagePrune({ peerDependencies: ['!@acme/heavy-icons', '@acme/*'] })!
+    const result = prunePackageJson(manifest(), prune)
+    // Exclusions only subtract from earlier entries, so the later wildcard
+    // still removes the peer — embed's order semantics.
+    expect(result!.removed).toEqual(['peerDependencies:@acme/heavy-icons'])
+  })
+
+  it('empties every class except the spared package with the documented catch-all recipe', () => {
+    // The `['*', '@*/*', '!keep']` spelling is what the config TSDoc and
+    // the ai-context reference recommend for "a whole class except X";
+    // this pins both halves it relies on (a `*` allowed in the scope
+    // segment, and segment-wise matching of the scoped catch-all).
+    const prune = normalizePackagePrune(['*', '@*/*', '!@acme/utils'])!
+    const result = prunePackageJson(manifest(), prune)
+    const parsed = JSON.parse(result!.content)
+    expect(parsed.dependencies).toEqual({ '@acme/utils': '^1.0.0' })
+    expect(parsed.devDependencies).toBeUndefined()
+    expect(parsed.peerDependencies).toBeUndefined()
+    expect(parsed.optionalDependencies).toBeUndefined()
+    expect(parsed.peerDependenciesMeta).toBeUndefined()
+  })
+
+  it('removes nothing for an exclusion-only list', () => {
+    const prune = normalizePackagePrune(['!@acme/*'])!
+    const content = manifest()
+    expect(prunePackageJson(content, prune)).toEqual({ content, removed: [], changed: false })
+  })
+
+  it('applies exclusions to every class for the array shape', () => {
+    const prune = normalizePackagePrune(['@acme/*', '!@acme/utils'])!
+    const result = prunePackageJson(manifest(), prune)
+    const parsed = JSON.parse(result!.content)
+    expect(parsed.dependencies).toEqual({ '@acme/utils': '^1.0.0', 'left-pad': '^1.3.0' })
+    expect(result!.removed.sort()).toEqual([
+      'devDependencies:@acme/eslint-config',
+      'optionalDependencies:@acme/native-helper',
+      'peerDependencies:@acme/heavy-icons',
     ])
   })
 
@@ -340,6 +394,19 @@ describe('prunePackageJson()', () => {
     expect(verifyPrunedManifest(
       original,
       JSON.stringify(mangled, null, 2),
+      prune,
+      ['dependencies:@acme/utils'],
+    )).toBeUndefined()
+  })
+
+  it('fails closed in verifyPrunedManifest on a removal an exclusion spared', () => {
+    const prune = normalizePackagePrune({ dependencies: ['@acme/*', '!@acme/utils'] })!
+    const original = manifest()
+    const strayed = JSON.parse(original)
+    delete strayed.dependencies['@acme/utils']
+    expect(verifyPrunedManifest(
+      original,
+      JSON.stringify(strayed, null, 2),
       prune,
       ['dependencies:@acme/utils'],
     )).toBeUndefined()

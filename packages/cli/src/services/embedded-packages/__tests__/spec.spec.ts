@@ -310,6 +310,7 @@ describe('parsePackageNamePattern()', () => {
     expect(parsePackageNamePattern('some-package')).toEqual({
       name: 'some-package',
       wildcard: false,
+      exclude: false,
     })
   })
 
@@ -317,6 +318,20 @@ describe('parsePackageNamePattern()', () => {
     expect(parsePackageNamePattern('@acme/private-utils')).toEqual({
       name: '@acme/private-utils',
       wildcard: false,
+      exclude: false,
+    })
+  })
+
+  it('parses a leading ! as an exclusion', () => {
+    expect(parsePackageNamePattern('!some-package')).toEqual({
+      name: 'some-package',
+      wildcard: false,
+      exclude: true,
+    })
+    expect(parsePackageNamePattern('!@acme/*')).toEqual({
+      name: '@acme/*',
+      wildcard: true,
+      exclude: true,
     })
   })
 
@@ -352,14 +367,16 @@ describe('parsePackageNamePattern()', () => {
     expect(() => parsePackageNamePattern(undefined as any)).toThrow(/must be a non-empty string/)
   })
 
-  it('rejects a ! exclusion with a pointed message', () => {
-    expect(() => parsePackageNamePattern('!@acme/legacy')).toThrow(/'!' exclusions are not supported here/)
+  it('rejects a bare !', () => {
+    expect(() => parsePackageNamePattern('!')).toThrow(/must name a package or pattern after '!'/)
   })
 
   it('rejects a name@version pin with a pointed message', () => {
     expect(() => parsePackageNamePattern('some-package@2.1.0'))
       .toThrow(/'name@version' pins are not supported here/)
     expect(() => parsePackageNamePattern('@acme/utils@2.1.0'))
+      .toThrow(/'name@version' pins are not supported here/)
+    expect(() => parsePackageNamePattern('!@acme/utils@2.1.0'))
       .toThrow(/'name@version' pins are not supported here/)
   })
 
