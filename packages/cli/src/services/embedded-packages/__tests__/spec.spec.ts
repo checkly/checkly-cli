@@ -16,6 +16,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: 'some-package',
       name: 'some-package',
       version: undefined,
+      wildcard: false,
       exclude: false,
     })
   })
@@ -25,6 +26,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '@acme/private-utils',
       name: '@acme/private-utils',
       version: undefined,
+      wildcard: false,
       exclude: false,
     })
   })
@@ -34,6 +36,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: 'some-package@2.1.0',
       name: 'some-package',
       version: '2.1.0',
+      wildcard: false,
       exclude: false,
     })
   })
@@ -43,6 +46,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '@acme/private-utils@1.0.0-beta.3',
       name: '@acme/private-utils',
       version: '1.0.0-beta.3',
+      wildcard: false,
       exclude: false,
     })
   })
@@ -57,6 +61,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '@acme/AuthClient@1.0.0',
       name: '@acme/AuthClient',
       version: '1.0.0',
+      wildcard: false,
       exclude: false,
     })
   })
@@ -74,6 +79,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '!some-package',
       name: 'some-package',
       version: undefined,
+      wildcard: false,
       exclude: true,
     })
   })
@@ -83,6 +89,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '!@acme/private-utils',
       name: '@acme/private-utils',
       version: undefined,
+      wildcard: false,
       exclude: true,
     })
   })
@@ -92,6 +99,7 @@ describe('parseEmbeddedPackageSpec()', () => {
       raw: '!some-package@2.1.0',
       name: 'some-package',
       version: '2.1.0',
+      wildcard: false,
       exclude: true,
     })
   })
@@ -143,12 +151,12 @@ describe('wildcard specs', () => {
   it('parses a scope wildcard', () => {
     const spec = parse('@checkly/*')
     expect(spec.name).toBe('@checkly/*')
-    expect(spec.namePattern).toBeDefined()
+    expect(spec.wildcard).toBe(true)
     expect(spec.version).toBeUndefined()
   })
 
   it('leaves plain specs without a pattern', () => {
-    expect(parse('@checkly/foo').namePattern).toBeUndefined()
+    expect(parse('@checkly/foo').wildcard).toBe(false)
   })
 
   it('matches every package in a scope', () => {
@@ -185,15 +193,34 @@ describe('wildcard specs', () => {
 
   it('combines a wildcard with an exact version pin', () => {
     const spec = parse('@checkly/*@1.2.3')
-    expect(spec.namePattern).toBeDefined()
+    expect(spec.wildcard).toBe(true)
     expect(spec.version).toBe('1.2.3')
   })
 
-  it('collapses consecutive wildcards, avoiding pathological backtracking', () => {
+  it('treats consecutive wildcards as one', () => {
     expect(matches('a**b', 'axb')).toBe(true)
     expect(matches('a**b', 'ab')).toBe(true)
-    // A long scoped mismatch resolves instantly rather than backtracking.
     expect(matches('*'.repeat(20), `@${'x'.repeat(120)}/pkg`)).toBe(false)
+  })
+
+  it('resolves many separated wildcards without backtracking blowup', { timeout: 2_000 }, () => {
+    // The regex spelling of this pattern (`^a[^/]*a[^/]*...b$`) takes over
+    // a minute on the mismatch below; the greedy matcher is O(n·m). The
+    // tight test timeout is the canary against reintroducing a
+    // backtracking implementation.
+    const pattern = 'a*a*a*a*a*a*a*a*a*a*a*b'
+    expect(matches(pattern, 'a'.repeat(200))).toBe(false)
+    expect(matches(pattern, `${'a'.repeat(200)}b`)).toBe(true)
+  })
+
+  it('gives back greedily matched runs when a later literal needs them', () => {
+    expect(matches('a*ab', 'aab')).toBe(true)
+    expect(matches('a*ab', 'aaab')).toBe(true)
+    expect(matches('a*ab', 'ab')).toBe(false)
+    expect(matches('*a*', 'banana')).toBe(true)
+    expect(matches('*a*a', 'banana')).toBe(true)
+    expect(matches('*b*b', 'banana')).toBe(false)
+    expect(matches('@x/a*ab', '@x/aab')).toBe(true)
   })
 
   it('rejects a wildcard that is not name-shaped', () => {
@@ -282,21 +309,21 @@ describe('parsePackageNamePattern()', () => {
   it('parses a bare package name', () => {
     expect(parsePackageNamePattern('some-package')).toEqual({
       name: 'some-package',
-      namePattern: undefined,
+      wildcard: false,
     })
   })
 
   it('parses a scoped package name', () => {
     expect(parsePackageNamePattern('@acme/private-utils')).toEqual({
       name: '@acme/private-utils',
-      namePattern: undefined,
+      wildcard: false,
     })
   })
 
   it('compiles a wildcard name into a pattern', () => {
     const pattern = parsePackageNamePattern('@acme/*')
     expect(pattern.name).toBe('@acme/*')
-    expect(pattern.namePattern).toBeInstanceOf(RegExp)
+    expect(pattern.wildcard).toBe(true)
     expect(specMatchesPackageName(pattern, '@acme/utils')).toBe(true)
     expect(specMatchesPackageName(pattern, '@other/utils')).toBe(false)
   })

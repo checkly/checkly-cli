@@ -421,7 +421,7 @@ export class EmbeddedPackagesMaterializer {
             detail: `lockfile has: ${versions}`,
           })
         } else {
-          const hint = spec.namePattern !== undefined
+          const hint = spec.wildcard
             ? `pattern matches its name${spec.version !== undefined ? ' and the version is spelled correctly' : ''}`
             : `name ${spec.version !== undefined ? 'and version are' : 'is'} spelled correctly`
           issues.push({
@@ -453,7 +453,7 @@ export class EmbeddedPackagesMaterializer {
           + ` The runner must be able to fetch these itself.`,
         )
       }
-      if (spec.namePattern !== undefined) {
+      if (spec.wildcard) {
         // Wildcards select invisibly, but only the debug log says what they
         // selected. Selections that need attention surface louder: a
         // pattern matching nothing is a fatal validation issue, and matches

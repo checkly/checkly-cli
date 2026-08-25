@@ -11,18 +11,19 @@ export interface EmbeddedPackageSpec {
   raw: string
   /**
    * The package name, e.g. `@acme/private-utils` — or, when
-   * {@link namePattern} is set, the raw name pattern, e.g. `@acme/*`.
+   * {@link wildcard} is set, the raw name pattern, e.g. `@acme/*`.
    */
   name: string
   /** The exact pinned version, if the entry included one. */
   version?: string
   /**
-   * Present when the name contains `*` wildcards: the compiled matcher.
-   * Each `*` matches any run of characters except `/`, so a wildcard
-   * never crosses the scope separator (`@acme/*` matches only packages in
-   * that scope; a bare `*` matches only unscoped names).
+   * True when the name contains `*` wildcards and matches as a pattern
+   * rather than by exact comparison. Each `*` matches any run of
+   * characters except `/`, so a wildcard never crosses the scope
+   * separator (`@acme/*` matches only packages in that scope; a bare `*`
+   * matches only unscoped names).
    */
-  namePattern?: RegExp
+  wildcard: boolean
   /**
    * True when the entry was prefixed with `!`: instead of selecting
    * packages, it removes the ones it matches from what the entries before
@@ -49,8 +50,8 @@ export function specMatchesPackageName (
   spec: PackageNamePattern,
   packageName: string,
 ): boolean {
-  if (spec.namePattern !== undefined) {
-    return spec.namePattern.test(packageName)
+  if (spec.wildcard) {
+    return matchesNamePattern(spec.name, packageName)
   }
   return spec.name === packageName
 }
@@ -76,15 +77,55 @@ export function specLooselyMatchesPackage (spec: EmbeddedPackageSpec, entry: Pac
     && (spec.version === undefined || entry.version === undefined || entry.version === spec.version)
 }
 
-function compileNamePattern (name: string): RegExp {
-  // Splitting on *runs* of `*` treats consecutive stars as one, keeping
-  // the compiled regex free of adjacent `[^/]*` runs, whose backtracking
-  // on a mismatch grows catastrophically with the number of stars.
-  const escaped = name
-    .split(/\*+/)
-    .map(part => part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
-    .join('[^/]*')
-  return new RegExp(`^${escaped}$`)
+/**
+ * Matches a wildcard name pattern against a package name, without a
+ * regex: a regex spelling each `*` as `[^/]*` backtracks catastrophically
+ * on a mismatch once several stars are separated by literals (measured in
+ * the minutes for a dozen stars against a 50-character name), and the
+ * pattern comes straight from the user's config. Since a wildcard never
+ * crosses `/`, the pattern and the name are split on `/` and must agree
+ * on segment count; within a segment, `*` matches any run of characters
+ * via the classic greedy two-pointer walk, which retries at most one
+ * star at a time and runs in O(pattern length × name length).
+ */
+function matchesNamePattern (pattern: string, packageName: string): boolean {
+  const patternSegments = pattern.split('/')
+  const nameSegments = packageName.split('/')
+  if (nameSegments.length !== patternSegments.length) {
+    return false
+  }
+  return patternSegments.every((segment, i) => segmentMatches(segment, nameSegments[i]))
+}
+
+/** Greedy single-segment wildcard match: `*` matches any run of characters. */
+function segmentMatches (pattern: string, text: string): boolean {
+  let p = 0
+  let t = 0
+  let starP = -1
+  let starT = 0
+  while (t < text.length) {
+    if (p < pattern.length && pattern[p] === '*') {
+      // Tentatively match the star to the empty run; remember where to
+      // widen it if the rest of the pattern fails.
+      starP = p
+      starT = t
+      p++
+    } else if (p < pattern.length && pattern[p] === text[t]) {
+      p++
+      t++
+    } else if (starP !== -1) {
+      // Widen the most recent star by one character and retry after it.
+      starT++
+      t = starT
+      p = starP + 1
+    } else {
+      return false
+    }
+  }
+  while (p < pattern.length && pattern[p] === '*') {
+    p++
+  }
+  return p === pattern.length
 }
 
 // npm's name rules for already-published packages: new publishes must be
@@ -149,10 +190,9 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
       `'${name}' is not a valid npm package name${wildcard ? ' pattern' : ''}`,
     )
   }
-  const namePattern = wildcard ? compileNamePattern(name) : undefined
 
   if (rawVersion === undefined) {
-    return { raw, name, namePattern, exclude }
+    return { raw, name, wildcard, exclude }
   }
 
   // Trim before validating: semver.valid() tolerates surrounding whitespace,
@@ -167,7 +207,7 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
     )
   }
 
-  return { raw, name, version, namePattern, exclude }
+  return { raw, name, version, wildcard, exclude }
 }
 
 /**
@@ -176,7 +216,7 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
  * {@link EmbeddedPackageSpec}, without the version pin and `!` exclusion.
  * See the spec's field docs for the wildcard semantics.
  */
-export type PackageNamePattern = Pick<EmbeddedPackageSpec, 'name' | 'namePattern'>
+export type PackageNamePattern = Pick<EmbeddedPackageSpec, 'name' | 'wildcard'>
 
 export class InvalidPackageNamePatternError extends Error {
   constructor (raw: string, reason: string) {
@@ -222,6 +262,6 @@ export function parsePackageNamePattern (raw: string): PackageNamePattern {
 
   return {
     name: raw,
-    namePattern: wildcard ? compileNamePattern(raw) : undefined,
+    wildcard,
   }
 }
