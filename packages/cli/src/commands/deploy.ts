@@ -10,6 +10,7 @@ import {
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData, Diagnostics,
   Session, StatusPage, StatusPageService,
+  StatusPageV3Component, StatusPageV3AutomationRule,
 } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util.js'
@@ -41,6 +42,8 @@ const PRETTY_RESOURCE_TYPES: Record<string, string> = {
   [Dashboard.__checklyType]: 'Dashboard',
   [StatusPage.__checklyType]: 'StatusPage',
   [StatusPageService.__checklyType]: 'StatusPageService',
+  [StatusPageV3Component.__checklyType]: 'StatusPageV3Component',
+  [StatusPageV3AutomationRule.__checklyType]: 'StatusPageV3AutomationRule',
 }
 
 // Internal resources that users don't create directly. They are reported as

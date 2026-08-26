@@ -39,6 +39,11 @@ export class ProjectBundle implements Bundle {
         // later than resource B.
         ...this.synthesizeRecord(this.data['status-page-service']),
         ...this.synthesizeRecord(this.data['status-page']),
+        // v3: components reference their page (and parent group), rules
+        // reference the page and components. Declaration order keeps parents
+        // before children within components.
+        ...this.synthesizeRecord(this.data['status-page-component']),
+        ...this.synthesizeRecord(this.data['status-page-automation-rule']),
         ...this.synthesizeRecord(this.data['check-group']),
         ...this.synthesizeRecord(this.data.check),
         ...this.synthesizeRecord(this.data['alert-channel']),

@@ -7,6 +7,7 @@ import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   StatusPage, StatusPageService, PlaywrightCheck,
+  StatusPageV3, StatusPageV3Component, StatusPageV3AutomationRule,
 } from './/index.js'
 import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import {
@@ -47,8 +48,10 @@ export type Resources = {
   'private-location-check-assignment': PrivateLocationCheckAssignment
   'private-location-group-assignment': PrivateLocationGroupAssignment
   'dashboard': Dashboard
-  'status-page': StatusPage
+  'status-page': StatusPage | StatusPageV3
   'status-page-service': StatusPageService
+  'status-page-component': StatusPageV3Component
+  'status-page-automation-rule': StatusPageV3AutomationRule
 }
 
 export type ProjectData = {
@@ -72,6 +75,8 @@ export class Project extends Construct {
     'dashboard': {},
     'status-page': {},
     'status-page-service': {},
+    'status-page-component': {},
+    'status-page-automation-rule': {},
   }
 
   static readonly __checklyType = 'project'

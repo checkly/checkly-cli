@@ -15,6 +15,50 @@
 
 <!-- EXAMPLE: STATUS_PAGE_SERVICE -->
 
+## Status Page V3 (components)
+
+- Import `StatusPageV3`, `StatusPageV3Component` and `StatusPageV3AutomationRule` from `checkly/constructs`.
+- A v3 status page has no cards or services. Its structure is declared with `StatusPageV3Component` constructs that point at the page via `statusPage`; nest a `SERVICE` under a `GROUP` via `parent`.
+- `StatusPageV3AutomationRule` opens one incident impacting the listed components when a check whose tags overlap with the rule's `tags` fails, and resolves it on recovery. Requires the automated incident management add-on.
+- A logical id deployed as a `StatusPage` cannot be redeployed as a `StatusPageV3` (or vice versa); use a new logical id.
+
+```ts
+import { StatusPageV3, StatusPageV3AutomationRule, StatusPageV3Component } from 'checkly/constructs'
+
+const statusPage = new StatusPageV3('example-status-page-v3', {
+  name: 'Example Status Page',
+  url: 'example-status-page-v3',
+  customDomain: 'status.example.com',
+  defaultTheme: 'AUTO',
+})
+
+const webApp = new StatusPageV3Component('example-web-app-group', {
+  statusPage,
+  type: 'GROUP',
+  name: 'Web application',
+  displayOrder: 1,
+})
+
+const signUp = new StatusPageV3Component('example-sign-up-service', {
+  statusPage,
+  parent: webApp,
+  type: 'SERVICE',
+  name: 'Sign up',
+  description: 'The sign up flow',
+  displayOrder: 1,
+})
+
+new StatusPageV3AutomationRule('example-api-down-rule', {
+  statusPage,
+  name: 'API down',
+  firstUpdate: 'The API is down, we are investigating.',
+  lastUpdate: 'The API has recovered.',
+  tags: ['api:public'],
+  coolDownMinutes: 5,
+  components: [{ component: signUp, targetImpact: 'MAJOR_OUTAGE' }],
+})
+```
+
 ## Dashboard
 
 - Import the `Dashboard` construct from `checkly/constructs`.
