@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parseEmbeddedPackageSpec,
   parsePackageNamePattern,
+  patternsSelectName,
   InvalidEmbeddedPackageSpecError,
   InvalidPackageNamePatternError,
   specLooselyMatchesPackage,
@@ -197,10 +198,10 @@ describe('wildcard specs', () => {
     expect(spec.version).toBe('1.2.3')
   })
 
-  it('treats consecutive wildcards as one', () => {
+  it('treats consecutive wildcards as a scope-crossing globstar', () => {
     expect(matches('a**b', 'axb')).toBe(true)
     expect(matches('a**b', 'ab')).toBe(true)
-    expect(matches('*'.repeat(20), `@${'x'.repeat(120)}/pkg`)).toBe(false)
+    expect(matches('*'.repeat(20), `@${'x'.repeat(120)}/pkg`)).toBe(true)
   })
 
   it('resolves many separated wildcards without backtracking blowup', { timeout: 2_000 }, () => {
@@ -225,6 +226,95 @@ describe('wildcard specs', () => {
 
   it('rejects a wildcard that is not name-shaped', () => {
     expect(() => parse('@/*')).toThrow(/not a valid npm package name pattern/)
+  })
+})
+
+describe('globstar (`**`) specs', () => {
+  const parse = parseEmbeddedPackageSpec
+  const matches = (raw: string, name: string) => specMatchesPackageName(parse(raw), name)
+
+  it('matches every package with a bare **', () => {
+    expect(matches('**', 'unscoped')).toBe(true)
+    expect(matches('**', '@acme/utils')).toBe(true)
+  })
+
+  it('crosses the scope separator in prefix and suffix patterns', () => {
+    expect(matches('**-foo', 'x-foo')).toBe(true)
+    expect(matches('**-foo', '@acme/x-foo')).toBe(true)
+    expect(matches('**-foo', '@acme/foo')).toBe(false)
+    expect(matches('@acme/**', '@acme/utils')).toBe(true)
+    expect(matches('@acme/**', '@other/utils')).toBe(false)
+  })
+
+  it('matches only scoped packages with @**', () => {
+    expect(matches('@**', '@acme/utils')).toBe(true)
+    expect(matches('@**', 'unscoped')).toBe(false)
+  })
+
+  it('lets ** directly before a / also match zero segments, glob-style', () => {
+    expect(matches('**/utils', '@acme/utils')).toBe(true)
+    expect(matches('**/utils', '@other/utils')).toBe(true)
+    expect(matches('**/utils', 'utils')).toBe(true)
+    expect(matches('**/utils', 'xutils')).toBe(false)
+    expect(matches('**/*', 'lodash')).toBe(true)
+    expect(matches('**/*', '@acme/utils')).toBe(true)
+  })
+
+  it('accepts patterns that only a vanishing ** and / pair makes name-shaped', () => {
+    expect(matches('@acme/**/*', '@acme/utils')).toBe(true)
+    expect(matches('@acme/**/*', '@other/utils')).toBe(false)
+    expect(matches('a**/b', 'ab')).toBe(true)
+    expect(matches('**/**/utils', '@acme/utils')).toBe(true)
+  })
+
+  it('keeps rejecting a single star before a /, pointing at the ** spelling', () => {
+    // Only `**` may cross the scope separator; a lone star next to `/`
+    // stays invalid so the single-star semantics have no side door.
+    expect(() => parse('*/utils')).toThrow(/not a valid npm package name pattern/)
+    expect(() => parse('*/utils')).toThrow(/did you mean '\*\*\/utils'\?/)
+    expect(() => parse('*/*')).toThrow(/did you mean '\*\*\/\*'\?/)
+  })
+
+  it('keeps single stars segment-confined next to globstars', () => {
+    expect(matches('@*/**', '@acme/utils')).toBe(true)
+    expect(matches('**/x-*', '@acme/x-utils')).toBe(true)
+    expect(matches('*-**', '@acme/x-utils')).toBe(false)
+  })
+
+  it('combines a globstar with a version pin', () => {
+    const spec = parse('**@1.2.3')
+    expect(spec.name).toBe('**')
+    expect(spec.wildcard).toBe(true)
+    expect(spec.version).toBe('1.2.3')
+  })
+
+  it('parses an excluded globstar', () => {
+    const spec = parse('!**')
+    expect(spec).toEqual({ raw: '!**', name: '**', wildcard: true, exclude: true })
+  })
+
+  it('subtracts through the ordered exclusion rule', () => {
+    const patterns = ['**', '!@acme/keep'].map(parsePackageNamePattern)
+    expect(patternsSelectName(patterns, '@acme/utils')).toBe(true)
+    expect(patternsSelectName(patterns, 'unscoped')).toBe(true)
+    expect(patternsSelectName(patterns, '@acme/keep')).toBe(false)
+    expect(patternsSelectName(['!**'].map(parsePackageNamePattern), 'anything')).toBe(false)
+  })
+
+  it('rejects a globstar pattern that is not name-shaped', () => {
+    expect(() => parse('@/**')).toThrow(/not a valid npm package name pattern/)
+    expect(() => parse('**/ **')).toThrow(/not a valid npm package name pattern/)
+  })
+
+  it('rejects a name@version pin on the prune-side parser', () => {
+    expect(() => parsePackageNamePattern('**@1.2.3'))
+      .toThrow(/'name@version' pins are not supported here/)
+  })
+
+  it('resolves globstar-heavy patterns without backtracking blowup', { timeout: 2_000 }, () => {
+    const pattern = 'a**a**a**a**a**a**a**a**a**a**a**b'
+    expect(matches(pattern, 'a'.repeat(200))).toBe(false)
+    expect(matches(pattern, `${'a'.repeat(200)}b`)).toBe(true)
   })
 })
 
