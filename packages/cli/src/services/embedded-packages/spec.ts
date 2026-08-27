@@ -203,7 +203,7 @@ export class InvalidEmbeddedPackageSpecError extends Error {
   readonly reason: string
 
   constructor (spec: string, reason: string) {
-    super(`Invalid embedded package '${spec}': ${reason}`)
+    super(`Invalid embedded package '${spec}': ${reason}.`)
     this.name = 'InvalidEmbeddedPackageSpecError'
     this.reason = reason
   }
@@ -293,7 +293,7 @@ export type PackageNamePattern = Pick<EmbeddedPackageSpec, 'name' | 'wildcard' |
 
 export class InvalidPackageNamePatternError extends Error {
   constructor (raw: string, reason: string) {
-    super(`Invalid package name pattern '${raw}': ${reason}`)
+    super(`Invalid package name pattern '${raw}': ${reason}.`)
     this.name = 'InvalidPackageNamePatternError'
   }
 }

@@ -254,8 +254,7 @@ describe('loadChecklyConfig()', () => {
       path.join(__dirname, 'fixtures', 'configs'),
       ['bundle-packages-prune-member-both.js'],
     )).rejects.toThrow(
-      `Config field 'bundle.packages.prune' is invalid: a member-scoped prune entry`
-      + ` must have exactly one of 'remove' and 'keep'`,
+      `a member-scoped prune entry must have exactly one of 'remove' and 'keep'`,
     )
   })
   it('rejects a member-scoped prune entry with neither remove nor keep', async () => {
@@ -263,8 +262,7 @@ describe('loadChecklyConfig()', () => {
       path.join(__dirname, 'fixtures', 'configs'),
       ['bundle-packages-prune-member-neither.js'],
     )).rejects.toThrow(
-      `Config field 'bundle.packages.prune' is invalid: a member-scoped prune entry`
-      + ` must have exactly one of 'remove' and 'keep'`,
+      `a member-scoped prune entry must have exactly one of 'remove' and 'keep'`,
     )
   })
   it('rejects a member-scoped prune entry with an unknown field', async () => {
@@ -272,8 +270,7 @@ describe('loadChecklyConfig()', () => {
       path.join(__dirname, 'fixtures', 'configs'),
       ['bundle-packages-prune-member-unknown-field.js'],
     )).rejects.toThrow(
-      `Config field 'bundle.packages.prune' is invalid: 'path' is not a member-scoped`
-      + ` prune entry field (expected member, remove, keep)`,
+      `'path' is not a member-scoped prune entry field (expected member, remove, keep)`,
     )
   })
   it('rejects a member selector that is not a name pattern', async () => {
@@ -318,6 +315,40 @@ describe('loadChecklyConfig()', () => {
       configDir,
       ['runner-registries-misspelled-key.js'],
     )).rejects.toThrow(`Property "runner.registires" is not supported`)
+  })
+  it('reports every runner.registries issue in a single run', async () => {
+    const error = await loadInvalidConfig('runner-registries-multiple-errors.js')
+    expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining(`property "runner.registries"`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`upstream 'yarnpkg': 'auth.type' must be 'bearer'`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`upstream 'yarnpkg': 'auth.token' must be exactly one environment variable reference`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`packages[0]: upstream 'red' is not defined under 'upstreams' (defined: 'yarnpkg')`),
+      }),
+    ]))
+  })
+  it('reports every bundle.packages.prune issue in a single run', async () => {
+    const error = await loadInvalidConfig('bundle-packages-prune-multiple-errors.js')
+    expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining(`property "bundle.packages.prune"`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`'peerDependences' is not a dependency class`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`'name@version' pins are not supported here`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`'dependencies' must be true or an array of package name patterns`),
+      }),
+    ]))
   })
   it('rejects a runner.registries rule using an unknown upstream name', async () => {
     await expect(loadChecklyConfig(

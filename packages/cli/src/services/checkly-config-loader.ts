@@ -17,9 +17,9 @@ import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
 import { FileLoader } from '../loader/index.js'
 import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
-import { BundlePackagesPrune, normalizePackagePrune } from './check-parser/package-prune.js'
+import { BundlePackagesPrune, collectPackagePruneIssues } from './check-parser/package-prune.js'
 import { parseEmbeddedPackageSpec } from './embedded-packages/spec.js'
-import { Registries, validateRegistries } from './runner/registries.js'
+import { Registries, collectRegistriesIssues } from './runner/registries.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,
@@ -581,14 +581,9 @@ function validateBundle (config: ChecklyConfig, diagnostics: Diagnostics): void 
     return
   }
 
-  try {
-    normalizePackagePrune(packages.prune)
-  } catch (cause) {
-    diagnostics.add(new InvalidPropertyValueDiagnostic(
-      'bundle.packages.prune',
-      cause as Error,
-    ))
-  }
+  collectPackagePruneIssues(packages.prune, issue => {
+    diagnostics.add(new InvalidPropertyValueDiagnostic('bundle.packages.prune', issue))
+  })
 
   const embeddedPackages = packages.embed
   if (embeddedPackages === undefined) {
@@ -649,12 +644,7 @@ function validateRunner (config: ChecklyConfig, diagnostics: Diagnostics): void 
     return
   }
 
-  try {
-    validateRegistries(registries)
-  } catch (cause) {
-    diagnostics.add(new InvalidPropertyValueDiagnostic(
-      'runner.registries',
-      cause as Error,
-    ))
-  }
+  collectRegistriesIssues(registries, issue => {
+    diagnostics.add(new InvalidPropertyValueDiagnostic('runner.registries', issue))
+  })
 }

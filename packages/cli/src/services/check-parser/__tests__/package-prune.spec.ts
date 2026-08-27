@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 
 import {
   BundlePackagesPrune,
+  collectPackagePruneIssues,
   DEPENDENCY_CLASSES,
   MemberPruneDiagnostics,
   normalizePackagePrune,
@@ -136,7 +137,7 @@ describe('normalizePackagePrune()', () => {
   it('rejects invalid patterns in either shape', () => {
     expect(() => normalizePackagePrune(['pkg@1.0.0'])).toThrow(InvalidPackageNamePatternError)
     expect(() => normalizePackagePrune({ dependencies: ['pkg@1.0.0'] }))
-      .toThrow(InvalidPackageNamePatternError)
+      .toThrow(`'dependencies': Invalid package name pattern 'pkg@1.0.0'`)
   })
 
   it('normalizes a member-scoped remove entry, desugaring true to the catch-all pattern', () => {
@@ -219,7 +220,7 @@ describe('normalizePackagePrune()', () => {
     // The hint is for plain objects only; a nested array is not a
     // misplaced member entry and keeps the generic pattern error.
     expect(() => normalizePackagePrune({ dependencies: [['@acme/a']] as any }))
-      .toThrow(InvalidPackageNamePatternError)
+      .toThrow(/'dependencies': Invalid package name pattern/)
   })
 
   it('rejects a non-object, non-string array entry', () => {
@@ -259,11 +260,79 @@ describe('normalizePackagePrune()', () => {
     expect(() => normalizePackagePrune([{ member: 'my-app', keep: { bundled: ['x'] } } as any]))
       .toThrow(/'bundled' is not a dependency class/)
     expect(() => normalizePackagePrune([{ member: 'my-app', remove: ['pkg@1.0.0'] }]))
-      .toThrow(InvalidPackageNamePatternError)
+      .toThrow(/'remove': Invalid package name pattern/)
     expect(() => normalizePackagePrune([{ member: 'pkg@1.0.0', remove: ['x'] }]))
-      .toThrow(InvalidPackageNamePatternError)
+      .toThrow(/'member': Invalid package name pattern/)
     expect(() => normalizePackagePrune([{ member: './packages/app', remove: ['x'] }]))
-      .toThrow(InvalidPackageNamePatternError)
+      .toThrow(/'member': Invalid package name pattern/)
+  })
+})
+
+function packagePruneIssueErrors (raw: unknown): Error[] {
+  const issues: Error[] = []
+  collectPackagePruneIssues(raw as any, issue => issues.push(issue))
+  return issues
+}
+
+function packagePruneIssues (raw: unknown): string[] {
+  return packagePruneIssueErrors(raw).map(issue => issue.message)
+}
+
+describe('collectPackagePruneIssues()', () => {
+  it('returns no issues for valid values', () => {
+    expect(packagePruneIssues(undefined)).toEqual([])
+    expect(packagePruneIssues(['@acme/*'])).toEqual([])
+    expect(packagePruneIssues({ peerDependencies: true })).toEqual([])
+    expect(packagePruneIssues([{ member: 'my-app', keep: ['left-pad'] }])).toEqual([])
+  })
+
+  it('collects every issue instead of stopping at the first', () => {
+    const issues = packagePruneIssues({
+      peerDependences: true,
+      devDependencies: ['ok-name', 'bad@1.0.0'],
+      dependencies: 5,
+    })
+    expect(issues).toEqual([
+      expect.stringContaining(`'peerDependences' is not a dependency class`),
+      expect.stringContaining(`'name@version' pins are not supported here`),
+      expect.stringContaining(`'dependencies' must be true or an array of package name patterns`),
+    ])
+  })
+
+  it('reports a global pattern issue with its own error, uncontextualized', () => {
+    const issues = packagePruneIssueErrors(['pkg@1.0.0'])
+    expect(issues).toHaveLength(1)
+    expect(issues[0]).toBeInstanceOf(InvalidPackageNamePatternError)
+  })
+
+  it('distinguishes the same bad pattern across dependency classes', () => {
+    const issues = packagePruneIssues({
+      dependencies: ['bad@1.0.0'],
+      devDependencies: ['bad@1.0.0'],
+    })
+    expect(issues).toEqual([
+      expect.stringContaining(`'dependencies': Invalid package name pattern 'bad@1.0.0'`),
+      expect.stringContaining(`'devDependencies': Invalid package name pattern 'bad@1.0.0'`),
+    ])
+  })
+
+  it('collects every independent issue of a member-scoped entry, prefixed with its index', () => {
+    const issues = packagePruneIssues([
+      { member: 'my-app', remove: ['ok-name'] },
+      { membre: 'my-app', keep: ['bad@1.0.0'] },
+    ])
+    expect(issues).toEqual([
+      expect.stringContaining(`[1]: 'membre' is not a member-scoped prune entry field`),
+      expect.stringContaining(`[1]: 'member' must be a workspace member name pattern`),
+      expect.stringContaining(`[1]: 'keep': Invalid package name pattern 'bad@1.0.0'`),
+    ])
+  })
+
+  it('does not validate a selection when a scoped entry lacks exactly one of remove and keep', () => {
+    const issues = packagePruneIssues(['ok-name', { member: 'my-app' }])
+    expect(issues).toEqual([
+      expect.stringContaining(`[1]: a member-scoped prune entry must have exactly one of 'remove' and 'keep'`),
+    ])
   })
 })
 
