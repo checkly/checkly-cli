@@ -2,6 +2,7 @@ import chalk from 'chalk'
 import { ux } from '@oclif/core'
 
 import { BaseCommand } from '../commands/baseCommand.js'
+import { Diagnostics } from '../constructs/diagnostics.js'
 import { wrap } from './wrap.js'
 import logSymbols from 'log-symbols'
 
@@ -108,6 +109,18 @@ export class CommandStyle {
     }
     this.c.log(`${logSymbols.error} ${chalk.red(message)}`)
     this.c.log()
+  }
+
+  diagnostics (diagnostics: Diagnostics) {
+    for (const diag of diagnostics.observations) {
+      if (diag.isFatal()) {
+        this.longError(diag.title, diag.message)
+      } else if (!diag.isBenign()) {
+        this.longWarning(diag.title, diag.message)
+      } else {
+        this.longInfo(diag.title, diag.message)
+      }
+    }
   }
 
   fatal (message: string) {

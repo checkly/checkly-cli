@@ -435,6 +435,16 @@ export const defaultFilenames = [
   'checkly.config.cjs',
 ]
 
+/**
+ * Loads and validates the Checkly config file.
+ *
+ * All validation issues are collected as diagnostics attributed to the
+ * config file. When any of them is fatal, loading fails with an
+ * {@link InvalidConfigError} carrying the diagnostics. The returned
+ * diagnostics therefore only ever contain non-fatal observations; callers
+ * that render diagnostics should seed their collector with them ahead of
+ * project-level diagnostics so that config issues render first.
+ */
 export async function loadChecklyConfig (
   dir: string,
   filenames = defaultFilenames,
