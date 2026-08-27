@@ -43,6 +43,7 @@ import {
 } from './patched-dependencies.js'
 import { PackageManager } from './package-files/package-manager.js'
 import { File } from './parser.js'
+import { Registries, REGISTRIES_ARCHIVE_PATH, serializeRegistries, validateRegistries } from '../runner/registries.js'
 import { Workspace } from './package-files/workspace.js'
 import { pathToPosix } from '../util.js'
 
@@ -485,6 +486,15 @@ export type CreateBundlerForWorkspaceOptions =
   & Omit<ComputeWorkspaceCacheHashOptions, 'embeddedPackages'>
   & {
     /**
+     * The project's `runner.registries` option, when set. Serialized into
+     * the bundle as {@link REGISTRIES_ARCHIVE_PATH} during finalize() so
+     * Checkly runners route the bundle's package installs through the
+     * configured upstreams, and mixed into the cache hash: repointing a
+     * registry changes the runner's install inputs without necessarily
+     * touching the lockfile.
+     */
+    runnerRegistries?: Registries
+    /**
      * The materializer for the project's `bundle.packages.embed` option,
      * when set. The tarballs are materialized during finalize(), after the
      * bundled lockfile has been pruned, so only tarballs the shipped
@@ -580,6 +590,13 @@ interface WorkspaceBundleContext {
    */
   packagePrune?: NormalizedPackagePrune
   /**
+   * The serialized `runner.registries` configuration, registered into the
+   * bundle as {@link REGISTRIES_ARCHIVE_PATH} during finalize(). Serialized
+   * once at construction so the eager cache hash and the finalize()
+   * recompute digest the same bytes.
+   */
+  runnerRegistriesContent?: string
+  /**
    * Composes the cache hash from the workspace inputs captured at
    * construction time, plus the given bundle-time inputs — including the
    * embedded set actually shipped, which every caller passes explicitly.
@@ -656,9 +673,22 @@ export class Bundler {
       embeddedPackagesMaterializer,
       packageManager,
       packagePrune,
+      runnerRegistries,
     } = options
 
     const embeddedPackages = (await embeddedPackagesMaterializer?.plan())?.tarballs
+
+    // Serialized once so the eager cache hash below, the finalize()
+    // recompute and the registered bundle file all agree on the exact
+    // bytes. Re-validated on entry like `normalizePackagePrune` is — the
+    // config loader has already validated config-sourced values, but
+    // programmatic callers reach this constructor directly.
+    const runnerRegistriesContent = runnerRegistries !== undefined
+      ? serializeRegistries(validateRegistries(runnerRegistries))
+      : undefined
+    const runnerRegistriesDigest = runnerRegistriesContent !== undefined
+      ? createHash('sha256').update(runnerRegistriesContent, 'utf8').digest()
+      : undefined
 
     // The composition is captured so finalize() can recompute the hash with
     // bundle-time additions (faux manifests, a pruned lockfile) from the
@@ -669,6 +699,7 @@ export class Bundler {
     const composeCacheHash = (extra: BundleTimeCacheHashInputs): string => {
       return composeWorkspaceCacheHash(cacheHashInputs, {
         dependencyCacheVersion,
+        runnerRegistries: runnerRegistriesDigest,
         ...extra,
       })
     }
@@ -682,6 +713,7 @@ export class Bundler {
         packageManager,
         embeddedPackagesMaterializer,
         packagePrune: normalizePackagePrune(packagePrune),
+        runnerRegistriesContent,
         composeCacheHash,
       },
     })
@@ -780,6 +812,8 @@ export class Bundler {
     }
     const embeddedPackages = await this.#materializeEmbeddedPackages(context, pruned)
 
+    this.#registerRunnerRegistries(context)
+
     const fauxPackageJsons: FauxPackageJsonInput[] = []
     for (const [archivePath, file] of this.#files) {
       if (file.physical || path.posix.basename(archivePath) !== 'package.json') {
@@ -802,6 +836,40 @@ export class Bundler {
       prunedLockfile: pruned,
       embeddedPackages: embeddedPackageHashInputs(embeddedPackages),
     }))
+  }
+
+  /**
+   * Registers the serialized `runner.registries` configuration into the
+   * bundle at {@link REGISTRIES_ARCHIVE_PATH}. The path is CLI-managed:
+   * runners honor whatever lands there, so a pre-existing entry — a
+   * hand-written file an `include` glob dragged in, which has passed no
+   * validation and contributes nothing to the cache hash — is dropped
+   * rather than shipped, whether or not the option is set. Set directly
+   * rather than through `registerFiles`, whose prefer-physical rule
+   * would keep such a file. Skipped when the bundle is empty: the
+   * project then has no Playwright Check Suite, nothing is uploaded, and
+   * registering the file would make `isEmpty` misreport.
+   */
+  #registerRunnerRegistries (context: WorkspaceBundleContext): void {
+    if (this.#files.delete(REGISTRIES_ARCHIVE_PATH)) {
+      process.stderr.write(
+        `Warning: ${REGISTRIES_ARCHIVE_PATH} is generated from the 'runner.registries' config `
+        + `field and cannot be supplied as a project file; the included file was dropped.\n`,
+      )
+    }
+
+    const content = context.runnerRegistriesContent
+    if (content === undefined || this.isEmpty) {
+      return
+    }
+
+    this.#files.set(REGISTRIES_ARCHIVE_PATH, {
+      // A virtual file's archive path is derived from its filePath
+      // relative to the strip prefix, so the filePath must sit under it.
+      filePath: path.join(this.#stripPrefix ?? '', REGISTRIES_ARCHIVE_PATH),
+      physical: false,
+      content,
+    })
   }
 
   /**

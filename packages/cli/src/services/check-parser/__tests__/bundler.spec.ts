@@ -19,6 +19,7 @@ import { Err, Ok } from '../package-files/result.js'
 import { EmbeddedPackageError, EmbeddedPackagesMaterializer } from '../../embedded-packages/materializer.js'
 import { TarballCache } from '../../embedded-packages/cache.js'
 import { PayloadTooLargeError } from '../../../rest/errors.js'
+import { Registries, serializeRegistries, validateRegistries } from '../../runner/registries.js'
 
 const uploadCodeBundle = vi.hoisted(() => vi.fn())
 
@@ -1699,4 +1700,158 @@ describe('Bundler.finalize() patch filtering with real pnpm', () => {
     expect(await fs.readFile(path.join(dir, 'patches/ee-first@1.1.1.patch'), 'utf8'))
       .toEqual(await fs.readFile(path.join(FIXTURE_ROOT, 'patches/ee-first@1.1.1.patch'), 'utf8'))
   }, 60_000)
+})
+
+describe('Bundler.finalize() runner registries', () => {
+  let dir: string
+
+  const registriesConfig = () => ({
+    upstreams: {
+      npmjs: { url: 'https://registry.npmjs.org/' },
+      internal: {
+        url: 'https://npm.example.com/',
+        auth: { type: 'bearer' as const, token: '${INTERNAL_NPM_TOKEN}' },
+      },
+    },
+    packages: [
+      { pattern: '@acme/**', upstreams: ['internal'] },
+      { pattern: '**', upstreams: ['npmjs', 'internal'] },
+    ],
+  })
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-registries-')))
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+      name: 'registries-fixture-root',
+      private: true,
+    }))
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  const makeWorkspace = () => new Workspace({
+    root: new Package({ name: 'registries-fixture-root', path: dir }),
+    packages: [],
+    lockfile: Err(new Error('no lockfile')),
+    configFile: Err(new Error('no config file')),
+  })
+
+  const makeBundler = (runnerRegistries?: Registries) => Bundler.createForWorkspace(makeWorkspace(), {
+    tempDir: path.join(dir, 'out'),
+    packageManager: npmPackageManager,
+    runnerRegistries,
+  })
+
+  const readArchive = async (archiveFile: string): Promise<Map<string, string>> => {
+    const contents = new Map<string, string>()
+    await list({ file: archiveFile, onReadEntry: entry => {
+      const chunks: Buffer[] = []
+      entry.on('data', chunk => chunks.push(chunk as Buffer))
+      entry.on('end', () => contents.set(entry.path, Buffer.concat(chunks).toString('utf8')))
+      entry.resume()
+    } })
+    return contents
+  }
+
+  it('ships the serialized configuration as .checkly/config/registries.json', async () => {
+    const bundler = await makeBundler(registriesConfig())
+    bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
+    const archive = await bundler.finalize()
+
+    const content = (await readArchive(archive.archiveFile)).get('.checkly/config/registries.json')
+    expect(content).toEqual(serializeRegistries(validateRegistries(registriesConfig())))
+    expect(JSON.parse(content!)).toMatchObject({ version: 1 })
+  })
+
+  it('replaces a project file at the registries path with the generated configuration', async () => {
+    await fs.mkdir(path.join(dir, '.checkly/config'), { recursive: true })
+    await fs.writeFile(path.join(dir, '.checkly/config/registries.json'), '{"version":1,"handwritten":true}')
+
+    const stderrWrites: string[] = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      stderrWrites.push(String(chunk))
+      return true
+    })
+
+    try {
+      const bundler = await makeBundler(registriesConfig())
+      bundler.registerFiles(
+        { filePath: path.join(dir, 'package.json'), physical: true },
+        { filePath: path.join(dir, '.checkly/config/registries.json'), physical: true },
+      )
+      const archive = await bundler.finalize()
+
+      const content = (await readArchive(archive.archiveFile)).get('.checkly/config/registries.json')
+      expect(content).toEqual(serializeRegistries(validateRegistries(registriesConfig())))
+      expect(stderrWrites.join('')).toContain('cannot be supplied as a project file')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('drops a project file at the registries path when the option is not set', async () => {
+    await fs.mkdir(path.join(dir, '.checkly/config'), { recursive: true })
+    await fs.writeFile(path.join(dir, '.checkly/config/registries.json'), '{"version":1,"handwritten":true}')
+
+    const stderrWrites: string[] = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      stderrWrites.push(String(chunk))
+      return true
+    })
+
+    try {
+      const bundler = await makeBundler()
+      bundler.registerFiles(
+        { filePath: path.join(dir, 'package.json'), physical: true },
+        { filePath: path.join(dir, '.checkly/config/registries.json'), physical: true },
+      )
+      const archive = await bundler.finalize()
+
+      expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/config/registries.json')
+      expect(stderrWrites.join('')).toContain('cannot be supplied as a project file')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('ships no registries file when the option is not set', async () => {
+    const bundler = await makeBundler()
+    bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
+    const archive = await bundler.finalize()
+
+    expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/config/registries.json')
+  })
+
+  it('keeps an empty bundle empty even when the option is set', async () => {
+    const bundler = await makeBundler(registriesConfig())
+    const archive = await bundler.finalize()
+
+    expect(bundler.isEmpty).toBe(true)
+    expect([...(await readArchive(archive.archiveFile)).keys()]).toEqual([])
+  })
+
+  it('mixes the serialized configuration into the cache hash', async () => {
+    const withConfig = await makeBundler(registriesConfig())
+    const without = await makeBundler()
+
+    const serialized = serializeRegistries(validateRegistries(registriesConfig()))
+    const expected = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace()), {
+      runnerRegistries: createHash('sha256').update(serialized, 'utf8').digest(),
+    })
+    expect(withConfig.cacheHash.toJSON()).toEqual(expected)
+    expect(without.cacheHash.toJSON()).toEqual(
+      composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace())),
+    )
+    expect(withConfig.cacheHash.toJSON()).not.toEqual(without.cacheHash.toJSON())
+  })
+
+  it('keeps the cache hash stable across finalize()', async () => {
+    const bundler = await makeBundler(registriesConfig())
+    const eager = bundler.cacheHash.toJSON()
+    bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
+    await bundler.finalize()
+    expect(bundler.cacheHash.toJSON()).toEqual(eager)
+  })
 })
