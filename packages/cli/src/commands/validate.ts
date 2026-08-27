@@ -3,7 +3,6 @@ import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand.js'
 import { parseProject } from '../services/project-parser.js'
 import { loadChecklyConfig } from '../services/checkly-config-loader.js'
-import { Diagnostics } from '../constructs/index.js'
 import { splitConfigFilePath } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { Runtime } from '../runtimes/index.js'
@@ -39,6 +38,7 @@ export default class Validate extends AuthCommand {
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
+      diagnostics: configDiagnostics,
     } = await loadChecklyConfig(configDirectory, configFilenames)
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
@@ -68,28 +68,10 @@ export default class Validate extends AuthCommand {
 
     this.style.actionSuccess()
 
-    this.style.actionStart('Validating project resources')
-
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-
-    for (const diag of diagnostics.observations) {
-      if (diag.isFatal()) {
-        this.style.longError(diag.title, diag.message)
-      } else if (!diag.isBenign()) {
-        this.style.longWarning(diag.title, diag.message)
-      } else {
-        this.style.longInfo(diag.title, diag.message)
-      }
-    }
-
-    if (diagnostics.isFatal()) {
-      this.style.actionFailure()
-      this.style.shortError(`Your project is not valid.`)
-      this.exit(1)
-    }
-
-    this.style.actionSuccess()
+    await this.validateProject(project, {
+      configDiagnostics,
+      failureMessage: `Your project is not valid.`,
+    })
 
     this.style.shortSuccess(`Your project is valid.`)
   }

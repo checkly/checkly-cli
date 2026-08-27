@@ -18,6 +18,7 @@ vi.mock('../../../services/checkly-config-loader', () => ({
 import { detectCliMode } from '../../../helpers/cli-mode.js'
 import * as api from '../../../rest/api.js'
 import { loadChecklyConfig } from '../../../services/checkly-config-loader.js'
+import { Diagnostics } from '../../../constructs/diagnostics.js'
 import { ImportPlan } from '../../../rest/projects.js'
 import ImportCommitCommand from '../commit.js'
 
@@ -52,6 +53,7 @@ function createCommandContext (parsed: unknown) {
     }),
     confirmOrAbort: vi.fn(),
     style: {
+      diagnostics: vi.fn(),
       actionStart: vi.fn(),
       actionSuccess: vi.fn(),
       actionFailure: vi.fn(),
@@ -68,6 +70,7 @@ describe('import commit command (non-interactive)', () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.commitImportPlan).mockResolvedValue({} as any)
   })
@@ -132,6 +135,7 @@ describe('import commit command (confirmation gate)', () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.commitImportPlan).mockResolvedValue({} as any)
   })

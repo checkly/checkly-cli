@@ -4,6 +4,7 @@ import { isCI } from 'ci-info'
 import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
 import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { InvalidConfigError } from '../services/config-diagnostics.js'
 import { splitConfigFilePath, getEnvs, getGitInformation, getCiInformation } from '../services/util.js'
 import type { Region } from '../index.js'
 import TriggerRunner from '../services/trigger-runner.js'
@@ -140,10 +141,16 @@ export default class Trigger extends AuthCommand {
 
     let checklyConfig
     try {
-      const { config } = await loadChecklyConfig(configDirectory, configFilenames)
+      const { config, diagnostics: configDiagnostics } = await loadChecklyConfig(configDirectory, configFilenames)
       checklyConfig = config
-    } catch {
-      // Don't throw an error if the config file is missing
+      this.style.diagnostics(configDiagnostics)
+    } catch (err) {
+      // Trigger works without a project, so config-load failures are
+      // tolerated - except an invalid config, which should be fixed rather
+      // than silently ignored.
+      if (err instanceof InvalidConfigError) {
+        throw err
+      }
     }
     const location = await this.prepareRunLocation(checklyConfig?.cli, {
       runLocation: runLocation as keyof Region,

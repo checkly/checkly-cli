@@ -141,6 +141,13 @@ future deployments include the imported resources.`
     'import',
   ]
 
+  /**
+   * Non-fatal diagnostics from loading the Checkly config file, rendered
+   * ahead of project-level diagnostics. Empty when no config file exists
+   * (e.g. the config was created interactively).
+   */
+  readonly #configDiagnostics = new Diagnostics()
+
   async run (): Promise<void> {
     const { flags, argv } = await this.parse(ImportPlanCommand)
     const {
@@ -899,7 +906,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     try {
       const {
         config: checklyConfig,
+        diagnostics: configDiagnostics,
       } = await loadChecklyConfig(configDirectory, configFilenames)
+
+      this.#configDiagnostics.extend(configDiagnostics)
 
       return checklyConfig
     } catch (err) {
@@ -909,31 +919,6 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
       throw err
     }
-  }
-
-  async #validateProject (project: Project): Promise<void> {
-    this.style.actionStart('Validating project resources')
-
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-
-    for (const diag of diagnostics.observations) {
-      if (diag.isFatal()) {
-        this.style.longError(diag.title, diag.message)
-      } else if (!diag.isBenign()) {
-        this.style.longWarning(diag.title, diag.message)
-      } else {
-        this.style.longInfo(diag.title, diag.message)
-      }
-    }
-
-    if (diagnostics.isFatal()) {
-      this.style.actionFailure()
-      this.style.shortError(`Unable to continue due to unresolved validation errors.`)
-      this.exit(1)
-    }
-
-    this.style.actionSuccess()
   }
 
   async #findExportedResources (
@@ -974,7 +959,9 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       throw err
     }
 
-    await this.#validateProject(project)
+    await this.validateProject(project, {
+      configDiagnostics: this.#configDiagnostics,
+    })
 
     this.style.actionStart('Searching for exported resources')
 

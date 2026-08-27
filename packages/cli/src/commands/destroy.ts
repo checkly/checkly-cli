@@ -38,7 +38,11 @@ export default class Destroy extends AuthCommand {
       'cancel-in-progress-deployment': cancelInProgress,
     } = flags
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
-    const { config: checklyConfig } = await loadChecklyConfig(configDirectory, configFilenames)
+    const {
+      config: checklyConfig,
+      diagnostics: configDiagnostics,
+    } = await loadChecklyConfig(configDirectory, configFilenames)
+    this.style.diagnostics(configDiagnostics)
     const account = this.account
 
     await this.confirmOrAbort({

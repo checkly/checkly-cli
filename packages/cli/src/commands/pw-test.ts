@@ -12,7 +12,7 @@ import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFla
 import * as api from '../rest/api.js'
 import config from '../services/config.js'
 import { parseProject } from '../services/project-parser.js'
-import { Diagnostics, PlaywrightCheck, RuntimeCheck, Session } from '../constructs/index.js'
+import { PlaywrightCheck, RuntimeCheck, Session } from '../constructs/index.js'
 import { Flags } from '@oclif/core'
 import { createReporters, ReporterType } from '../reporters/reporter.js'
 import TestRunner from '../services/test-runner.js'
@@ -156,6 +156,7 @@ export default class PwTestCommand extends AuthCommand {
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
+      diagnostics: configDiagnostics,
     } = await loadChecklyConfig(configDirectory, configFilenames, false, pwPathFlag)
     let playwrightConfigPath = pwPathFlag ?? checklyConfig.checks?.playwrightConfigPath
 
@@ -242,28 +243,7 @@ export default class PwTestCommand extends AuthCommand {
 
     this.style.actionSuccess()
 
-    this.style.actionStart('Validating project resources')
-
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-
-    for (const diag of diagnostics.observations) {
-      if (diag.isFatal()) {
-        this.style.longError(diag.title, diag.message)
-      } else if (!diag.isBenign()) {
-        this.style.longWarning(diag.title, diag.message)
-      } else {
-        this.style.longInfo(diag.title, diag.message)
-      }
-    }
-
-    if (diagnostics.isFatal()) {
-      this.style.actionFailure()
-      this.style.shortError(`Unable to continue due to unresolved validation errors.`)
-      this.exit(1)
-    }
-
-    this.style.actionSuccess()
+    await this.validateProject(project, { configDiagnostics })
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
       dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
