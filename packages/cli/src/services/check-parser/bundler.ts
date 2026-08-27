@@ -487,7 +487,7 @@ export type CreateBundlerForWorkspaceOptions =
   & {
     /**
      * The project's `runner.registries` option, when set. Serialized into
-     * the bundle as `.checkly/config/registries.json` during finalize() so
+     * the bundle as {@link REGISTRIES_ARCHIVE_PATH} during finalize() so
      * Checkly runners route the bundle's package installs through the
      * configured upstreams, and mixed into the cache hash: repointing a
      * registry changes the runner's install inputs without necessarily
@@ -591,7 +591,7 @@ interface WorkspaceBundleContext {
   packagePrune?: NormalizedPackagePrune
   /**
    * The serialized `runner.registries` configuration, registered into the
-   * bundle as `.checkly/config/registries.json` during finalize(). Serialized
+   * bundle as {@link REGISTRIES_ARCHIVE_PATH} during finalize(). Serialized
    * once at construction so the eager cache hash and the finalize()
    * recompute digest the same bytes.
    */
