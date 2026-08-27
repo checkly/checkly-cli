@@ -13,10 +13,13 @@ import { COMPOSABLE_URL_REQUIREMENT, parseComposableUrl } from '../embedded-pack
  * zero segments); runners must reproduce them exactly — off-the-shelf
  * glob matchers differ, e.g. on a `**` that is not a whole segment.
  *
- * When the file is present, its routing rules take precedence over
- * registry directives in the bundle's own config files (`.npmrc`,
- * `pnpm-workspace.yaml`, `.yarnrc.yml`) for upstream selection; those
- * files still supply connection settings such as TLS and proxy options.
+ * When the file is present it is authoritative for the runner's package
+ * installs: registries, credentials and TLS settings in the bundle's own
+ * config files (`.npmrc`, `pnpm-workspace.yaml`, `.yarnrc.yml`) are not
+ * consulted — the runner only scans them for scoped registry routes the
+ * package manager itself would follow, so it can override those
+ * client-side. Upstream TLS trust extends via the `NODE_EXTRA_CA_CERTS`
+ * environment variable, and proxying honors `HTTP(S)_PROXY`/`NO_PROXY`.
  * Embedded packages (`.checkly/embedded-packages/`) always take priority
  * over any routing.
  *
