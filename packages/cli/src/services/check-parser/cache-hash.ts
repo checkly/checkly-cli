@@ -130,7 +130,7 @@ export interface ComposeCacheHashInput {
   prunedLockfile?: LockfileInput
   /**
    * The raw 32-byte SHA-256 digest of the serialized `runner.registries`
-   * configuration shipped in the bundle (`.checkly/registries.json`).
+   * configuration shipped in the bundle (`.checkly/config/registries.json`).
    * Registry routing changes where the runner installs packages from
    * without necessarily touching the lockfile, so the shipped file must
    * contribute to the hash — the same reasoning as the `.npmrc` records.
@@ -284,7 +284,7 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *      SHA-256 digest of the pruned lockfile contents.
  *   9. The runner registries record (if present), labeled
  *      `runner-registries`, whose content is the raw 32-byte SHA-256
- *      digest of the serialized `.checkly/registries.json` shipped in
+ *      digest of the serialized `.checkly/config/registries.json` shipped in
  *      the bundle.
  *
  * All sorts compare strings by UTF-16 code unit (JavaScript's `<`/`>`),

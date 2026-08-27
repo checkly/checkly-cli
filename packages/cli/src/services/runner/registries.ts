@@ -25,7 +25,7 @@ import { COMPOSABLE_URL_REQUIREMENT, parseComposableUrl } from '../embedded-pack
  * entirely and installs from the bundle's own registry configuration,
  * with no error anywhere.
  */
-export const REGISTRIES_ARCHIVE_PATH = '.checkly/registries.json'
+export const REGISTRIES_ARCHIVE_PATH = '.checkly/config/registries.json'
 
 /**
  * The format version written into {@link REGISTRIES_ARCHIVE_PATH}. Runners

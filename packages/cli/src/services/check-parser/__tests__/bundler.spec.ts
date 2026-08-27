@@ -1755,19 +1755,19 @@ describe('Bundler.finalize() runner registries', () => {
     return contents
   }
 
-  it('ships the serialized configuration as .checkly/registries.json', async () => {
+  it('ships the serialized configuration as .checkly/config/registries.json', async () => {
     const bundler = await makeBundler(registriesConfig())
     bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
     const archive = await bundler.finalize()
 
-    const content = (await readArchive(archive.archiveFile)).get('.checkly/registries.json')
+    const content = (await readArchive(archive.archiveFile)).get('.checkly/config/registries.json')
     expect(content).toEqual(serializeRegistries(validateRegistries(registriesConfig())))
     expect(JSON.parse(content!)).toMatchObject({ version: 1 })
   })
 
   it('replaces a project file at the registries path with the generated configuration', async () => {
-    await fs.mkdir(path.join(dir, '.checkly'), { recursive: true })
-    await fs.writeFile(path.join(dir, '.checkly/registries.json'), '{"version":1,"handwritten":true}')
+    await fs.mkdir(path.join(dir, '.checkly/config'), { recursive: true })
+    await fs.writeFile(path.join(dir, '.checkly/config/registries.json'), '{"version":1,"handwritten":true}')
 
     const stderrWrites: string[] = []
     vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
@@ -1779,11 +1779,11 @@ describe('Bundler.finalize() runner registries', () => {
       const bundler = await makeBundler(registriesConfig())
       bundler.registerFiles(
         { filePath: path.join(dir, 'package.json'), physical: true },
-        { filePath: path.join(dir, '.checkly/registries.json'), physical: true },
+        { filePath: path.join(dir, '.checkly/config/registries.json'), physical: true },
       )
       const archive = await bundler.finalize()
 
-      const content = (await readArchive(archive.archiveFile)).get('.checkly/registries.json')
+      const content = (await readArchive(archive.archiveFile)).get('.checkly/config/registries.json')
       expect(content).toEqual(serializeRegistries(validateRegistries(registriesConfig())))
       expect(stderrWrites.join('')).toContain('cannot be supplied as a project file')
     } finally {
@@ -1792,8 +1792,8 @@ describe('Bundler.finalize() runner registries', () => {
   })
 
   it('drops a project file at the registries path when the option is not set', async () => {
-    await fs.mkdir(path.join(dir, '.checkly'), { recursive: true })
-    await fs.writeFile(path.join(dir, '.checkly/registries.json'), '{"version":1,"handwritten":true}')
+    await fs.mkdir(path.join(dir, '.checkly/config'), { recursive: true })
+    await fs.writeFile(path.join(dir, '.checkly/config/registries.json'), '{"version":1,"handwritten":true}')
 
     const stderrWrites: string[] = []
     vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
@@ -1805,11 +1805,11 @@ describe('Bundler.finalize() runner registries', () => {
       const bundler = await makeBundler()
       bundler.registerFiles(
         { filePath: path.join(dir, 'package.json'), physical: true },
-        { filePath: path.join(dir, '.checkly/registries.json'), physical: true },
+        { filePath: path.join(dir, '.checkly/config/registries.json'), physical: true },
       )
       const archive = await bundler.finalize()
 
-      expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/registries.json')
+      expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/config/registries.json')
       expect(stderrWrites.join('')).toContain('cannot be supplied as a project file')
     } finally {
       vi.restoreAllMocks()
@@ -1821,7 +1821,7 @@ describe('Bundler.finalize() runner registries', () => {
     bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
     const archive = await bundler.finalize()
 
-    expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/registries.json')
+    expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/config/registries.json')
   })
 
   it('keeps an empty bundle empty even when the option is set', async () => {
