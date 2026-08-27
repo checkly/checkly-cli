@@ -117,8 +117,15 @@ export type ChecklyConfig = {
        * Each entry is a package name (`'@acme/private-utils'`), which embeds
        * every version of that package found in the workspace lockfile, or an
        * exact `name@version` pin (`'legacy-private-pkg@2.1.0'`). Names may
-       * contain `*` wildcards (`'@acme/*'`, `'acme-*'`); a wildcard never
-       * crosses the `/` scope separator. List every package the runner
+       * contain `*` wildcards (`'@acme/*'`, `'acme-*'`); a single `*` never
+       * crosses the `/` scope separator, while a `**` does — `'**'` matches
+       * every package, and `'**-foo'` matches names ending in `-foo` in any
+       * scope or none. Directly before a `/`, a `**` may together with that
+       * `/` also match nothing, glob-style: `'**' + '/utils'` (one string;
+       * split here only because `*` followed by `/` would end this comment)
+       * matches both `utils` and `@acme/utils`. (Earlier CLI releases
+       * treated a run of stars as a single `*`.) List every package the
+       * runner
        * cannot fetch, including private packages that only appear as
        * transitive dependencies of other private packages — dependencies of
        * listed packages are not embedded automatically.
@@ -194,18 +201,21 @@ export type ChecklyConfig = {
        * by dependency class whose values are `true` (remove the whole
        * class) or a pattern array (remove matching entries from that class
        * only). Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
-       * a wildcard never crosses the `/` scope separator, so a bare `'*'`
-       * matches only unscoped names — to remove a whole class, use `true`,
-       * not `['*']`. A `!` prefix turns an entry into an exclusion that
+       * a single `*` never crosses the `/` scope separator, so a bare
+       * `'*'` matches only unscoped names, while a `**` does cross it —
+       * to remove a whole class, use `true` or `['**']`, not `['*']`.
+       * Wildcards follow `bundle.packages.embed`'s rules, including the
+       * glob-style zero-segment match of a `**` directly before a `/`.
+       * (Earlier CLI releases treated a run of stars as a single `*`.)
+       * A `!` prefix turns an entry into an exclusion that
        * removes what it matches from the entries *before* it selected,
        * with `bundle.packages.embed`'s order-sensitive semantics:
        * `['@acme/*', '!@acme/keep']` removes the scope except
        * `@acme/keep`, while the reverse order removes the whole scope
        * because the exclusion runs before anything has been selected. To
        * remove a whole class *except* some packages, select everything
-       * first: `['*', '@*\/*', '!@acme/keep']` — remove the `\` when
-       * copying; it exists only because `*` followed by `/` would end
-       * this comment. `true` cannot be combined with exclusions. Unlike
+       * first: `['**', '!@acme/keep']`.
+       * `true` cannot be combined with exclusions. Unlike
        * `bundle.packages.embed` there are no
        * `name@version` pins; they are rejected at config load. Removed
        * `peerDependencies` take their `peerDependenciesMeta` entries with

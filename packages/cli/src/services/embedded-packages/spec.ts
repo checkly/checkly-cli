@@ -18,10 +18,16 @@ export interface EmbeddedPackageSpec {
   version?: string
   /**
    * True when the name contains `*` wildcards and matches as a pattern
-   * rather than by exact comparison. Each `*` matches any run of
-   * characters except `/`, so a wildcard never crosses the scope
-   * separator (`@acme/*` matches only packages in that scope; a bare `*`
-   * matches only unscoped names).
+   * rather than by exact comparison. Each single `*` matches any run of
+   * characters except `/`, so it never crosses the scope separator
+   * (`@acme/*` matches only packages in that scope; a bare `*` matches
+   * only unscoped names). A run of two or more stars (`**`) matches any
+   * run of characters *including* `/`: `**` alone matches every package,
+   * and `**-foo` matches scoped and unscoped names alike. Directly before
+   * a `/`, a `**` may also match nothing together with that `/` — the
+   * glob habit, so `'**' + '/utils'` (one string; split here only because
+   * `*` followed by `/` would end this comment) matches both `utils` and
+   * `@acme/utils`.
    */
   wildcard: boolean
   /**
@@ -102,50 +108,41 @@ export function specLooselyMatchesPackage (spec: EmbeddedPackageSpec, entry: Pac
  * regex: a regex spelling each `*` as `[^/]*` backtracks catastrophically
  * on a mismatch once several stars are separated by literals (measured in
  * the minutes for a dozen stars against a 50-character name), and the
- * pattern comes straight from the user's config. Since a wildcard never
- * crosses `/`, the pattern and the name are split on `/` and must agree
- * on segment count; within a segment, `*` matches any run of characters
- * via the classic greedy two-pointer walk, which retries at most one
- * star at a time and runs in O(pattern length × name length).
+ * pattern comes straight from the user's config. The tokenized pattern —
+ * with the wildcard semantics {@link EmbeddedPackageSpec.wildcard}
+ * documents — is applied token by token to a boolean row over the name,
+ * where entry `j` records whether the tokens so far can match the first
+ * `j` characters: a literal shifts the row by one matching character, a
+ * star extends every reachable position rightwards one character at a
+ * time (refusing `/` unless doubled), and the star-run-plus-`/` pair
+ * either leaves the row as it is or lands right past any reachable `/`.
+ * No backtracking, and O(pattern length × name length) like the greedy
+ * walk it replaced.
  */
 function matchesNamePattern (pattern: string, packageName: string): boolean {
-  const patternSegments = pattern.split('/')
-  const nameSegments = packageName.split('/')
-  if (nameSegments.length !== patternSegments.length) {
-    return false
-  }
-  return patternSegments.every((segment, i) => segmentMatches(segment, nameSegments[i]))
-}
-
-/** Greedy single-segment wildcard match: `*` matches any run of characters. */
-function segmentMatches (pattern: string, text: string): boolean {
-  let p = 0
-  let t = 0
-  let starP = -1
-  let starT = 0
-  while (t < text.length) {
-    if (p < pattern.length && pattern[p] === '*') {
-      // Tentatively match the star to the empty run; remember where to
-      // widen it if the rest of the pattern fails.
-      starP = p
-      starT = t
-      p++
-    } else if (p < pattern.length && pattern[p] === text[t]) {
-      p++
-      t++
-    } else if (starP !== -1) {
-      // Widen the most recent star by one character and retry after it.
-      starT++
-      t = starT
-      p = starP + 1
+  const n = packageName.length
+  let row: boolean[] = new Array(n + 1).fill(false)
+  row[0] = true
+  for (const token of tokenizePattern(pattern)) {
+    const next: boolean[] = new Array(n + 1).fill(false)
+    if (token[0] === '*' && token.endsWith('/')) {
+      let reachable = false
+      for (let j = 0; j <= n; j++) {
+        reachable = reachable || (j > 0 && row[j - 1])
+        next[j] = row[j] || (j > 0 && reachable && packageName[j - 1] === '/')
+      }
+    } else if (token[0] === '*') {
+      for (let j = 0; j <= n; j++) {
+        next[j] = row[j] || (j > 0 && next[j - 1] && (token.length > 1 || packageName[j - 1] !== '/'))
+      }
     } else {
-      return false
+      for (let j = 1; j <= n; j++) {
+        next[j] = row[j - 1] && packageName[j - 1] === token
+      }
     }
+    row = next
   }
-  while (p < pattern.length && pattern[p] === '*') {
-    p++
-  }
-  return p === pattern.length
+  return row[n]
 }
 
 // npm's name rules for already-published packages: new publishes must be
@@ -153,6 +150,46 @@ function segmentMatches (pattern: string, text: string): boolean {
 // uppercase letters, so both cases are accepted. Leading `.` and `_` stay
 // disallowed, as npm has never permitted them.
 const PACKAGE_NAME_RE = /^(@[a-zA-Z0-9-~][a-zA-Z0-9-~._]*\/)?[a-zA-Z0-9-~][a-zA-Z0-9-._~]*$/
+
+/**
+ * One pattern token per match: a maximal star run with a directly
+ * following `/` attached, or a single literal character. Shared by the
+ * matcher and the name-shape validation so the two agree on what a
+ * globstar-plus-`/` pair is.
+ */
+function tokenizePattern (pattern: string): string[] {
+  return pattern.match(/\*{2,}\/?|\*|[^*]/g) ?? []
+}
+
+/**
+ * Whether a wildcard pattern can produce a valid package name. Every star
+ * token is replaced with a default probe — `a` for a star run, nothing at
+ * all for a `**`-plus-`/` pair, mirroring its zero-segment match — and,
+ * since a valid name contains at most one scope (one leading `@` and one
+ * `/`), one globstar token at a time may additionally stand in for scope
+ * structure: a plain `**` probes as the scope's `@` (`@a`) or its `/`
+ * (`a/a`), and a `**`-plus-`/` pair as a segment (`a/`) or a whole scope
+ * prefix (`@a/`). The pattern is name-shaped when any substitution
+ * satisfies {@link PACKAGE_NAME_RE}. This is a deliberately conservative
+ * subset of what the matcher could match — a shape needing two tokens to
+ * take scope probes at once is rejected — and single `*` runs are never
+ * probed as scope structure, even though a lone star does match a leading
+ * `@` in the matcher: scope-crossing spellings must be written with `**`,
+ * so `'*' + '/utils'` stays rejected while `'**' + '/utils'` is accepted.
+ */
+function isNameShapedPattern (pattern: string): boolean {
+  const tokens = tokenizePattern(pattern)
+  const filled = tokens.map(token => token[0] !== '*' ? token : token.endsWith('/') ? '' : 'a')
+  if (PACKAGE_NAME_RE.test(filled.join(''))) {
+    return true
+  }
+  const withProbe = (index: number, probe: string) => filled
+    .map((token, i) => i === index ? probe : token)
+    .join('')
+  return tokens.some((token, i) => token[1] === '*'
+    && (token.endsWith('/') ? ['a/', '@a/'] : ['@a', 'a/a'])
+      .some(probe => PACKAGE_NAME_RE.test(withProbe(i, probe))))
+}
 
 export class InvalidEmbeddedPackageSpecError extends Error {
   /** The failure alone, without the `Invalid embedded package '<spec>':` prefix. */
@@ -171,8 +208,9 @@ export class InvalidEmbeddedPackageSpecError extends Error {
  *
  * Accepts `name` (embed every lockfile version of the package) and
  * `name@version` with an exact semver version. The name may contain `*`
- * wildcards (`@acme/*`, `acme-*`, `@acme/*-utils`), each matching any run
- * of characters except `/`. A `!` prefix (`!@acme/legacy`, `!@acme/*`,
+ * and `**` wildcards (`@acme/*`, `acme-*`, `**-foo`), matching as
+ * described on {@link EmbeddedPackageSpec.wildcard}. A `!`
+ * prefix (`!@acme/legacy`, `!@acme/*`,
  * `!legacy@2.1.0`) marks the entry as an exclusion, subtracting from what
  * the entries before it selected. Version ranges are rejected: the
  * embedded tarball must be the exact artifact the lockfile resolved, so a
@@ -200,14 +238,21 @@ export function parseEmbeddedPackageSpec (raw: string): EmbeddedPackageSpec {
   const name = versionSeparator > 0 ? pattern.slice(0, versionSeparator) : pattern
   const rawVersion = versionSeparator > 0 ? pattern.slice(versionSeparator + 1) : undefined
 
-  // A wildcard name must still be name-shaped once every `*` stands in for
-  // name characters. (`*` itself appears in npm's legacy name charset, but
-  // no real-world package uses it; here it always means a wildcard.)
+  // A wildcard name must still be name-shaped once every star run stands in
+  // for name characters. (`*` itself appears in npm's legacy name charset,
+  // but no real-world package uses it; here it always means a wildcard.)
   const wildcard = name.includes('*')
-  if (!PACKAGE_NAME_RE.test(wildcard ? name.replace(/\*/g, 'a') : name)) {
+  if (wildcard ? !isNameShapedPattern(name) : !PACKAGE_NAME_RE.test(name)) {
+    // A lone `*` next to `/` is the classic near-miss, since only `**`
+    // crosses the scope separator; point at the doubled spelling when
+    // promoting the star is all it takes to fix the pattern.
+    const promoted = name.replace(/(?<=^|[^*])\*(?=\/)/g, '**')
+    const hint = promoted !== name && isNameShapedPattern(promoted)
+      ? ` (a single '*' never crosses '/'; did you mean '${promoted}'?)`
+      : ''
     throw new InvalidEmbeddedPackageSpecError(
       raw,
-      `'${name}' is not a valid npm package name${wildcard ? ' pattern' : ''}`,
+      `'${name}' is not a valid npm package name${wildcard ? ' pattern' : ''}${hint}`,
     )
   }
 
@@ -248,9 +293,8 @@ export class InvalidPackageNamePatternError extends Error {
 
 /**
  * Parses a package name pattern: a package name that may contain `*`
- * wildcards (`@acme/*`, `acme-*`, `@acme/*-utils`), each matching any run
- * of characters except `/` — so a wildcard never crosses the scope
- * separator, and a bare `*` matches only unscoped names. A `!` prefix
+ * and `**` wildcards (`@acme/*`, `acme-*`, `**-foo`), matching as
+ * described on {@link EmbeddedPackageSpec.wildcard}. A `!` prefix
  * marks the entry as an exclusion, subtracting from what the entries
  * before it selected, exactly as in `bundle.packages.embed`. Unlike
  * {@link parseEmbeddedPackageSpec} there are no `name@version` pins;

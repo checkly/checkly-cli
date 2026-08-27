@@ -72,7 +72,8 @@ export function resolveCacheDirs (
  * Reads consult every root and verify the content, so a corrupt entry
  * degrades to a cache miss rather than a user-facing error. Writes go to
  * the first root that accepts them, so an unwritable project tree falls
- * back to the per-user cache instead of failing.
+ * back to the per-user cache instead of failing — unless the unwritable
+ * root already holds a verifying entry, which satisfies the write as-is.
  */
 export class TarballCache {
   #rootDirs: string[]
@@ -130,9 +131,12 @@ export class TarballCache {
   /**
    * Stores verified tarball content in the first writable root and returns
    * its path. The write is atomic (temp file + rename), so concurrent
-   * processes sharing the cache never observe a torn file. The caller is
-   * responsible for verifying the content against the lockfile integrity
-   * beforehand.
+   * processes sharing the cache never observe a torn file — and because
+   * the store is content-addressed, losing a write race is itself a
+   * success: a write that fails while the destination already holds
+   * content matching the integrity returns that entry instead of erroring.
+   * The caller is responsible for verifying the content against the
+   * lockfile integrity beforehand.
    */
   async put (integrity: string, content: Buffer): Promise<string> {
     const hash = strongestIntegrityHash(integrity)
@@ -153,7 +157,24 @@ export class TarballCache {
         }
         return filePath
       } catch (err) {
-        debug('cache root %s is not writable: %s', rootDir, (err as Error).message)
+        // Concurrent writers race onto the same content-addressed path —
+        // two same-integrity puts in this process, or another process
+        // sharing the cache. POSIX rename silently replaces, but on
+        // Windows the losing rename fails with EPERM while the winner
+        // still holds the destination open. Whatever failed, a
+        // destination that verifies means the content is cached, which is
+        // all a put promises. The recovery read is deliberately
+        // single-shot and best-effort: retrying would add fixed latency to
+        // every genuinely unwritable root (the common non-race case), so a
+        // read that itself hits a transient lock falls through to the
+        // normal failure path instead.
+        const existing = await fs.readFile(filePath).catch(() => undefined)
+        if (existing !== undefined && verifyIntegrity(existing, integrity)) {
+          debug('cache write under %s failed (%s), but the destination already verifies',
+            rootDir, (err as Error).message)
+          return filePath
+        }
+        debug('cache write under %s failed: %s', rootDir, (err as Error).message)
         lastError = err
       } finally {
         await fs.rm(tempPath, { force: true }).catch(() => {})
@@ -162,7 +183,8 @@ export class TarballCache {
 
     throw new Error(
       `Unable to write the embedded-packages cache`
-      + ` (tried ${this.#rootDirs.map(dir => `'${dir}'`).join(', ')}).`
+      + ` (tried ${this.#rootDirs.map(dir => `'${dir}'`).join(', ')}):`
+      + ` ${(lastError as Error | undefined)?.message ?? 'unknown error'}.`
       + ` Set CHECKLY_CACHE_DIR to a writable directory to override the cache location.`,
       { cause: lastError },
     )

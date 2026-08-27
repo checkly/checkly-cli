@@ -20,7 +20,7 @@ import {
   RecordedUrlOrigin,
   redactUrl,
 } from './diagnostics.js'
-import { verifyIntegrity } from './integrity.js'
+import { integrityHashToHex, strongestIntegrityHash, verifyIntegrity } from './integrity.js'
 import {
   LockfileRegistryPackage,
   UnsupportedLockfileError,
@@ -189,6 +189,19 @@ export class EmbeddedPackagesMaterializer {
   #homedir: string
 
   #plan?: Promise<EmbeddedPackagesPlan>
+
+  /**
+   * In-flight tarball sourcing, keyed by the strongest integrity hash —
+   * the same addressing the cache stores under. Plan entries can share
+   * tarball content (two versions published with identical bytes), and the
+   * download queue runs them concurrently; sharing one sourcing promise
+   * per distinct hash fetches and writes such content once instead of
+   * racing identical writes onto one cache path. Entries are dropped as
+   * soon as sourcing settles: later materializations must read through the
+   * cache, whose reads re-verify content, rather than trust a memoized
+   * path.
+   */
+  #inFlightTarballs = new Map<string, Promise<string>>()
 
   constructor (options: EmbeddedPackagesMaterializerOptions) {
     this.#options = options
@@ -579,16 +592,58 @@ export class EmbeddedPackagesMaterializer {
       }
     }
 
+    // An integrity without a supported hash has no cache address to key
+    // the deduplication on, so it sources directly (and fails at download
+    // verification, since no supported hash can match the content).
+    const hash = strongestIntegrityHash(integrity)
+    if (hash === undefined) {
+      return { filePath: await this.#sourceTarball(tarball, integrity, tarballUrl, metadataOrigin, npmrc), integrity }
+    }
+
+    const key = `${hash.algorithm}:${integrityHashToHex(hash)}`
+    let pending = this.#inFlightTarballs.get(key)
+    if (pending === undefined) {
+      pending = this.#sourceTarball(tarball, integrity, tarballUrl, metadataOrigin, npmrc)
+      this.#inFlightTarballs.set(key, pending)
+      // Dropped as soon as sourcing settles, whichever way: a later
+      // materialization must read through the cache's own verification,
+      // and a failed attempt must not poison a retry with its stored
+      // rejection.
+      pending.then(
+        () => this.#inFlightTarballs.delete(key),
+        () => this.#inFlightTarballs.delete(key),
+      )
+    }
+    return { filePath: await pending, integrity }
+  }
+
+  /**
+   * Sources one tarball's verified content into the CLI cache — CLI cache
+   * → npm cacache → registry download, verified against `integrity` — and
+   * returns its cache path.
+   *
+   * When concurrent plan entries share an integrity, only the first
+   * entry's identity reaches this method: the URL, registry, and any
+   * failure's wording all follow that entry, not whichever entry awaited
+   * the shared sourcing.
+   */
+  async #sourceTarball (
+    tarball: PlannedTarball,
+    integrity: string,
+    tarballUrl: string | undefined,
+    metadataOrigin: RecordedUrlOrigin | undefined,
+    npmrc: LoadedNpmrcConfig,
+  ): Promise<string> {
     const cached = await this.#cache.get(integrity)
     if (cached !== undefined) {
       debug('%s@%s: CLI cache hit', tarball.name, tarball.version)
-      return { filePath: cached, integrity }
+      return cached
     }
 
     const fromNpmCacache = await lookupNpmCacache(integrity, this.#env, process.platform, this.#homedir)
     if (fromNpmCacache !== undefined) {
       debug('%s@%s: npm cache hit', tarball.name, tarball.version)
-      return { filePath: await this.#cache.put(integrity, fromNpmCacache), integrity }
+      return await this.#cache.put(integrity, fromNpmCacache)
     }
 
     // Where the URL came from decides who to blame for credentials embedded
@@ -629,7 +684,7 @@ export class EmbeddedPackagesMaterializer {
       )
     }
 
-    return { filePath: await this.#cache.put(integrity, content), integrity }
+    return await this.#cache.put(integrity, content)
   }
 
   /**

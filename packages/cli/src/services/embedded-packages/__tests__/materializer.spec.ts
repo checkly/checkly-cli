@@ -646,6 +646,20 @@ packages: {}
       expect(requests).toHaveLength(1)
     })
 
+    it('fetches entries sharing one integrity once, into one cache entry', async () => {
+      // bar@2.0.0 and bar@3.0.0 resolve to identical bytes, and the
+      // download queue runs them concurrently. Sourcing must collapse to
+      // one download and one content-addressed cache write — concurrent
+      // writes onto the shared cache path are a race the loser fails on
+      // Windows, where a rename cannot replace a destination the winner
+      // still holds open (EPERM).
+      const tarballs = await materializeAll(makeMaterializer(['bar']))
+      expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
+      expect(requests).toHaveLength(1)
+      expect(new Set(tarballs.map(t => t.filePath)).size).toBe(1)
+      await expect(fs.readFile(tarballs[0].filePath)).resolves.toEqual(barTarball)
+    })
+
     it('uses npm cacache content without hitting the network', async () => {
       const npmCacheDir = path.join(homedir, '.npm')
       const hex = createHash('sha512').update(barTarball).digest('hex')

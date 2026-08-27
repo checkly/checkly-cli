@@ -229,12 +229,36 @@ describe('prunePackageJson()', () => {
     expect(result!.removed).toEqual(['peerDependencies:@acme/heavy-icons'])
   })
 
-  it('empties every class except the spared package with the documented catch-all recipe', () => {
-    // The `['*', '@*/*', '!keep']` spelling is what the config TSDoc and
-    // the ai-context reference recommend for "a whole class except X";
-    // this pins both halves it relies on (a `*` allowed in the scope
-    // segment, and segment-wise matching of the scoped catch-all).
+  it('empties every class except the spared package with the pre-globstar catch-all spelling', () => {
+    // The `['*', '@*/*', '!keep']` spelling predates the `**` globstar and
+    // must keep working; this pins both halves it relies on (a `*` allowed
+    // in the scope segment, and segment-wise matching of the scoped
+    // catch-all).
     const prune = normalizePackagePrune(['*', '@*/*', '!@acme/utils'])!
+    const result = prunePackageJson(manifest(), prune)
+    const parsed = JSON.parse(result!.content)
+    expect(parsed.dependencies).toEqual({ '@acme/utils': '^1.0.0' })
+    expect(parsed.devDependencies).toBeUndefined()
+    expect(parsed.peerDependencies).toBeUndefined()
+    expect(parsed.optionalDependencies).toBeUndefined()
+    expect(parsed.peerDependenciesMeta).toBeUndefined()
+  })
+
+  it('removes every dependency, scoped or not, with a bare globstar', () => {
+    const prune = normalizePackagePrune(['**'])!
+    const result = prunePackageJson(manifest(), prune)
+    const parsed = JSON.parse(result!.content)
+    expect(parsed.dependencies).toBeUndefined()
+    expect(parsed.devDependencies).toBeUndefined()
+    expect(parsed.peerDependencies).toBeUndefined()
+    expect(parsed.optionalDependencies).toBeUndefined()
+    expect(parsed.peerDependenciesMeta).toBeUndefined()
+  })
+
+  it('empties every class except the spared package with the globstar catch-all recipe', () => {
+    // The `['**', '!keep']` spelling is what the config TSDoc and the
+    // ai-context reference recommend for "a whole class except X".
+    const prune = normalizePackagePrune(['**', '!@acme/utils'])!
     const result = prunePackageJson(manifest(), prune)
     const parsed = JSON.parse(result!.content)
     expect(parsed.dependencies).toEqual({ '@acme/utils': '^1.0.0' })
