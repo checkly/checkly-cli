@@ -276,7 +276,9 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
      * to these rules instead of the registries named in bundled config
      * files; embedded packages (`bundle.packages.embed`) always take
      * priority regardless of the rules. Applies to Playwright Check
-     * Suites only.
+     * Suites only, and only on the runner: operations on the machine
+     * running the CLI — embedded-package downloads, lockfile pruning —
+     * still read `.npmrc` and `npm_config_*` credentials.
      *
      * `upstreams` names the registries the runner may fetch from. Each
      * needs a base `url` (an absolute http(s) URL without query,

@@ -13,6 +13,13 @@ import { COMPOSABLE_URL_REQUIREMENT, parseComposableUrl } from '../embedded-pack
  * zero segments); runners must reproduce them exactly — off-the-shelf
  * glob matchers differ, e.g. on a `**` that is not a whole segment.
  *
+ * When the file is present, its routing rules take precedence over
+ * registry directives in the bundle's own config files (`.npmrc`,
+ * `pnpm-workspace.yaml`, `.yarnrc.yml`) for upstream selection; those
+ * files still supply connection settings such as TLS and proxy options.
+ * Embedded packages (`.checkly/embedded-packages/`) always take priority
+ * over any routing.
+ *
  * Runner support must be deployed before a CLI release starts writing
  * this file: a runner that predates the feature ignores the file
  * entirely and installs from the bundle's own registry configuration,

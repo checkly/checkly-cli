@@ -128,6 +128,19 @@ export interface ComposeCacheHashInput {
    * original lockfile ships unchanged, writing no record.
    */
   prunedLockfile?: LockfileInput
+  /**
+   * The raw 32-byte SHA-256 digest of the serialized `runner.registries`
+   * configuration shipped in the bundle (`.checkly/registries.json`).
+   * Registry routing changes where the runner installs packages from
+   * without necessarily touching the lockfile, so the shipped file must
+   * contribute to the hash — the same reasoning as the `.npmrc` records.
+   * Absent when the config is not set, writing no record. Unlike the
+   * other bundle-content records this one is also present for a bundle
+   * that ends up empty and ships nothing: the digest is fixed at bundler
+   * construction, before any files are registered, and an empty bundle's
+   * hash is never consumed.
+   */
+  runnerRegistries?: Buffer
 }
 
 /**
@@ -269,6 +282,10 @@ export function canonicalizePackageJson (raw: Buffer, excludedFields: string[]):
  *   8. The pruned lockfile record (if present), labeled
  *      `pruned-lockfile:<basename>`, whose content is the raw 32-byte
  *      SHA-256 digest of the pruned lockfile contents.
+ *   9. The runner registries record (if present), labeled
+ *      `runner-registries`, whose content is the raw 32-byte SHA-256
+ *      digest of the serialized `.checkly/registries.json` shipped in
+ *      the bundle.
  *
  * All sorts compare strings by UTF-16 code unit (JavaScript's `<`/`>`),
  * which coincides with byte-wise UTF-8 order for ASCII inputs — the only
@@ -329,6 +346,10 @@ export function composeCacheHash (input: ComposeCacheHashInput): string {
 
   if (input.prunedLockfile) {
     writeRecord(`pruned-lockfile:${input.prunedLockfile.name}`, input.prunedLockfile.hash)
+  }
+
+  if (input.runnerRegistries) {
+    writeRecord('runner-registries', input.runnerRegistries)
   }
 
   return hash.digest('hex')
@@ -483,6 +504,10 @@ export interface ComposeWorkspaceCacheHashOptions extends ComputeWorkspaceCacheH
    * See {@link ComposeCacheHashInput.prunedLockfile}.
    */
   prunedLockfile?: LockfileInput
+  /**
+   * See {@link ComposeCacheHashInput.runnerRegistries}.
+   */
+  runnerRegistries?: Buffer
 }
 
 /**
@@ -500,6 +525,7 @@ export function composeWorkspaceCacheHash (
     embeddedPackages: options?.embeddedPackages,
     fauxPackageJsons: options?.fauxPackageJsons,
     prunedLockfile: options?.prunedLockfile,
+    runnerRegistries: options?.runnerRegistries,
     excludedFields: PACKAGE_JSON_EXCLUDED_FIELDS,
     dependencyCacheVersion: normalizeDependencyCacheVersion(options?.dependencyCacheVersion),
   })

@@ -270,6 +270,7 @@ export default class PwTestCommand extends AuthCommand {
       embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
       packageManager: Session.packageManager,
       packagePrune: checklyConfig.bundle?.packages?.prune,
+      runnerRegistries: checklyConfig.runner?.registries,
     })
 
     this.style.actionStart('Bundling project resources')
