@@ -118,6 +118,13 @@ export function specLooselyMatchesPackage (spec: EmbeddedPackageSpec, entry: Pac
  * either leaves the row as it is or lands right past any reachable `/`.
  * No backtracking, and O(pattern length × name length) like the greedy
  * walk it replaced.
+ *
+ * These semantics are also a wire contract beyond this repository:
+ * `runner.registries` routing rules (`services/runner/registries.ts`)
+ * ship raw patterns inside the code bundle for Checkly runners to match
+ * with identical semantics. A semantic change here changes how deployed
+ * routing configs behave and requires a coordinated runner update plus a
+ * `REGISTRIES_FILE_VERSION` bump.
  */
 function matchesNamePattern (pattern: string, packageName: string): boolean {
   const n = packageName.length

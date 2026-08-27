@@ -31,6 +31,8 @@ declare module './index.js' {
   }
 }
 
-export function defineConfig (config: ChecklyConfig): ChecklyConfig {
+export function defineConfig<UpstreamName extends string = string> (
+  config: ChecklyConfig<UpstreamName>,
+): ChecklyConfig<UpstreamName> {
   return config
 }
