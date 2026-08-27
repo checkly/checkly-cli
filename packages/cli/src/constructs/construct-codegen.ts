@@ -12,6 +12,8 @@ import { PrivateLocationCheckAssignmentCodegen } from './private-location-check-
 import { PrivateLocationGroupAssignmentCodegen } from './private-location-group-assignment-codegen.js'
 import { StatusPageServiceCodegen } from './status-page-service-codegen.js'
 import { StatusPageCodegen } from './status-page-codegen.js'
+import { StatusPageV3AutomationRuleCodegen } from './status-page-v3-automation-rule-codegen.js'
+import { StatusPageV3ComponentCodegen } from './status-page-v3-component-codegen.js'
 
 export type ResourceType =
   'alert-channel-subscription'
@@ -25,6 +27,8 @@ export type ResourceType =
   | 'private-location'
   | 'status-page'
   | 'status-page-service'
+  | 'status-page-component'
+  | 'status-page-automation-rule'
 
 interface Resource {
   type: ResourceType
@@ -44,6 +48,9 @@ const resourceOrder: Record<ResourceType, number> = {
   'private-location': 910,
   'status-page': 500,
   'status-page-service': 510,
+  // Components reference their page (and parent), rules reference both.
+  'status-page-component': 490,
+  'status-page-automation-rule': 480,
 }
 
 export function sortResources (resources: Resource[]): Resource[] {
@@ -66,6 +73,8 @@ export class ConstructCodegen extends Codegen<Resource> {
   privateLocationGroupAssignmentCodegen: PrivateLocationGroupAssignmentCodegen
   statusPageCodegen: StatusPageCodegen
   statusPageServiceCodegen: StatusPageServiceCodegen
+  statusPageComponentCodegen: StatusPageV3ComponentCodegen
+  statusPageAutomationRuleCodegen: StatusPageV3AutomationRuleCodegen
   codegensByType: Record<ResourceType, Codegen<any>>
 
   constructor (program: Program) {
@@ -81,6 +90,8 @@ export class ConstructCodegen extends Codegen<Resource> {
     this.privateLocationGroupAssignmentCodegen = new PrivateLocationGroupAssignmentCodegen(program)
     this.statusPageCodegen = new StatusPageCodegen(program)
     this.statusPageServiceCodegen = new StatusPageServiceCodegen(program)
+    this.statusPageComponentCodegen = new StatusPageV3ComponentCodegen(program)
+    this.statusPageAutomationRuleCodegen = new StatusPageV3AutomationRuleCodegen(program)
 
     this.codegensByType = {
       'alert-channel-subscription': this.alertChannelSubscriptionCodegen,
@@ -94,6 +105,8 @@ export class ConstructCodegen extends Codegen<Resource> {
       'private-location': this.privateLocationCodegen,
       'status-page': this.statusPageCodegen,
       'status-page-service': this.statusPageServiceCodegen,
+      'status-page-component': this.statusPageComponentCodegen,
+      'status-page-automation-rule': this.statusPageAutomationRuleCodegen,
     }
   }
 

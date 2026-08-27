@@ -1,7 +1,8 @@
 import { Codegen, Context } from './internal/codegen/index.js'
-import { expr, ident } from '../sourcegen/index.js'
+import { expr, ident, Program } from '../sourcegen/index.js'
 import { StatusPageServiceResource, valueForStatusPageServiceFromId } from './status-page-service-codegen.js'
 import { StatusPageTheme } from './status-page.js'
+import { StatusPageV3Codegen, StatusPageV3Resource } from './status-page-v3-codegen.js'
 
 export interface StatusPageCardResource {
   id: string
@@ -9,10 +10,11 @@ export interface StatusPageCardResource {
   services: StatusPageServiceResource[]
 }
 
-export interface StatusPageResource {
+export interface StatusPageV2Resource {
   id: string
   name: string
   url: string
+  version?: 2
   cards: StatusPageCardResource[]
   customDomain?: string
   logo?: string
@@ -21,14 +23,44 @@ export interface StatusPageResource {
   defaultTheme?: StatusPageTheme
 }
 
+// Both generations share the `status-page` resource type; the payload's
+// `version` tells them apart.
+export type StatusPageResource = StatusPageV2Resource | StatusPageV3Resource
+
+function isV3 (resource: StatusPageResource): resource is StatusPageV3Resource {
+  return resource.version === 3
+}
+
 const construct = 'StatusPage'
 
 export class StatusPageCodegen extends Codegen<StatusPageResource> {
+  v3Codegen: StatusPageV3Codegen
+
+  constructor (program: Program) {
+    super(program)
+    this.v3Codegen = new StatusPageV3Codegen(program)
+  }
+
   describe (resource: StatusPageResource): string {
+    if (isV3(resource)) {
+      return this.v3Codegen.describe(resource)
+    }
+
     return `Status Page: ${resource.name}`
   }
 
+  prepare (logicalId: string, resource: StatusPageResource, context: Context): void {
+    if (isV3(resource)) {
+      this.v3Codegen.prepare(logicalId, resource, context)
+    }
+  }
+
   gencode (logicalId: string, resource: StatusPageResource, context: Context): void {
+    if (isV3(resource)) {
+      this.v3Codegen.gencode(logicalId, resource, context)
+      return
+    }
+
     const filePath = context.filePath('resources/status-pages', resource.name, {
       unique: true,
     })

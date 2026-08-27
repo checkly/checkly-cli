@@ -52,11 +52,25 @@ export interface StatusPageServiceFriendResource {
   physicalId: string
 }
 
+export interface StatusPageFriendResource {
+  type: 'status-page'
+  logicalId: string
+  physicalId: string
+}
+
+export interface StatusPageComponentFriendResource {
+  type: 'status-page-component'
+  logicalId: string
+  physicalId: string
+}
+
 export type FriendResourceSync =
   AlertChannelFriendResource
   | CheckGroupFriendResource
   | PrivateLocationFriendResource
   | StatusPageServiceFriendResource
+  | StatusPageFriendResource
+  | StatusPageComponentFriendResource
 
 export interface AuxiliaryResourceSync {
   physicalId?: string | number

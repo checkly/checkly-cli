@@ -137,6 +137,12 @@ export class Context {
   #statusPageServiceVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
   #statusPageServiceFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
 
+  #statusPageVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
+  #statusPageFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
+
+  #statusPageComponentVariablesByPhysicalId = new Map<string, GeneratedVariableLocator>()
+  #statusPageComponentFriendVariablesByPhysicalId = new Map<string, FriendVariableLocator>()
+
   #knownSecrets = new Set<string>()
 
   #knownFilePaths = new Map<string, number>()
@@ -467,6 +473,68 @@ export class Context {
 
   lookupFriendStatusPageService (physicalId: string): FriendVariableLocator {
     const locator = this.#statusPageServiceFriendVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerStatusPage (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('page', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
+    this.#statusPageVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupStatusPage (physicalId: string): GeneratedVariableLocator {
+    const locator = this.#statusPageVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendStatusPage (physicalId: string, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#statusPageFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendStatusPage (physicalId: string): FriendVariableLocator {
+    const locator = this.#statusPageFriendVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerStatusPageComponent (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(formatVariable('component', name))
+    const locator = new GeneratedVariableLocator(preferredId, file)
+    locator.id = this.#reserveIdentifierForLocator(file.path, locator)
+    this.#statusPageComponentVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupStatusPageComponent (physicalId: string): GeneratedVariableLocator {
+    const locator = this.#statusPageComponentVariablesByPhysicalId.get(physicalId)
+    if (locator === undefined) {
+      throw new MissingContextVariableMappingError()
+    }
+    return locator
+  }
+
+  registerFriendStatusPageComponent (physicalId: string, friend: ConstructExport): FriendVariableLocator {
+    const id = new IdentifierValue(friend.exportName)
+    const locator = new FriendVariableLocator(id, friend.filePath)
+    this.#statusPageComponentFriendVariablesByPhysicalId.set(physicalId, locator)
+    return locator
+  }
+
+  lookupFriendStatusPageComponent (physicalId: string): FriendVariableLocator {
+    const locator = this.#statusPageComponentFriendVariablesByPhysicalId.get(physicalId)
     if (locator === undefined) {
       throw new MissingContextVariableMappingError()
     }
