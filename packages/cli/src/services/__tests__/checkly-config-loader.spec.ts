@@ -3,27 +3,69 @@ import path from 'node:path'
 import { describe, it, expect } from 'vitest'
 
 import { loadChecklyConfig, defaultFilenames } from '../checkly-config-loader.js'
+import { InvalidConfigError } from '../config-diagnostics.js'
 import { splitConfigFilePath } from '../util.js'
+
+const configDir = path.join(__dirname, 'fixtures', 'configs')
+
+async function loadInvalidConfig (filename: string): Promise<InvalidConfigError> {
+  const error = await loadChecklyConfig(configDir, [filename]).then(
+    () => undefined,
+    err => err,
+  )
+  expect(error).toBeInstanceOf(InvalidConfigError)
+  return error
+}
 
 describe('loadChecklyConfig()', () => {
   it('config file should export an object', async () => {
-    try {
-      await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), ['no-export-config.js'])
-    } catch (e: any) {
-      expect(e.message).toContain('Config object missing a logicalId as type string')
-    }
+    await expect(loadChecklyConfig(configDir, ['no-export-config.js']))
+      .rejects.toThrow(`Property "logicalId" is required and must be set`)
   })
   it('config file should export an object with projectName and logicalId', async () => {
-    try {
-      await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), ['no-logical-id-config.js'])
-    } catch (e: any) {
-      expect(e.message).toContain('Config object missing a logicalId as type string')
-    }
+    await expect(loadChecklyConfig(configDir, ['no-logical-id-config.js']))
+      .rejects.toThrow(`Property "logicalId" is required and must be set`)
+  })
+  it('reports all config errors in a single run', async () => {
+    const error = await loadInvalidConfig('multiple-errors.js')
+    expect(error.diagnostics.isFatal()).toBe(true)
+    expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining(`Property "logicalId" is required and must be set`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`The value provided for property "bundle" is not valid`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`Property "runner.registires" is not supported`),
+      }),
+    ]))
+  })
+  it('attributes diagnostics to the config file', async () => {
+    const error = await loadInvalidConfig('multiple-errors.js')
+    expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: expect.stringMatching(/^\[\S*multiple-errors\.js\] /),
+      }),
+    ]))
+  })
+  it('reports present but non-string required fields as invalid values', async () => {
+    const error = await loadInvalidConfig('non-string-fields.js')
+    expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        title: expect.stringContaining(`Invalid property value`),
+        message: expect.stringContaining(`The value provided for property "logicalId" is not valid`),
+      }),
+      expect.objectContaining({
+        title: expect.stringContaining(`Invalid property value`),
+        message: expect.stringContaining(`The value provided for property "projectName" is not valid`),
+      }),
+    ]))
   })
   it('error should indicate the tried file name combinations', async () => {
-    const configDir = path.join(__dirname, 'fixtures', 'not-existing-config-path')
+    const missingConfigDir = path.join(__dirname, 'fixtures', 'not-existing-config-path')
     try {
-      await loadChecklyConfig(configDir)
+      await loadChecklyConfig(missingConfigDir)
     } catch (e: any) {
       expect(e.message).toContain(`Unable to detect a Checkly configuration file`)
       for (const filename of defaultFilenames) {
@@ -41,7 +83,8 @@ describe('loadChecklyConfig()', () => {
 
     const {
       config,
-    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), [filename])
+      diagnostics,
+    } = await loadChecklyConfig(configDir, [filename])
 
     expect(config).toMatchObject({
       checks: {
@@ -51,6 +94,8 @@ describe('loadChecklyConfig()', () => {
         },
       },
     })
+    expect(diagnostics.isFatal()).toBe(false)
+    expect(diagnostics.observations).toEqual([])
   })
   it('config JS file should export an object', async () => {
     const filename = 'good-config.js'
@@ -62,7 +107,7 @@ describe('loadChecklyConfig()', () => {
 
     const {
       config,
-    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), [filename])
+    } = await loadChecklyConfig(configDir, [filename])
 
     expect(config).toMatchObject({
       checks: {
@@ -75,39 +120,39 @@ describe('loadChecklyConfig()', () => {
   })
   it('accepts a string caching.dependencyCache.version', async () => {
     const { config } = await loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['dependency-cache-version-string.ts'],
     )
     expect(config.caching?.dependencyCache?.version).toBe('v2')
   })
   it('accepts 0 as a caching.dependencyCache.version', async () => {
     const { config } = await loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['dependency-cache-version-zero.ts'],
     )
     expect(config.caching?.dependencyCache?.version).toBe(0)
   })
   it('rejects a non-integer caching.dependencyCache.version', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['dependency-cache-version-float.js'],
-    )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
+    )).rejects.toThrow(`The value provided for property "caching.dependencyCache.version" is not valid`)
   })
   it('rejects an unsafe integer caching.dependencyCache.version', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['dependency-cache-version-unsafe-integer.js'],
-    )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
+    )).rejects.toThrow(`must be a safe integer if given as a number`)
   })
   it('rejects a caching.dependencyCache.version that is neither string nor number', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['dependency-cache-version-bad-type.js'],
-    )).rejects.toThrow(`Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`)
+    )).rejects.toThrow(`must be a string or a safe integer`)
   })
   it('accepts valid bundle.packages.embed entries', async () => {
     const { config } = await loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['embedded-packages-valid.ts'],
     )
     expect(config.bundle?.packages?.embed)
@@ -115,44 +160,55 @@ describe('loadChecklyConfig()', () => {
   })
   it('rejects a bundle.packages.embed that is not an array', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['embedded-packages-not-array.js'],
-    )).rejects.toThrow(`Config field 'bundle.packages.embed' must be an array of strings if set`)
+    )).rejects.toThrow(`The value provided for property "bundle.packages.embed" is not valid`)
   })
   it('rejects a bundle that is not an object', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['embedded-packages-bundle-not-object.js'],
-    )).rejects.toThrow(`Config field 'bundle' must be an object if set`)
+    )).rejects.toThrow(`The value provided for property "bundle" is not valid`)
   })
   it('rejects a bundle.packages that is not an object', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['embedded-packages-packages-not-object.js'],
-    )).rejects.toThrow(`Config field 'bundle.packages' must be an object if set`)
+    )).rejects.toThrow(`The value provided for property "bundle.packages" is not valid`)
   })
   it('rejects a bundle.packages.embed entry that is not a valid package name', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['embedded-packages-bad-name.js'],
     )).rejects.toThrow(`is not a valid npm package name`)
   })
   it('rejects a bundle.packages.embed entry with a version range', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['embedded-packages-range-version.js'],
     )).rejects.toThrow(`is not an exact semver version`)
   })
+  it('reports every invalid bundle.packages.embed entry', async () => {
+    const error = await loadInvalidConfig('embedded-packages-multiple-bad.js')
+    expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        message: expect.stringContaining(`is not a valid npm package name`),
+      }),
+      expect.objectContaining({
+        message: expect.stringContaining(`is not an exact semver version`),
+      }),
+    ]))
+  })
   it('accepts a bundle.packages.prune pattern array', async () => {
     const { config } = await loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['bundle-packages-prune-valid.ts'],
     )
     expect(config.bundle?.packages?.prune).toEqual(['@acme/*', '!@acme/keep', 'left-pad'])
   })
   it('accepts a bundle.packages.prune per-class map', async () => {
     const { config } = await loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['bundle-packages-prune-valid-classes.ts'],
     )
     expect(config.bundle?.packages?.prune).toEqual({
@@ -162,26 +218,24 @@ describe('loadChecklyConfig()', () => {
   })
   it('rejects a bundle.packages.prune that is neither array nor object', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['bundle-packages-prune-bad-shape.js'],
     )).rejects.toThrow(
-      `Config field 'bundle.packages.prune' is invalid: must be an array of package name patterns`
-      + ` or an object keyed by dependency class`,
+      `must be an array of package name patterns or an object keyed by dependency class`,
     )
   })
   it('rejects a bundle.packages.prune with an unknown dependency class', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['bundle-packages-prune-bad-class.js'],
-    )).rejects.toThrow(`Config field 'bundle.packages.prune' is invalid: 'peerDependences' is not a dependency class`)
+    )).rejects.toThrow(`'peerDependences' is not a dependency class`)
   })
   it('rejects a bundle.packages.prune class value that is neither true nor an array', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['bundle-packages-prune-bad-class-value.js'],
     )).rejects.toThrow(
-      `Config field 'bundle.packages.prune' is invalid: 'peerDependencies' must be true`
-      + ` or an array of package name patterns`,
+      `'peerDependencies' must be true or an array of package name patterns`,
     )
   })
   it('accepts bundle.packages.prune member-scoped entries', async () => {
@@ -230,13 +284,13 @@ describe('loadChecklyConfig()', () => {
   })
   it('rejects a bundle.packages.prune entry with an embed-style version pin', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['bundle-packages-prune-bad-pattern.js'],
     )).rejects.toThrow(`'name@version' pins are not supported here`)
   })
   it('accepts a valid runner.registries configuration', async () => {
     const { config } = await loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['runner-registries-valid.ts'],
     )
     expect(config.runner?.registries).toEqual({
@@ -255,28 +309,27 @@ describe('loadChecklyConfig()', () => {
   })
   it('rejects a runner that is not an object', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['runner-registries-runner-not-object.js'],
-    )).rejects.toThrow(`Config field 'runner' must be an object if set`)
+    )).rejects.toThrow(`The value provided for property "runner" is not valid`)
   })
   it('rejects a misspelled key inside the runner block', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['runner-registries-misspelled-key.js'],
-    )).rejects.toThrow(`Config field 'runner' contains unknown field 'registires' (expected only: 'registries')`)
+    )).rejects.toThrow(`Property "runner.registires" is not supported`)
   })
   it('rejects a runner.registries rule using an unknown upstream name', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['runner-registries-unknown-upstream.js'],
     )).rejects.toThrow(
-      `Config field 'runner.registries' is invalid: packages[0]: upstream 'mirror' is not defined`
-      + ` under 'upstreams' (defined: 'npmjs')`,
+      `packages[0]: upstream 'mirror' is not defined under 'upstreams' (defined: 'npmjs')`,
     )
   })
   it('rejects a runner.registries auth token without a ${VAR} reference', async () => {
     await expect(loadChecklyConfig(
-      path.join(__dirname, 'fixtures', 'configs'),
+      configDir,
       ['runner-registries-literal-token.js'],
     )).rejects.toThrow(/must be exactly one environment variable reference in \$\{VAR\} syntax/)
   })
@@ -290,7 +343,7 @@ describe('loadChecklyConfig()', () => {
 
     const {
       config,
-    } = await loadChecklyConfig(path.join(__dirname, 'fixtures', 'configs'), [filename])
+    } = await loadChecklyConfig(configDir, [filename])
 
     expect(config).toMatchObject({
       checks: {
