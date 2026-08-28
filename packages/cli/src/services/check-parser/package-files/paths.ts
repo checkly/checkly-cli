@@ -253,6 +253,20 @@ export class PathResolver {
 }
 
 export function isLocalPath (importPath: string) {
+  // Bare '.' and '..' are directory imports of the importing file's own
+  // directory and its parent, equivalent to './' and '../'. Without these
+  // checks they would fall through and be misclassified as npm package names.
+  //
+  // Note that this predicate also gates tsconfig `extends` and package.json
+  // `imports` target resolution. Strictly speaking, tsc sends a bare '.'
+  // in `extends` through node module resolution, and Node requires `imports`
+  // targets to start with './' to count as relative — but both of those are
+  // degenerate configs, and treating '.' and '..' as local paths is the more
+  // useful interpretation in every call site.
+  if (importPath === '.' || importPath === '..') {
+    return true
+  }
+
   if (importPath.startsWith('/')) {
     return true
   }
