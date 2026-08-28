@@ -1649,6 +1649,43 @@ describe('PlaywrightCheck', () => {
       expect(cacheHash).toEqual(expectedHash)
     }, DEFAULT_TEST_TIMEOUT)
 
+    it('applies a member-scoped keep to the targeted member only', async () => {
+      const output = await parseProject(fixt, '--config', 'packages/c/checkly.member.config.ts')
+
+      const {
+        codeBundlePath,
+      } = output.payload.resources[0].payload as any
+
+      // The keep-governed member retains its dependencies while the
+      // unmentioned classes — here the peer and its meta — empty out.
+      const usedManifest = await readTarEntryContent(codeBundlePath, 'packages/used/package.json')
+      expect(JSON.parse(usedManifest)).toEqual({
+        name: '@fixture-prune/used',
+        version: '1.0.0',
+        private: true,
+        main: 'src/index.js',
+        dependencies: { ms: '2.1.3' },
+      })
+
+      // Untargeted manifests ship physical and verbatim — including the
+      // one with real dependencies to lose, which is what distinguishes
+      // member scoping from a global prune.
+      const checkManifest = await readTarEntryContent(codeBundlePath, 'packages/c/package.json')
+      expect(checkManifest).toEqual(await fs.readFile(fixt.abspath('packages/c/package.json'), 'utf8'))
+      const rootManifest = await readTarEntryContent(codeBundlePath, 'package.json')
+      expect(rootManifest).toEqual(await fs.readFile(fixt.abspath('package.json'), 'utf8'))
+
+      // The dropped peer falls out of the pruned lockfile with the
+      // rewrite; the untargeted member's dependencies stay in it.
+      const lockfile = await readTarEntryContent(codeBundlePath, 'pnpm-lock.yaml')
+      expect(lockfile).toContain('ms@2.1.3')
+      expect(lockfile).toContain('@playwright/test')
+      expect(lockfile).not.toContain('ee-first')
+
+      // A valid member-scoped config bundles without prune lint.
+      expect(output.stderr).not.toContain('bundle.packages.prune')
+    }, DEFAULT_TEST_TIMEOUT)
+
     it('does not apply the prune when lockfile pruning is disabled', async () => {
       const output = await parseProjectWithOptions(
         fixt,
