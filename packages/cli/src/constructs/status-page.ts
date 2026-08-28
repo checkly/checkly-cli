@@ -2,6 +2,8 @@ import { Construct } from './construct.js'
 import { Session } from './session.js'
 import { StatusPageService } from './status-page-service.js'
 import { Ref } from './ref.js'
+import { Diagnostics } from './diagnostics.js'
+import { DeprecatedConstructDiagnostic } from './construct-diagnostics.js'
 
 export interface StatusPageCardProps {
   /**
@@ -52,7 +54,15 @@ export interface StatusPageProps {
 }
 
 /**
- * Creates a Status Page
+ * Creates a Status Page.
+ *
+ * We strongly recommend upgrading to {@link StatusPageV3}.
+ *
+ * The original Status Page works with cards and services and per-check
+ * incident automations. The new, v3 Status Page works with components, a simpler
+ * impact based system and automations directly controllable from a status page.
+ *
+ * @deprecated Use {@link StatusPageV3} instead.
  */
 export class StatusPage extends Construct {
   name: string
@@ -90,6 +100,19 @@ export class StatusPage extends Construct {
 
   describe (): string {
     return `StatusPage:${this.logicalId}`
+  }
+
+  // eslint-disable-next-line require-await
+  protected async onBeforeValidate (diagnostics: Diagnostics): Promise<void> {
+    diagnostics.add(new DeprecatedConstructDiagnostic(
+      'StatusPage',
+      new Error('Please update to StatusPageV3 which is simpler to use and has more, advanced features.'),
+    ))
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    await this.onBeforeValidate(diagnostics)
   }
 
   synthesize (): any | null {

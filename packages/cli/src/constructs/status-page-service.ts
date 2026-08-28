@@ -38,7 +38,15 @@ export class StatusPageServiceRef extends Construct {
 }
 
 /**
- * Creates a Service for Status Pages
+ * Creates a Service for Status Pages.
+ *
+ * We strongly recommend upgrading to {@link StatusPageV3} and using {@link StatusPageV3Component}.
+ *
+ * The original Status Page works with cards and services and per-check
+ * incident automations. The new, v3 Status Page works with components, a simpler
+ * impact based system and automations directly controllable from a status page.
+ *
+ * @deprecated Use {@link StatusPageV3Component} instead.
  */
 export class StatusPageService extends Construct {
   name: string
