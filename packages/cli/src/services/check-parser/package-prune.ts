@@ -119,6 +119,24 @@ function isPlainObject (value: unknown): value is Record<string, unknown> {
 }
 
 /**
+ * Parses one element of a pattern list. A plain-object element gets a
+ * pointed rejection: the likely mistake is a member-scoped entry nested
+ * inside a class-keyed map or another entry's selection, which would
+ * otherwise fail as an unreadable `'[object Object]' is not a valid
+ * pattern`. Anything else — arrays included, which the hint would only
+ * misdirect — falls through to the generic pattern error.
+ */
+function parseNamePatternEntry (entry: unknown, context: string): PackageNamePattern {
+  if (isPlainObject(entry)) {
+    throw new Error(
+      `'${context}' entries must be package name patterns`
+      + ` (member-scoped objects are only valid in the top-level prune array)`,
+    )
+  }
+  return parsePackageNamePattern(entry as string)
+}
+
+/**
  * Validates and normalizes a class-keyed pattern map. `true` values are
  * kept as `true` for the standalone class-keyed form and desugared to the
  * catch-all `'**'` pattern inside member-scoped entries, where selections
@@ -149,7 +167,7 @@ function normalizeClassMap (
       // Parsed per class even for the array shape, so no two classes share
       // one pattern array instance and a consumer mutating one cannot
       // silently change the others.
-      normalized[key as DependencyClass] = value.map(entry => parsePackageNamePattern(entry as string))
+      normalized[key as DependencyClass] = value.map(entry => parseNamePatternEntry(entry, key))
       continue
     }
     throw new Error(`'${key}' must be true or an array of package name patterns`)
@@ -165,7 +183,7 @@ function normalizeClassMap (
  */
 function normalizeSelection (value: unknown, field: 'remove' | 'keep'): PruneClassPatterns {
   if (Array.isArray(value)) {
-    const patterns = value.map(entry => parsePackageNamePattern(entry as string))
+    const patterns = value.map(entry => parseNamePatternEntry(entry, field))
     if (patterns.length === 0) {
       return {}
     }
@@ -188,6 +206,9 @@ function normalizeMemberPatterns (raw: unknown): MemberPattern[] {
   return list.map(element => {
     if (element === '.' || element === '!.') {
       return { root: true, exclude: element === '!.' }
+    }
+    if (element !== null && typeof element === 'object') {
+      throw new Error(`'member' entries must be member name patterns or the '.' root token`)
     }
     return parsePackageNamePattern(element as string)
   })

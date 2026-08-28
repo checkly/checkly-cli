@@ -196,6 +196,32 @@ describe('normalizePackagePrune()', () => {
     expect(entry?.remove.peerDependencies).not.toBe(entry?.remove.optionalDependencies)
   })
 
+  it('points a member-scoped object nested inside a pattern list at the top-level array form', () => {
+    // The likely mistake behind an object in a class-keyed pattern list
+    // is a member entry in the wrong position; the generic pattern error
+    // would only say '[object Object]' is not a valid name.
+    expect(() => normalizePackagePrune({
+      devDependencies: [{ member: 'my-app', remove: { dependencies: true } } as any],
+    })).toThrow(
+      `'devDependencies' entries must be package name patterns`
+      + ` (member-scoped objects are only valid in the top-level prune array)`,
+    )
+    expect(() => normalizePackagePrune([
+      { member: 'my-app', remove: [{ member: 'other', remove: ['x'] } as any] },
+    ])).toThrow(/'remove' entries must be package name patterns/)
+    expect(() => normalizePackagePrune([
+      { member: 'my-app', keep: { dependencies: [{ member: 'other', keep: [] } as any] } },
+    ])).toThrow(/'dependencies' entries must be package name patterns/)
+    // A member list takes name patterns, not structured selectors.
+    expect(() => normalizePackagePrune([
+      { member: [{ name: 'my-app' }] as any, remove: ['x'] },
+    ])).toThrow(/'member' entries must be member name patterns or the '\.' root token/)
+    // The hint is for plain objects only; a nested array is not a
+    // misplaced member entry and keeps the generic pattern error.
+    expect(() => normalizePackagePrune({ dependencies: [['@acme/a']] as any }))
+      .toThrow(InvalidPackageNamePatternError)
+  })
+
   it('rejects a non-object, non-string array entry', () => {
     expect(() => normalizePackagePrune([42 as any]))
       .toThrow(/each entry must be a package name pattern or a member-scoped object/)
