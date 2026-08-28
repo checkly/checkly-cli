@@ -196,12 +196,14 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
        * lockfile has nothing to fall out of sync with, so the pruned
        * manifests always ship there.
        *
-       * Accepts either an array of package name patterns, removed from
-       * every dependency class (`dependencies`, `devDependencies`,
-       * `peerDependencies` and `optionalDependencies`), or an object keyed
-       * by dependency class whose values are `true` (remove the whole
-       * class) or a pattern array (remove matching entries from that class
-       * only). Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
+       * Accepts either an array of entries, or an object keyed
+       * by dependency class (`dependencies`, `devDependencies`,
+       * `peerDependencies` and `optionalDependencies`) whose values are
+       * `true` (remove the whole class) or a pattern array (remove
+       * matching entries from that class only). An array entry is a
+       * package name pattern — removed from every dependency class of
+       * every bundled manifest — or a member-scoped object (below).
+       * Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
        * a single `*` never crosses the `/` scope separator, so a bare
        * `'*'` matches only unscoped names, while a `**` does cross it —
        * to remove a whole class, use `true` or `['**']`, not `['*']`.
@@ -216,12 +218,49 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
        * because the exclusion runs before anything has been selected. To
        * remove a whole class *except* some packages, select everything
        * first: `['**', '!@acme/keep']`.
-       * `true` cannot be combined with exclusions. Unlike
-       * `bundle.packages.embed` there are no
+       * In the class-keyed form `true` cannot be combined with
+       * exclusions. Unlike `bundle.packages.embed` there are no
        * `name@version` pins; they are rejected at config load. Removed
        * `peerDependencies` take their `peerDependenciesMeta` entries with
        * them, and `peerDependencies: true` clears `peerDependenciesMeta`
        * entirely.
+       *
+       * A member-scoped entry — `{ member, remove }` or `{ member, keep }`
+       * — applies only to the workspace members whose manifest `name` the
+       * `member` pattern list selects, with the same wildcard and
+       * `!`-exclusion grammar and ordering as the name patterns
+       * (`['@acme/**', '!@acme/e2e']`). `'.'` selects the workspace root
+       * (`'!.'` excludes it), and is the only selector for a root
+       * manifest that has no `name` field.
+       * `remove` subtracts like the global patterns and composes
+       * with the other entries in listed order: a pattern list applies to
+       * every dependency class, a class-keyed object to the mentioned
+       * classes only, and inside these entries `true` is exactly the
+       * `['**']` catch-all — a later exclusion can still spare entries
+       * from it, and only the meta entries of actually-removed peers go
+       * with it. `keep` inverts the reading: it declares the member's
+       * entire remaining dependency set. Entries it does not select are
+       * removed, classes a class-keyed `keep` does not mention are
+       * emptied, and no other entry can remove a kept name — one `keep`
+       * entry fully determines the member's bundled manifest regardless
+       * of entry order, and multiple `keep` entries matching the same
+       * member combine. An empty `keep` (`[]` or `{}`) is the explicit
+       * spelling for "keep nothing": it empties every dependency class
+       * of the matched members, deliberately without a warning. An
+       * entry carries exactly one of `remove` and
+       * `keep`. Prefer exact member names with `keep`: a wildcard can
+       * sweep a future member into a keep set written for another
+       * package. As a safety net, a `member` selector that matches no
+       * member of the workspace at all warns at bundling time — a
+       * selector for a real member the current run merely did not
+       * bundle stays quiet, visible only in the `DEBUG` reach log —
+       * and so does a keep pattern (exclusions and the bare `'**'`
+       * catch-all aside) that ends up keeping nothing in a matched
+       * member this run bundled — members outside the bundle are not
+       * inspected. When one keep list serves several members and keeps
+       * warning about members that legitimately do not declare some of
+       * the kept packages, split it into per-member entries with
+       * tailored lists.
        *
        * Pruning is not validated against the code: you are responsible for
        * not removing anything the bundled code actually needs at runtime.

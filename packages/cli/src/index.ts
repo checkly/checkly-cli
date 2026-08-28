@@ -7,3 +7,8 @@ export type {
   UpstreamAuth as RunnerRegistryUpstreamAuth,
   PackageRoutingRule as RunnerRegistryPackageRoutingRule,
 } from './services/runner/registries.js'
+export type {
+  BundlePackagesPrune,
+  BundlePackagesPruneClasses,
+  BundlePackagesPruneEntry,
+} from './services/check-parser/package-prune.js'

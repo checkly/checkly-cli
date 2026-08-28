@@ -497,7 +497,7 @@ export class MemberPruneDiagnostics {
           continue
         }
         if (!patternReaches(pattern, keeps, parsed, classes)) {
-          const key = `${entryIndex} ${where} ${pattern.name}`
+          const key = `${entryIndex}\u0000${where}\u0000${pattern.name}`
           let miss = this.#keepMisses.get(key)
           if (miss === undefined) {
             this.#keepMisses.set(key, miss = { pattern: pattern.name, where, members: [] })
