@@ -29,9 +29,11 @@ import {
 import { lockfileArchivePath, manifestArchivePath, pruneBundledLockfile } from './lockfile-pruner.js'
 import {
   BundlePackagesPrune,
+  MemberPruneDiagnostics,
   NormalizedPackagePrune,
   normalizePackagePrune,
   prunePackageJson,
+  resolveManifestPrune,
 } from './package-prune.js'
 import {
   findUnrepairedPatchKeys,
@@ -43,6 +45,7 @@ import {
 } from './patched-dependencies.js'
 import { PackageManager } from './package-files/package-manager.js'
 import { File } from './parser.js'
+import { Registries, REGISTRIES_ARCHIVE_PATH, serializeRegistries, validateRegistries } from '../runner/registries.js'
 import { Workspace } from './package-files/workspace.js'
 import { pathToPosix } from '../util.js'
 
@@ -485,6 +488,15 @@ export type CreateBundlerForWorkspaceOptions =
   & Omit<ComputeWorkspaceCacheHashOptions, 'embeddedPackages'>
   & {
     /**
+     * The project's `runner.registries` option, when set. Serialized into
+     * the bundle as {@link REGISTRIES_ARCHIVE_PATH} during finalize() so
+     * Checkly runners route the bundle's package installs through the
+     * configured upstreams, and mixed into the cache hash: repointing a
+     * registry changes the runner's install inputs without necessarily
+     * touching the lockfile.
+     */
+    runnerRegistries?: Registries
+    /**
      * The materializer for the project's `bundle.packages.embed` option,
      * when set. The tarballs are materialized during finalize(), after the
      * bundled lockfile has been pruned, so only tarballs the shipped
@@ -580,6 +592,13 @@ interface WorkspaceBundleContext {
    */
   packagePrune?: NormalizedPackagePrune
   /**
+   * The serialized `runner.registries` configuration, registered into the
+   * bundle as {@link REGISTRIES_ARCHIVE_PATH} during finalize(). Serialized
+   * once at construction so the eager cache hash and the finalize()
+   * recompute digest the same bytes.
+   */
+  runnerRegistriesContent?: string
+  /**
    * Composes the cache hash from the workspace inputs captured at
    * construction time, plus the given bundle-time inputs — including the
    * embedded set actually shipped, which every caller passes explicitly.
@@ -656,9 +675,22 @@ export class Bundler {
       embeddedPackagesMaterializer,
       packageManager,
       packagePrune,
+      runnerRegistries,
     } = options
 
     const embeddedPackages = (await embeddedPackagesMaterializer?.plan())?.tarballs
+
+    // Serialized once so the eager cache hash below, the finalize()
+    // recompute and the registered bundle file all agree on the exact
+    // bytes. Re-validated on entry like `normalizePackagePrune` is — the
+    // config loader has already validated config-sourced values, but
+    // programmatic callers reach this constructor directly.
+    const runnerRegistriesContent = runnerRegistries !== undefined
+      ? serializeRegistries(validateRegistries(runnerRegistries))
+      : undefined
+    const runnerRegistriesDigest = runnerRegistriesContent !== undefined
+      ? createHash('sha256').update(runnerRegistriesContent, 'utf8').digest()
+      : undefined
 
     // The composition is captured so finalize() can recompute the hash with
     // bundle-time additions (faux manifests, a pruned lockfile) from the
@@ -669,6 +701,7 @@ export class Bundler {
     const composeCacheHash = (extra: BundleTimeCacheHashInputs): string => {
       return composeWorkspaceCacheHash(cacheHashInputs, {
         dependencyCacheVersion,
+        runnerRegistries: runnerRegistriesDigest,
         ...extra,
       })
     }
@@ -682,6 +715,7 @@ export class Bundler {
         packageManager,
         embeddedPackagesMaterializer,
         packagePrune: normalizePackagePrune(packagePrune),
+        runnerRegistriesContent,
         composeCacheHash,
       },
     })
@@ -780,6 +814,8 @@ export class Bundler {
     }
     const embeddedPackages = await this.#materializeEmbeddedPackages(context, pruned)
 
+    this.#registerRunnerRegistries(context)
+
     const fauxPackageJsons: FauxPackageJsonInput[] = []
     for (const [archivePath, file] of this.#files) {
       if (file.physical || path.posix.basename(archivePath) !== 'package.json') {
@@ -805,6 +841,40 @@ export class Bundler {
   }
 
   /**
+   * Registers the serialized `runner.registries` configuration into the
+   * bundle at {@link REGISTRIES_ARCHIVE_PATH}. The path is CLI-managed:
+   * runners honor whatever lands there, so a pre-existing entry — a
+   * hand-written file an `include` glob dragged in, which has passed no
+   * validation and contributes nothing to the cache hash — is dropped
+   * rather than shipped, whether or not the option is set. Set directly
+   * rather than through `registerFiles`, whose prefer-physical rule
+   * would keep such a file. Skipped when the bundle is empty: the
+   * project then has no Playwright Check Suite, nothing is uploaded, and
+   * registering the file would make `isEmpty` misreport.
+   */
+  #registerRunnerRegistries (context: WorkspaceBundleContext): void {
+    if (this.#files.delete(REGISTRIES_ARCHIVE_PATH)) {
+      process.stderr.write(
+        `Warning: ${REGISTRIES_ARCHIVE_PATH} is generated from the 'runner.registries' config `
+        + `field and cannot be supplied as a project file; the included file was dropped.\n`,
+      )
+    }
+
+    const content = context.runnerRegistriesContent
+    if (content === undefined || this.isEmpty) {
+      return
+    }
+
+    this.#files.set(REGISTRIES_ARCHIVE_PATH, {
+      // A virtual file's archive path is derived from its filePath
+      // relative to the strip prefix, so the filePath must sit under it.
+      filePath: path.join(this.#stripPrefix ?? '', REGISTRIES_ARCHIVE_PATH),
+      physical: false,
+      content,
+    })
+  }
+
+  /**
    * Applies `bundle.packages.prune` to the workspace manifests in the
    * bundle — the root's and every bundled member's — replacing each
    * affected entry with a rewritten virtual copy. Runs before lockfile
@@ -821,13 +891,41 @@ export class Bundler {
     const replaced = new Map<string, File>()
 
     const prune = context.packagePrune
-    if (prune === undefined) {
+    // An empty bundle — a run whose check filter left nothing to bundle —
+    // applies no prune, so its configuration is deliberately not linted
+    // either: even a genuinely typo'd member selector stays quiet here
+    // and reports on the next run that bundles something. Mirrors the
+    // isEmpty short-circuits in #registerRunnerRegistries and
+    // #materializeEmbeddedPackages.
+    if (prune === undefined || this.isEmpty) {
       return replaced
     }
 
     const { workspace } = context
+    const memberDiagnostics = new MemberPruneDiagnostics(prune)
+    const visited = new Set<string>()
     for (const pkg of [workspace.root, ...workspace.packages]) {
       const manifestPath = manifestArchivePath(workspace, pkg)
+      // A root manifest whose own workspace globs match itself appears in
+      // workspace.packages a second time; without this guard the second
+      // visit would re-read and re-prune the same archive path — and
+      // repeat any per-manifest failure warning — whenever the first
+      // visit left the entry physical.
+      if (visited.has(manifestPath)) {
+        continue
+      }
+      visited.add(manifestPath)
+      const identity = {
+        name: pkg.name,
+        // Compared by path, not object identity: a root manifest whose own
+        // workspace globs match itself (e.g. `workspaces: ['**']`) appears
+        // in workspace.packages as a second Package instance, and that
+        // duplicate must still resolve as the root.
+        root: pkg.path === workspace.root.path,
+      }
+      // Observed whether or not the member is in this run's bundle: the
+      // typo net compares selectors against the whole workspace.
+      memberDiagnostics.observeWorkspaceMember(identity)
       const file = this.#files.get(manifestPath)
       if (file === undefined) {
         continue
@@ -838,6 +936,15 @@ export class Bundler {
         // of a physical original may join #rewrittenManifests, whose
         // consumers rely on the rewritten content being the real manifest.
         debug(`Not pruning ${manifestPath}: not a physical manifest`)
+        continue
+      }
+      memberDiagnostics.observeBundledMember(identity)
+      const resolved = resolveManifestPrune(prune, identity)
+      if (resolved === undefined) {
+        // Under member-scoped entries a manifest no entry targets is not
+        // part of the requested transformation, so the failure paths
+        // below do not apply to it either.
+        debug(`Not pruning ${manifestPath}: no prune entries apply to it`)
         continue
       }
       if (file.symlinkTarget !== undefined) {
@@ -865,8 +972,9 @@ export class Bundler {
         this.#warnManifestPruneFailure(manifestPath, `the bundled manifest could not be read (${err})`)
         continue
       }
+      memberDiagnostics.observeManifestContent(identity, content)
 
-      const result = prunePackageJson(content, prune)
+      const result = prunePackageJson(content, resolved)
       if (result === undefined) {
         this.#warnManifestPruneFailure(manifestPath, `the manifest could not be rewritten safely`)
         continue
@@ -887,6 +995,14 @@ export class Bundler {
       })
       this.#rewrittenManifests.add(manifestPath)
       debug(`Pruned ${manifestPath}: ${result.removed.join(', ') || '(structural cleanup only)'}`)
+    }
+
+    // Config-lint warnings, printed even when the rollback below later
+    // restores the originals: they describe the configuration, and the
+    // rollback prints its own warning about the shipped state.
+    memberDiagnostics.logMemberReach()
+    for (const warning of memberDiagnostics.warnings()) {
+      process.stderr.write(`Warning: ${warning}.\n`)
     }
 
     return replaced

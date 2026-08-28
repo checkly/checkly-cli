@@ -171,6 +171,7 @@ export default class ParseProjectCommand extends Command {
           embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
           packageManager: Session.packageManager,
           packagePrune: checklyConfig.bundle?.packages?.prune,
+          runnerRegistries: checklyConfig.runner?.registries,
         })
 
         const bundleStartedAt = performance.now()

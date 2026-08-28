@@ -184,11 +184,101 @@ describe('loadChecklyConfig()', () => {
       + ` or an array of package name patterns`,
     )
   })
+  it('accepts bundle.packages.prune member-scoped entries', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-valid-members.ts'],
+    )
+    expect(config.bundle?.packages?.prune).toEqual([
+      '@acme/*',
+      { member: 'my-app', remove: { peerDependencies: true } },
+      { member: ['.', '@acme/**'], keep: { dependencies: ['@acme/utils'], devDependencies: true } },
+    ])
+  })
+  it('rejects a member-scoped prune entry with both remove and keep', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-both.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: a member-scoped prune entry`
+      + ` must have exactly one of 'remove' and 'keep'`,
+    )
+  })
+  it('rejects a member-scoped prune entry with neither remove nor keep', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-neither.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: a member-scoped prune entry`
+      + ` must have exactly one of 'remove' and 'keep'`,
+    )
+  })
+  it('rejects a member-scoped prune entry with an unknown field', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-unknown-field.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: 'path' is not a member-scoped`
+      + ` prune entry field (expected member, remove, keep)`,
+    )
+  })
+  it('rejects a member selector that is not a name pattern', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-bad-pattern.js'],
+    )).rejects.toThrow(`'./packages/app' is not a valid npm package name`)
+  })
   it('rejects a bundle.packages.prune entry with an embed-style version pin', async () => {
     await expect(loadChecklyConfig(
       path.join(__dirname, 'fixtures', 'configs'),
       ['bundle-packages-prune-bad-pattern.js'],
     )).rejects.toThrow(`'name@version' pins are not supported here`)
+  })
+  it('accepts a valid runner.registries configuration', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['runner-registries-valid.ts'],
+    )
+    expect(config.runner?.registries).toEqual({
+      upstreams: {
+        npmjs: { url: 'https://registry.npmjs.org/' },
+        internal: {
+          url: 'https://npm.example.com/',
+          auth: { type: 'bearer', token: '${INTERNAL_NPM_TOKEN}' },
+        },
+      },
+      packages: [
+        { pattern: '@acme/**', upstreams: ['internal'] },
+        { pattern: '**', upstreams: ['npmjs', 'internal'] },
+      ],
+    })
+  })
+  it('rejects a runner that is not an object', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['runner-registries-runner-not-object.js'],
+    )).rejects.toThrow(`Config field 'runner' must be an object if set`)
+  })
+  it('rejects a misspelled key inside the runner block', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['runner-registries-misspelled-key.js'],
+    )).rejects.toThrow(`Config field 'runner' contains unknown field 'registires' (expected only: 'registries')`)
+  })
+  it('rejects a runner.registries rule using an unknown upstream name', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['runner-registries-unknown-upstream.js'],
+    )).rejects.toThrow(
+      `Config field 'runner.registries' is invalid: packages[0]: upstream 'mirror' is not defined`
+      + ` under 'upstreams' (defined: 'npmjs')`,
+    )
+  })
+  it('rejects a runner.registries auth token without a ${VAR} reference', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['runner-registries-literal-token.js'],
+    )).rejects.toThrow(/must be exactly one environment variable reference in \$\{VAR\} syntax/)
   })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'

@@ -660,8 +660,9 @@ describe('composeCacheHash', () => {
   // at once, pinning the full record order: npmrc records, then the
   // pnpmfile record, then embedded-package records, then the
   // dependency-cache-version record, then faux-package.json records, then
-  // the pruned-lockfile record. The TF provider must produce this exact
-  // digest once it mirrors all record types.
+  // the pruned-lockfile record, then the runner-registries record. The TF
+  // provider must produce this exact digest once it mirrors all record
+  // types.
   test('matches the cross-language parity fixture digest with every record group', () => {
     const lockfileBytes = buf('{"lockfileVersion":3}\n')
     const rootPackageJson = buf([
@@ -700,11 +701,12 @@ describe('composeCacheHash', () => {
         name: 'pnpm-lock.yaml',
         hash: sha256('pruned-lockfile-bytes'),
       },
+      runnerRegistries: sha256('{"version":1}\n'),
       excludedFields: ['version'],
       dependencyCacheVersion: '2',
     })
 
-    expect(digest).toBe('0dcfaca5d3b62fd83b03f6165b972e352209f674260457b8778795ffe52ac34f')
+    expect(digest).toBe('980b80da3f2519061d81b15495a72d7bf236208d07282c9f6f820ac4d08777c8')
   })
 })
 

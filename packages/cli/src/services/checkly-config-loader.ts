@@ -12,6 +12,7 @@ import { FileLoader } from '../loader/index.js'
 import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
 import { BundlePackagesPrune, normalizePackagePrune } from './check-parser/package-prune.js'
 import { parseEmbeddedPackageSpec } from './embedded-packages/spec.js'
+import { Registries, validateRegistries } from './runner/registries.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,
@@ -40,7 +41,7 @@ export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activat
   | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'group' | 'groupName' | 'runParallel'
   | 'engine'> & { logicalId: string, playwrightConfigPath?: string }
 
-export type ChecklyConfig = {
+export type ChecklyConfig<UpstreamName extends string = string> = {
   /**
    * Friendly name for your project.
    */
@@ -195,12 +196,14 @@ export type ChecklyConfig = {
        * lockfile has nothing to fall out of sync with, so the pruned
        * manifests always ship there.
        *
-       * Accepts either an array of package name patterns, removed from
-       * every dependency class (`dependencies`, `devDependencies`,
-       * `peerDependencies` and `optionalDependencies`), or an object keyed
-       * by dependency class whose values are `true` (remove the whole
-       * class) or a pattern array (remove matching entries from that class
-       * only). Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
+       * Accepts either an array of entries, or an object keyed
+       * by dependency class (`dependencies`, `devDependencies`,
+       * `peerDependencies` and `optionalDependencies`) whose values are
+       * `true` (remove the whole class) or a pattern array (remove
+       * matching entries from that class only). An array entry is a
+       * package name pattern — removed from every dependency class of
+       * every bundled manifest — or a member-scoped object (below).
+       * Names may contain `*` wildcards (`'@acme/*'`, `'acme-*'`);
        * a single `*` never crosses the `/` scope separator, so a bare
        * `'*'` matches only unscoped names, while a `**` does cross it —
        * to remove a whole class, use `true` or `['**']`, not `['*']`.
@@ -215,12 +218,49 @@ export type ChecklyConfig = {
        * because the exclusion runs before anything has been selected. To
        * remove a whole class *except* some packages, select everything
        * first: `['**', '!@acme/keep']`.
-       * `true` cannot be combined with exclusions. Unlike
-       * `bundle.packages.embed` there are no
+       * In the class-keyed form `true` cannot be combined with
+       * exclusions. Unlike `bundle.packages.embed` there are no
        * `name@version` pins; they are rejected at config load. Removed
        * `peerDependencies` take their `peerDependenciesMeta` entries with
        * them, and `peerDependencies: true` clears `peerDependenciesMeta`
        * entirely.
+       *
+       * A member-scoped entry — `{ member, remove }` or `{ member, keep }`
+       * — applies only to the workspace members whose manifest `name` the
+       * `member` pattern list selects, with the same wildcard and
+       * `!`-exclusion grammar and ordering as the name patterns
+       * (`['@acme/**', '!@acme/e2e']`). `'.'` selects the workspace root
+       * (`'!.'` excludes it), and is the only selector for a root
+       * manifest that has no `name` field.
+       * `remove` subtracts like the global patterns and composes
+       * with the other entries in listed order: a pattern list applies to
+       * every dependency class, a class-keyed object to the mentioned
+       * classes only, and inside these entries `true` is exactly the
+       * `['**']` catch-all — a later exclusion can still spare entries
+       * from it, and only the meta entries of actually-removed peers go
+       * with it. `keep` inverts the reading: it declares the member's
+       * entire remaining dependency set. Entries it does not select are
+       * removed, classes a class-keyed `keep` does not mention are
+       * emptied, and no other entry can remove a kept name — one `keep`
+       * entry fully determines the member's bundled manifest regardless
+       * of entry order, and multiple `keep` entries matching the same
+       * member combine. An empty `keep` (`[]` or `{}`) is the explicit
+       * spelling for "keep nothing": it empties every dependency class
+       * of the matched members, deliberately without a warning. An
+       * entry carries exactly one of `remove` and
+       * `keep`. Prefer exact member names with `keep`: a wildcard can
+       * sweep a future member into a keep set written for another
+       * package. As a safety net, a `member` selector that matches no
+       * member of the workspace at all warns at bundling time — a
+       * selector for a real member the current run merely did not
+       * bundle stays quiet, visible only in the `DEBUG` reach log —
+       * and so does a keep pattern (exclusions and the bare `'**'`
+       * catch-all aside) that ends up keeping nothing in a matched
+       * member this run bundled — members outside the bundle are not
+       * inspected. When one keep list serves several members and keeps
+       * warning about members that legitimately do not declare some of
+       * the kept packages, split it into per-member entries with
+       * tailored lists.
        *
        * Pruning is not validated against the code: you are responsible for
        * not removing anything the bundled code actually needs at runtime.
@@ -260,6 +300,58 @@ export type ChecklyConfig = {
        */
       version?: string | number
     }
+  }
+  /**
+   * Configuration applied on the Checkly runner when it executes checks.
+   */
+  runner?: {
+    /**
+     * Registry routing for the dependency install of a Playwright Check
+     * Suite code bundle. Use this when the registries your `.npmrc` (or
+     * `pnpm-workspace.yaml` / `.yarnrc.yml`) points at resolve fine on
+     * the machine running the CLI but are unreachable from Checkly
+     * runners — e.g. a VPN-only mirror. When set, the runner installs
+     * packages through a local registry that selects upstreams according
+     * to these rules instead of the registries named in bundled config
+     * files; embedded packages (`bundle.packages.embed`) always take
+     * priority regardless of the rules. Applies to Playwright Check
+     * Suites only, and only on the runner: operations on the machine
+     * running the CLI — embedded-package downloads, lockfile pruning —
+     * still read `.npmrc` and `npm_config_*` credentials.
+     *
+     * `upstreams` names the registries the runner may fetch from. Each
+     * needs a base `url` (an absolute http(s) URL without query,
+     * fragment or inline credentials, since package paths are appended
+     * to it) and may carry bearer `auth`. An auth token must be exactly
+     * one environment variable reference in `${VAR}` syntax (e.g.
+     * `'${NPM_TOKEN}'`, in single quotes so the shell-like syntax is not
+     * expanded locally): the value is resolved from the check's
+     * environment variables on the runner, so the secret value appears
+     * in neither the config nor the uploaded code bundle. Any literal
+     * token content is rejected at config load.
+     *
+     * `packages` routes package names to upstreams, first match wins,
+     * top-down. Patterns use the same wildcard syntax as
+     * `bundle.packages.embed` (a single `*` never crosses the `/` scope
+     * separator, `**` does), but no `!` exclusions and no
+     * `name@version` pins. Each rule lists one or more upstream names
+     * tried in order — the first upstream that serves the package wins,
+     * and a 404 or unreachable upstream falls through to the next
+     * upstream in the same rule, never to a later rule (a broader rule
+     * as fallback would leak private package names to its upstreams).
+     * The last rule must be the match-all rule
+     * (`{ pattern: '**', ... }`) so every package has a route; a rule
+     * placed after a match-all could never apply and is rejected.
+     * Changing this configuration invalidates the runner's dependency
+     * cache.
+     *
+     * `defineConfig` type-checks that every upstream name used in
+     * `packages` is defined under `upstreams`; define the registries
+     * object inline in the config literal, since the check relies on
+     * type inference from the `upstreams` keys. The same rules are also
+     * enforced at config load for plain-JS configs.
+     */
+    registries?: Registries<UpstreamName>
   }
   /**
    * CLI default configuration properties.
@@ -362,6 +454,7 @@ export async function loadChecklyConfig (
     validateConfigFields(config, ['logicalId', 'projectName'] as const)
     validateDependencyCacheVersion(config)
     validateBundle(config)
+    validateRunner(config)
 
     const constructs = Session.checklyConfigFileConstructs
 
@@ -456,5 +549,39 @@ function validateBundle (config: ChecklyConfig): void {
     } catch (cause) {
       throw new Error(`Config field 'bundle.packages.embed' is invalid: ${(cause as Error).message}`, { cause })
     }
+  }
+}
+
+function validateRunner (config: ChecklyConfig): void {
+  const { runner } = config
+  if (runner === undefined) {
+    return
+  }
+
+  // Same rationale as `validateBundle`: plain-JS configs bypass the
+  // TypeScript type, and a misshapen `runner` block would otherwise read as
+  // `registries: undefined` and silently disable routing, surfacing only as
+  // an install failure on the runner.
+  if (runner === null || typeof runner !== 'object' || Array.isArray(runner)) {
+    throw new Error(`Config field 'runner' must be an object if set`)
+  }
+
+  // A misspelled key (`registires`) would silently disable routing the same
+  // way a misshapen block would.
+  for (const key of Object.keys(runner)) {
+    if (key !== 'registries') {
+      throw new Error(`Config field 'runner' contains unknown field '${key}' (expected only: 'registries')`)
+    }
+  }
+
+  const { registries } = runner
+  if (registries === undefined) {
+    return
+  }
+
+  try {
+    validateRegistries(registries)
+  } catch (cause) {
+    throw new Error(`Config field 'runner.registries' is invalid: ${(cause as Error).message}`, { cause })
   }
 }

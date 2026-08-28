@@ -7,6 +7,7 @@ import { list } from 'tar'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { BundleArchive, BundleTooLargeError, Bundler, embeddedPackageHashInputs, FinalizedBundleArchive } from '../bundler.js'
+import { File } from '../parser.js'
 import {
   canonicalizePackageJson,
   composeWorkspaceCacheHash,
@@ -19,6 +20,7 @@ import { Err, Ok } from '../package-files/result.js'
 import { EmbeddedPackageError, EmbeddedPackagesMaterializer } from '../../embedded-packages/materializer.js'
 import { TarballCache } from '../../embedded-packages/cache.js'
 import { PayloadTooLargeError } from '../../../rest/errors.js'
+import { Registries, serializeRegistries, validateRegistries } from '../../runner/registries.js'
 
 const uploadCodeBundle = vi.hoisted(() => vi.fn())
 
@@ -1233,17 +1235,24 @@ describe('Bundler.finalize() package pruning', () => {
     packageManager?: any
     materializer?: EmbeddedPackagesMaterializer
     skipLockfile?: boolean
+    workspace?: Workspace
+    rootFile?: File
+    memberFile?: File
+    noFiles?: boolean
   } = {}) => {
-    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+    const bundler = await Bundler.createForWorkspace(options.workspace ?? makeWorkspace(), {
       tempDir: path.join(dir, 'out'),
       packageManager: options.packageManager ?? await stubPruningPackageManager(),
       embeddedPackagesMaterializer: options.materializer,
       packagePrune: options.prune,
     })
+    if (options.noFiles) {
+      return bundler
+    }
     bundler.registerFiles(
-      { filePath: path.join(dir, 'package.json'), physical: true },
+      options.rootFile ?? { filePath: path.join(dir, 'package.json'), physical: true },
       { filePath: path.join(dir, 'pnpm-workspace.yaml'), physical: true },
-      { filePath: path.join(dir, 'packages/m/package.json'), physical: true },
+      options.memberFile ?? { filePath: path.join(dir, 'packages/m/package.json'), physical: true },
     )
     if (!options.skipLockfile) {
       bundler.registerFiles({ filePath: path.join(dir, 'pnpm-lock.yaml'), physical: true })
@@ -1285,6 +1294,274 @@ describe('Bundler.finalize() package pruning', () => {
     expect(await fs.readFile(path.join(dir, 'packages/m/package.json'), 'utf8')).toEqual(memberManifest())
 
     expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('applies a member-scoped keep only to the targeted member', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/m', keep: { dependencies: true } }],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // The member keeps its dependencies; the unmentioned classes empty out.
+    const member = JSON.parse(contents.get('packages/m/package.json')!)
+    expect(member.dependencies).toEqual({ ms: '2.1.3' })
+    expect(member.peerDependencies).toBeUndefined()
+    expect(member.peerDependenciesMeta).toBeUndefined()
+
+    // The root is targeted by no entry, so it ships physical and verbatim.
+    expect(contents.get('package.json')).toEqual(rootManifest())
+    expect(contents.get('pnpm-lock.yaml')).toEqual(prunedLockfile())
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('scopes a removal to the workspace root via \'.\'', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '.', remove: ['@acme/*'] }],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    const root = JSON.parse(contents.get('package.json')!)
+    expect(root.devDependencies).toEqual({ typescript: '^5.4.0' })
+
+    // The member also has an @acme peer, but the entry only addresses the root.
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('cancels a global removal for a keep-governed member and empties its unmentioned classes', async () => {
+    const bundler = await makeBundler({
+      prune: ['@acme/*', { member: '@fixture/m', keep: { peerDependencies: ['@acme/heavy-icons'] } }],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // The keep spares the peer the global pattern would have removed, and
+    // empties the classes it does not mention.
+    const member = JSON.parse(contents.get('packages/m/package.json')!)
+    expect(member.peerDependencies).toEqual({ '@acme/heavy-icons': '^6.0.0' })
+    expect(member.peerDependenciesMeta).toEqual({ '@acme/heavy-icons': { optional: false } })
+    expect(member.dependencies).toBeUndefined()
+
+    // The root is not keep-governed, so the global pattern still applies.
+    expect(JSON.parse(contents.get('package.json')!).devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('warns when a member selector matches no workspace member', async () => {
+    const bundler = await makeBundler({ prune: [{ member: '@fixture/nope', remove: ['**'] }] })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(contents.get('package.json')).toEqual(rootManifest())
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    expect(stderrWrites.join('')).toContain(
+      `Warning: bundle.packages.prune entry for member '@fixture/nope' matched no workspace member.\n`,
+    )
+  })
+
+  it('does not warn for a selector matching a member that this bundle ships only as a shim', async () => {
+    // The typo net compares against the workspace, not the bundle: the
+    // member exists, this run just did not bundle its real manifest —
+    // visible in the debug reach log, not worth a per-run warning.
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/m', remove: ['@acme/*'] }],
+      memberFile: {
+        filePath: path.join(dir, 'packages/m/package.json'),
+        physical: false,
+        content: '{"name":"@fixture/m","version":"1.0.0"}',
+      },
+    })
+    await bundler.finalize()
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('warns per member, class and pattern for a keep selection that matched nothing', async () => {
+    const bundler = await makeBundler({
+      prune: [{
+        member: '@fixture/m',
+        keep: {
+          dependencies: ['ms'],
+          // A real package name, but one this member declares nowhere.
+          devDependencies: ['@acme/tooling'],
+        },
+      }],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    const member = JSON.parse(contents.get('packages/m/package.json')!)
+    expect(member.dependencies).toEqual({ ms: '2.1.3' })
+    expect(member.peerDependencies).toBeUndefined()
+
+    const output = stderrWrites.join('')
+    expect(output).toContain(
+      `Warning: bundle.packages.prune keep pattern '@acme/tooling' matched nothing`
+      + ` in devDependencies of '@fixture/m'; its bundled manifest does not keep it.\n`,
+    )
+    expect(output).not.toContain(`'ms'`)
+  })
+
+  it('warns once across classes for a flat keep pattern that matched nothing', async () => {
+    const bundler = await makeBundler({ prune: [{ member: '@fixture/m', keep: ['ms', 'nope'] }] })
+    await bundler.finalize()
+
+    const output = stderrWrites.join('')
+    expect(output).toContain(
+      `Warning: bundle.packages.prune keep pattern 'nope' matched nothing`
+      + ` in any dependency class of '@fixture/m'; its bundled manifest does not keep it.\n`,
+    )
+    expect(output.split(`'nope'`).length - 1).toBe(1)
+  })
+
+  it('does not warn for a selector matching a member the bundle omits', async () => {
+    // The filtered-run scenario: '@fixture/extra' is a real workspace
+    // member, but no check in this run bundled any of its files.
+    await fs.mkdir(path.join(dir, 'packages/extra'), { recursive: true })
+    await fs.writeFile(
+      path.join(dir, 'packages/extra/package.json'),
+      JSON.stringify({ name: '@fixture/extra', version: '1.0.0', dependencies: { ms: '2.1.3' } }),
+    )
+    const bundler = await makeBundler({
+      workspace: new Workspace({
+        root: new Package({ name: 'prune-fixture-root', path: dir }),
+        packages: [
+          new Package({ name: '@fixture/m', path: path.join(dir, 'packages/m'), version: '1.0.0' }),
+          new Package({ name: '@fixture/extra', path: path.join(dir, 'packages/extra'), version: '1.0.0' }),
+        ],
+        lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+        configFile: Ok(path.join(dir, 'pnpm-workspace.yaml')),
+      }),
+      prune: [{ member: '@fixture/extra', remove: ['**'] }],
+    })
+    await bundler.finalize()
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('emits no prune warnings for an empty bundle', async () => {
+    // A check filter can leave the bundle empty; the config then had
+    // nothing to apply to and must not be flagged.
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/nope', keep: ['ms'] }],
+      noFiles: true,
+    })
+    await bundler.finalize()
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('lints a root duplicated into the member list only once', async () => {
+    // A root manifest whose own workspace globs match itself (e.g.
+    // `workspaces: ['**']`) appears in workspace.packages as a second
+    // Package for the same path; its lint findings must not double up.
+    const bundler = await makeBundler({
+      workspace: new Workspace({
+        root: new Package({ name: 'prune-fixture-root', path: dir }),
+        packages: [
+          new Package({ name: 'prune-fixture-root', path: dir }),
+          new Package({ name: '@fixture/m', path: path.join(dir, 'packages/m'), version: '1.0.0' }),
+        ],
+        lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+        configFile: Ok(path.join(dir, 'pnpm-workspace.yaml')),
+      }),
+      // Keeps everything the root declares, so the manifest stays
+      // physical and would be observed again without deduplication.
+      prune: [{
+        member: '.',
+        keep: { devDependencies: ['@acme/tooling', 'typescript', 'absent-dep'] },
+      }],
+    })
+    await bundler.finalize()
+
+    const output = stderrWrites.join('')
+    expect(output).toContain(
+      `keep pattern 'absent-dep' matched nothing in devDependencies of 'prune-fixture-root';`
+      + ` its bundled manifest does not keep it.`,
+    )
+    expect(output.split(`'absent-dep'`).length - 1).toBe(1)
+  })
+
+  it('processes a duplicated root manifest only once', async () => {
+    // With the root duplicated into workspace.packages and its manifest
+    // unprunable, a second visit would repeat the failure warning.
+    const bundler = await makeBundler({
+      workspace: new Workspace({
+        root: new Package({ name: 'prune-fixture-root', path: dir }),
+        packages: [
+          new Package({ name: 'prune-fixture-root', path: dir }),
+          new Package({ name: '@fixture/m', path: path.join(dir, 'packages/m'), version: '1.0.0' }),
+        ],
+        lockfile: Ok(path.join(dir, 'pnpm-lock.yaml')),
+        configFile: Ok(path.join(dir, 'pnpm-workspace.yaml')),
+      }),
+      prune: [{ member: '.', remove: ['@acme/*'] }],
+      rootFile: {
+        filePath: path.join(dir, 'package.json'),
+        physical: true,
+        symlinkTarget: './real-package.json',
+      },
+    })
+    await bundler.finalize()
+
+    const output = stderrWrites.join('')
+    expect(output.split('could not apply bundle.packages.prune to package.json').length - 1).toBe(1)
+  })
+
+  it('emits no keep warnings when every pattern matches', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/m', keep: { dependencies: ['ms'], peerDependencies: true } }],
+    })
+    await bundler.finalize()
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('rolls back member-scoped rewrites and still prints the config-lint warnings', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/m', keep: { dependencies: ['ms'], devDependencies: ['nope'] } }],
+      packageManager: await stubPruningPackageManager({ fail: true }),
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    const output = stderrWrites.join('')
+    expect(output).toContain('bundle.packages.prune was not applied because the bundled lockfile')
+    expect(output).toContain(`keep pattern 'nope' matched nothing in devDependencies of '@fixture/m'`)
+  })
+
+  it('skips a symlinked manifest no entry targets without a warning', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '.', remove: ['@acme/*'] }],
+      memberFile: {
+        filePath: path.join(dir, 'packages/m/package.json'),
+        physical: true,
+        symlinkTarget: '../../package.json',
+      },
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // The root was pruned; the untargeted symlinked member drew no warning.
+    expect(JSON.parse(contents.get('package.json')!).devDependencies).toEqual({ typescript: '^5.4.0' })
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('warns about the prune failure of a targeted symlinked manifest, not about its selector', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/m', remove: ['@acme/*'] }],
+      memberFile: {
+        filePath: path.join(dir, 'packages/m/package.json'),
+        physical: true,
+        symlinkTarget: '../../package.json',
+      },
+    })
+    await bundler.finalize()
+
+    const output = stderrWrites.join('')
+    // The member exists — its manifest just cannot be pruned, which the
+    // failure path reports on its own.
+    expect(output).toContain('could not apply bundle.packages.prune to packages/m/package.json')
+    expect(output).not.toContain('matched no workspace member')
   })
 
   it('removes a whole dependency class with true, meta included', async () => {
@@ -1699,4 +1976,158 @@ describe('Bundler.finalize() patch filtering with real pnpm', () => {
     expect(await fs.readFile(path.join(dir, 'patches/ee-first@1.1.1.patch'), 'utf8'))
       .toEqual(await fs.readFile(path.join(FIXTURE_ROOT, 'patches/ee-first@1.1.1.patch'), 'utf8'))
   }, 60_000)
+})
+
+describe('Bundler.finalize() runner registries', () => {
+  let dir: string
+
+  const registriesConfig = () => ({
+    upstreams: {
+      npmjs: { url: 'https://registry.npmjs.org/' },
+      internal: {
+        url: 'https://npm.example.com/',
+        auth: { type: 'bearer' as const, token: '${INTERNAL_NPM_TOKEN}' },
+      },
+    },
+    packages: [
+      { pattern: '@acme/**', upstreams: ['internal'] },
+      { pattern: '**', upstreams: ['npmjs', 'internal'] },
+    ],
+  })
+
+  beforeEach(async () => {
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-bundler-registries-')))
+    await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+      name: 'registries-fixture-root',
+      private: true,
+    }))
+  })
+
+  afterEach(async () => {
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  const makeWorkspace = () => new Workspace({
+    root: new Package({ name: 'registries-fixture-root', path: dir }),
+    packages: [],
+    lockfile: Err(new Error('no lockfile')),
+    configFile: Err(new Error('no config file')),
+  })
+
+  const makeBundler = (runnerRegistries?: Registries) => Bundler.createForWorkspace(makeWorkspace(), {
+    tempDir: path.join(dir, 'out'),
+    packageManager: npmPackageManager,
+    runnerRegistries,
+  })
+
+  const readArchive = async (archiveFile: string): Promise<Map<string, string>> => {
+    const contents = new Map<string, string>()
+    await list({ file: archiveFile, onReadEntry: entry => {
+      const chunks: Buffer[] = []
+      entry.on('data', chunk => chunks.push(chunk as Buffer))
+      entry.on('end', () => contents.set(entry.path, Buffer.concat(chunks).toString('utf8')))
+      entry.resume()
+    } })
+    return contents
+  }
+
+  it('ships the serialized configuration as .checkly/config/registries.json', async () => {
+    const bundler = await makeBundler(registriesConfig())
+    bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
+    const archive = await bundler.finalize()
+
+    const content = (await readArchive(archive.archiveFile)).get('.checkly/config/registries.json')
+    expect(content).toEqual(serializeRegistries(validateRegistries(registriesConfig())))
+    expect(JSON.parse(content!)).toMatchObject({ version: 1 })
+  })
+
+  it('replaces a project file at the registries path with the generated configuration', async () => {
+    await fs.mkdir(path.join(dir, '.checkly/config'), { recursive: true })
+    await fs.writeFile(path.join(dir, '.checkly/config/registries.json'), '{"version":1,"handwritten":true}')
+
+    const stderrWrites: string[] = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      stderrWrites.push(String(chunk))
+      return true
+    })
+
+    try {
+      const bundler = await makeBundler(registriesConfig())
+      bundler.registerFiles(
+        { filePath: path.join(dir, 'package.json'), physical: true },
+        { filePath: path.join(dir, '.checkly/config/registries.json'), physical: true },
+      )
+      const archive = await bundler.finalize()
+
+      const content = (await readArchive(archive.archiveFile)).get('.checkly/config/registries.json')
+      expect(content).toEqual(serializeRegistries(validateRegistries(registriesConfig())))
+      expect(stderrWrites.join('')).toContain('cannot be supplied as a project file')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('drops a project file at the registries path when the option is not set', async () => {
+    await fs.mkdir(path.join(dir, '.checkly/config'), { recursive: true })
+    await fs.writeFile(path.join(dir, '.checkly/config/registries.json'), '{"version":1,"handwritten":true}')
+
+    const stderrWrites: string[] = []
+    vi.spyOn(process.stderr, 'write').mockImplementation(chunk => {
+      stderrWrites.push(String(chunk))
+      return true
+    })
+
+    try {
+      const bundler = await makeBundler()
+      bundler.registerFiles(
+        { filePath: path.join(dir, 'package.json'), physical: true },
+        { filePath: path.join(dir, '.checkly/config/registries.json'), physical: true },
+      )
+      const archive = await bundler.finalize()
+
+      expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/config/registries.json')
+      expect(stderrWrites.join('')).toContain('cannot be supplied as a project file')
+    } finally {
+      vi.restoreAllMocks()
+    }
+  })
+
+  it('ships no registries file when the option is not set', async () => {
+    const bundler = await makeBundler()
+    bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
+    const archive = await bundler.finalize()
+
+    expect([...(await readArchive(archive.archiveFile)).keys()]).not.toContain('.checkly/config/registries.json')
+  })
+
+  it('keeps an empty bundle empty even when the option is set', async () => {
+    const bundler = await makeBundler(registriesConfig())
+    const archive = await bundler.finalize()
+
+    expect(bundler.isEmpty).toBe(true)
+    expect([...(await readArchive(archive.archiveFile)).keys()]).toEqual([])
+  })
+
+  it('mixes the serialized configuration into the cache hash', async () => {
+    const withConfig = await makeBundler(registriesConfig())
+    const without = await makeBundler()
+
+    const serialized = serializeRegistries(validateRegistries(registriesConfig()))
+    const expected = composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace()), {
+      runnerRegistries: createHash('sha256').update(serialized, 'utf8').digest(),
+    })
+    expect(withConfig.cacheHash.toJSON()).toEqual(expected)
+    expect(without.cacheHash.toJSON()).toEqual(
+      composeWorkspaceCacheHash(await loadWorkspaceCacheHashInputs(makeWorkspace())),
+    )
+    expect(withConfig.cacheHash.toJSON()).not.toEqual(without.cacheHash.toJSON())
+  })
+
+  it('keeps the cache hash stable across finalize()', async () => {
+    const bundler = await makeBundler(registriesConfig())
+    const eager = bundler.cacheHash.toJSON()
+    bundler.registerFiles({ filePath: path.join(dir, 'package.json'), physical: true })
+    await bundler.finalize()
+    expect(bundler.cacheHash.toJSON()).toEqual(eager)
+  })
 })
