@@ -80,9 +80,11 @@ async function generate (rootDirectory: string, resources: Array<{ type: any, lo
   }
   await program.realize()
 
+  // Keyed by POSIX-style relative path so lookups read the same on Windows.
   const sources: Record<string, string> = {}
   for (const filePath of program.paths) {
-    sources[path.relative(rootDirectory, filePath)] = await readFile(filePath, 'utf8')
+    const key = path.relative(rootDirectory, filePath).split(path.sep).join(path.posix.sep)
+    sources[key] = await readFile(filePath, 'utf8')
   }
   return sources
 }
