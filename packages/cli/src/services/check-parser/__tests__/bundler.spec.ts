@@ -1288,6 +1288,40 @@ describe('Bundler.finalize() package pruning', () => {
     expect(stderrWrites.join('')).toEqual('')
   })
 
+  it('applies a member-scoped keep only to the targeted member', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '@fixture/m', keep: { dependencies: true } }],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    // The member keeps its dependencies; the unmentioned classes empty out.
+    const member = JSON.parse(contents.get('packages/m/package.json')!)
+    expect(member.dependencies).toEqual({ ms: '2.1.3' })
+    expect(member.peerDependencies).toBeUndefined()
+    expect(member.peerDependenciesMeta).toBeUndefined()
+
+    // The root is targeted by no entry, so it ships physical and verbatim.
+    expect(contents.get('package.json')).toEqual(rootManifest())
+    expect(contents.get('pnpm-lock.yaml')).toEqual(prunedLockfile())
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
+  it('scopes a removal to the workspace root via \'.\'', async () => {
+    const bundler = await makeBundler({
+      prune: [{ member: '.', remove: ['@acme/*'] }],
+    })
+    const archive = await bundler.finalize()
+    const contents = await readArchive(archive.archiveFile)
+
+    const root = JSON.parse(contents.get('package.json')!)
+    expect(root.devDependencies).toEqual({ typescript: '^5.4.0' })
+
+    // The member also has an @acme peer, but the entry only addresses the root.
+    expect(contents.get('packages/m/package.json')).toEqual(memberManifest())
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
   it('removes a whole dependency class with true, meta included', async () => {
     const bundler = await makeBundler({ prune: { peerDependencies: true } })
     const archive = await bundler.finalize()

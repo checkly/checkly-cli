@@ -32,6 +32,7 @@ import {
   NormalizedPackagePrune,
   normalizePackagePrune,
   prunePackageJson,
+  resolveManifestPrune,
 } from './package-prune.js'
 import {
   findUnrepairedPatchKeys,
@@ -908,6 +909,21 @@ export class Bundler {
         debug(`Not pruning ${manifestPath}: not a physical manifest`)
         continue
       }
+      const resolved = resolveManifestPrune(prune, {
+        name: pkg.name,
+        // Compared by path, not object identity: a root manifest whose own
+        // workspace globs match itself (e.g. `workspaces: ['**']`) appears
+        // in workspace.packages as a second Package instance, and that
+        // duplicate must still resolve as the root.
+        root: pkg.path === workspace.root.path,
+      })
+      if (resolved === undefined) {
+        // Under member-scoped entries a manifest no entry targets is not
+        // part of the requested transformation, so the failure paths
+        // below do not apply to it either.
+        debug(`Not pruning ${manifestPath}: no prune entries apply to it`)
+        continue
+      }
       if (file.symlinkTarget !== undefined) {
         this.#warnManifestPruneFailure(manifestPath, `the manifest is bundled as a symlink`)
         continue
@@ -934,7 +950,7 @@ export class Bundler {
         continue
       }
 
-      const result = prunePackageJson(content, prune)
+      const result = prunePackageJson(content, resolved)
       if (result === undefined) {
         this.#warnManifestPruneFailure(manifestPath, `the manifest could not be rewritten safely`)
         continue

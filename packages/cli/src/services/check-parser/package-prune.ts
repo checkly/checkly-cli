@@ -6,6 +6,7 @@ import {
   PackageNamePattern,
   parsePackageNamePattern,
   patternsSelectName,
+  specMatchesPackageName,
 } from '../embedded-packages/spec.js'
 
 const debug = Debug('checkly:cli:services:check-parser:package-prune')
@@ -20,54 +21,113 @@ export const DEPENDENCY_CLASSES = [
 export type DependencyClass = typeof DEPENDENCY_CLASSES[number]
 
 /**
- * The `bundle.packages.prune` config surface: a pattern array applied to
- * every dependency class, or a per-class map where `true` removes the
- * whole class and a pattern array removes matching entries from it.
+ * A per-class map: `true` selects the whole class and a pattern array
+ * selects matching entries from it.
  */
-export type BundlePackagesPrune =
-  | string[]
-  | { [K in DependencyClass]?: true | string[] }
+export type BundlePackagesPruneClasses = {
+  [K in DependencyClass]?: true | string[]
+}
 
 /**
- * Normalized form: per class, `true` (remove all) or parsed patterns.
- * A class absent from the map is left untouched.
+ * A `bundle.packages.prune` array entry: a global name pattern applied to
+ * every bundled workspace manifest, or a member-scoped object targeting
+ * the manifests whose `name` the `member` pattern list selects (`'.'`
+ * addresses the workspace root). A scoped entry carries exactly one of
+ * `remove` (subtractive: matching entries are removed, composing with
+ * global patterns in listed order) or `keep` (declarative: the member's
+ * entire final dependency set — entries not kept are removed, classes a
+ * class-keyed `keep` leaves unmentioned are emptied, and no other entry
+ * can remove a kept name).
  */
-export type NormalizedPackagePrune = {
-  [K in DependencyClass]?: true | PackageNamePattern[]
+export type BundlePackagesPruneEntry =
+  | string
+  | {
+    member: string | string[]
+    remove: string[] | BundlePackagesPruneClasses
+    keep?: never
+  }
+  | {
+    member: string | string[]
+    keep: string[] | BundlePackagesPruneClasses
+    remove?: never
+  }
+
+/**
+ * The `bundle.packages.prune` config surface: an entry array (name
+ * patterns and member-scoped objects), or a per-class map where `true`
+ * removes the whole class and a pattern array removes matching entries
+ * from it.
+ */
+export type BundlePackagesPrune =
+  | BundlePackagesPruneEntry[]
+  | BundlePackagesPruneClasses
+
+/**
+ * A member selector element: the `'.'` token addressing the workspace
+ * root, or a name pattern matched against a member manifest's `name`.
+ */
+export type MemberPattern =
+  | { root: true, exclude: boolean }
+  | PackageNamePattern
+
+/** Parsed patterns per dependency class; an absent class holds none. */
+export type PruneClassPatterns = {
+  [K in DependencyClass]?: PackageNamePattern[]
 }
+
+/**
+ * A normalized prune entry. `true` class values inside member-scoped
+ * `remove`/`keep` normalize to the catch-all `'**'` pattern, so ordered
+ * entry composition needs no separate whole-class rule — unlike the
+ * standalone class-keyed form, whose `true` keeps its structural extras
+ * (see {@link applyPrune}). `flat` records that a `keep` was written as
+ * one pattern list rather than keyed by class.
+ */
+export type NormalizedPruneEntry =
+  | { kind: 'global', pattern: PackageNamePattern }
+  | { kind: 'remove', member: MemberPattern[], remove: PruneClassPatterns }
+  | { kind: 'keep', member: MemberPattern[], keep: PruneClassPatterns, flat: boolean }
+
+/**
+ * Normalized form: the entry array becomes an ordered entry list, the
+ * class-keyed map stays per class — `true` (remove all) or parsed
+ * patterns, with an absent class left untouched. Application always goes
+ * through {@link resolveManifestPrune} first, which reduces either form
+ * to what applies to one concrete manifest.
+ */
+export type NormalizedPackagePrune =
+  | { form: 'entries', entries: NormalizedPruneEntry[] }
+  | { form: 'classes', classes: { [K in DependencyClass]?: true | PackageNamePattern[] } }
 
 const SHAPE_ERROR = `must be an array of package name patterns or an object keyed by dependency class`
 
+const ENTRY_SHAPE_ERROR = `each entry must be a package name pattern`
+  + ` or a member-scoped object with 'member' and one of 'remove' or 'keep'`
+
+const CATCH_ALL_PATTERN = parsePackageNamePattern('**')
+
+function isPlainObject (value: unknown): value is Record<string, unknown> {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  // A non-plain object (a Set, a Map, a Date) has no own enumerable
+  // string keys, so without this check it would silently normalize to
+  // "nothing to do" instead of being rejected.
+  const proto = Object.getPrototypeOf(value)
+  return proto === Object.prototype || proto === null
+}
+
 /**
- * Validates and normalizes a `bundle.packages.prune` value. Returns
- * `undefined` when there is nothing to do — the value is absent, or every
- * shape it carries is empty. Throws `InvalidPackageNamePatternError` on an
- * invalid pattern and a plain `Error` on an invalid shape; the config
- * loader relies on that to reject plain-JS configs that bypass the
- * TypeScript type.
+ * Validates and normalizes a class-keyed pattern map. `true` values are
+ * kept as `true` for the standalone class-keyed form and desugared to the
+ * catch-all `'**'` pattern inside member-scoped entries, where selections
+ * compose in listed order and a later exclusion may subtract from them.
  */
-export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): NormalizedPackagePrune | undefined {
-  if (raw === undefined) {
-    return undefined
-  }
-
-  let perClass: Record<string, unknown>
-  if (Array.isArray(raw)) {
-    perClass = Object.fromEntries(DEPENDENCY_CLASSES.map(dependencyClass => [dependencyClass, raw]))
-  } else if (raw !== null && typeof raw === 'object') {
-    // A non-plain object (a Set, a Map, a Date) has no own enumerable
-    // string keys, so without this check it would silently normalize to
-    // "nothing to do" instead of being rejected.
-    const proto = Object.getPrototypeOf(raw)
-    if (proto !== Object.prototype && proto !== null) {
-      throw new Error(SHAPE_ERROR)
-    }
-    perClass = raw
-  } else {
-    throw new Error(SHAPE_ERROR)
-  }
-
-  const normalized: NormalizedPackagePrune = {}
+function normalizeClassMap (
+  perClass: Record<string, unknown>,
+  desugarTrue: boolean,
+): { [K in DependencyClass]?: true | PackageNamePattern[] } {
+  const normalized: { [K in DependencyClass]?: true | PackageNamePattern[] } = {}
   for (const [key, value] of Object.entries(perClass)) {
     if (!DEPENDENCY_CLASSES.includes(key as DependencyClass)) {
       throw new Error(
@@ -78,7 +138,7 @@ export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): No
       continue
     }
     if (value === true) {
-      normalized[key as DependencyClass] = true
+      normalized[key as DependencyClass] = desugarTrue ? [CATCH_ALL_PATTERN] : true
       continue
     }
     if (Array.isArray(value)) {
@@ -93,12 +153,202 @@ export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): No
     }
     throw new Error(`'${key}' must be true or an array of package name patterns`)
   }
+  return normalized
+}
 
-  if (Object.keys(normalized).length === 0) {
+/**
+ * Normalizes a member-scoped `remove`/`keep` value: a flat pattern list
+ * fans out to every dependency class, a class-keyed map stays per class.
+ * For `keep`, an absent class means "keep nothing from it" — so an empty
+ * flat list or map legitimately describes a member kept dependency-free.
+ */
+function normalizeSelection (value: unknown, field: 'remove' | 'keep'): PruneClassPatterns {
+  if (Array.isArray(value)) {
+    const patterns = value.map(entry => parsePackageNamePattern(entry as string))
+    if (patterns.length === 0) {
+      return {}
+    }
+    return Object.fromEntries(
+      DEPENDENCY_CLASSES.map(dependencyClass => [dependencyClass, patterns.slice()]),
+    ) as PruneClassPatterns
+  }
+  if (isPlainObject(value)) {
+    // With `true` desugared no `true` values remain, only pattern arrays.
+    return normalizeClassMap(value, true) as PruneClassPatterns
+  }
+  throw new Error(`'${field}' ${SHAPE_ERROR}`)
+}
+
+function normalizeMemberPatterns (raw: unknown): MemberPattern[] {
+  const list = typeof raw === 'string' ? [raw] : raw
+  if (!Array.isArray(list) || list.length === 0) {
+    throw new Error(`'member' must be a workspace member name pattern or a non-empty array of them`)
+  }
+  return list.map(element => {
+    if (element === '.' || element === '!.') {
+      return { root: true, exclude: element === '!.' }
+    }
+    return parsePackageNamePattern(element as string)
+  })
+}
+
+function normalizeMemberScopedEntry (entry: unknown): NormalizedPruneEntry {
+  if (!isPlainObject(entry)) {
+    throw new Error(ENTRY_SHAPE_ERROR)
+  }
+  for (const key of Object.keys(entry)) {
+    if (key !== 'member' && key !== 'remove' && key !== 'keep') {
+      throw new Error(`'${key}' is not a member-scoped prune entry field (expected member, remove, keep)`)
+    }
+  }
+  const member = normalizeMemberPatterns(entry.member)
+  const hasRemove = entry.remove !== undefined
+  const hasKeep = entry.keep !== undefined
+  if (hasRemove === hasKeep) {
+    throw new Error(`a member-scoped prune entry must have exactly one of 'remove' and 'keep'`)
+  }
+  if (hasRemove) {
+    return { kind: 'remove', member, remove: normalizeSelection(entry.remove, 'remove') }
+  }
+  return {
+    kind: 'keep',
+    member,
+    keep: normalizeSelection(entry.keep, 'keep'),
+    flat: Array.isArray(entry.keep),
+  }
+}
+
+/**
+ * Validates and normalizes a `bundle.packages.prune` value. Returns
+ * `undefined` when there is nothing to do — the value is absent, or every
+ * shape it carries is empty. Throws `InvalidPackageNamePatternError` on an
+ * invalid pattern and a plain `Error` on an invalid shape; the config
+ * loader relies on that to reject plain-JS configs that bypass the
+ * TypeScript type.
+ */
+export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): NormalizedPackagePrune | undefined {
+  if (raw === undefined) {
     return undefined
   }
 
-  return normalized
+  if (Array.isArray(raw)) {
+    const entries: NormalizedPruneEntry[] = []
+    for (const entry of raw) {
+      if (typeof entry === 'string') {
+        entries.push({ kind: 'global', pattern: parsePackageNamePattern(entry) })
+        continue
+      }
+      entries.push(normalizeMemberScopedEntry(entry))
+    }
+    if (entries.length === 0) {
+      return undefined
+    }
+    return { form: 'entries', entries }
+  }
+
+  if (!isPlainObject(raw)) {
+    throw new Error(SHAPE_ERROR)
+  }
+  const classes = normalizeClassMap(raw, false)
+  if (Object.keys(classes).length === 0) {
+    return undefined
+  }
+  return { form: 'classes', classes }
+}
+
+/**
+ * The identity a manifest is matched against when resolving member-scoped
+ * prune entries.
+ */
+export interface PruneMemberIdentity {
+  /**
+   * The manifest's `name`. The `Package` type declares `name: string`,
+   * but a workspace root's manifest legitimately ships without one and
+   * some discovery paths let that `undefined` through — such a member is
+   * matchable solely by the `'.'` token.
+   */
+  name?: string
+  /** Whether this is the workspace root. */
+  root: boolean
+}
+
+function memberPatternsSelect (patterns: MemberPattern[], member: PruneMemberIdentity): boolean {
+  let selected = false
+  for (const pattern of patterns) {
+    const matches = 'root' in pattern
+      ? member.root
+      : typeof member.name === 'string' && member.name !== ''
+        && specMatchesPackageName(pattern, member.name)
+    if (matches) {
+      selected = !pattern.exclude
+    }
+  }
+  return selected
+}
+
+/**
+ * What a prune configuration does to one concrete manifest. In `remove`
+ * mode each configured class holds `true` (standalone class-keyed form
+ * only) or the combined ordered pattern list of every entry that applies
+ * to this manifest. In `keep` mode the manifest's final dependency set is
+ * the union of the matched `keep` selections and everything else is
+ * removed — removals never apply to a keep-governed manifest, which is
+ * what makes its outcome independent of entry order.
+ */
+export type ResolvedManifestPrune =
+  | { mode: 'remove', classes: { [K in DependencyClass]?: true | PackageNamePattern[] } }
+  | { mode: 'keep', keeps: PruneClassPatterns[] }
+
+/**
+ * Reduces a normalized prune to what applies to the given manifest:
+ * global patterns and matching member-scoped `remove` selections combine
+ * per class in listed order (so a later `!` exclusion subtracts from
+ * earlier entries' selections), unless a `keep` entry matches the member,
+ * in which case the keep selections govern alone. Returns `undefined`
+ * when nothing targets the manifest.
+ */
+export function resolveManifestPrune (
+  prune: NormalizedPackagePrune,
+  member: PruneMemberIdentity,
+): ResolvedManifestPrune | undefined {
+  if (prune.form === 'classes') {
+    return { mode: 'remove', classes: prune.classes }
+  }
+
+  const keeps: PruneClassPatterns[] = []
+  for (const entry of prune.entries) {
+    if (entry.kind === 'keep' && memberPatternsSelect(entry.member, member)) {
+      keeps.push(entry.keep)
+    }
+  }
+  if (keeps.length > 0) {
+    return { mode: 'keep', keeps }
+  }
+
+  const classes: PruneClassPatterns = {}
+  const append = (dependencyClass: DependencyClass, patterns: PackageNamePattern[]): void => {
+    (classes[dependencyClass] ??= []).push(...patterns)
+  }
+  for (const entry of prune.entries) {
+    if (entry.kind === 'global') {
+      for (const dependencyClass of DEPENDENCY_CLASSES) {
+        append(dependencyClass, [entry.pattern])
+      }
+      continue
+    }
+    if (entry.kind === 'remove' && memberPatternsSelect(entry.member, member)) {
+      for (const dependencyClass of DEPENDENCY_CLASSES) {
+        const patterns = entry.remove[dependencyClass]
+        if (patterns !== undefined) {
+          append(dependencyClass, patterns)
+        }
+      }
+    }
+  }
+  if (Object.keys(classes).length === 0) {
+    return undefined
+  }
+  return { mode: 'remove', classes }
 }
 
 export interface PrunePackageJsonResult {
@@ -118,6 +368,57 @@ function isPlainSection (section: unknown): section is Record<string, unknown> {
   return section !== null && typeof section === 'object' && !Array.isArray(section)
 }
 
+/** Whether any of the matched keep selections keeps the given entry. */
+function keepsSelectName (keeps: PruneClassPatterns[], dependencyClass: DependencyClass, name: string): boolean {
+  return keeps.some(keep => {
+    const patterns = keep[dependencyClass]
+    return patterns !== undefined && patternsSelectName(patterns, name)
+  })
+}
+
+/**
+ * Deletes the class's entries the predicate selects, recording removals
+ * as `class:name` labels. Carries the structural rules shared by both
+ * prune modes: a removed peer takes its `peerDependenciesMeta` entry with
+ * it, and a section or meta object emptied by these removals is deleted —
+ * one that was already empty is none of this feature's business.
+ */
+function removeSelectedNames (
+  parsed: any,
+  dependencyClass: DependencyClass,
+  selects: (name: string) => boolean,
+  removed: string[],
+): boolean {
+  const section = parsed[dependencyClass]
+  if (!isPlainSection(section)) {
+    return false
+  }
+  let lost = false
+  for (const name of Object.keys(section)) {
+    if (!selects(name)) {
+      continue
+    }
+    delete section[name]
+    removed.push(`${dependencyClass}:${name}`)
+    lost = true
+    if (dependencyClass === 'peerDependencies') {
+      const meta = parsed.peerDependenciesMeta
+      if (isPlainSection(meta)) {
+        delete meta[name]
+      }
+    }
+  }
+  if (lost && Object.keys(section).length === 0) {
+    delete parsed[dependencyClass]
+  }
+  if (lost && dependencyClass === 'peerDependencies'
+    && isPlainSection(parsed.peerDependenciesMeta)
+    && Object.keys(parsed.peerDependenciesMeta).length === 0) {
+    delete parsed.peerDependenciesMeta
+  }
+  return lost
+}
+
 /**
  * Deletes the pruned entries from a parsed manifest, recording removals as
  * `class:name` labels. The verification below replays the same edit from
@@ -126,24 +427,35 @@ function isPlainSection (section: unknown): section is Record<string, unknown> {
  * not a plain object is never touched; `true` deletes the class (and, for
  * `peerDependencies`, the whole `peerDependenciesMeta`); a removed peer
  * takes its meta entry with it; and a section or meta object emptied by
- * these removals is deleted. `dependenciesMeta` is deliberately not
- * followed: only the peer meta matters for the auto-install-peers
- * promotion this feature exists to counter, and a dangling
- * `dependenciesMeta` entry is inert for the regenerated lockfile.
+ * these removals is deleted. In keep mode the selection inverts — an entry
+ * no matched keep selects is removed — under the same structural rules.
+ * `dependenciesMeta` is deliberately not followed: only the peer meta
+ * matters for the auto-install-peers promotion this feature exists to
+ * counter, and a dangling `dependenciesMeta` entry is inert for the
+ * regenerated lockfile.
  */
-function applyPrune (parsed: any, prune: NormalizedPackagePrune): { removed: string[], changed: boolean } {
+function applyPrune (parsed: any, resolved: ResolvedManifestPrune): { removed: string[], changed: boolean } {
   const removed: string[] = []
   let changed = false
 
   for (const dependencyClass of DEPENDENCY_CLASSES) {
-    const matcher = prune[dependencyClass]
+    if (resolved.mode === 'keep') {
+      changed = removeSelectedNames(
+        parsed,
+        dependencyClass,
+        name => !keepsSelectName(resolved.keeps, dependencyClass, name),
+        removed,
+      ) || changed
+      continue
+    }
+
+    const matcher = resolved.classes[dependencyClass]
     if (matcher === undefined) {
       continue
     }
 
-    const section = parsed[dependencyClass]
-
     if (matcher === true) {
+      const section = parsed[dependencyClass]
       if (isPlainSection(section)) {
         for (const name of Object.keys(section)) {
           removed.push(`${dependencyClass}:${name}`)
@@ -162,52 +474,28 @@ function applyPrune (parsed: any, prune: NormalizedPackagePrune): { removed: str
       continue
     }
 
-    if (!isPlainSection(section)) {
-      continue
-    }
-
-    let lost = false
-    for (const name of Object.keys(section)) {
-      if (!patternsSelectName(matcher, name)) {
-        continue
-      }
-      delete section[name]
-      removed.push(`${dependencyClass}:${name}`)
-      changed = true
-      lost = true
-      if (dependencyClass === 'peerDependencies') {
-        const meta = parsed.peerDependenciesMeta
-        if (isPlainSection(meta)) {
-          delete meta[name]
-        }
-      }
-    }
-    // Only a section (or meta object) this pass emptied is dropped; one
-    // that was already empty is none of this feature's business.
-    if (lost && Object.keys(section).length === 0) {
-      delete parsed[dependencyClass]
-    }
-    if (lost && dependencyClass === 'peerDependencies'
-      && isPlainSection(parsed.peerDependenciesMeta)
-      && Object.keys(parsed.peerDependenciesMeta).length === 0) {
-      delete parsed.peerDependenciesMeta
-    }
+    changed = removeSelectedNames(
+      parsed,
+      dependencyClass,
+      name => patternsSelectName(matcher, name),
+      removed,
+    ) || changed
   }
 
   return { removed, changed }
 }
 
 /**
- * Applies a normalized `bundle.packages.prune` to a package.json's
- * contents. Returns the rewritten content and the removed entries, or
- * `undefined` when the content cannot be parsed or the rewrite fails
- * verification — the caller ships the original in that case. A prune that
- * changes nothing returns the original content with `changed: false`, so
- * the caller can leave the bundle entry untouched.
+ * Applies a resolved per-manifest prune (see {@link resolveManifestPrune})
+ * to a package.json's contents. Returns the rewritten content and the
+ * removed entries, or `undefined` when the content cannot be parsed or the
+ * rewrite fails verification — the caller ships the original in that case.
+ * A prune that changes nothing returns the original content with
+ * `changed: false`, so the caller can leave the bundle entry untouched.
  */
 export function prunePackageJson (
   content: string,
-  prune: NormalizedPackagePrune,
+  resolved: ResolvedManifestPrune,
 ): PrunePackageJsonResult | undefined {
   let parsed: any
   try {
@@ -221,7 +509,7 @@ export function prunePackageJson (
     return undefined
   }
 
-  const { removed, changed } = applyPrune(parsed, prune)
+  const { removed, changed } = applyPrune(parsed, resolved)
   if (!changed) {
     return { content, removed, changed }
   }
@@ -232,7 +520,7 @@ export function prunePackageJson (
   // JSON editor for no behavioral gain.
   const rewritten = JSON.stringify(parsed, null, 2)
 
-  if (verifyPrunedManifest(content, rewritten, prune, removed) === undefined) {
+  if (verifyPrunedManifest(content, rewritten, resolved, removed) === undefined) {
     return undefined
   }
 
@@ -243,13 +531,16 @@ export function prunePackageJson (
  * Asserts that a prune rewrite changed nothing but the reported entries,
  * by replaying the deletion on a fresh parse of the original — from the
  * `class:name` labels rather than the pattern matching, with each label
- * additionally checked against the configured prune — so a matcher that
+ * additionally checked against the resolved prune — so a matcher that
  * deleted the wrong entry, deleted from a class the prune never
- * configured, or strayed outside the dependency classes fails the
- * comparison instead of shipping. The structural rules (`true` deleting a
- * class, emptied sections and meta dropping out) are mirrored from
- * applyPrune rather than independently derived, so only the per-entry
- * path carries independent evidence; a maintainer extending the
+ * configured, deleted a keep-selected entry, or strayed outside the
+ * dependency classes fails the comparison instead of shipping. The
+ * verification is inherently per manifest — its inputs are one manifest's
+ * original and rewrite — so the resolved model already carries any member
+ * scoping and the labels need no member qualifier. The structural rules
+ * (`true` deleting a class, emptied sections and meta dropping out) are
+ * mirrored from applyPrune rather than independently derived, so only the
+ * per-entry path carries independent evidence; a maintainer extending the
  * structural rules must extend both sides. What the comparison cannot see
  * is a field whose value is already altered by JSON.parse itself (an
  * integer beyond 2^53 loses precision on both sides alike); asymmetric
@@ -261,7 +552,7 @@ export function prunePackageJson (
 export function verifyPrunedManifest (
   original: string,
   rewritten: string,
-  prune: NormalizedPackagePrune,
+  resolved: ResolvedManifestPrune,
   removed: string[],
 ): string | undefined {
   let expected: any
@@ -274,18 +565,28 @@ export function verifyPrunedManifest (
     return undefined
   }
 
+  const classTrue = (dependencyClass: DependencyClass): boolean =>
+    resolved.mode === 'remove' && resolved.classes[dependencyClass] === true
+
+  // Whether the resolved prune selects the entry for removal. Only called
+  // with the known dependency classes — the caller checks membership
+  // first, so a label like `__proto__:x` fails closed instead of reading
+  // a matcher off Object.prototype.
+  const selectsRemoval = (dependencyClass: DependencyClass, name: string): boolean => {
+    if (resolved.mode === 'keep') {
+      return !keepsSelectName(resolved.keeps, dependencyClass, name)
+    }
+    const matcher = resolved.classes[dependencyClass]
+    return matcher !== undefined && (matcher === true || patternsSelectName(matcher, name))
+  }
+
   // Every reported removal must be one the configuration allows: its class
-  // a known dependency class the prune configured, and its name selected
-  // by `true` or a configured pattern. The class-membership check comes
-  // first so a label like `__proto__:x` fails closed instead of reading a
-  // matcher off Object.prototype.
+  // a known dependency class, and its name one the resolved prune selects.
   for (const label of removed) {
     const separator = label.indexOf(':')
     const dependencyClass = label.slice(0, separator) as DependencyClass
     const name = label.slice(separator + 1)
-    const matcher = DEPENDENCY_CLASSES.includes(dependencyClass) ? prune[dependencyClass] : undefined
-    if (matcher === undefined
-      || (matcher !== true && !patternsSelectName(matcher, name))) {
+    if (!DEPENDENCY_CLASSES.includes(dependencyClass) || !selectsRemoval(dependencyClass, name)) {
       debug(`A pruned package.json removed '${label}', which the configuration does not select;`
         + ` leaving the bundle alone`)
       return undefined
@@ -306,7 +607,7 @@ export function verifyPrunedManifest (
     }
     delete section[name]
     lostClasses.add(dependencyClass)
-    if (dependencyClass === 'peerDependencies' && prune.peerDependencies !== true) {
+    if (dependencyClass === 'peerDependencies' && !classTrue('peerDependencies')) {
       lostPeers = true
       const meta = expected.peerDependenciesMeta
       if (isPlainSection(meta)) {
@@ -316,7 +617,7 @@ export function verifyPrunedManifest (
   }
 
   for (const dependencyClass of DEPENDENCY_CLASSES) {
-    if (prune[dependencyClass] === true) {
+    if (classTrue(dependencyClass)) {
       if (isPlainSection(expected[dependencyClass])) {
         delete expected[dependencyClass]
       }
