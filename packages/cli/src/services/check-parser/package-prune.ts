@@ -2,6 +2,7 @@ import { isDeepStrictEqual } from 'node:util'
 
 import Debug from 'debug'
 
+import { quotedList } from '../embedded-packages/diagnostics.js'
 import {
   PackageNamePattern,
   parsePackageNamePattern,
@@ -349,6 +350,229 @@ export function resolveManifestPrune (
     return undefined
   }
   return { mode: 'remove', classes }
+}
+
+type ScopedPruneEntry = Exclude<NormalizedPruneEntry, { kind: 'global' }>
+
+/** Formats a member pattern back to its config spelling. */
+function formatMemberPattern (pattern: MemberPattern): string {
+  return `${pattern.exclude ? '!' : ''}${'root' in pattern ? '.' : pattern.name}`
+}
+
+/**
+ * How a member is named in warnings. Only the root can lack a `name` at
+ * runtime (see {@link PruneMemberIdentity.name}), so its token stands in.
+ */
+function displayMemberName (member: PruneMemberIdentity): string {
+  return member.name ?? '.'
+}
+
+/**
+ * Whether the pattern contributes anything to the manifest's kept set:
+ * some entry in one of the given classes both matches the pattern and is
+ * ultimately retained — judged against the union of every keep entry
+ * matching the member, exactly what {@link applyPrune} keeps. Judged
+ * against retention rather than the raw match so a keep list whose later
+ * `!` exclusions cancel everything a pattern selected still reports
+ * (that silent gutting is exactly what this net exists to catch), while
+ * a name another matching keep entry rescues does not.
+ */
+function patternReaches (
+  pattern: PackageNamePattern,
+  keeps: PruneClassPatterns[],
+  parsed: any,
+  dependencyClasses: readonly DependencyClass[],
+): boolean {
+  return dependencyClasses.some(dependencyClass => {
+    const section = parsed[dependencyClass]
+    return isPlainSection(section) && Object.keys(section).some(name =>
+      specMatchesPackageName(pattern, name) && keepsSelectName(keeps, dependencyClass, name))
+  })
+}
+
+/**
+ * Lints member-scoped prune entries. Two nets, both warnings rather than
+ * errors because a pattern reaching nothing is legal in every other
+ * `bundle.packages` position: a `member` selector matching no workspace
+ * member at all (typo net), and a `keep` pattern selecting nothing in a
+ * matched bundled member (the auto-enrollment net — a member swept in by
+ * a wildcard later almost never declares another member's keep set, so
+ * the gutting self-reports on the next run; a right name in the wrong
+ * class reports the same way). The typo net is judged against the whole
+ * discovered workspace, not the bundle: which members land in a bundle
+ * varies per run with the check filter (`checkly test --grep`, a single
+ * `checkly pw-test` config), and a selector for a member the current run
+ * merely did not bundle is not a typo — that state shows up in the debug
+ * reach log instead. The keep net runs on the bundled physical manifests
+ * only — faux shims carry no real dependency classes — and only on ones
+ * the caller could read, so a symlinked or unreadable manifest's own
+ * failure warns separately.
+ */
+export class MemberPruneDiagnostics {
+  /** One record per scoped entry, in entry order. */
+  #state: {
+    entry: ScopedPruneEntry
+    workspaceMatched: Set<string>
+    bundledMatched: Set<string>
+  }[] = []
+
+  /**
+   * Keep misses keyed by entry, place and pattern, accumulating the
+   * missing members: a shared keep list over a wildcard selector then
+   * warns once per pattern naming every member it missed, instead of
+   * bursting one line per member on every run.
+   */
+  #keepMisses = new Map<string, { pattern: string, where: string, members: string[] }>()
+
+  constructor (prune: NormalizedPackagePrune | undefined) {
+    if (prune?.form === 'entries') {
+      this.#state = prune.entries
+        .filter(entry => entry.kind !== 'global')
+        .map(entry => ({ entry, workspaceMatched: new Set<string>(), bundledMatched: new Set<string>() }))
+    }
+  }
+
+  /**
+   * Marks the scoped entries whose member selector selects this workspace
+   * member, bundled or not — the input of the typo net.
+   */
+  observeWorkspaceMember (member: PruneMemberIdentity): void {
+    for (const state of this.#state) {
+      if (memberPatternsSelect(state.entry.member, member)) {
+        state.workspaceMatched.add(displayMemberName(member))
+      }
+    }
+  }
+
+  /**
+   * Marks the scoped entries whose member selector selects this bundled
+   * physical manifest — the input of the debug reach log.
+   */
+  observeBundledMember (member: PruneMemberIdentity): void {
+    for (const state of this.#state) {
+      if (memberPatternsSelect(state.entry.member, member)) {
+        state.bundledMatched.add(displayMemberName(member))
+      }
+    }
+  }
+
+  /** Checks matching keep selections against the manifest's contents. */
+  observeManifestContent (member: PruneMemberIdentity, content: string): void {
+    let parsed: any
+    try {
+      parsed = JSON.parse(content)
+    } catch {
+      return
+    }
+    if (!isPlainSection(parsed)) {
+      return
+    }
+    // Reach is judged against the union of every matching keep entry —
+    // the member's actual retention — so an entry's pattern whose kept
+    // names another entry supplies does not misreport.
+    const matched: { index: number, entry: ScopedPruneEntry & { kind: 'keep' } }[] = []
+    const keeps: PruneClassPatterns[] = []
+    for (const [index, state] of this.#state.entries()) {
+      if (state.entry.kind === 'keep' && memberPatternsSelect(state.entry.member, member)) {
+        matched.push({ index, entry: state.entry })
+        keeps.push(state.entry.keep)
+      }
+    }
+    for (const { index, entry } of matched) {
+      this.#checkKeepEntry(index, entry, keeps, member, parsed)
+    }
+  }
+
+  #checkKeepEntry (
+    entryIndex: number,
+    entry: ScopedPruneEntry & { kind: 'keep' },
+    keeps: PruneClassPatterns[],
+    member: PruneMemberIdentity,
+    parsed: any,
+  ): void {
+    const memberName = displayMemberName(member)
+    const check = (patterns: PackageNamePattern[], classes: readonly DependencyClass[], where: string): void => {
+      for (const pattern of patterns) {
+        if (this.#exemptFromMatchCheck(pattern)) {
+          continue
+        }
+        if (!patternReaches(pattern, keeps, parsed, classes)) {
+          const key = `${entryIndex} ${where} ${pattern.name}`
+          let miss = this.#keepMisses.get(key)
+          if (miss === undefined) {
+            this.#keepMisses.set(key, miss = { pattern: pattern.name, where, members: [] })
+          }
+          if (!miss.members.includes(memberName)) {
+            miss.members.push(memberName)
+          }
+        }
+      }
+    }
+    if (entry.flat) {
+      // A flat list fans out to every class identically, so its patterns
+      // are checked across all classes and warn once — a per-class report
+      // would repeat every miss four times.
+      check(entry.keep.dependencies ?? [], DEPENDENCY_CLASSES, 'any dependency class')
+      return
+    }
+    for (const dependencyClass of DEPENDENCY_CLASSES) {
+      check(entry.keep[dependencyClass] ?? [], [dependencyClass], dependencyClass)
+    }
+  }
+
+  /**
+   * Exclusions only subtract, so one deselecting nothing is benign — the
+   * same rule embed applies. The bare catch-all is exempt too: it is what
+   * `keep: { <class>: true }` desugars to, and "everything in an empty
+   * class" matching nothing is not a signal worth a warning.
+   */
+  #exemptFromMatchCheck (pattern: PackageNamePattern): boolean {
+    return pattern.exclude || pattern.name === '**'
+  }
+
+  #selector (entry: ScopedPruneEntry): string {
+    return entry.member.map(formatMemberPattern).join(`', '`)
+  }
+
+  /**
+   * Logs each scoped entry's resolved member set — workspace-wide and
+   * within this run's bundle — mirroring embed's pattern reach logging.
+   * This is also where "the selector is fine, the member just is not in
+   * this bundle" is visible. A separate call rather than a side effect of
+   * {@link MemberPruneDiagnostics.warnings}: a caller that gates or drops
+   * the warnings must not silently lose the reach log, which is the tool
+   * for answering the very question the warnings raise.
+   */
+  logMemberReach (): void {
+    for (const { entry, workspaceMatched, bundledMatched } of this.#state) {
+      debug(`Prune entry for member '${this.#selector(entry)}' matched workspace members:`
+        + ` ${[...workspaceMatched].join(', ') || '(none)'};`
+        + ` bundled: ${[...bundledMatched].join(', ') || '(none)'}`)
+    }
+  }
+
+  /** The accumulated lint messages, without the `Warning:` prefix. */
+  warnings (): string[] {
+    const out: string[] = []
+    for (const { entry, workspaceMatched } of this.#state) {
+      if (workspaceMatched.size === 0) {
+        out.push(
+          `bundle.packages.prune entry for member '${this.#selector(entry)}'`
+          + ` matched no workspace member`,
+        )
+      }
+    }
+    for (const { pattern, where, members } of this.#keepMisses.values()) {
+      const consequence = members.length > 1
+        ? 'their bundled manifests do not keep it'
+        : 'its bundled manifest does not keep it'
+      out.push(
+        `bundle.packages.prune keep pattern '${pattern}' matched nothing`
+        + ` in ${where} of ${quotedList(members)}; ${consequence}`,
+      )
+    }
+    return out
+  }
 }
 
 export interface PrunePackageJsonResult {

@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest'
 import {
   BundlePackagesPrune,
   DEPENDENCY_CLASSES,
+  MemberPruneDiagnostics,
   normalizePackagePrune,
   PruneMemberIdentity,
   prunePackageJson,
@@ -848,5 +849,150 @@ describe('prunePackageJson()', () => {
       expect(verifyPrunedManifest('{}', '{}', resolved, ['scripts:build'])).toBeUndefined()
       expect(verifyPrunedManifest('{}', '{}', resolved, ['nocolon'])).toBeUndefined()
     }
+  })
+})
+
+describe('MemberPruneDiagnostics', () => {
+  const lint = (raw: BundlePackagesPrune): MemberPruneDiagnostics =>
+    new MemberPruneDiagnostics(normalizePackagePrune(raw))
+
+  it('warns for a scoped entry whose selector matched no workspace member', () => {
+    const diagnostics = lint([
+      { member: 'present', remove: ['left-pad'] },
+      { member: ['@acme/**', '!@acme/e2e'], keep: ['left-pad'] },
+    ])
+    diagnostics.observeWorkspaceMember({ name: 'present', root: false })
+    diagnostics.observeWorkspaceMember({ name: '@acme/e2e', root: false })
+    expect(diagnostics.warnings()).toEqual([
+      `bundle.packages.prune entry for member '@acme/**', '!@acme/e2e' matched no workspace member`,
+    ])
+  })
+
+  it('does not warn for a selector whose workspace member was not bundled this run', () => {
+    // Which members land in a bundle varies with the check filter, so a
+    // matching-but-unbundled member is debug material, not a warning.
+    const diagnostics = lint([{ member: 'present', remove: ['left-pad'] }])
+    diagnostics.observeWorkspaceMember({ name: 'present', root: false })
+    expect(diagnostics.warnings()).toEqual([])
+  })
+
+  it('never warns for global entries or the class-keyed form', () => {
+    const globals = lint(['@acme/*', '!left-pad'])
+    expect(globals.warnings()).toEqual([])
+    const classes = lint({ peerDependencies: true })
+    expect(classes.warnings()).toEqual([])
+  })
+
+  it('names member, class and pattern for a class-keyed keep miss', () => {
+    const diagnostics = lint([{
+      member: 'fixture',
+      keep: { dependencies: ['@acme/utils', 'absent'], devDependencies: ['@acme/utils'] },
+    }])
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, manifest())
+    expect(diagnostics.warnings()).toEqual([
+      `bundle.packages.prune keep pattern 'absent' matched nothing in dependencies of 'fixture'; its bundled manifest does not keep it`,
+      // The right name in the wrong class reports the same way.
+      `bundle.packages.prune keep pattern '@acme/utils' matched nothing in devDependencies of 'fixture'; its bundled manifest does not keep it`,
+    ])
+  })
+
+  it('warns once across classes for a flat keep miss', () => {
+    const diagnostics = lint([{ member: 'fixture', keep: ['react', 'absent'] }])
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, manifest())
+    expect(diagnostics.warnings()).toEqual([
+      `bundle.packages.prune keep pattern 'absent' matched nothing in any dependency class of 'fixture'; its bundled manifest does not keep it`,
+    ])
+  })
+
+  it('aggregates a keep miss across members into one warning naming each member', () => {
+    const diagnostics = lint([{ member: '@acme/**', keep: ['absent'] }])
+    for (const name of ['@acme/app', '@acme/api']) {
+      const member = { name, root: false }
+      diagnostics.observeWorkspaceMember(member)
+      diagnostics.observeManifestContent(member, '{"dependencies":{"left-pad":"^1.3.0"}}')
+    }
+    // One line per pattern, naming every member it missed — a shared keep
+    // list over a wildcard selector must not burst one line per member,
+    // but each missed member must still be named.
+    expect(diagnostics.warnings()).toEqual([
+      `bundle.packages.prune keep pattern 'absent' matched nothing`
+      + ` in any dependency class of '@acme/app', '@acme/api'; their bundled manifests do not keep it`,
+    ])
+  })
+
+  it('warns when later exclusions cancel everything a keep pattern selected', () => {
+    const diagnostics = lint([{ member: 'solo', keep: ['@acme/*', '!@acme/heavy'] }])
+    const solo = { name: 'solo', root: false }
+    diagnostics.observeWorkspaceMember(solo)
+    diagnostics.observeManifestContent(solo, '{"dependencies":{"@acme/heavy":"^1.0.0"}}')
+    // '@acme/heavy' is the only name '@acme/*' selects, and the exclusion
+    // takes it back out — the member is silently gutted, which must warn.
+    expect(diagnostics.warnings()).toEqual([
+      `bundle.packages.prune keep pattern '@acme/*' matched nothing in any dependency class of 'solo'; its bundled manifest does not keep it`,
+    ])
+  })
+
+  it('does not warn when another matching keep entry rescues the name', () => {
+    // Reach is judged against the union of every matching keep entry —
+    // the member's actual retention — so a name one entry's exclusion
+    // drops but another entry keeps is not a miss.
+    const diagnostics = lint([
+      { member: 'fixture', keep: { dependencies: ['@acme/*', '!@acme/utils'] } },
+      { member: '**', keep: { dependencies: ['@acme/utils'] } },
+    ])
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, manifest())
+    expect(diagnostics.warnings()).toEqual([])
+  })
+
+  it('does not warn for a keep pattern that still keeps something past its exclusions', () => {
+    const diagnostics = lint([{ member: 'fixture', keep: ['@acme/*', '!@acme/heavy-icons'] }])
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, manifest())
+    // '@acme/utils' and others survive the exclusion, so '@acme/*' reaches.
+    expect(diagnostics.warnings()).toEqual([])
+  })
+
+  it('exempts exclusions and the bare catch-all from keep match checks', () => {
+    const diagnostics = lint([{
+      member: 'fixture',
+      // devDependencies: true desugars to the '**' catch-all.
+      keep: { dependencies: ['@acme/*', '!absent'], devDependencies: true },
+    }])
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, manifest())
+    expect(diagnostics.warnings()).toEqual([])
+  })
+
+  it('checks keep selections only against members the entry matches', () => {
+    const diagnostics = lint([{ member: 'other', keep: ['absent'] }])
+    diagnostics.observeWorkspaceMember({ name: 'other', root: false })
+    diagnostics.observeManifestContent({ name: 'other', root: false }, manifest())
+    // 'fixture' misses every keep pattern, but the entry does not match it.
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, manifest())
+    const warnings = diagnostics.warnings()
+    expect(warnings).toHaveLength(1)
+    expect(warnings[0]).toContain(`of 'other'`)
+  })
+
+  it('labels a nameless root by its token', () => {
+    const diagnostics = lint([{ member: '.', keep: ['absent'] }])
+    const root = { name: undefined, root: true }
+    diagnostics.observeWorkspaceMember(root)
+    diagnostics.observeManifestContent(root, '{"dependencies":{"left-pad":"^1.3.0"}}')
+    expect(diagnostics.warnings()).toEqual([
+      `bundle.packages.prune keep pattern 'absent' matched nothing in any dependency class of '.'; its bundled manifest does not keep it`,
+    ])
+  })
+
+  it('ignores unparseable and non-object manifest content', () => {
+    const diagnostics = lint([{ member: 'fixture', keep: ['absent'] }])
+    diagnostics.observeWorkspaceMember(fixtureMember)
+    diagnostics.observeManifestContent(fixtureMember, 'not json {')
+    diagnostics.observeManifestContent(fixtureMember, '[]')
+    expect(diagnostics.warnings()).toEqual([])
   })
 })

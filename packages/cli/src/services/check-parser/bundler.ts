@@ -29,6 +29,7 @@ import {
 import { lockfileArchivePath, manifestArchivePath, pruneBundledLockfile } from './lockfile-pruner.js'
 import {
   BundlePackagesPrune,
+  MemberPruneDiagnostics,
   NormalizedPackagePrune,
   normalizePackagePrune,
   prunePackageJson,
@@ -890,13 +891,41 @@ export class Bundler {
     const replaced = new Map<string, File>()
 
     const prune = context.packagePrune
-    if (prune === undefined) {
+    // An empty bundle — a run whose check filter left nothing to bundle —
+    // applies no prune, so its configuration is deliberately not linted
+    // either: even a genuinely typo'd member selector stays quiet here
+    // and reports on the next run that bundles something. Mirrors the
+    // isEmpty short-circuits in #registerRunnerRegistries and
+    // #materializeEmbeddedPackages.
+    if (prune === undefined || this.isEmpty) {
       return replaced
     }
 
     const { workspace } = context
+    const memberDiagnostics = new MemberPruneDiagnostics(prune)
+    const visited = new Set<string>()
     for (const pkg of [workspace.root, ...workspace.packages]) {
       const manifestPath = manifestArchivePath(workspace, pkg)
+      // A root manifest whose own workspace globs match itself appears in
+      // workspace.packages a second time; without this guard the second
+      // visit would re-read and re-prune the same archive path — and
+      // repeat any per-manifest failure warning — whenever the first
+      // visit left the entry physical.
+      if (visited.has(manifestPath)) {
+        continue
+      }
+      visited.add(manifestPath)
+      const identity = {
+        name: pkg.name,
+        // Compared by path, not object identity: a root manifest whose own
+        // workspace globs match itself (e.g. `workspaces: ['**']`) appears
+        // in workspace.packages as a second Package instance, and that
+        // duplicate must still resolve as the root.
+        root: pkg.path === workspace.root.path,
+      }
+      // Observed whether or not the member is in this run's bundle: the
+      // typo net compares selectors against the whole workspace.
+      memberDiagnostics.observeWorkspaceMember(identity)
       const file = this.#files.get(manifestPath)
       if (file === undefined) {
         continue
@@ -909,14 +938,8 @@ export class Bundler {
         debug(`Not pruning ${manifestPath}: not a physical manifest`)
         continue
       }
-      const resolved = resolveManifestPrune(prune, {
-        name: pkg.name,
-        // Compared by path, not object identity: a root manifest whose own
-        // workspace globs match itself (e.g. `workspaces: ['**']`) appears
-        // in workspace.packages as a second Package instance, and that
-        // duplicate must still resolve as the root.
-        root: pkg.path === workspace.root.path,
-      })
+      memberDiagnostics.observeBundledMember(identity)
+      const resolved = resolveManifestPrune(prune, identity)
       if (resolved === undefined) {
         // Under member-scoped entries a manifest no entry targets is not
         // part of the requested transformation, so the failure paths
@@ -949,6 +972,7 @@ export class Bundler {
         this.#warnManifestPruneFailure(manifestPath, `the bundled manifest could not be read (${err})`)
         continue
       }
+      memberDiagnostics.observeManifestContent(identity, content)
 
       const result = prunePackageJson(content, resolved)
       if (result === undefined) {
@@ -971,6 +995,14 @@ export class Bundler {
       })
       this.#rewrittenManifests.add(manifestPath)
       debug(`Pruned ${manifestPath}: ${result.removed.join(', ') || '(structural cleanup only)'}`)
+    }
+
+    // Config-lint warnings, printed even when the rollback below later
+    // restores the originals: they describe the configuration, and the
+    // rollback prints its own warning about the shipped state.
+    memberDiagnostics.logMemberReach()
+    for (const warning of memberDiagnostics.warnings()) {
+      process.stderr.write(`Warning: ${warning}.\n`)
     }
 
     return replaced
