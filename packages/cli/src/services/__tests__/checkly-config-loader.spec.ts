@@ -184,6 +184,50 @@ describe('loadChecklyConfig()', () => {
       + ` or an array of package name patterns`,
     )
   })
+  it('accepts bundle.packages.prune member-scoped entries', async () => {
+    const { config } = await loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-valid-members.ts'],
+    )
+    expect(config.bundle?.packages?.prune).toEqual([
+      '@acme/*',
+      { member: 'my-app', remove: { peerDependencies: true } },
+      { member: ['.', '@acme/**'], keep: { dependencies: ['@acme/utils'], devDependencies: true } },
+    ])
+  })
+  it('rejects a member-scoped prune entry with both remove and keep', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-both.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: a member-scoped prune entry`
+      + ` must have exactly one of 'remove' and 'keep'`,
+    )
+  })
+  it('rejects a member-scoped prune entry with neither remove nor keep', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-neither.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: a member-scoped prune entry`
+      + ` must have exactly one of 'remove' and 'keep'`,
+    )
+  })
+  it('rejects a member-scoped prune entry with an unknown field', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-unknown-field.js'],
+    )).rejects.toThrow(
+      `Config field 'bundle.packages.prune' is invalid: 'path' is not a member-scoped`
+      + ` prune entry field (expected member, remove, keep)`,
+    )
+  })
+  it('rejects a member selector that is not a name pattern', async () => {
+    await expect(loadChecklyConfig(
+      path.join(__dirname, 'fixtures', 'configs'),
+      ['bundle-packages-prune-member-bad-pattern.js'],
+    )).rejects.toThrow(`'./packages/app' is not a valid npm package name`)
+  })
   it('rejects a bundle.packages.prune entry with an embed-style version pin', async () => {
     await expect(loadChecklyConfig(
       path.join(__dirname, 'fixtures', 'configs'),
