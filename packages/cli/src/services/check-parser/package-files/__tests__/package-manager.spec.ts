@@ -611,17 +611,17 @@ describe('lockfileOnlyInstallCommand', () => {
 })
 
 describe('PathLookup', () => {
-  // The lookup must resolve like the spawn's own resolver (cross-spawn →
-  // which) or the two disagree about whether an executable exists. The
-  // Windows-specific behaviors depend on the platform's path delimiter, so
-  // they can only run there — Windows CI covers this.
+  // The lookup must resolve like the spawn's own resolver (execa →
+  // which-command) or the two disagree about whether an executable exists.
+  // The Windows-specific behaviors depend on the platform's path delimiter,
+  // so they can only run there — Windows CI covers this.
   it.skipIf(process.platform !== 'win32')('strips quoted Path entries and defaults PATHEXT on Windows', () => {
     vi.stubEnv('Path', `C:\\Windows;"C:\\Program Files\\nodejs"`)
     vi.stubEnv('PATHEXT', undefined)
     try {
       const lookup = new PathLookup()
       expect(lookup.paths).toEqual(['C:\\Windows', 'C:\\Program Files\\nodejs'])
-      expect(lookup.pathext).toEqual(['.EXE', '.CMD', '.BAT', '.COM'])
+      expect(lookup.pathext).toEqual(['.COM', '.EXE', '.BAT', '.CMD', '.VBS', '.VBE', '.JS', '.JSE', '.WSF', '.WSH', '.MSC'])
     } finally {
       vi.unstubAllEnvs()
     }
