@@ -171,6 +171,8 @@ future deployments include the imported resources.`
       'check-group': new Map(),
       'private-location': new Map(),
       'status-page-service': new Map(),
+      'status-page': new Map(),
+      'status-page-component': new Map(),
     }
 
     if (debugImportPlanInputFile) {
@@ -1192,6 +1194,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
                 case 'status-page-service':
                   context.registerFriendStatusPageService(resource.physicalId, friendExport)
                   break
+                case 'status-page':
+                  context.registerFriendStatusPage(resource.physicalId, friendExport)
+                  break
+                case 'status-page-component':
+                  context.registerFriendStatusPageComponent(resource.physicalId, friendExport)
+                  break
               }
             } catch (cause) {
               throw new Error(`Failed to process friend resource '${resource.type}:${resource.physicalId}' (${resource.logicalId}): ${cause}`, { cause })
@@ -1590,6 +1598,8 @@ const importables = {
   'private-location': uuidPhysicalId,
   'status-page-service': uuidPhysicalId,
   'status-page': uuidPhysicalId,
+  'status-page-component': uuidPhysicalId,
+  'status-page-automation-rule': uuidPhysicalId,
 }
 
 function isFilterable (type: string): boolean {
