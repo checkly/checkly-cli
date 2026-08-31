@@ -49,7 +49,7 @@ async function cleanupProjects (projectLogicalId?: string) {
     let deleted = 0
     let leftUndone = 0
     for (const project of projects) {
-      if (!project.name.startsWith('e2e-test-deploy-project-')) {
+      if (!project.logicalId.startsWith('e2e-test-deploy-project-')) {
         continue
       }
       matched++
