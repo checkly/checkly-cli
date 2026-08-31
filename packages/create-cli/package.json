@@ -7,7 +7,7 @@
   "types": "dist/index.d.ts",
   "private": false,
   "engines": {
-    "node": "^20.19.0 || >=22.12.0"
+    "node": ">=22.13.0"
   },
   "scripts": {
     "clean": "rimraf ./dist ./tsconfig.tsbuildinfo",
@@ -34,6 +34,7 @@
     "create-cli": "./bin/run"
   },
   "files": [
+    "bin",
     "dist"
   ],
   "oclif": {

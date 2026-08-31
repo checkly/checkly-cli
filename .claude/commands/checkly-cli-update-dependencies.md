@@ -6,7 +6,7 @@ Update the monorepo's dependencies (including devDependencies) to the latest ver
 
 Two guiding rules:
 
-1. **Never raise our minimum supported Node version as a side effect of a dependency bump.** We are on the stable 8.x line; dropping Node 20 would be a breaking (v9) change, so a dependency whose newest version requires a higher Node than our floor must be held back to its latest still-compatible version.
+1. **Never raise our minimum supported Node version as a side effect of a dependency bump.** Dropping a supported Node version is a breaking change reserved for the next major release, so a dependency whose newest version requires a higher Node than our floor must be held back to its latest still-compatible version.
 2. **Respect the release-age embargo.** `pnpm-workspace.yaml` sets `minimumReleaseAge` (currently `2880` minutes = 2 days): pnpm refuses to install any version published within that window (a supply-chain safeguard). So the effective target for every package is the latest version that is **both** floor-compatible **and** older than the embargo. A version that is newer but still inside the embargo is not "held back" permanently — it is simply not eligible yet; note it and re-evaluate on the next run.
 
 Because of rule 2, the npm registry's `latest` tag (and any tool that reads it directly, including the helper below and raw `pnpm outdated`) can **over-report** — it will name versions the embargo blocks. The authoritative target is whatever `pnpm update` actually resolves, since pnpm enforces the embargo. Never bypass it (e.g. with an explicit `pnpm add pkg@<too-new>` or the `minimumReleaseAgeExclude` setting) to force a version pnpm refused.
@@ -15,8 +15,8 @@ All paths below are relative to the repo root unless noted otherwise.
 
 ## Phase 0: Determine the constraints (Node floor + release-age embargo)
 
-- [ ] Read `engines.node` from `packages/cli/package.json` and `packages/create-cli/package.json`. They should match. The current value is `^20.19.0 || >=22.12.0`, so the **minimum supported runtime is Node 20.19.0** — this is the version every dependency must remain installable on.
-- [ ] Set `FLOOR` to that minimum (e.g. `20.19.0`). Do not hardcode it from this doc — read it live, since a future major may change it.
+- [ ] Read `engines.node` from `packages/cli/package.json` and `packages/create-cli/package.json`. They should match. The current value is `>=22.13.0`, so the **minimum supported runtime is Node 22.13.0** — this is the version every dependency must remain installable on.
+- [ ] Set `FLOOR` to that minimum (e.g. `22.13.0`). Do not hardcode it from this doc — read it live, since a future major may change it.
 - [ ] Read `minimumReleaseAge` from `pnpm-workspace.yaml` and set `EMBARGO_MIN` to it (e.g. `2880`). Do not hardcode it from this doc — read it live. Any version published more recently than `EMBARGO_MIN` minutes ago is not installable yet.
 
 ## Phase 1: Survey what is outdated
@@ -31,7 +31,7 @@ For each outdated package, pick the **latest version that both satisfies `FLOOR`
 ```bash
 # Prints the latest non-prerelease version of each package that is BOTH
 # floor-compatible AND older than the release-age embargo.
-FLOOR=20.19.0      # read from engines.node, do not assume
+FLOOR=22.13.0      # read from engines.node, do not assume
 EMBARGO_MIN=2880   # read minimumReleaseAge from pnpm-workspace.yaml, do not assume
 SEMVER=$(ls -d node_modules/.pnpm/semver@* | head -1)
 for p in "PACKAGE_NAME_1" "PACKAGE_NAME_2"; do
