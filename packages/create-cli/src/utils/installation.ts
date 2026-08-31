@@ -72,12 +72,14 @@ export async function createProject (
 }
 
 export async function installDependenciesAndInitGit (
-  { projectDirectory }: { projectDirectory: string }) {
+  { projectDirectory }: { projectDirectory: string }): Promise<{ installOk: boolean }> {
   debug('Install npm dependencies')
-  await installDependencies(projectDirectory)
+  const installOk = await installDependencies(projectDirectory)
 
   debug('Init .git & .gitignore')
   await initGit(projectDirectory)
+
+  return { installOk }
 }
 
 export async function copyPlaywrightConfig ({ projectDirectory, playwrightConfig, onCancel }:

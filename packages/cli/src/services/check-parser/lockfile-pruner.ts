@@ -1231,9 +1231,9 @@ export async function pruneBundledLockfile (
     }
     if (result.failed || result.exitCode !== 0) {
       // On Windows a missing executable never surfaces as a spawn ENOENT:
-      // execa spawns through cross-spawn, which wraps an unresolvable
-      // command in cmd.exe, so the child "runs" and exits non-zero with
-      // cmd.exe's not-recognized message. Classify after the fact with a
+      // execa resolves the command itself (via which-command) and wraps an
+      // unresolvable command in cmd.exe, so the child "runs" and exits
+      // non-zero with cmd.exe's not-recognized message. Classify after the fact with a
       // PATH probe — safe against probe/spawn resolution differences,
       // because the command has already failed either way and only the
       // reporting is at stake. Executables given as a path are left to the

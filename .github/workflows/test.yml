@@ -68,7 +68,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       # Test that the packaging works as well
@@ -98,7 +98,7 @@ jobs:
           bun-version: '1.3.11'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       # Provisions a corepack-managed yarn for the real-yarn lockfile-pruner
       # tests (the fixture's packageManager field pins the exact Yarn Berry
@@ -160,7 +160,7 @@ jobs:
           bun-version: '1.3.11'
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       # See test-ubuntu: yarn-scoped so the corepack pnpm shim cannot shadow
       # the pinned pnpm, and pre-downloaded so a corepack failure surfaces
@@ -205,7 +205,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
@@ -232,7 +232,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm run prepack
@@ -267,7 +267,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter create-checkly run test:e2e
@@ -283,7 +283,7 @@ jobs:
           version: 10
       - uses: actions/setup-node@v4
         with:
-          node-version: '20.x'
+          node-version: '22.x'
           cache: "pnpm"
       - run: pnpm install --frozen-lockfile
       - run: pnpm --filter create-checkly run test:e2e

@@ -794,11 +794,16 @@ function* chunks<T> (array: T[], size: number): Generator<T[], void> {
 export class PathLookup {
   static win = process.platform.startsWith('win')
 
-  // Mirrors the fallback the `which` package (and through it cross-spawn,
-  // i.e. what execa actually spawns with) applies when PATHEXT is unset —
-  // without it, a lookup on such a system would only probe the
-  // extensionless name and miss every .CMD/.EXE shim.
-  static defaultWinPathext = ['.EXE', '.CMD', '.BAT', '.COM']
+  // The default extension list execa's Windows resolution falls back to when
+  // PATHEXT is unset — without it, a lookup on such a system would only probe
+  // the extensionless name and miss every .CMD/.EXE shim. This lookup feeds
+  // both package-manager detection and the pruner's missing-executable
+  // classification, so it deliberately mirrors what execa actually spawns:
+  // quoted-Path-entry stripping, empty-Path-entry skipping, this default
+  // list, and the unset/empty PATHEXT handling below. Knowingly not
+  // mirrored: which-command's cwd-before-PATH search order and its
+  // no-bare-name rule under an empty PATHEXT.
+  static defaultWinPathext = ['.COM', '.EXE', '.BAT', '.CMD', '.VBS', '.VBE', '.JS', '.JSE', '.WSF', '.WSH', '.MSC']
 
   paths: string[]
   pathext: string[]
@@ -809,9 +814,19 @@ export class PathLookup {
       // Windows allows individually quoted Path entries
       // (`C:\Windows;"C:\Program Files\nodejs"`); the spawn's own resolver
       // strips the quotes, so this lookup must too or the two disagree.
+      // Empty entries are skipped like execa/which-command skip them
+      // (searching the current directory implicitly is a security risk).
       this.paths = (process.env['Path']?.split(path.delimiter) ?? [])
         .map(entry => entry.replace(/^"(.*)"$/, '$1'))
-      this.pathext = process.env['PATHEXT']?.split(path.delimiter) ?? [...PathLookup.defaultWinPathext]
+        .filter(entry => entry !== '')
+      // execa reads PATHEXT itself and passes the raw value through to
+      // which-command, so an empty (but set) PATHEXT disables extension
+      // probing while only an unset one falls back to the default list.
+      // (Standalone which-command would default on empty too — the composite
+      // execa behavior is what spawns actually see.)
+      this.pathext = process.env['PATHEXT'] !== undefined
+        ? process.env['PATHEXT'].split(path.delimiter).filter(ext => ext !== '')
+        : [...PathLookup.defaultWinPathext]
       this.pathext.forEach(ext => this.pathextSet.add(ext.toUpperCase()))
     } else {
       this.paths = process.env['PATH']?.split(path.delimiter) ?? []

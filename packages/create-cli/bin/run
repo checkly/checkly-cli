@@ -1,15 +1,19 @@
 #!/usr/bin/env node
 
-const currentVersion = process.versions.node
-const requiredVersion = parseInt(currentVersion.split('.')[0], 10)
-const minimumVersion = 20
+import { belowMinimumVersion, minimumVersion } from './check-node-version.js'
 
-if (requiredVersion < minimumVersion) {
+const currentVersion = process.versions.node
+
+if (belowMinimumVersion(currentVersion)) {
   console.error(`You are running Node.js v${currentVersion}. The Checkly CLI requires Node.js v${minimumVersion} or higher.`)
   process.exit(1)
 }
 
-import { execute, settings } from '@oclif/core'
+// Imported dynamically so the version check above runs first: a static import
+// would be hoisted and evaluate @oclif/core (and its dependencies) before this
+// module's body, letting an unsupported runtime crash inside a dependency
+// instead of reaching the message above.
+const { execute, settings } = await import('@oclif/core')
 
 settings.enableAutoTranspile = false
 await execute({ dir: import.meta.url })

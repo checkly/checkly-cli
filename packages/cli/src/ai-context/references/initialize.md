@@ -6,7 +6,7 @@ Follow these steps in order to set up a new Checkly monitoring project.
 
 Before starting, verify:
 
-1. **Node.js** is installed (`node --version`). Checkly CLI requires Node.js 18 or later.
+1. **Node.js** is installed (`node --version`). Checkly CLI requires Node.js 22.13.0 or later.
 2. **npm** is available (`npm --version`).
 3. The current working directory is the right location for the project (or create/navigate to it).
 
