@@ -30,14 +30,86 @@ async function cleanupProjects (projectLogicalId?: string) {
     await projectsApi.deleteProject(projectLogicalId)
     return
   }
-  const { data: projects } = await projectsApi.getAll()
-  for (const project of projects) {
-    // Also delete any old projects that may have been missed in previous e2e tests
-    const leftoverE2eProject = project.name.startsWith('e2e-test-deploy-project-')
-      && DateTime.fromISO(project.created_at) < DateTime.now().minus(Duration.fromObject({ minutes: 20 }))
-    if (leftoverE2eProject) {
-      await projectsApi.deleteProject(project.logicalId)
+  // The untargeted sweep reclaims projects leaked by runs that died between
+  // beforeEach and afterEach (e.g. a CI timeout). It is an opportunistic safety
+  // net running inside beforeAll/afterAll hooks, so it must never fail the
+  // suite: warn and move on instead of letting errors propagate out of the
+  // hook. Note this axios client has none of the rest/api interceptors, so API
+  // errors stay raw AxiosErrors — deleteProject's ConflictError-based
+  // wait-for-predecessor loop never engages here, and a concurrent shard's 409
+  // fails fast instead of blocking the hook for up to 30 minutes.
+  try {
+    const { data: projects } = await projectsApi.getAll()
+    // Each delete submits an async deletion and streams it to completion, so
+    // draining a backlog can take a while. A hook timeout aborts from outside
+    // this function where no catch can run — stop deleting well before it and
+    // let later runs reclaim the rest.
+    const deadline = Date.now() + 60_000
+    let matched = 0
+    let deleted = 0
+    let leftUndone = 0
+    for (const project of projects) {
+      if (!project.name.startsWith('e2e-test-deploy-project-')) {
+        continue
+      }
+      matched++
+      const createdAt = DateTime.fromISO(project.created_at)
+      if (!createdAt.isValid) {
+        // An invalid timestamp compares false silently, which would quietly
+        // disable the sweep — the failure mode that kept it dead for years.
+        // Make it loud instead.
+        console.warn(`Leftover-project sweep: ${project.logicalId} has unparseable created_at`
+          + ` ${JSON.stringify(project.created_at)}, skipping`)
+        continue
+      }
+      // The 20-minute age guard keeps the sweep safe against concurrent jobs: a
+      // live test project only exists for the duration of a single test, so
+      // nothing another job is still using is ever 20 minutes old.
+      if (createdAt >= DateTime.now().minus(Duration.fromObject({ minutes: 20 }))) {
+        continue
+      }
+      if (Date.now() >= deadline) {
+        leftUndone++
+        continue
+      }
+      // deleteProject streams the async deletion to completion and this client
+      // sets no request timeout, so a single slow delete could otherwise outlive
+      // the hook timeout, which aborts from outside any catch. Bound it by the
+      // remaining budget instead; a raced-out delete keeps running detached,
+      // which is harmless — its rejection is handled inline below, and a late
+      // server-side completion is the desired outcome anyway.
+      let budgetTimer: NodeJS.Timeout | undefined
+      const outcome = await Promise.race([
+        projectsApi.deleteProject(project.logicalId).then(
+          () => ({ ok: true as const }),
+          (err: unknown) => ({ ok: false as const, err }),
+        ),
+        new Promise<'out-of-budget'>(resolve => {
+          budgetTimer = setTimeout(resolve, deadline - Date.now(), 'out-of-budget')
+        }),
+      ])
+      clearTimeout(budgetTimer)
+      if (outcome === 'out-of-budget') {
+        console.warn(`Leftover-project sweep: time budget ran out while deleting ${project.logicalId};`
+          + ' the deletion continues server-side')
+        continue
+      }
+      if (!outcome.ok) {
+        console.warn(`Leftover-project sweep: failed to delete ${project.logicalId}:`, outcome.err)
+        continue
+      }
+      deleted++
+      console.log(`Leftover-project sweep: deleted ${project.logicalId} (created ${project.created_at})`)
     }
+    if (leftUndone > 0) {
+      console.warn(`Leftover-project sweep: time budget exhausted with ${leftUndone} candidate(s) left;`
+        + ' a later run will reclaim them')
+    }
+    // Always log a summary: a sweep with nothing to reclaim must be
+    // distinguishable from a sweep that is silently broken.
+    console.log(`Leftover-project sweep: scanned ${projects.length}, matched ${matched}, deleted ${deleted}`)
+  } catch (err) {
+    console.warn('Leftover-project sweep failed:', err)
   }
 }
 async function getAllResources (type: 'checks' | 'check-groups' | 'private-locations') {
