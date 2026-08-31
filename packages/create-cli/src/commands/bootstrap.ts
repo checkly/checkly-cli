@@ -115,7 +115,14 @@ export default class Bootstrap extends Command {
       await createProject({ projectDirectory, version, onCancel })
     }
 
-    await installDependenciesAndInitGit({ projectDirectory })
+    const { installOk } = await installDependenciesAndInitGit({ projectDirectory })
+    if (!installOk) {
+      // A failed dependency install does not abort the bootstrap (the
+      // scaffolded project is usable after a manual install), but scripted
+      // callers — non-interactive mode forces the install — must still
+      // observe a non-zero exit.
+      process.exitCode = 1
+    }
 
     let playwrightConfig: string | undefined
     if (interactive) {
