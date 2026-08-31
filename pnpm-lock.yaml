@@ -262,6 +262,9 @@ importers:
       '@types/prompts':
         specifier: ^2.4.9
         version: 2.4.9
+      acorn:
+        specifier: ^8.18.0
+        version: 8.18.0
       cross-env:
         specifier: ^10.1.0
         version: 10.1.0

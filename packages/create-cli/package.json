@@ -31,7 +31,7 @@
     ".": "./index.mjs"
   },
   "bin": {
-    "create-cli": "./bin/run"
+    "create-cli": "./bin/run.cjs"
   },
   "files": [
     "bin",
@@ -73,6 +73,7 @@
   },
   "devDependencies": {
     "@types/debug": "^4.1.13",
+    "acorn": "^8.18.0",
     "@types/node": "^22.19.17",
     "@types/prompts": "^2.4.9",
     "cross-env": "^10.1.0",

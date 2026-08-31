@@ -7,23 +7,18 @@ import { describe, it, expect } from 'vitest'
 
 import { belowMinimumVersion, minimumVersion } from '../../bin/check-node-version.cjs'
 
-// The minimum supported Node version is declared in three independent places:
-// engines.node in both published packages, and the preflight constant in
-// bin/check-node-version.cjs (which cannot read package.json because it must
-// run before any dependency is guaranteed to be installed). Nothing else
-// keeps them aligned, so assert it here to stop a future floor bump from
-// moving one and silently leaving the others behind. The checkly package's
-// own node-floor spec pins its preflight constant to its engines.node, so
-// the cross-package equality below closes the loop.
+// The minimum supported Node version is declared both in engines.node and in
+// the preflight constant in bin/check-node-version.cjs (which cannot read
+// package.json because it must run before any dependency is guaranteed to be
+// installed). Nothing else keeps them aligned, so assert it here to stop a
+// future floor bump from moving one and silently leaving the other behind.
+// The create-checkly node-floor spec asserts that both packages declare the
+// same engines.node, which transitively covers its own preflight constant too.
 describe('Node version floor', () => {
   const packageDir = path.join(import.meta.dirname, '..', '..')
 
-  function readPackageJson (dir: string) {
-    return JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8'))
-  }
-
-  const packageJson = readPackageJson(packageDir)
-  const createCliEngines: string = packageJson.engines.node
+  const packageJson = JSON.parse(fs.readFileSync(path.join(packageDir, 'package.json'), 'utf8'))
+  const engines: string = packageJson.engines.node
 
   function readBin (file: string): string {
     return fs.readFileSync(path.join(packageDir, 'bin', file), 'utf8')
@@ -33,26 +28,14 @@ describe('Node version floor', () => {
     return source.replace(/^\s*\/\/.*$/gm, '')
   }
 
-  it('declares the same engines.node in checkly and create-checkly', () => {
-    const cliEngines = readPackageJson(path.join(packageDir, '..', 'cli')).engines.node
-    expect(createCliEngines).toEqual(cliEngines)
-  })
-
-  it('keeps the version-check helper identical to the checkly package copy', () => {
-    // The preflight logic is duplicated per package (each ships its own bin/),
-    // so a behavioral fix applied to one copy must not silently skip the other.
-    const cliHelper = fs.readFileSync(path.join(packageDir, '..', 'cli', 'bin', 'check-node-version.cjs'), 'utf8')
-    expect(readBin('check-node-version.cjs')).toEqual(cliHelper)
-  })
-
   it('uses the engines.node minimum in the bin preflight', () => {
-    const enginesMinimum = createCliEngines.match(/^>=(\d+\.\d+\.\d+)$/)?.[1]
+    const enginesMinimum = engines.match(/^>=(\d+\.\d+\.\d+)$/)?.[1]
     expect(enginesMinimum).toBeDefined()
     expect(minimumVersion).toEqual(enginesMinimum)
   })
 
   it('points the published bin at the preflight entry', () => {
-    expect(packageJson.bin['create-cli']).toEqual('./bin/run.cjs')
+    expect(packageJson.bin.checkly).toEqual('./bin/run.cjs')
   })
 
   it.each([
@@ -97,10 +80,11 @@ describe('Node version floor', () => {
   })
 
   it('loads the CLI only via dynamic import after the version check', () => {
-    // require() of @oclif/core would break if its graph ever adopted
-    // top-level await, so the launcher must use dynamic import.
     const launch = readBin('launch.cjs')
-    expect(launch).toMatch(/await import\('@oclif\/core'\)/)
+    // The dotenv loading step is otherwise unasserted (the spawn tests pass
+    // without it), and require() of the ESM dist or @oclif/core would break
+    // if their graphs ever adopted top-level await.
+    expect(launch).toMatch(/await import\('\.\.\/dist\/services\/load-dotenv\.js'\)/)
     expect(stripLineComments(launch)).not.toMatch(/\brequire\(/)
   })
 
@@ -112,9 +96,9 @@ describe('Node version floor', () => {
     // The child runs the real CLI once the preflight passes, which needs a
     // built dist/ — fail clearly instead of with opaque exit-code mismatches.
     if (!fs.existsSync(path.join(packageDir, 'dist'))) {
-      throw new Error('dist/ is missing — run `pnpm --filter create-checkly run prepare` first')
+      throw new Error('dist/ is missing — run `pnpm --filter checkly run prepare` first')
     }
-    const runPath = path.join(packageDir, packageJson.bin['create-cli'])
+    const runPath = path.join(packageDir, packageJson.bin.checkly)
     // Plain assignment to process.versions properties is a silent no-op
     // (they are defined non-writable), so patching needs defineProperty.
     const patchScript = Object.entries(patches)
@@ -128,10 +112,6 @@ describe('Node version floor', () => {
       + `require(${JSON.stringify(runPath)})`
     const env = { ...process.env }
     delete env.CHECKLY_SKIP_NODE_VERSION_CHECK
-    // Keep the child hermetic: --help runs oclif's init hooks, and without
-    // this @oclif/plugin-warn-if-update-available spawns a detached npm
-    // registry refresh from every spawn test.
-    env.CREATE_CLI_SKIP_NEW_VERSION_CHECK = '1'
     Object.assign(env, extraEnv)
     return spawnSync(process.execPath, ['-e', script], { encoding: 'utf8', env })
   }
@@ -140,7 +120,7 @@ describe('Node version floor', () => {
     const result = runBinWithPatchedVersions({ node: '18.20.5' }, [])
     expect(result.status).toEqual(1)
     expect(result.stderr).toContain(
-      `You are running Node.js v18.20.5. create-checkly requires Node.js v${minimumVersion} or higher.`,
+      `You are running Node.js v18.20.5. The Checkly CLI requires Node.js v${minimumVersion} or higher.`,
     )
   })
 
@@ -148,14 +128,14 @@ describe('Node version floor', () => {
     ['bun', '1.2.0'],
     ['deno', '2.0.0'],
   ])('lets %s through even when its pinned Node version is below the floor', (runtime, version) => {
-    const result = runBinWithPatchedVersions({ node: '18.20.5', [runtime]: version }, ['--help'])
+    const result = runBinWithPatchedVersions({ node: '18.20.5', [runtime]: version }, ['--version'])
     expect(result.stderr).not.toContain('requires Node.js')
     expect(result.status).toEqual(0)
-    expect(result.stdout).toContain('USAGE')
+    expect(result.stdout).toContain('checkly/')
   })
 
   it('lets a runtime without a reported Node version through', () => {
-    const result = runBinWithPatchedVersions({ node: undefined }, ['--help'])
+    const result = runBinWithPatchedVersions({ node: undefined }, ['--version'])
     // Only the non-blocking contract is asserted: oclif itself reads
     // process.versions.node during startup, so this synthetic child cannot
     // run the CLI to a clean exit. The preflight must neither block nor
@@ -165,11 +145,11 @@ describe('Node version floor', () => {
   })
 
   it('skips the check when CHECKLY_SKIP_NODE_VERSION_CHECK=1 is set', () => {
-    const result = runBinWithPatchedVersions({ node: '18.20.5' }, ['--help'], {
+    const result = runBinWithPatchedVersions({ node: '18.20.5' }, ['--version'], {
       CHECKLY_SKIP_NODE_VERSION_CHECK: '1',
     })
     expect(result.stderr).not.toContain('requires Node.js')
     expect(result.status).toEqual(0)
-    expect(result.stdout).toContain('USAGE')
+    expect(result.stdout).toContain('checkly/')
   })
 })

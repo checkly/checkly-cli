@@ -92,4 +92,13 @@ export default defineConfig([
       'no-console': 0,
     },
   },
+  {
+    // The bin launchers are deliberately CommonJS: they must run (and print a
+    // useful Node version message) on runtimes far below the supported floor.
+    files: ['packages/*/bin/*.cjs'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 0,
+      'no-console': 0,
+    },
+  },
 ])
