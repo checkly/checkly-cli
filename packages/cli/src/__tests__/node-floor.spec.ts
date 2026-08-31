@@ -93,6 +93,11 @@ describe('Node version floor', () => {
     args: string[],
     extraEnv: Record<string, string> = {},
   ) {
+    // The child runs the real CLI once the preflight passes, which needs a
+    // built dist/ — fail clearly instead of with opaque exit-code mismatches.
+    if (!fs.existsSync(path.join(packageDir, 'dist'))) {
+      throw new Error('dist/ is missing — run `pnpm --filter checkly run prepare` first')
+    }
     const runPath = path.join(packageDir, packageJson.bin.checkly)
     // Plain assignment to process.versions properties is a silent no-op
     // (they are defined non-writable), so patching needs defineProperty.

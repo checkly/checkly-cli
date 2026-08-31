@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 import { execa } from 'execa'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const CHECKLY_PATH = path.resolve(__dirname, '..', 'bin', 'run')
+const CHECKLY_PATH = path.resolve(__dirname, '..', 'bin', 'run.cjs')
 
 export async function runChecklyCreateCli (options: {
   directory?: string
@@ -23,7 +23,9 @@ export async function runChecklyCreateCli (options: {
     timeout = 30000,
   } = options
 
-  const result = await execa(CHECKLY_PATH, args, {
+  // Invoke through node explicitly: a .cjs file is not directly executable on
+  // Windows (cmd.exe has no association for it, and no PATHEXT entry).
+  const result = await execa(process.execPath, [CHECKLY_PATH, ...args], {
     env: {
       PATH: process.env.PATH,
       // Force npm as the package manager. Without this, pnpm is detected via
@@ -47,7 +49,6 @@ export async function runChecklyCreateCli (options: {
     timeout,
     reject: false,
     extendEnv: false,
-    shell: process.platform === 'win32',
   })
 
   return result
