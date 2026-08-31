@@ -13,5 +13,9 @@ export default defineConfig({
       '**/dist/**',
     ],
     testTimeout: 15000,
+    // Hooks do network work (project cleanup sweeps, streamed deletions) and the
+    // suite-level `timeout` option covers tests only, so Vitest's 10s default is
+    // too tight for them.
+    hookTimeout: 120_000,
   },
 })
