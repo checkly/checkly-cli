@@ -819,15 +819,8 @@ export class PathLookup {
     }
   }
 
-  // FIXME(RED-887): the missing `await` below means `foundPath` is a
-  // Promise — always defined — so this never throws and executable
-  // detection always "succeeds". Fixing it changes package-manager
-  // detection outcomes on machines that lack the executable, so it is
-  // tracked as a follow-up rather than fixed in passing; use lookupPath()
-  // for a working check.
-  // eslint-disable-next-line require-await
   async detectPresence (executable: string): Promise<void> {
-    const foundPath = this.lookupPath(executable)
+    const foundPath = await this.lookupPath(executable)
     if (foundPath === undefined) {
       throw new NotDetectedError()
     }

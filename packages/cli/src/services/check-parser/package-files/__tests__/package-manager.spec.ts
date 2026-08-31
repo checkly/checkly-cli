@@ -632,4 +632,10 @@ describe('PathLookup', () => {
     expect(await lookup.lookupPath('node')).toBeDefined()
     expect(await lookup.lookupPath('checkly-no-such-executable-xyz')).toBeUndefined()
   })
+
+  it('detects the presence of an executable on PATH and throws for one that is missing', async () => {
+    const lookup = new PathLookup()
+    await expect(lookup.detectPresence('node')).resolves.toBeUndefined()
+    await expect(lookup.detectPresence('checkly-no-such-executable-xyz')).rejects.toThrow()
+  })
 })

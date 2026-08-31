@@ -452,6 +452,21 @@ describe('dependency-parser - parser()', () => {
       ])
     })
 
+    it('should resolve bare "." and ".." imports to directory index files', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('bare-dot-imports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('lib', 'index.ts'),
+        toAbsolutePath('lib', 'sub', 'index.ts'),
+        toAbsolutePath('lib', 'sub', 'other.ts'),
+        toAbsolutePath('lib', 'sub', 'slash.ts'),
+      ])
+    })
+
     it('should parse typescript dependencies', async () => {
       const toAbsolutePath = (...filepath: string[]) => fixt.abspath('typescript-example', ...filepath)
       const parser = new Parser({
@@ -974,6 +989,21 @@ describe('dependency-parser - parser()', () => {
       expect(dependencies.map(d => d.filePath).sort()).toEqual([
         toAbsolutePath('dep1.js'),
         toAbsolutePath('dep2.js'),
+      ])
+    })
+
+    it('should resolve bare "." and ".." imports to directory index files', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('bare-dot-imports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: true,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('lib', 'index.ts'),
+        toAbsolutePath('lib', 'sub', 'index.ts'),
+        toAbsolutePath('lib', 'sub', 'other.ts'),
+        toAbsolutePath('lib', 'sub', 'slash.ts'),
       ])
     })
 
