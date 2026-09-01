@@ -152,6 +152,14 @@ export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): No
   return normalized
 }
 
+/**
+ * The returned value omits any entry or class that carried an issue, so
+ * it is only meaningful when nothing was reported through `onIssue` —
+ * the throwing wrapper never returns after an issue and the collector
+ * discards the value. A caller that wanted to warn and continue would
+ * silently lose the offending entries (for a `keep` entry, pruning
+ * packages the user meant to keep) and must not reuse this walker as-is.
+ */
 function normalizePackagePruneInternal (
   raw: BundlePackagesPrune | undefined,
   onIssue: (issue: Error) => void,
@@ -175,7 +183,7 @@ function normalizePackagePruneInternal (
       // text appears in its own message, several member-scoped entries can
       // produce identical messages.
       const normalized = normalizeMemberScopedEntry(entry, issue => {
-        onIssue(new Error(`[${index}]: ${issue.message}`, { cause: issue }))
+        onIssue(new Error(`prune[${index}]: ${issue.message}`, { cause: issue }))
       })
       if (normalized !== undefined) {
         entries.push(normalized)

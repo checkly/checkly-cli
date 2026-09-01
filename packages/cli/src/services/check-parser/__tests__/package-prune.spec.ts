@@ -140,6 +140,11 @@ describe('normalizePackagePrune()', () => {
       .toThrow(`'dependencies': Invalid package name pattern 'pkg@1.0.0'`)
   })
 
+  it('throws the first issue of a value carrying several', () => {
+    expect(() => normalizePackagePrune({ peerDependences: true, dependencies: 5 } as any))
+      .toThrow(/'peerDependences' is not a dependency class/)
+  })
+
   it('normalizes a member-scoped remove entry, desugaring true to the catch-all pattern', () => {
     expect(normalizePackagePrune([{ member: 'my-app', remove: { dependencies: true } }])).toEqual({
       form: 'entries',
@@ -322,16 +327,16 @@ describe('collectPackagePruneIssues()', () => {
       { membre: 'my-app', keep: ['bad@1.0.0'] },
     ])
     expect(issues).toEqual([
-      expect.stringContaining(`[1]: 'membre' is not a member-scoped prune entry field`),
-      expect.stringContaining(`[1]: 'member' must be a workspace member name pattern`),
-      expect.stringContaining(`[1]: 'keep': Invalid package name pattern 'bad@1.0.0'`),
+      expect.stringContaining(`prune[1]: 'membre' is not a member-scoped prune entry field`),
+      expect.stringContaining(`prune[1]: 'member' must be a workspace member name pattern`),
+      expect.stringContaining(`prune[1]: 'keep': Invalid package name pattern 'bad@1.0.0'`),
     ])
   })
 
   it('does not validate a selection when a scoped entry lacks exactly one of remove and keep', () => {
     const issues = packagePruneIssues(['ok-name', { member: 'my-app' }])
     expect(issues).toEqual([
-      expect.stringContaining(`[1]: a member-scoped prune entry must have exactly one of 'remove' and 'keep'`),
+      expect.stringContaining(`prune[1]: a member-scoped prune entry must have exactly one of 'remove' and 'keep'`),
     ])
   })
 })
