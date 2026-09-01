@@ -118,19 +118,66 @@ describe('loadChecklyConfig()', () => {
       },
     })
   })
-  it('accepts a string caching.dependencyCache.version', async () => {
-    const { config } = await loadChecklyConfig(
+  it('accepts a string caching.dependencyCache.version with a deprecation warning', async () => {
+    const { config, diagnostics } = await loadChecklyConfig(
       configDir,
       ['dependency-cache-version-string.ts'],
     )
     expect(config.caching?.dependencyCache?.version).toBe('v2')
+    expect(diagnostics.isFatal()).toBe(false)
+    expect(diagnostics.observations).toEqual([
+      expect.objectContaining({
+        title: expect.stringMatching(/^\[[^\]]*dependency-cache-version-string\.ts\] Use of deprecated property$/),
+        message: expect.stringContaining(`Property "caching" is deprecated`),
+      }),
+    ])
   })
-  it('accepts 0 as a caching.dependencyCache.version', async () => {
-    const { config } = await loadChecklyConfig(
+  it('accepts 0 as a caching.dependencyCache.version with a deprecation warning', async () => {
+    const { config, diagnostics } = await loadChecklyConfig(
       configDir,
       ['dependency-cache-version-zero.ts'],
     )
     expect(config.caching?.dependencyCache?.version).toBe(0)
+    expect(diagnostics.isFatal()).toBe(false)
+    expect(diagnostics.observations).toEqual([
+      expect.objectContaining({
+        title: expect.stringContaining(`Use of deprecated property`),
+      }),
+    ])
+  })
+  it('rejects a caching block that is not an object', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['caching-not-object.js'],
+    )).rejects.toThrow(`The value provided for property "caching" is not valid`)
+  })
+  it('rejects unknown keys in the caching block', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['caching-unknown-key.js'],
+    )).rejects.toThrow(`Property "caching.dependecyCache" is not supported`)
+  })
+  it('rejects setting the dependency cache version at both locations', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['dependency-cache-version-conflict.ts'],
+    )).rejects.toThrow(
+      `Property "caching.dependencyCache.version" cannot be set when "runner.cache.install.version" is set`,
+    )
+  })
+  it('rejects declaring the version at both locations even when the value is empty', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['dependency-cache-version-conflict-empty-string.ts'],
+    )).rejects.toThrow(
+      `Property "caching.dependencyCache.version" cannot be set when "runner.cache.install.version" is set`,
+    )
+  })
+  it('reports a misshapen runner.cache.install alongside a caching block as a diagnostic', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['caching-with-runner-cache-install-not-object.js'],
+    )).rejects.toThrow(`The value provided for property "runner.cache.install" is not valid`)
   })
   it('rejects a non-integer caching.dependencyCache.version', async () => {
     await expect(loadChecklyConfig(
@@ -471,7 +518,9 @@ describe('resolveDependencyCacheVersion()', () => {
 
   it('falls back when the new location is an empty string', () => {
     // The empty string means "unset" (e.g. an unset environment variable),
-    // so it must not shadow a value set at the legacy location.
+    // so it must not shadow a value set at the legacy location. Config
+    // loading rejects declaring both, but the resolver itself must stay
+    // consistent with the "empty string means unset" rule.
     expect(resolveDependencyCacheVersion({
       ...baseConfig,
       runner: { cache: { install: { version: '' } } },
