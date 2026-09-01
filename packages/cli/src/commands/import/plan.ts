@@ -141,13 +141,6 @@ future deployments include the imported resources.`
     'import',
   ]
 
-  /**
-   * Non-fatal diagnostics from loading the Checkly config file, rendered
-   * ahead of project-level diagnostics. Empty when no config file exists
-   * (e.g. the config was created interactively).
-   */
-  readonly #configDiagnostics = new Diagnostics()
-
   async run (): Promise<void> {
     const { flags, argv } = await this.parse(ImportPlanCommand)
     const {
@@ -249,8 +242,8 @@ future deployments include the imported resources.`
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
 
-    const checklyConfig = await this.#loadConfig(configDirectory, configFilenames)
-      ?? await this.#interactiveCreateConfig(configDirectory)
+    const loaded = await this.#loadConfig(configDirectory, configFilenames)
+    const checklyConfig = loaded?.config ?? await this.#interactiveCreateConfig(configDirectory)
 
     await this.#initializeProject(checklyConfig)
 
@@ -258,6 +251,9 @@ future deployments include the imported resources.`
       configDirectory,
       checklyConfig,
       rootDirectory,
+      // No config file exists on the interactive-create path, so there are
+      // no config diagnostics to render.
+      loaded?.diagnostics ?? new Diagnostics(),
     )
 
     const friends: ImportPlanFriend[] = []
@@ -902,16 +898,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  async #loadConfig (configDirectory: string, configFilenames?: string[]): Promise<ChecklyConfig | undefined> {
+  async #loadConfig (
+    configDirectory: string,
+    configFilenames?: string[],
+  ): Promise<{ config: ChecklyConfig, diagnostics: Diagnostics } | undefined> {
     try {
-      const {
-        config: checklyConfig,
-        diagnostics: configDiagnostics,
-      } = await loadChecklyConfig(configDirectory, configFilenames)
-
-      this.#configDiagnostics.extend(configDiagnostics)
-
-      return checklyConfig
+      return await loadChecklyConfig(configDirectory, configFilenames)
     } catch (err) {
       if (err instanceof ConfigNotFoundError) {
         return
@@ -925,6 +917,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     configDirectory: string,
     checklyConfig: ChecklyConfig,
     rootDirectory: string,
+    configDiagnostics: Diagnostics,
   ): Promise<ConstructExport[]> {
     this.style.actionStart('Parsing your project')
 
@@ -960,7 +953,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
 
     await this.validateProject(project, {
-      configDiagnostics: this.#configDiagnostics,
+      configDiagnostics,
     })
 
     this.style.actionStart('Searching for exported resources')
