@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { describe, it, expect } from 'vitest'
 
-import { loadChecklyConfig, defaultFilenames } from '../checkly-config-loader.js'
+import { loadChecklyConfig, defaultFilenames, resolveDependencyCacheVersion } from '../checkly-config-loader.js'
 import { InvalidConfigError } from '../config-diagnostics.js'
 import { splitConfigFilePath } from '../util.js'
 
@@ -149,6 +149,48 @@ describe('loadChecklyConfig()', () => {
       configDir,
       ['dependency-cache-version-bad-type.js'],
     )).rejects.toThrow(`must be a string or a safe integer`)
+  })
+  it('accepts a string runner.cache.install.version', async () => {
+    const { config, diagnostics } = await loadChecklyConfig(
+      configDir,
+      ['runner-cache-install-version-string.ts'],
+    )
+    expect(config.runner?.cache?.install?.version).toBe('v2')
+    expect(diagnostics.observations).toEqual([])
+  })
+  it('rejects a runner.cache.install.version that is neither string nor number', async () => {
+    // The value rules themselves (float, unsafe integer, 0) are covered by
+    // the caching.dependencyCache.version cases above — both locations run
+    // through the same normalization. This case pins the diagnostic to the
+    // new property path.
+    await expect(loadChecklyConfig(
+      configDir,
+      ['runner-cache-install-version-bad-type.js'],
+    )).rejects.toThrow(`The value provided for property "runner.cache.install.version" is not valid`)
+  })
+  it('rejects a runner.cache that is not an object', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['runner-cache-not-object.js'],
+    )).rejects.toThrow(`The value provided for property "runner.cache" is not valid`)
+  })
+  it('rejects unknown keys in the runner.cache block', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['runner-cache-unknown-key.js'],
+    )).rejects.toThrow(`Property "runner.cache.instal" is not supported`)
+  })
+  it('rejects a runner.cache.install that is not an object', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['runner-cache-install-not-object.js'],
+    )).rejects.toThrow(`The value provided for property "runner.cache.install" is not valid`)
+  })
+  it('rejects unknown keys in the runner.cache.install block', async () => {
+    await expect(loadChecklyConfig(
+      configDir,
+      ['runner-cache-install-unknown-key.js'],
+    )).rejects.toThrow(`Property "runner.cache.install.verison" is not supported`)
   })
   it('accepts valid bundle.packages.embed entries', async () => {
     const { config } = await loadChecklyConfig(
@@ -384,5 +426,56 @@ describe('loadChecklyConfig()', () => {
         },
       },
     })
+  })
+})
+
+describe('resolveDependencyCacheVersion()', () => {
+  const baseConfig = {
+    projectName: 'test-config-project',
+    logicalId: 'test-config-project',
+  }
+
+  it('returns undefined when neither location is set', () => {
+    expect(resolveDependencyCacheVersion(baseConfig)).toBeUndefined()
+  })
+
+  it('reads runner.cache.install.version', () => {
+    expect(resolveDependencyCacheVersion({
+      ...baseConfig,
+      runner: { cache: { install: { version: 'v2' } } },
+    })).toBe('v2')
+  })
+
+  it('falls back to the legacy caching.dependencyCache.version', () => {
+    expect(resolveDependencyCacheVersion({
+      ...baseConfig,
+      caching: { dependencyCache: { version: 'v1' } },
+    })).toBe('v1')
+  })
+
+  it('prefers runner.cache.install.version over the legacy location', () => {
+    expect(resolveDependencyCacheVersion({
+      ...baseConfig,
+      runner: { cache: { install: { version: 'v2' } } },
+      caching: { dependencyCache: { version: 'v1' } },
+    })).toBe('v2')
+  })
+
+  it('treats 0 in the new location as set', () => {
+    expect(resolveDependencyCacheVersion({
+      ...baseConfig,
+      runner: { cache: { install: { version: 0 } } },
+      caching: { dependencyCache: { version: 'v1' } },
+    })).toBe(0)
+  })
+
+  it('falls back when the new location is an empty string', () => {
+    // The empty string means "unset" (e.g. an unset environment variable),
+    // so it must not shadow a value set at the legacy location.
+    expect(resolveDependencyCacheVersion({
+      ...baseConfig,
+      runner: { cache: { install: { version: '' } } },
+      caching: { dependencyCache: { version: 'v1' } },
+    })).toBe('v1')
   })
 })

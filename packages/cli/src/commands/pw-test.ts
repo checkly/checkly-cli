@@ -7,7 +7,7 @@ import {
   getGitInformation,
   splitConfigFilePath, writeChecklyConfigFile,
 } from '../services/util.js'
-import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp } from '../services/checkly-config-loader.js'
+import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
 import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags, validateDetachReporterTypes } from '../helpers/test-helper.js'
 import * as api from '../rest/api.js'
 import config from '../services/config.js'
@@ -246,7 +246,7 @@ export default class PwTestCommand extends AuthCommand {
     await this.validateProject(project, { configDiagnostics })
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
-      dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+      dependencyCacheVersion: resolveDependencyCacheVersion(checklyConfig),
       embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
       packageManager: Session.packageManager,
       packagePrune: checklyConfig.bundle?.packages?.prune,

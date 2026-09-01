@@ -737,7 +737,7 @@ describe('PlaywrightCheck', () => {
     })
 
     describe('dependencyCacheVersion', () => {
-      it('should change the cacheHash when caching.dependencyCache.version is set', async () => {
+      it('should change the cacheHash when the dependency cache version is set, via either config location', async () => {
         const fixt = await FixtureSandbox.create({
           template: 'playwright',
           source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-dependency-cache-version'),
@@ -757,8 +757,13 @@ describe('PlaywrightCheck', () => {
         try {
           const withoutVersion = await cacheHashFor()
           const withVersion = await cacheHashFor('--config', 'checkly.with-version.config.ts')
+          const withLegacyVersion = await cacheHashFor('--config', 'checkly.with-legacy-version.config.ts')
 
           expect(withVersion).not.toBe(withoutVersion)
+          // The deprecated caching.dependencyCache.version location must keep
+          // producing the same hash as runner.cache.install.version — only
+          // the resolved value feeds the hash, not the config location.
+          expect(withLegacyVersion).toBe(withVersion)
         } finally {
           await fixt.destroy()
         }

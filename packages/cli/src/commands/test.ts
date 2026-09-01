@@ -9,7 +9,7 @@ import {
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
 } from '../services/abstract-check-runner.js'
 import TestRunner from '../services/test-runner.js'
-import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { loadChecklyConfig, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
 import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters.js'
 import { AuthCommand } from './authCommand.js'
 import { BrowserCheck, Check, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs/index.js'
@@ -271,7 +271,7 @@ export default class Test extends AuthCommand {
     await this.validateProject(project, { configDiagnostics })
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
-      dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+      dependencyCacheVersion: resolveDependencyCacheVersion(checklyConfig),
       embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
       packageManager: Session.packageManager,
       packagePrune: checklyConfig.bundle?.packages?.prune,
