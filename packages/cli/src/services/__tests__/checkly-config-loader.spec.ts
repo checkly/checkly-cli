@@ -45,7 +45,7 @@ describe('loadChecklyConfig()', () => {
     const error = await loadInvalidConfig('multiple-errors.js')
     expect(error.diagnostics.observations).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        title: expect.stringMatching(/^\[\S*multiple-errors\.js\] /),
+        title: expect.stringMatching(/^\[[^\]]*multiple-errors\.js\] /),
       }),
     ]))
   })
