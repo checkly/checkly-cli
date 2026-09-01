@@ -8,7 +8,7 @@ import { loadChecklyConfig } from '../services/checkly-config-loader.js'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData, Diagnostics,
+  Project, ProjectData,
   Session, StatusPage, StatusPageService,
   StatusPageV3Component, StatusPageV3AutomationRule,
 } from '../constructs/index.js'
@@ -132,6 +132,7 @@ export default class Deploy extends AuthCommand {
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
+      diagnostics: configDiagnostics,
     } = await loadChecklyConfig(configDirectory, configFilenames)
     const account = this.account
 
@@ -188,28 +189,7 @@ export default class Deploy extends AuthCommand {
 
     this.style.actionSuccess()
 
-    this.style.actionStart('Validating project resources')
-
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-
-    for (const diag of diagnostics.observations) {
-      if (diag.isFatal()) {
-        this.style.longError(diag.title, diag.message)
-      } else if (!diag.isBenign()) {
-        this.style.longWarning(diag.title, diag.message)
-      } else {
-        this.style.longInfo(diag.title, diag.message)
-      }
-    }
-
-    if (diagnostics.isFatal()) {
-      this.style.actionFailure()
-      this.style.shortError(`Unable to continue due to unresolved validation errors.`)
-      this.exit(1)
-    }
-
-    this.style.actionSuccess()
+    await this.validateProject(project, { configDiagnostics })
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
       dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,

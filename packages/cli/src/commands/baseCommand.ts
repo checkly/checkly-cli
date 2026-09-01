@@ -6,6 +6,7 @@ import { dirname, relative } from 'node:path'
 import { api } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
+import { InvalidConfigError } from '../services/config-diagnostics.js'
 import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
@@ -152,6 +153,14 @@ export abstract class BaseCommand extends Command {
   }
 
   protected catch (err: Error & { exitCode?: number }): Promise<any> {
+    if (err instanceof InvalidConfigError) {
+      // Stops the spinner if one is running (e.g. `validate` starts one
+      // before loading the config); also emits a blank separator line.
+      this.style.actionFailure()
+      this.style.diagnostics(err.diagnostics)
+      this.style.shortError(`Your Checkly configuration file is not valid.`)
+      return this.exit(1)
+    }
     // TODO: we can add Sentry here and log critical errors.
     return super.catch(err)
   }

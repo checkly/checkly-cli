@@ -19,6 +19,7 @@ vi.mock('../../../services/checkly-config-loader', () => ({
 import { detectCliMode } from '../../../helpers/cli-mode.js'
 import * as api from '../../../rest/api.js'
 import { loadChecklyConfig } from '../../../services/checkly-config-loader.js'
+import { Diagnostics } from '../../../constructs/diagnostics.js'
 import { ImportPlan } from '../../../rest/projects.js'
 import ImportApplyCommand from '../apply.js'
 
@@ -39,6 +40,7 @@ function createCommandContext (parsed: unknown) {
       throw new Error(`EXIT_${code}`)
     }),
     style: {
+      diagnostics: vi.fn(),
       actionStart: vi.fn(),
       actionSuccess: vi.fn(),
       actionFailure: vi.fn(),
@@ -57,6 +59,7 @@ describe('import apply command (non-interactive)', () => {
     vi.clearAllMocks()
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.applyImportPlan).mockResolvedValue({} as any)
     vi.mocked(api.projects.commitImportPlan).mockResolvedValue({} as any)

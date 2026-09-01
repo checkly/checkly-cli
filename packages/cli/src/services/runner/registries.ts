@@ -1,4 +1,4 @@
-import { parsePackageNamePattern } from '../embedded-packages/spec.js'
+import { PackageNamePattern, parsePackageNamePattern } from '../embedded-packages/spec.js'
 import { COMPOSABLE_URL_REQUIREMENT, parseComposableUrl } from '../embedded-packages/url.js'
 
 /**
@@ -154,108 +154,156 @@ function isPlainObject (value: unknown): value is Record<string, unknown> {
  * an intention, and ignoring it silently disables whatever the user meant
  * to configure, surfacing only as an install failure on the runner.
  */
-function rejectUnknownKeys (context: string, value: Record<string, unknown>, known: string[]): void {
+function collectUnknownKeyIssues (
+  onIssue: (issue: Error) => void,
+  context: string | undefined,
+  value: Record<string, unknown>,
+  known: string[],
+): void {
+  const prefix = context === undefined ? '' : `${context}: `
   for (const key of Object.keys(value)) {
     if (!known.includes(key)) {
-      throw new Error(`${context}: unknown field '${key}' (expected only: ${known.map(k => `'${k}'`).join(', ')})`)
+      onIssue(new Error(`${prefix}unknown field '${key}' (expected only: ${known.map(k => `'${k}'`).join(', ')}).`))
     }
   }
 }
 
 /**
- * Validates the value of `runner.registries` and returns it typed. All
- * failures throw a plain `Error` whose message names the offending part
- * relative to `runner.registries`; the config loader wraps it with the
- * full config path. Invalid URLs and tokens are deliberately never echoed
- * back — a malformed registry URL may carry an inline credential.
+ * Walks a registries value, reporting every issue through `onIssue` so
+ * that all of them surface in a single run — the config loader turns each
+ * one into its own diagnostic. Messages name the offending part relative
+ * to the registries block itself. Invalid URLs and tokens are
+ * deliberately never echoed back — a malformed registry URL may carry an
+ * inline credential.
+ *
+ * Structural problems gate their dependents: an `upstreams` block that is
+ * not an object (or is empty) skips the per-rule upstream-existence
+ * checks (they would all fail spuriously), and a rule whose pattern is
+ * invalid skips the match-all checks for that rule.
  *
  * Plain-JS configs bypass the TypeScript type, so the shape must be
  * enforced at runtime, exactly as `validateBundle` does for
  * `bundle.packages`.
  */
-export function validateRegistries (value: unknown): Registries {
+export function collectRegistriesIssues (value: unknown, onIssue: (issue: Error) => void): void {
   if (!isPlainObject(value)) {
-    throw new Error(`must be an object`)
+    onIssue(new Error(`must be an object.`))
+    return
   }
 
-  rejectUnknownKeys(`'runner.registries'`, value, ['upstreams', 'packages'])
+  // No context: the diagnostic wrapping the issue already names the
+  // registries block's own config path.
+  collectUnknownKeyIssues(onIssue, undefined, value, ['upstreams', 'packages'])
 
   const { upstreams, packages } = value
 
+  let upstreamNames: string[] | undefined
   if (!isPlainObject(upstreams)) {
-    throw new Error(`'upstreams' must be an object mapping upstream names to { url, auth? }`)
-  }
-
-  const upstreamNames = Object.keys(upstreams)
-  if (upstreamNames.length === 0) {
-    throw new Error(`'upstreams' must define at least one upstream`)
-  }
-
-  for (const name of upstreamNames) {
-    validateUpstream(name, upstreams[name])
+    onIssue(new Error(`'upstreams' must be an object mapping upstream names to { url, auth? }.`))
+  } else if (Object.keys(upstreams).length === 0) {
+    // Gates the per-rule upstream-existence checks the same way a
+    // non-object block does: with no upstreams defined, every rule would
+    // otherwise cascade a spurious issue of its own.
+    onIssue(new Error(`'upstreams' must define at least one upstream.`))
+  } else {
+    upstreamNames = Object.keys(upstreams)
+    for (const name of upstreamNames) {
+      collectUpstreamIssues(onIssue, name, upstreams[name])
+    }
   }
 
   if (!Array.isArray(packages)) {
-    throw new Error(`'packages' must be an array of { pattern, upstreams } routing rules`)
+    onIssue(new Error(`'packages' must be an array of { pattern, upstreams } routing rules.`))
+    return
   }
 
-  let lastPattern: string | undefined
+  let lastPattern: PackageNamePattern | undefined
+  let sawMatchAll = false
   for (const [index, rule] of packages.entries()) {
-    const { pattern } = validatePackageRoutingRule(index, rule, upstreamNames)
+    const pattern = collectPackageRoutingRuleIssues(onIssue, index, rule, upstreamNames)
 
     // First match wins, so nothing past a match-all rule could ever
     // apply. Requiring the match-all to be the final rule both guarantees
     // every package a route and keeps silently dead rules out of the
     // config. The final-rule check below also rejects an empty rule list.
-    if (pattern === MATCH_ALL_PATTERN && index !== packages.length - 1) {
-      throw new Error(
-        `packages[${index}]: rules after a '${MATCH_ALL_PATTERN}' match-all rule can never apply `
-        + `(the first matching rule wins); move the match-all rule last`,
-      )
+    // An excluded '!**' — invalid in itself — is not a match-all rule, so
+    // it never triggers the position issue, and it only satisfies the
+    // final-rule check when it is itself the final rule (where removing
+    // the '!' is all it takes; anywhere else the rule list still needs a
+    // trailing match-all).
+    if (pattern !== undefined && pattern.name === MATCH_ALL_PATTERN) {
+      if (!pattern.exclude && index !== packages.length - 1) {
+        onIssue(new Error(
+          `packages[${index}]: rules after a '${MATCH_ALL_PATTERN}' match-all rule can never apply `
+          + `(the first matching rule wins); move the match-all rule last.`,
+        ))
+      }
+      if (!pattern.exclude || index === packages.length - 1) {
+        sawMatchAll = true
+      }
     }
 
     lastPattern = pattern
   }
 
-  if (lastPattern !== MATCH_ALL_PATTERN) {
-    throw new Error(
+  // Skipped when a match-all rule exists (a misplaced one already carries
+  // its own issue telling the user to move it, and asking them to add one
+  // they have would contradict it), and when the final rule's own pattern
+  // is invalid (its issue is already reported and this check would be
+  // speculative).
+  if (!sawMatchAll && (packages.length === 0 || lastPattern !== undefined)) {
+    onIssue(new Error(
       `'packages' must end with a match-all rule ({ pattern: '${MATCH_ALL_PATTERN}', ... }) `
-      + `so that every package has a route`,
-    )
+      + `so that every package has a route.`,
+    ))
+  }
+}
+
+/**
+ * Validates the value of `runner.registries` and returns it typed,
+ * throwing the first issue found. Invalid URLs and tokens are never
+ * echoed back — a malformed registry URL may carry an inline credential.
+ */
+export function validateRegistries (value: unknown): Registries {
+  let firstIssue: Error | undefined
+  collectRegistriesIssues(value, issue => {
+    firstIssue ??= issue
+  })
+  if (firstIssue !== undefined) {
+    throw firstIssue
   }
 
   return value as unknown as Registries
 }
 
-function validateUpstream (name: string, value: unknown): void {
+function collectUpstreamIssues (onIssue: (issue: Error) => void, name: string, value: unknown): void {
   if (!UPSTREAM_NAME_RE.test(name)) {
-    throw new Error(
+    onIssue(new Error(
       `upstream name '${name}' is invalid: names must start with a letter or digit `
-      + `and contain only letters, digits, '-' and '_'`,
-    )
+      + `and contain only letters, digits, '-' and '_'.`,
+    ))
   }
 
   if (!isPlainObject(value)) {
-    throw new Error(`upstream '${name}' must be an object with a 'url'`)
+    onIssue(new Error(`upstream '${name}' must be an object with a 'url'.`))
+    return
   }
 
-  rejectUnknownKeys(`upstream '${name}'`, value, ['url', 'auth'])
+  collectUnknownKeyIssues(onIssue, `upstream '${name}'`, value, ['url', 'auth'])
 
   const { url, auth } = value
 
   const parsedUrl = typeof url === 'string' ? parseComposableUrl(url) : undefined
   if (parsedUrl === undefined) {
-    throw new Error(`upstream '${name}': 'url' must be ${COMPOSABLE_URL_REQUIREMENT}`)
-  }
-
-  // An inline credential would ship in plaintext inside the uploaded code
-  // bundle — the exact outcome the ${VAR}-only rule on auth tokens exists
-  // to prevent. The URL is not echoed for the same reason.
-  if (parsedUrl.username !== '' || parsedUrl.password !== '') {
-    throw new Error(
+    onIssue(new Error(`upstream '${name}': 'url' must be ${COMPOSABLE_URL_REQUIREMENT}.`))
+  } else if (parsedUrl.username !== '' || parsedUrl.password !== '') {
+    // An inline credential would ship in plaintext inside the uploaded code
+    // bundle — the exact outcome the ${VAR}-only rule on auth tokens exists
+    // to prevent. The URL is not echoed for the same reason.
+    onIssue(new Error(
       `upstream '${name}': 'url' must not contain credentials; `
-      + `use auth: { type: 'bearer', token: '\${VAR}' } instead`,
-    )
+      + `use auth: { type: 'bearer', token: '\${VAR}' } instead.`,
+    ))
   }
 
   if (auth === undefined) {
@@ -263,65 +311,84 @@ function validateUpstream (name: string, value: unknown): void {
   }
 
   if (!isPlainObject(auth)) {
-    throw new Error(`upstream '${name}': 'auth' must be an object if set`)
+    onIssue(new Error(`upstream '${name}': 'auth' must be an object if set.`))
+    return
   }
 
-  rejectUnknownKeys(`upstream '${name}': 'auth'`, auth, ['type', 'token'])
+  collectUnknownKeyIssues(onIssue, `upstream '${name}': 'auth'`, auth, ['type', 'token'])
 
   if (auth.type !== 'bearer') {
-    throw new Error(`upstream '${name}': 'auth.type' must be 'bearer'`)
+    onIssue(new Error(`upstream '${name}': 'auth.type' must be 'bearer'.`))
   }
 
   if (typeof auth.token !== 'string' || !ENV_VAR_REFERENCE_RE.test(auth.token)) {
-    throw new Error(
+    onIssue(new Error(
       `upstream '${name}': 'auth.token' must be exactly one environment variable reference in \${VAR} syntax `
       + `(e.g. '\${NPM_TOKEN}'). The variable is resolved from the check's environment variables on the `
-      + `Checkly runner; any literal content would bake a secret into the code bundle`,
-    )
+      + `Checkly runner; any literal content would bake a secret into the code bundle.`,
+    ))
   }
 }
 
-function validatePackageRoutingRule (index: number, value: unknown, upstreamNames: string[]): PackageRoutingRule {
+/**
+ * Collects the issues of one routing rule. Returns the rule's parsed
+ * pattern (its name has any leading '!' stripped) when it is a parseable
+ * string, so the caller can run the match-all checks; `undefined` means
+ * the pattern is unknown and those checks do not apply. When
+ * `upstreamNames` is undefined (the `upstreams` block itself is invalid),
+ * the upstream-existence checks are skipped.
+ */
+function collectPackageRoutingRuleIssues (
+  onIssue: (issue: Error) => void,
+  index: number,
+  value: unknown,
+  upstreamNames: string[] | undefined,
+): PackageNamePattern | undefined {
   if (!isPlainObject(value)) {
-    throw new Error(`packages[${index}] must be an object with 'pattern' and 'upstreams'`)
+    onIssue(new Error(`packages[${index}] must be an object with 'pattern' and 'upstreams'.`))
+    return undefined
   }
 
-  rejectUnknownKeys(`packages[${index}]`, value, ['pattern', 'upstreams'])
+  collectUnknownKeyIssues(onIssue, `packages[${index}]`, value, ['pattern', 'upstreams'])
 
   const { pattern, upstreams } = value
 
+  let knownPattern: PackageNamePattern | undefined
   if (typeof pattern !== 'string') {
-    throw new Error(`packages[${index}]: 'pattern' must be a string`)
-  }
-
-  let parsed
-  try {
-    parsed = parsePackageNamePattern(pattern)
-  } catch (cause) {
-    throw new Error(`packages[${index}]: ${(cause as Error).message}`, { cause })
-  }
-
-  if (parsed.exclude) {
-    throw new Error(
-      `packages[${index}]: exclusion patterns ('!') are not supported in routing rules; `
-      + `each rule stands alone, so there is nothing for an exclusion to subtract from`,
-    )
-  }
-
-  if (!Array.isArray(upstreams) || upstreams.length === 0) {
-    throw new Error(`packages[${index}]: 'upstreams' must be a non-empty array of upstream names`)
-  }
-
-  for (const name of upstreams) {
-    if (typeof name !== 'string' || !upstreamNames.includes(name)) {
-      throw new Error(
-        `packages[${index}]: upstream '${String(name)}' is not defined under 'upstreams' `
-        + `(defined: ${upstreamNames.map(known => `'${known}'`).join(', ')})`,
-      )
+    onIssue(new Error(`packages[${index}]: 'pattern' must be a string.`))
+  } else {
+    try {
+      const parsed = parsePackageNamePattern(pattern)
+      if (parsed.exclude) {
+        onIssue(new Error(
+          `packages[${index}]: exclusion patterns ('!') are not supported in routing rules; `
+          + `each rule stands alone, so there is nothing for an exclusion to subtract from.`,
+        ))
+      }
+      knownPattern = parsed
+    } catch (cause) {
+      onIssue(new Error(`packages[${index}]: ${(cause as Error).message}`, { cause }))
     }
   }
 
-  return value as unknown as PackageRoutingRule
+  if (!Array.isArray(upstreams) || upstreams.length === 0) {
+    onIssue(new Error(`packages[${index}]: 'upstreams' must be a non-empty array of upstream names.`))
+  } else {
+    for (const [entryIndex, name] of upstreams.entries()) {
+      if (typeof name !== 'string') {
+        // Unlike the existence check below, this does not depend on the
+        // 'upstreams' block, so it is never gated.
+        onIssue(new Error(`packages[${index}]: 'upstreams'[${entryIndex}] must be an upstream name.`))
+      } else if (upstreamNames !== undefined && !upstreamNames.includes(name)) {
+        onIssue(new Error(
+          `packages[${index}]: upstream '${name}' is not defined under 'upstreams' `
+          + `(defined: ${upstreamNames.map(known => `'${known}'`).join(', ')}).`,
+        ))
+      }
+    }
+  }
+
+  return knownPattern
 }
 
 /**

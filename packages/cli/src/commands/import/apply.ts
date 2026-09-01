@@ -42,7 +42,9 @@ export default class ImportApplyCommand extends AuthCommand {
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
     const {
       config: checklyConfig,
+      diagnostics: configDiagnostics,
     } = await loadChecklyConfig(configDirectory, configFilenames)
+    this.style.diagnostics(configDiagnostics)
 
     const {
       logicalId,

@@ -100,10 +100,10 @@ export type NormalizedPackagePrune =
   | { form: 'entries', entries: NormalizedPruneEntry[] }
   | { form: 'classes', classes: { [K in DependencyClass]?: true | PackageNamePattern[] } }
 
-const SHAPE_ERROR = `must be an array of package name patterns or an object keyed by dependency class`
+const SHAPE_ERROR = `must be an array of package name patterns or an object keyed by dependency class.`
 
 const ENTRY_SHAPE_ERROR = `each entry must be a package name pattern`
-  + ` or a member-scoped object with 'member' and one of 'remove' or 'keep'`
+  + ` or a member-scoped object with 'member' and one of 'remove' or 'keep'.`
 
 const CATCH_ALL_PATTERN = parsePackageNamePattern('**')
 
@@ -119,39 +119,155 @@ function isPlainObject (value: unknown): value is Record<string, unknown> {
 }
 
 /**
- * Parses one element of a pattern list. A plain-object element gets a
- * pointed rejection: the likely mistake is a member-scoped entry nested
- * inside a class-keyed map or another entry's selection, which would
- * otherwise fail as an unreadable `'[object Object]' is not a valid
- * pattern`. Anything else — arrays included, which the hint would only
- * misdirect — falls through to the generic pattern error.
+ * Walks a `bundle.packages.prune` value, reporting every issue through
+ * `onIssue` so that all of them surface in a single run — the config
+ * loader turns each one into its own diagnostic. Member-scoped entry
+ * issues are prefixed with the entry's index and class-keyed pattern
+ * issues with the dependency class; a top-level global pattern issue
+ * keeps its `InvalidPackageNamePatternError` class and message as-is,
+ * since the pattern text identifies the entry.
  */
-function parseNamePatternEntry (entry: unknown, context: string): PackageNamePattern {
-  if (isPlainObject(entry)) {
-    throw new Error(
-      `'${context}' entries must be package name patterns`
-      + ` (member-scoped objects are only valid in the top-level prune array)`,
-    )
-  }
-  return parsePackageNamePattern(entry as string)
+export function collectPackagePruneIssues (
+  raw: BundlePackagesPrune | undefined,
+  onIssue: (issue: Error) => void,
+): void {
+  normalizePackagePruneInternal(raw, onIssue)
 }
 
 /**
- * Validates and normalizes a class-keyed pattern map. `true` values are
- * kept as `true` for the standalone class-keyed form and desugared to the
- * catch-all `'**'` pattern inside member-scoped entries, where selections
- * compose in listed order and a later exclusion may subtract from them.
+ * Validates and normalizes a `bundle.packages.prune` value. Returns
+ * `undefined` when there is nothing to do — the value is absent, or every
+ * shape it carries is empty. Throws the first issue found; the bundler
+ * relies on that to reject a value that bypassed config validation.
+ */
+export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): NormalizedPackagePrune | undefined {
+  let firstIssue: Error | undefined
+  const normalized = normalizePackagePruneInternal(raw, issue => {
+    firstIssue ??= issue
+  })
+  if (firstIssue !== undefined) {
+    throw firstIssue
+  }
+
+  return normalized
+}
+
+/**
+ * The returned value omits any entry or class that carried an issue, so
+ * it is only meaningful when nothing was reported through `onIssue` —
+ * the throwing wrapper never returns after an issue and the collector
+ * discards the value. A caller that wanted to warn and continue would
+ * silently lose the offending entries (for a `keep` entry, pruning
+ * packages the user meant to keep) and must not reuse this walker as-is.
+ */
+function normalizePackagePruneInternal (
+  raw: BundlePackagesPrune | undefined,
+  onIssue: (issue: Error) => void,
+): NormalizedPackagePrune | undefined {
+  if (raw === undefined) {
+    return undefined
+  }
+
+  if (Array.isArray(raw)) {
+    const entries: NormalizedPruneEntry[] = []
+    for (const [index, entry] of raw.entries()) {
+      if (typeof entry === 'string') {
+        try {
+          entries.push({ kind: 'global', pattern: parsePackageNamePattern(entry) })
+        } catch (cause) {
+          onIssue(cause as Error)
+        }
+        continue
+      }
+      // The index prefix locates the issue: unlike a global pattern, whose
+      // text appears in its own message, several member-scoped entries can
+      // produce identical messages.
+      const normalized = normalizeMemberScopedEntry(entry, issue => {
+        onIssue(new Error(`prune[${index}]: ${issue.message}`, { cause: issue }))
+      })
+      if (normalized !== undefined) {
+        entries.push(normalized)
+      }
+    }
+    if (entries.length === 0) {
+      return undefined
+    }
+    return { form: 'entries', entries }
+  }
+
+  if (!isPlainObject(raw)) {
+    onIssue(new Error(SHAPE_ERROR))
+    return undefined
+  }
+  const classes = normalizeClassMap(raw, false, onIssue)
+  if (Object.keys(classes).length === 0) {
+    return undefined
+  }
+  return { form: 'classes', classes }
+}
+
+/**
+ * Parses a pattern-list value from the given context (a dependency class
+ * or a member-scoped selection field), collecting an issue per invalid
+ * element. A plain-object element gets a pointed rejection: the likely
+ * mistake is a member-scoped entry nested inside a class-keyed map or
+ * another entry's selection, which would otherwise fail as an unreadable
+ * `'[object Object]' is not a valid pattern`. Anything else — arrays
+ * included, which the hint would only misdirect — falls through to the
+ * generic pattern error, prefixed with the context so the same bad
+ * pattern in two places stays distinguishable. Returns `undefined` when
+ * any element is invalid.
+ */
+function parsePatternArray (
+  value: unknown[],
+  context: string,
+  onIssue: (issue: Error) => void,
+): PackageNamePattern[] | undefined {
+  const patterns: PackageNamePattern[] = []
+  for (const entry of value) {
+    if (isPlainObject(entry)) {
+      onIssue(new Error(
+        `'${context}' entries must be package name patterns`
+        + ` (member-scoped objects are only valid in the top-level prune array).`,
+      ))
+      continue
+    }
+    try {
+      patterns.push(parsePackageNamePattern(entry as string))
+    } catch (cause) {
+      onIssue(new Error(`'${context}': ${(cause as Error).message}`, { cause }))
+    }
+  }
+
+  // Each element contributed either a pattern or an issue, so a shorter
+  // patterns list means some element was invalid.
+  if (patterns.length !== value.length) {
+    return undefined
+  }
+
+  return patterns
+}
+
+/**
+ * Validates and normalizes a class-keyed pattern map, collecting an issue
+ * per invalid class or pattern. `true` values are kept as `true` for the
+ * standalone class-keyed form and desugared to the catch-all `'**'`
+ * pattern inside member-scoped entries, where selections compose in
+ * listed order and a later exclusion may subtract from them. A class that
+ * carries an issue is left out of the result.
  */
 function normalizeClassMap (
   perClass: Record<string, unknown>,
   desugarTrue: boolean,
+  onIssue: (issue: Error) => void,
 ): { [K in DependencyClass]?: true | PackageNamePattern[] } {
   const normalized: { [K in DependencyClass]?: true | PackageNamePattern[] } = {}
   for (const [key, value] of Object.entries(perClass)) {
     if (!DEPENDENCY_CLASSES.includes(key as DependencyClass)) {
-      throw new Error(
-        `'${key}' is not a dependency class (expected one of ${DEPENDENCY_CLASSES.join(', ')})`,
-      )
+      onIssue(new Error(
+        `'${key}' is not a dependency class (expected one of ${DEPENDENCY_CLASSES.join(', ')}).`,
+      ))
+      continue
     }
     if (value === undefined) {
       continue
@@ -167,10 +283,13 @@ function normalizeClassMap (
       // Parsed per class even for the array shape, so no two classes share
       // one pattern array instance and a consumer mutating one cannot
       // silently change the others.
-      normalized[key as DependencyClass] = value.map(entry => parseNamePatternEntry(entry, key))
+      const patterns = parsePatternArray(value, key, onIssue)
+      if (patterns !== undefined) {
+        normalized[key as DependencyClass] = patterns
+      }
       continue
     }
-    throw new Error(`'${key}' must be true or an array of package name patterns`)
+    onIssue(new Error(`'${key}' must be true or an array of package name patterns.`))
   }
   return normalized
 }
@@ -180,102 +299,118 @@ function normalizeClassMap (
  * fans out to every dependency class, a class-keyed map stays per class.
  * For `keep`, an absent class means "keep nothing from it" — so an empty
  * flat list or map legitimately describes a member kept dependency-free.
+ * Returns `undefined` when the value carries any issue.
  */
-function normalizeSelection (value: unknown, field: 'remove' | 'keep'): PruneClassPatterns {
+function normalizeSelection (
+  value: unknown,
+  field: 'remove' | 'keep',
+  onIssue: (issue: Error) => void,
+): PruneClassPatterns | undefined {
   if (Array.isArray(value)) {
-    const patterns = value.map(entry => parseNamePatternEntry(entry, field))
-    if (patterns.length === 0) {
+    if (value.length === 0) {
       return {}
+    }
+    const patterns = parsePatternArray(value, field, onIssue)
+    if (patterns === undefined) {
+      return undefined
     }
     return Object.fromEntries(
       DEPENDENCY_CLASSES.map(dependencyClass => [dependencyClass, patterns.slice()]),
     ) as PruneClassPatterns
   }
   if (isPlainObject(value)) {
+    let invalid = false
     // With `true` desugared no `true` values remain, only pattern arrays.
-    return normalizeClassMap(value, true) as PruneClassPatterns
+    const classes = normalizeClassMap(value, true, issue => {
+      invalid = true
+      onIssue(issue)
+    }) as PruneClassPatterns
+    return invalid ? undefined : classes
   }
-  throw new Error(`'${field}' ${SHAPE_ERROR}`)
+  onIssue(new Error(`'${field}' ${SHAPE_ERROR}`))
+  return undefined
 }
 
-function normalizeMemberPatterns (raw: unknown): MemberPattern[] {
+function normalizeMemberPatterns (
+  raw: unknown,
+  onIssue: (issue: Error) => void,
+): MemberPattern[] | undefined {
   const list = typeof raw === 'string' ? [raw] : raw
   if (!Array.isArray(list) || list.length === 0) {
-    throw new Error(`'member' must be a workspace member name pattern or a non-empty array of them`)
+    onIssue(new Error(`'member' must be a workspace member name pattern or a non-empty array of them.`))
+    return undefined
   }
-  return list.map(element => {
+  const patterns: MemberPattern[] = []
+  for (const element of list) {
     if (element === '.' || element === '!.') {
-      return { root: true, exclude: element === '!.' }
+      patterns.push({ root: true, exclude: element === '!.' })
+      continue
     }
     if (element !== null && typeof element === 'object') {
-      throw new Error(`'member' entries must be member name patterns or the '.' root token`)
+      onIssue(new Error(`'member' entries must be member name patterns or the '.' root token.`))
+      continue
     }
-    return parsePackageNamePattern(element as string)
-  })
+    try {
+      patterns.push(parsePackageNamePattern(element as string))
+    } catch (cause) {
+      onIssue(new Error(`'member': ${(cause as Error).message}`, { cause }))
+    }
+  }
+  if (patterns.length !== list.length) {
+    return undefined
+  }
+  return patterns
 }
 
-function normalizeMemberScopedEntry (entry: unknown): NormalizedPruneEntry {
+/**
+ * Normalizes one member-scoped entry, collecting every independent issue
+ * it carries — unknown fields, the member selector and the selection each
+ * report separately. Returns `undefined` when the entry carries any
+ * issue. With exactly-one-of-'remove'/'keep' violated the selection is
+ * not validated further, since which selection was meant is unknowable.
+ */
+function normalizeMemberScopedEntry (
+  entry: unknown,
+  onIssue: (issue: Error) => void,
+): NormalizedPruneEntry | undefined {
   if (!isPlainObject(entry)) {
-    throw new Error(ENTRY_SHAPE_ERROR)
+    onIssue(new Error(ENTRY_SHAPE_ERROR))
+    return undefined
+  }
+  let invalid = false
+  const report = (issue: Error): void => {
+    invalid = true
+    onIssue(issue)
   }
   for (const key of Object.keys(entry)) {
     if (key !== 'member' && key !== 'remove' && key !== 'keep') {
-      throw new Error(`'${key}' is not a member-scoped prune entry field (expected member, remove, keep)`)
+      report(new Error(`'${key}' is not a member-scoped prune entry field (expected member, remove, keep).`))
     }
   }
-  const member = normalizeMemberPatterns(entry.member)
+  const member = normalizeMemberPatterns(entry.member, report)
   const hasRemove = entry.remove !== undefined
   const hasKeep = entry.keep !== undefined
   if (hasRemove === hasKeep) {
-    throw new Error(`a member-scoped prune entry must have exactly one of 'remove' and 'keep'`)
+    report(new Error(`a member-scoped prune entry must have exactly one of 'remove' and 'keep'.`))
+    return undefined
+  }
+  const selection = normalizeSelection(
+    hasRemove ? entry.remove : entry.keep,
+    hasRemove ? 'remove' : 'keep',
+    report,
+  )
+  if (invalid || member === undefined || selection === undefined) {
+    return undefined
   }
   if (hasRemove) {
-    return { kind: 'remove', member, remove: normalizeSelection(entry.remove, 'remove') }
+    return { kind: 'remove', member, remove: selection }
   }
   return {
     kind: 'keep',
     member,
-    keep: normalizeSelection(entry.keep, 'keep'),
+    keep: selection,
     flat: Array.isArray(entry.keep),
   }
-}
-
-/**
- * Validates and normalizes a `bundle.packages.prune` value. Returns
- * `undefined` when there is nothing to do — the value is absent, or every
- * shape it carries is empty. Throws `InvalidPackageNamePatternError` on an
- * invalid pattern and a plain `Error` on an invalid shape; the config
- * loader relies on that to reject plain-JS configs that bypass the
- * TypeScript type.
- */
-export function normalizePackagePrune (raw: BundlePackagesPrune | undefined): NormalizedPackagePrune | undefined {
-  if (raw === undefined) {
-    return undefined
-  }
-
-  if (Array.isArray(raw)) {
-    const entries: NormalizedPruneEntry[] = []
-    for (const entry of raw) {
-      if (typeof entry === 'string') {
-        entries.push({ kind: 'global', pattern: parsePackageNamePattern(entry) })
-        continue
-      }
-      entries.push(normalizeMemberScopedEntry(entry))
-    }
-    if (entries.length === 0) {
-      return undefined
-    }
-    return { form: 'entries', entries }
-  }
-
-  if (!isPlainObject(raw)) {
-    throw new Error(SHAPE_ERROR)
-  }
-  const classes = normalizeClassMap(raw, false)
-  if (Object.keys(classes).length === 0) {
-    return undefined
-  }
-  return { form: 'classes', classes }
 }
 
 /**

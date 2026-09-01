@@ -10,11 +10,15 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
 
-vi.mock('../../services/checkly-config-loader', () => ({
-  loadChecklyConfig: vi.fn().mockResolvedValue({
-    config: { logicalId: 'my-project', projectName: 'My Project' },
-  }),
-}))
+vi.mock('../../services/checkly-config-loader', async () => {
+  const { Diagnostics } = await import('../../constructs/diagnostics.js')
+  return {
+    loadChecklyConfig: vi.fn().mockResolvedValue({
+      config: { logicalId: 'my-project', projectName: 'My Project' },
+      diagnostics: new Diagnostics(),
+    }),
+  }
+})
 
 vi.mock('../../services/util', () => ({
   splitConfigFilePath: vi.fn().mockReturnValue({
@@ -31,6 +35,8 @@ import { detectCliMode } from '../../helpers/cli-mode.js'
 import prompts from 'prompts'
 import * as api from '../../rest/api.js'
 import { buildConfirmCommand } from '../../helpers/command-preview.js'
+import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
+import { Diagnostics, WarningDiagnostic } from '../../constructs/diagnostics.js'
 import { AuthCommand } from '../authCommand.js'
 import Destroy from '../destroy.js'
 
@@ -60,6 +66,7 @@ function createCommandContext (parsed: { flags: Record<string, unknown>, metadat
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     style: {
       outputFormat: undefined,
+      diagnostics: vi.fn(),
       longError: vi.fn(),
       actionStart: vi.fn(),
       actionStatus: vi.fn(),
@@ -96,6 +103,29 @@ describe('destroy confirmation flow', () => {
     expect(output.classification.destructive).toBe(true)
     expect(output.confirmCommand).toContain('--force')
     expect(api.projects.deleteProject).not.toHaveBeenCalled()
+  })
+
+  it('renders non-fatal config diagnostics right after loading the config', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const configDiagnostics = new Diagnostics()
+    configDiagnostics.add(new WarningDiagnostic({
+      title: 'Config warning',
+      message: 'A config-level warning.',
+    }))
+    vi.mocked(loadChecklyConfig).mockResolvedValueOnce({
+      config: { logicalId: 'my-project', projectName: 'My Project' },
+      diagnostics: configDiagnostics,
+    } as any)
+    const ctx = createCommandContext({
+      flags: { force: false },
+    })
+
+    // The confirmation gate exits 2, but the diagnostics render before it.
+    await expect(
+      Destroy.prototype.run.call(ctx as any),
+    ).rejects.toThrow('EXIT_2')
+
+    expect(ctx.style.diagnostics).toHaveBeenCalledWith(configDiagnostics)
   })
 
   it('executes with --force in agent mode', async () => {

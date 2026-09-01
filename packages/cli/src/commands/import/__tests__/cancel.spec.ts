@@ -18,6 +18,7 @@ vi.mock('../../../services/checkly-config-loader', () => ({
 import { detectCliMode } from '../../../helpers/cli-mode.js'
 import * as api from '../../../rest/api.js'
 import { loadChecklyConfig } from '../../../services/checkly-config-loader.js'
+import { Diagnostics } from '../../../constructs/diagnostics.js'
 import { ImportPlan } from '../../../rest/projects.js'
 import ImportCancelCommand from '../cancel.js'
 
@@ -54,6 +55,7 @@ function createCommandContext (parsed: unknown) {
     }),
     confirmOrAbort: vi.fn(),
     style: {
+      diagnostics: vi.fn(),
       actionStart: vi.fn(),
       actionSuccess: vi.fn(),
       actionFailure: vi.fn(),
@@ -73,6 +75,7 @@ describe('import cancel command (non-interactive)', () => {
     vi.clearAllMocks()
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.cancelImportPlan).mockResolvedValue({} as any)
   })
@@ -147,6 +150,7 @@ describe('import cancel command (flag validation)', () => {
     vi.clearAllMocks()
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.cancelImportPlan).mockResolvedValue({} as any)
   })
@@ -180,6 +184,7 @@ describe('import cancel command (empty candidate list)', () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [] } as any)
     vi.mocked(api.projects.cancelImportPlan).mockResolvedValue({} as any)
@@ -221,6 +226,7 @@ describe('import cancel command (confirmation gate)', () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(loadChecklyConfig).mockResolvedValue({
       config: { logicalId: 'my-project' },
+      diagnostics: new Diagnostics(),
     } as any)
     vi.mocked(api.projects.cancelImportPlan).mockResolvedValue({} as any)
   })

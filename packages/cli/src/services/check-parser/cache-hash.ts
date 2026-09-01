@@ -478,12 +478,12 @@ export function normalizeDependencyCacheVersion (version: string | number | unde
   }
   if (typeof version === 'number') {
     if (!Number.isSafeInteger(version)) {
-      throw new Error(`Dependency cache version must be a safe integer if given as a number, got ${version}`)
+      throw new Error(`Dependency cache version must be a safe integer if given as a number, got ${version}.`)
     }
     return String(version)
   }
   if (typeof version !== 'string') {
-    throw new Error(`Dependency cache version must be a string or a safe integer, got ${typeof version}`)
+    throw new Error(`Dependency cache version must be a string or a safe integer, got ${typeof version}.`)
   }
   return version
 }

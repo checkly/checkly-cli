@@ -11,17 +11,21 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
 
-vi.mock('../../services/checkly-config-loader', () => ({
-  loadChecklyConfig: vi.fn().mockResolvedValue({
-    config: {
-      logicalId: 'my-project',
-      projectName: 'My Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-      checks: {},
-    },
-    constructs: [],
-  }),
-}))
+vi.mock('../../services/checkly-config-loader', async () => {
+  const { Diagnostics } = await import('../../constructs/diagnostics.js')
+  return {
+    loadChecklyConfig: vi.fn().mockResolvedValue({
+      config: {
+        logicalId: 'my-project',
+        projectName: 'My Project',
+        repoUrl: 'https://github.com/checkly/checkly-cli',
+        checks: {},
+      },
+      constructs: [],
+      diagnostics: new Diagnostics(),
+    }),
+  }
+})
 
 vi.mock('../../services/project-parser', () => ({
   parseProject: vi.fn(),

@@ -5,14 +5,21 @@ import { CheckProps, RuntimeCheckProps } from '../constructs/check.js'
 import { PlaywrightCheckProps } from '../constructs/playwright-check.js'
 import { Session } from '../constructs/index.js'
 import { Construct } from '../constructs/construct.js'
+import { Diagnostics } from '../constructs/diagnostics.js'
+import {
+  InvalidPropertyValueDiagnostic,
+  RequiredPropertyDiagnostic,
+  UnsupportedPropertyDiagnostic,
+} from '../constructs/construct-diagnostics.js'
+import { ConfigFileDiagnostics, InvalidConfigError } from './config-diagnostics.js'
 import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
 import { FileLoader } from '../loader/index.js'
 import { normalizeDependencyCacheVersion } from './check-parser/cache-hash.js'
-import { BundlePackagesPrune, normalizePackagePrune } from './check-parser/package-prune.js'
+import { BundlePackagesPrune, collectPackagePruneIssues } from './check-parser/package-prune.js'
 import { parseEmbeddedPackageSpec } from './embedded-packages/spec.js'
-import { Registries, validateRegistries } from './runner/registries.js'
+import { Registries, collectRegistriesIssues } from './runner/registries.js'
 
 export type CheckConfigDefaults =
   Pick<CheckProps,
@@ -428,15 +435,29 @@ export const defaultFilenames = [
   'checkly.config.cjs',
 ]
 
+/**
+ * Loads and validates the Checkly config file.
+ *
+ * All validation issues are collected as diagnostics attributed to the
+ * config file. When any of them is fatal, loading fails with an
+ * {@link InvalidConfigError} carrying the diagnostics. The returned
+ * diagnostics therefore only ever contain non-fatal observations; callers
+ * that render diagnostics should seed their collector with them ahead of
+ * project-level diagnostics so that config issues render first.
+ */
 export async function loadChecklyConfig (
   dir: string,
   filenames = defaultFilenames,
   writeChecklyConfig: boolean = true,
   playwrightConfigPath?: string,
-): Promise<{ config: ChecklyConfig, constructs: Construct[] }> {
+): Promise<{ config: ChecklyConfig, constructs: Construct[], diagnostics: Diagnostics }> {
   Session.loadingChecklyConfigFile = true
   try {
     let config: ChecklyConfig | undefined
+    // When no config file exists, a default config may be generated in
+    // memory without ever being written to disk, in which case there is no
+    // file to attribute diagnostics to.
+    let configFileName = '<generated config>'
     Session.checklyConfigFileConstructs = []
     for (const filename of filenames) {
       const filePath = path.join(dir, filename)
@@ -446,15 +467,26 @@ export async function loadChecklyConfig (
         continue
       }
       config = await Session.loadFile<ChecklyConfig>(filePath)
+      configFileName = path.relative(process.cwd(), filePath)
       break
     }
     if (!config) {
       config = await handleMissingConfig(dir, filenames, writeChecklyConfig, playwrightConfigPath)
+      if (writeChecklyConfig) {
+        // handleMissingConfig() wrote the generated default config to disk.
+        configFileName = path.relative(process.cwd(), path.join(dir, 'checkly.config.ts'))
+      }
     }
-    validateConfigFields(config, ['logicalId', 'projectName'] as const)
-    validateDependencyCacheVersion(config)
-    validateBundle(config)
-    validateRunner(config)
+
+    const diagnostics = new ConfigFileDiagnostics(configFileName)
+    validateConfigFields(config, ['logicalId', 'projectName'] as const, diagnostics)
+    validateDependencyCacheVersion(config, diagnostics)
+    validateBundle(config, diagnostics)
+    validateRunner(config, diagnostics)
+
+    if (diagnostics.isFatal()) {
+      throw new InvalidConfigError(diagnostics)
+    }
 
     const constructs = Session.checklyConfigFileConstructs
 
@@ -462,7 +494,7 @@ export async function loadChecklyConfig (
     if (config.cli?.loader) {
       Session.loader = config.cli.loader
     }
-    return { config, constructs }
+    return { config, constructs, diagnostics }
   } finally {
     Session.loadingChecklyConfigFile = false
   }
@@ -486,26 +518,39 @@ async function handleMissingConfig (
   throw new ConfigNotFoundError([dir], filenames)
 }
 
-function validateConfigFields (config: ChecklyConfig, fields: (keyof ChecklyConfig)[]): void {
+function validateConfigFields (
+  config: ChecklyConfig,
+  fields: (keyof ChecklyConfig)[],
+  diagnostics: Diagnostics,
+): void {
   for (const field of fields) {
-    if (!config?.[field] || !isString(config[field])) {
-      throw new Error(`Config object missing a ${field} as type string`)
+    const value = config?.[field]
+    if (value === undefined || value === null || value === '') {
+      diagnostics.add(new RequiredPropertyDiagnostic(
+        field,
+        new Error(`Value must be a non-empty string.`),
+      ))
+    } else if (!isString(value)) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        field,
+        new Error(`Value must be a non-empty string.`),
+      ))
     }
   }
 }
 
-function validateDependencyCacheVersion (config: ChecklyConfig): void {
+function validateDependencyCacheVersion (config: ChecklyConfig, diagnostics: Diagnostics): void {
   try {
     normalizeDependencyCacheVersion(config.caching?.dependencyCache?.version)
   } catch (cause) {
-    throw new Error(
-      `Config field 'caching.dependencyCache.version' must be a string or a safe integer if set`,
-      { cause },
-    )
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'caching.dependencyCache.version',
+      cause as Error,
+    ))
   }
 }
 
-function validateBundle (config: ChecklyConfig): void {
+function validateBundle (config: ChecklyConfig, diagnostics: Diagnostics): void {
   const { bundle } = config
   if (bundle === undefined) {
     return
@@ -516,7 +561,11 @@ function validateBundle (config: ChecklyConfig): void {
   // the runner. Plain-JS configs bypass the TypeScript type, so the shape
   // must be enforced at runtime.
   if (bundle === null || typeof bundle !== 'object' || Array.isArray(bundle)) {
-    throw new Error(`Config field 'bundle' must be an object if set`)
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'bundle',
+      new Error(`Value must be an object if set.`),
+    ))
+    return
   }
 
   const { packages } = bundle
@@ -525,14 +574,16 @@ function validateBundle (config: ChecklyConfig): void {
   }
 
   if (packages === null || typeof packages !== 'object' || Array.isArray(packages)) {
-    throw new Error(`Config field 'bundle.packages' must be an object if set`)
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'bundle.packages',
+      new Error(`Value must be an object if set.`),
+    ))
+    return
   }
 
-  try {
-    normalizePackagePrune(packages.prune)
-  } catch (cause) {
-    throw new Error(`Config field 'bundle.packages.prune' is invalid: ${(cause as Error).message}`, { cause })
-  }
+  collectPackagePruneIssues(packages.prune, issue => {
+    diagnostics.add(new InvalidPropertyValueDiagnostic('bundle.packages.prune', issue))
+  })
 
   const embeddedPackages = packages.embed
   if (embeddedPackages === undefined) {
@@ -540,19 +591,26 @@ function validateBundle (config: ChecklyConfig): void {
   }
 
   if (!Array.isArray(embeddedPackages)) {
-    throw new Error(`Config field 'bundle.packages.embed' must be an array of strings if set`)
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'bundle.packages.embed',
+      new Error(`Value must be an array of strings if set.`),
+    ))
+    return
   }
 
   for (const spec of embeddedPackages) {
     try {
       parseEmbeddedPackageSpec(spec)
     } catch (cause) {
-      throw new Error(`Config field 'bundle.packages.embed' is invalid: ${(cause as Error).message}`, { cause })
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'bundle.packages.embed',
+        cause as Error,
+      ))
     }
   }
 }
 
-function validateRunner (config: ChecklyConfig): void {
+function validateRunner (config: ChecklyConfig, diagnostics: Diagnostics): void {
   const { runner } = config
   if (runner === undefined) {
     return
@@ -563,14 +621,21 @@ function validateRunner (config: ChecklyConfig): void {
   // `registries: undefined` and silently disable routing, surfacing only as
   // an install failure on the runner.
   if (runner === null || typeof runner !== 'object' || Array.isArray(runner)) {
-    throw new Error(`Config field 'runner' must be an object if set`)
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'runner',
+      new Error(`Value must be an object if set.`),
+    ))
+    return
   }
 
   // A misspelled key (`registires`) would silently disable routing the same
   // way a misshapen block would.
   for (const key of Object.keys(runner)) {
     if (key !== 'registries') {
-      throw new Error(`Config field 'runner' contains unknown field '${key}' (expected only: 'registries')`)
+      diagnostics.add(new UnsupportedPropertyDiagnostic(
+        `runner.${key}`,
+        new Error(`Only 'registries' is supported in the 'runner' block.`),
+      ))
     }
   }
 
@@ -579,9 +644,7 @@ function validateRunner (config: ChecklyConfig): void {
     return
   }
 
-  try {
-    validateRegistries(registries)
-  } catch (cause) {
-    throw new Error(`Config field 'runner.registries' is invalid: ${(cause as Error).message}`, { cause })
-  }
+  collectRegistriesIssues(registries, issue => {
+    diagnostics.add(new InvalidPropertyValueDiagnostic('runner.registries', issue))
+  })
 }

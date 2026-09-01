@@ -2,6 +2,7 @@ import { Command, Flags } from '@oclif/core'
 
 import { parseProject } from '../../services/project-parser.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
+import { InvalidConfigError } from '../../services/config-diagnostics.js'
 import {
   Diagnostics,
   Session,
@@ -37,6 +38,21 @@ export type ParseProjectOutput = {
       member: boolean
       payload: unknown
     }[]
+  } | null
+}
+
+function serializeDiagnostics (diagnostics: Diagnostics): ParseProjectOutput['diagnostics'] {
+  return {
+    fatal: diagnostics.isFatal(),
+    benign: diagnostics.isBenign(),
+    observations: diagnostics.observations.map(diag => {
+      return {
+        title: diag.title,
+        message: diag.message,
+        fatal: diag.isFatal(),
+        benign: diag.isBenign(),
+      }
+    }),
   }
 }
 
@@ -111,10 +127,33 @@ export default class ParseProjectCommand extends Command {
       : undefined
     sampler?.unref()
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
+
+    let loaded
+    try {
+      loaded = await loadChecklyConfig(configDirectory, configFilenames)
+    } catch (err) {
+      if (err instanceof InvalidConfigError) {
+        // Keep the machine-readable diagnostics contract for a fatally
+        // invalid config instead of degrading to a generic error.
+        const output: ParseProjectOutput = {
+          diagnostics: serializeDiagnostics(err.diagnostics),
+          payload: null,
+        }
+
+        // eslint-disable-next-line no-console
+        console.log(JSON.stringify(output, null, 2))
+        return
+      }
+
+      // Any other load failure (e.g. a missing config file) escapes to
+      // oclif's default handler, preserving its non-zero exit code.
+      throw err
+    }
     const {
       config: checklyConfig,
       constructs: checklyConfigConstructs,
-    } = await loadChecklyConfig(configDirectory, configFilenames)
+      diagnostics: configDiagnostics,
+    } = loaded
     const availableRuntimes = await loadSnapshot()
 
     try {
@@ -157,6 +196,8 @@ export default class ParseProjectCommand extends Command {
       const parseMs = performance.now() - parseStartedAt
 
       const diagnostics = new Diagnostics()
+      // Config diagnostics come first so that they lead the output.
+      diagnostics.extend(configDiagnostics)
       await project.validate(diagnostics)
 
       let bundleMs = 0
@@ -188,18 +229,7 @@ export default class ParseProjectCommand extends Command {
       })()
 
       const output = {
-        diagnostics: {
-          fatal: diagnostics.isFatal(),
-          benign: diagnostics.isBenign(),
-          observations: diagnostics.observations.map(diag => {
-            return {
-              title: diag.title,
-              message: diag.message,
-              fatal: diag.isFatal(),
-              benign: diag.isBenign(),
-            }
-          }),
-        },
+        diagnostics: serializeDiagnostics(diagnostics),
         payload,
       }
 

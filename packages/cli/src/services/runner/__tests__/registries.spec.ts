@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { Registries, serializeRegistries, validateRegistries } from '../registries.js'
+import { collectRegistriesIssues, Registries, serializeRegistries, validateRegistries } from '../registries.js'
 
 const validRegistries = (): Registries => ({
   upstreams: {
@@ -14,6 +14,118 @@ const validRegistries = (): Registries => ({
     { pattern: '@acme/**', upstreams: ['internal'] },
     { pattern: '**', upstreams: ['npmjs', 'internal'] },
   ],
+})
+
+function registriesIssues (value: unknown): string[] {
+  const issues: string[] = []
+  collectRegistriesIssues(value, issue => issues.push(issue.message))
+  return issues
+}
+
+describe('collectRegistriesIssues()', () => {
+  it('returns no issues for a valid configuration', () => {
+    expect(registriesIssues(validRegistries())).toEqual([])
+  })
+
+  it('collects every issue instead of stopping at the first', () => {
+    const value: any = validRegistries()
+    value.upstreams.internal.auth = {}
+    value.packages[0].upstreams = ['internal', 'mirror']
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`upstream 'internal': 'auth.type' must be 'bearer'`),
+      expect.stringContaining(`upstream 'internal': 'auth.token' must be exactly one environment variable reference`),
+      expect.stringContaining(`packages[0]: upstream 'mirror' is not defined under 'upstreams'`),
+    ])
+  })
+
+  it('skips upstream-existence checks when the upstreams block is invalid', () => {
+    const value: any = validRegistries()
+    value.upstreams = 'nope'
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`'upstreams' must be an object mapping upstream names to { url, auth? }`),
+    ])
+  })
+
+  it('skips upstream-existence checks when the upstreams block is empty', () => {
+    const value: any = validRegistries()
+    value.upstreams = {}
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`'upstreams' must define at least one upstream`),
+    ])
+  })
+
+  it('skips the match-all-position check when the final pattern is invalid', () => {
+    const value: any = validRegistries()
+    value.packages[1].pattern = 42
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`packages[1]: 'pattern' must be a string`),
+    ])
+  })
+
+  it('does not ask for a match-all rule when a misplaced one exists', () => {
+    const value: any = validRegistries()
+    value.packages = [
+      { pattern: '**', upstreams: ['npmjs'] },
+      { pattern: '@acme/**', upstreams: ['internal'] },
+    ]
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`packages[0]: rules after a '**' match-all rule can never apply`),
+    ])
+  })
+
+  it('does not ask for a match-all rule when the only rule is an exclusion', () => {
+    const value: any = validRegistries()
+    value.packages = [
+      { pattern: '!**', upstreams: ['npmjs'] },
+    ]
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`packages[0]: exclusion patterns ('!') are not supported in routing rules`),
+    ])
+  })
+
+  it('reports non-string upstream entries even when the upstreams block is invalid', () => {
+    const value: any = validRegistries()
+    value.upstreams = {}
+    value.packages = [
+      { pattern: '**', upstreams: ['npmjs', 42] },
+    ]
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`'upstreams' must define at least one upstream`),
+      expect.stringContaining(`packages[0]: 'upstreams'[1] must be an upstream name`),
+    ])
+  })
+
+  it('does not flag a non-final excluded match-all as a misplaced match-all rule', () => {
+    const value: any = validRegistries()
+    value.packages = [
+      { pattern: '!**', upstreams: ['npmjs'] },
+      { pattern: '**', upstreams: ['npmjs'] },
+    ]
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`packages[0]: exclusion patterns ('!') are not supported in routing rules`),
+    ])
+  })
+
+  it('still asks for a match-all rule when the trailing exclusion is not one', () => {
+    const value: any = validRegistries()
+    value.packages = [
+      { pattern: '@acme/**', upstreams: ['npmjs'] },
+      { pattern: '!@acme/foo', upstreams: ['npmjs'] },
+    ]
+    const issues = registriesIssues(value)
+    expect(issues).toEqual([
+      expect.stringContaining(`packages[1]: exclusion patterns ('!') are not supported in routing rules`),
+      expect.stringContaining(`'packages' must end with a match-all rule`),
+    ])
+  })
 })
 
 describe('validateRegistries()', () => {
@@ -95,7 +207,7 @@ describe('validateRegistries()', () => {
   it('rejects unknown fields at every level', () => {
     const top = { ...validRegistries(), extra: true }
     expect(() => validateRegistries(top))
-      .toThrow(`'runner.registries': unknown field 'extra' (expected only: 'upstreams', 'packages')`)
+      .toThrow(`unknown field 'extra' (expected only: 'upstreams', 'packages')`)
 
     const upstream = validRegistries()
     ;(upstream.upstreams.internal as any).authh = { type: 'bearer', token: '${T}' }

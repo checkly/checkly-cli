@@ -242,8 +242,8 @@ future deployments include the imported resources.`
 
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
 
-    const checklyConfig = await this.#loadConfig(configDirectory, configFilenames)
-      ?? await this.#interactiveCreateConfig(configDirectory)
+    const loaded = await this.#loadConfig(configDirectory, configFilenames)
+    const checklyConfig = loaded?.config ?? await this.#interactiveCreateConfig(configDirectory)
 
     await this.#initializeProject(checklyConfig)
 
@@ -251,6 +251,9 @@ future deployments include the imported resources.`
       configDirectory,
       checklyConfig,
       rootDirectory,
+      // No config file exists on the interactive-create path, so there are
+      // no config diagnostics to render.
+      loaded?.diagnostics ?? new Diagnostics(),
     )
 
     const friends: ImportPlanFriend[] = []
@@ -895,13 +898,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  async #loadConfig (configDirectory: string, configFilenames?: string[]): Promise<ChecklyConfig | undefined> {
+  async #loadConfig (
+    configDirectory: string,
+    configFilenames?: string[],
+  ): Promise<{ config: ChecklyConfig, diagnostics: Diagnostics } | undefined> {
     try {
-      const {
-        config: checklyConfig,
-      } = await loadChecklyConfig(configDirectory, configFilenames)
-
-      return checklyConfig
+      return await loadChecklyConfig(configDirectory, configFilenames)
     } catch (err) {
       if (err instanceof ConfigNotFoundError) {
         return
@@ -911,35 +913,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  async #validateProject (project: Project): Promise<void> {
-    this.style.actionStart('Validating project resources')
-
-    const diagnostics = new Diagnostics()
-    await project.validate(diagnostics)
-
-    for (const diag of diagnostics.observations) {
-      if (diag.isFatal()) {
-        this.style.longError(diag.title, diag.message)
-      } else if (!diag.isBenign()) {
-        this.style.longWarning(diag.title, diag.message)
-      } else {
-        this.style.longInfo(diag.title, diag.message)
-      }
-    }
-
-    if (diagnostics.isFatal()) {
-      this.style.actionFailure()
-      this.style.shortError(`Unable to continue due to unresolved validation errors.`)
-      this.exit(1)
-    }
-
-    this.style.actionSuccess()
-  }
-
   async #findExportedResources (
     configDirectory: string,
     checklyConfig: ChecklyConfig,
     rootDirectory: string,
+    configDiagnostics: Diagnostics,
   ): Promise<ConstructExport[]> {
     this.style.actionStart('Parsing your project')
 
@@ -974,7 +952,9 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       throw err
     }
 
-    await this.#validateProject(project)
+    await this.validateProject(project, {
+      configDiagnostics,
+    })
 
     this.style.actionStart('Searching for exported resources')
 
