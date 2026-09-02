@@ -6,12 +6,12 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10
       # Setup .npmrc file to publish to npm
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '22.x'
           registry-url: 'https://registry.npmjs.org'
@@ -23,7 +23,7 @@ jobs:
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -36,7 +36,7 @@ jobs:
       # Slack success alert
       - name: Slack Success Notification
         if: ${{ success() }}
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}

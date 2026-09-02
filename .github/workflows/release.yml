@@ -22,7 +22,7 @@ jobs:
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-ecosystem/action-regex-match@v2
+      - uses: actions-ecosystem/action-regex-match@9e6c4fb3d5e898f505be7a1fb6e7b0a278f6665b # v2.0.2
         id: tag-match
         with:
           text: ${{ github.event.release.tag_name }}
@@ -32,7 +32,7 @@ jobs:
       # Old create-checkly versions still look for the tag with a `v` prefix.
       # We can automatically push the necessary tag to keep those working.
       - name: Create tag for old create-checkly versions
-        uses: actions/github-script@v6
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
             github.rest.git.createRef({
@@ -49,11 +49,11 @@ jobs:
       id-token: write
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.x'
           cache: "pnpm"
@@ -75,7 +75,7 @@ jobs:
           npm publish create-checkly-*.tgz --provenance --tag prerelease
         working-directory: packages/create-cli
       - name: Save LLM rules as an artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: llm-rules-prerelease
           if-no-files-found: error
@@ -83,7 +83,7 @@ jobs:
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -96,7 +96,7 @@ jobs:
       # Slack success alert
       - name: Slack Success Notification
         if: ${{ success() }}
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -114,13 +114,13 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: main
-      - uses: pnpm/action-setup@v5
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.x'
           cache: "pnpm"
@@ -140,7 +140,7 @@ jobs:
           npm publish create-checkly-*.tgz --provenance
         working-directory: packages/create-cli
       - name: Save LLM rules as an artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: llm-rules-release
           if-no-files-found: error
@@ -148,7 +148,7 @@ jobs:
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -161,7 +161,7 @@ jobs:
       # Slack success alert
       - name: Slack Success Notification
         if: ${{ success() }}
-        uses: rtCamp/action-slack-notify@v2
+        uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
           SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
@@ -203,11 +203,11 @@ jobs:
     permissions:
       id-token: write
     steps:
-      - uses: actions/checkout@v3
-      - uses: pnpm/action-setup@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
           version: 10
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24.x'
           cache: "pnpm"
