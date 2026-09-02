@@ -13,6 +13,35 @@ import { detectNearestPackageJson } from '../services/check-parser/package-files
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
+/**
+ * Resolves the CLI version reported to the Checkly API in the
+ * `x-checkly-cli-version` header.
+ *
+ * `CHECKLY_E2E_CLI_VERSION` is an internal override used by the e2e suite and
+ * the AI-context build. It only changes the reported value; it never changes
+ * which CLI version actually runs. Development builds (`0.0.1-dev`, `0.0.0-*`)
+ * report the latest published version instead, because the backend parses the
+ * header as semver and rejects unknown versions.
+ */
+export async function resolveReportedCliVersion (configVersion: string): Promise<string> {
+  let version = process.env.CHECKLY_E2E_CLI_VERSION ?? configVersion
+
+  if (version === '0.0.1-dev' || version.startsWith('0.0.0')) {
+    try {
+      const registryUrl = 'https://registry.npmjs.org/checkly/latest'
+      const { data: packageInformation } = await axios.get(
+        registryUrl,
+        assignProxy(registryUrl, {}),
+      )
+      version = packageInformation.version
+    } catch {
+      // Reporting a dev version is harmless; never block the command.
+    }
+  }
+
+  return version
+}
+
 export type BaseCommandClass = typeof Command & {
   coreCommand: boolean
 }
@@ -113,23 +142,7 @@ export abstract class BaseCommand extends Command {
     await this.checkEngineCompatibility()
     await this.checkSkillFreshness()
 
-    let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
-
-    // use latest version from NPM if it's running from the local environment or E2E
-    if (version === '0.0.1-dev' || version?.startsWith('0.0.0')) {
-      try {
-        const registryUrl = 'https://registry.npmjs.org/checkly/latest'
-        const { data: packageInformation } = await axios.get(
-          registryUrl,
-          assignProxy(registryUrl, {}),
-        )
-        version = packageInformation.version
-      } catch {
-        // No-op
-      }
-    }
-
-    api.defaults.headers['x-checkly-cli-version'] = version
+    api.defaults.headers['x-checkly-cli-version'] = await resolveReportedCliVersion(this.config.version)
 
     // This overrides prompts answers/selections (used on E2E tests)
     if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {

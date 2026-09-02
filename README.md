@@ -112,6 +112,6 @@ Check out our [AI Agents & Coding Assistants docs](https://www.checklyhq.com/doc
 
 # Local Development
 
-Use `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
+Set the `CHECKLY_E2E_CLI_VERSION` environment variable to override the version the CLI reports to the Checkly API (the `x-checkly-cli-version` header). It is an e2e/local-development hook only and does not change which CLI version runs.
 
 To get started with local development check [CONTRIBUTING.MD](https://github.com/checkly/checkly-cli/blob/main/CONTRIBUTING.md)

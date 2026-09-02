@@ -30,7 +30,7 @@ describe('check parse error', () => {
           CHECKLY_API_KEY: config.get('apiKey') as string,
           CHECKLY_ACCOUNT_ID: config.get('accountId') as string,
           CHECKLY_ENV: process.env.CHECKLY_ENV,
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
         timeout: 30_000,
       })

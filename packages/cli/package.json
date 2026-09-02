@@ -19,7 +19,7 @@
     "clean:gen": "rimraf ./gen",
     "clean": "pnpm run clean:dist && pnpm run clean:gen",
     "prepack": "pnpm exec oclif manifest",
-    "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_CLI_VERSION=99.0.0 ./bin/run.cjs import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && jiti ./scripts/prepare-ai-context.ts",
+    "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_E2E_CLI_VERSION=99.0.0 ./bin/run.cjs import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && jiti ./scripts/prepare-ai-context.ts",
     "prepare:dist": "tsc --build",
     "prepare": "pnpm run clean && pnpm run prepare:dist && pnpm run prepare:ai-context",
     "test": "pnpm pack && pnpm run test:types && vitest --run",
