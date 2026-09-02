@@ -207,7 +207,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
-          CHECKLY_CLI_VERSION: '4.0.8',
+          CHECKLY_E2E_CLI_VERSION: '4.0.8',
         },
       })
 
@@ -232,7 +232,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
-          CHECKLY_CLI_VERSION: undefined,
+          CHECKLY_E2E_CLI_VERSION: undefined,
         },
       })
       expect(stderr).toBe('')
@@ -256,7 +256,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
         timeout: 10000,
       })
@@ -264,7 +264,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
         timeout: 10000,
       })
@@ -338,7 +338,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
 
@@ -366,7 +366,7 @@ describe('deploy', { timeout: 45_000 }, () => {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
           TEST_ONLY: 'true',
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
       expect(stdout).toContain(
@@ -386,7 +386,7 @@ Skip (testOnly):
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
           TEST_ONLY: 'false',
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
       // Deploy a check (testOnly=true)
@@ -395,7 +395,7 @@ Skip (testOnly):
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
           TEST_ONLY: 'true',
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
       // Moving the check to testOnly causes it to be deleted.
@@ -418,7 +418,7 @@ Update and Unchanged:
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
           TEST_ONLY: 'true',
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
       const uuid = '[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
@@ -457,7 +457,7 @@ Update and Unchanged:
           env: {
             PROJECT_LOGICAL_ID: projectLogicalId,
             PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
-            CHECKLY_CLI_VERSION: '4.8.0',
+            CHECKLY_E2E_CLI_VERSION: '4.8.0',
           },
         })
       } catch (err: any) {
@@ -488,7 +488,7 @@ Update and Unchanged:
       await runDeploy(fixt, ['--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
-          CHECKLY_CLI_VERSION: '4.8.0',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
       // TODO: Add assertions that the snapshots are successfully uploaded.

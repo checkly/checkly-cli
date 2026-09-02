@@ -19,7 +19,7 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
-Use `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
+Set the `CHECKLY_E2E_CLI_VERSION` environment variable to override the version the CLI reports to the Checkly API (the `x-checkly-cli-version` header). It is an e2e/local-development hook only and does not change which CLI version runs.
 
 You can configure the stage (`production`, `staging`, `development` or `local`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=local` if you want to point the API URL to your local backend `http://localhost:3000`.
 
@@ -133,10 +133,10 @@ npm install checkly@0.0.0-canary.<short-sha>   # or checkly@experimental
 To test `create-checkly`:
 
 ```bash
-CHECKLY_CLI_VERSION=<branch> npm create checkly@0.0.0-canary.<short-sha>
+CHECKLY_E2E_CLI_VERSION=<branch> npm create checkly@0.0.0-canary.<short-sha>
 ```
 
-`CHECKLY_CLI_VERSION` is a git ref of this repository from which `create-checkly` fetches the project templates in `examples/`. The canary version is not a git ref, so the variable must be set; using the branch under test picks up any template changes on it. The scaffolded project pins `checkly@latest`, so to test a canary `checkly` inside it, edit the project's `package.json`.
+`CHECKLY_E2E_CLI_VERSION` is a git ref of this repository from which `create-checkly` fetches the project templates in `examples/`. The canary version is not a git ref, so the variable must be set; using the branch under test picks up any template changes on it. The scaffolded project pins `checkly@latest`, so to test a canary `checkly` inside it, edit the project's `package.json`.
 
 Canary builds authenticate to npm the same way releases do; see [NPM authentication](#npm-authentication).
 
@@ -157,7 +157,7 @@ To release packages to NPM:
 1. Publish a GitHub Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). Under **Release label**, select **None** (not "Latest") — the workflow will mark it as latest automatically.
 2. When release is published the GitHub action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
 3. Test the prerelease version to make sure that it's working.
-    * To test `npm create checkly`, run `CHECKLY_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates.
+    * To test `npm create checkly`, run `CHECKLY_E2E_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_E2E_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates. Published `create-checkly` versions older than the one that introduced `CHECKLY_E2E_CLI_VERSION` (9.0.0 and earlier) read the former name `CHECKLY_CLI_VERSION` instead.
     * Ensure your project `package.json` has `"checkly": "4.6.2-prerelease-c6e8165"`
 4. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published. The workflow will then automatically mark the GitHub Release as latest (if the version is higher than the current latest).
 

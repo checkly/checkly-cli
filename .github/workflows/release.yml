@@ -245,7 +245,7 @@ jobs:
           pnpm pack
           npm publish create-checkly-*.tgz --provenance --tag "$TAG"
         working-directory: packages/create-cli
-      # CHECKLY_CLI_VERSION is the git ref packages/create-cli fetches `examples/`
+      # CHECKLY_E2E_CLI_VERSION is the git ref packages/create-cli fetches `examples/`
       # templates from, hence the dispatched branch rather than the canary version.
       - name: Publish summary
         run: |
@@ -253,8 +253,8 @@ jobs:
             echo "Published \`checkly@${CANARY_VERSION}\` and \`create-checkly@${CANARY_VERSION}\` (dist-tag: \`${TAG}\`)"
             echo '```'
             echo "npm install checkly@${CANARY_VERSION}"
-            echo "CHECKLY_CLI_VERSION=${GITHUB_REF_NAME} npm create checkly@${CANARY_VERSION}"
+            echo "CHECKLY_E2E_CLI_VERSION=${GITHUB_REF_NAME} npm create checkly@${CANARY_VERSION}"
             echo '```'
-            echo "\`CHECKLY_CLI_VERSION\` is the git ref create-checkly fetches \`examples/\` templates from; the canary version is not a valid ref."
+            echo "\`CHECKLY_E2E_CLI_VERSION\` is the git ref create-checkly fetches \`examples/\` templates from; the canary version is not a valid ref."
             echo "The scaffolded project pins \`checkly@latest\`; set \`\"checkly\": \"${CANARY_VERSION}\"\` in its package.json to test the canary CLI inside it."
           } >> "$GITHUB_STEP_SUMMARY"
