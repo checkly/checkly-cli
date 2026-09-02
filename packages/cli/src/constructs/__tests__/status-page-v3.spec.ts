@@ -25,6 +25,7 @@ describe('StatusPageV3', () => {
       defaultTheme: 'DARK',
       termsOfServiceLink: 'https://acme.example/terms',
       allowIndexing: false,
+      isPrivate: true,
     })
 
     expect(page.type).toBe('status-page')
@@ -34,6 +35,7 @@ describe('StatusPageV3', () => {
       defaultTheme: 'DARK',
       termsOfServiceLink: 'https://acme.example/terms',
       allowIndexing: false,
+      isPrivate: true,
       version: 3,
     }))
     expect(page.synthesize()).not.toHaveProperty('cards')

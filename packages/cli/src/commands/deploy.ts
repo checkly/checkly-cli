@@ -10,7 +10,7 @@ import {
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   Project, ProjectData,
   Session, StatusPage, StatusPageService,
-  StatusPageV3Component, StatusPageV3AutomationRule,
+  StatusPageV3, StatusPageV3Component, StatusPageV3AutomationRule,
 } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation } from '../services/util.js'
@@ -334,6 +334,7 @@ export default class Deploy extends AuthCommand {
       )
       if (!preview) {
         this.style.actionSuccess()
+        await this.printSensitiveOutputs(data, project)
       }
       if (preview || output) {
         this.log(this.formatPreview(data, project, verbose))
@@ -370,6 +371,21 @@ export default class Deploy extends AuthCommand {
         this.style.longError(`Your project could not be deployed.`, err)
       }
       this.exit(1)
+    }
+  }
+
+  private async printSensitiveOutputs (data: ProjectDeployResponse, project: Project): Promise<void> {
+    for (const change of data.diff.filter(({ sensitiveOutput }) => sensitiveOutput === 'status-page-password')) {
+      const construct = project.data[change.type as keyof ProjectData][change.logicalId]
+      if (!(construct instanceof StatusPageV3) || !change.physicalId) continue
+
+      try {
+        const { data: generated } = await api.statusPages.regeneratePasswordV3(String(change.physicalId))
+        this.log(chalk.yellow.bold(`Password for status page "${construct.name}" (shown once): ${generated.password}`))
+        this.log(chalk.yellow('Store this password securely. It cannot be retrieved again.'))
+      } catch {
+        this.warn(`Password protection was enabled for status page "${construct.name}", but the generated password could not be retrieved. Regenerate it in the Checkly web app.`)
+      }
     }
   }
 

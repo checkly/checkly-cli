@@ -26,6 +26,7 @@ const page: StatusPageV3Resource = {
   description: 'All systems',
   defaultTheme: 'DARK',
   allowIndexing: false,
+  isPrivate: true,
 }
 
 const group: StatusPageV3ComponentResource = {
@@ -114,6 +115,7 @@ describe('StatusPageV3 codegen', () => {
     expect(pageSource).toContain('description: \'All systems\'')
     expect(pageSource).toContain('defaultTheme: \'DARK\'')
     expect(pageSource).toContain('allowIndexing: false')
+    expect(pageSource).toContain('isPrivate: true')
     expect(pageSource).not.toContain('cards')
 
     const groupSource = sources['resources/status-pages/components/platform.check.ts']

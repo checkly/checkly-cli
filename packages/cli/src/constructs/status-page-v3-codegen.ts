@@ -19,6 +19,7 @@ export interface StatusPageV3Resource {
   footerText?: string | null
   googleAnalyticsTag?: string | null
   allowIndexing?: boolean | null
+  isPrivate?: boolean | null
 }
 
 const construct = 'StatusPageV3'
@@ -137,6 +138,10 @@ export class StatusPageV3Codegen extends Codegen<StatusPageV3Resource> {
             // Indexing is on by default; only the opt-out is worth spelling out.
             if (resource.allowIndexing === false) {
               builder.boolean('allowIndexing', false)
+            }
+
+            if (resource.isPrivate === true) {
+              builder.boolean('isPrivate', true)
             }
           })
         })
