@@ -196,17 +196,31 @@ jobs:
           fi
 
   # Manual canary: dispatch this workflow on a branch to publish an experimental
-  # build of that branch. Authenticates via the SAME npm OIDC trusted publisher as
-  # the release jobs above (id-token + --provenance, no token). Trigger with
+  # build of that branch, for both `checkly` and `create-checkly`. Authenticates
+  # via the SAME npm OIDC trusted publisher as the release jobs above (id-token +
+  # --provenance, no token). Trigger with
   # `gh workflow run release.yml --ref <branch>` (optionally `-f tag=<dist-tag>`).
   # Replaces the old build-label release-canary.yml, whose classic NPM_TOKEN was
-  # retired when the package moved to OIDC.
+  # retired when the packages moved to OIDC.
   canary:
     if: ${{ github.event_name == 'workflow_dispatch' }}
     runs-on: ubuntu-latest
     permissions:
       id-token: write
+    # The dist-tag is a free-form dispatch input, so it reaches the shell through
+    # an env var rather than being interpolated into the scripts.
+    env:
+      TAG: ${{ inputs.tag }}
     steps:
+      # The dist-tag input is free-form, and npm accepts `--tag latest` without
+      # complaint. Refuse the tags the release jobs own so a typo cannot repoint
+      # every user's `npm install checkly` at a canary build.
+      - name: Validate dist-tag
+        run: |
+          if [[ -z "$TAG" || "$TAG" == "latest" || "$TAG" == "prerelease" ]]; then
+            echo "Refusing to publish a canary build under dist-tag '$TAG'"
+            exit 1
+          fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
         with:
@@ -219,17 +233,28 @@ jobs:
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: echo "CANARY_VERSION=0.0.0-canary.$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       - run: pnpm install --frozen-lockfile
-      - name: Set version, pack, and publish (OIDC trusted publishing)
+      - name: Set version, pack, and publish 'cli' package
         run: |
           pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version
           pnpm pack
-          npm publish checkly-*.tgz --provenance --tag '${{ inputs.tag }}'
+          npm publish checkly-*.tgz --provenance --tag "$TAG"
         working-directory: packages/cli
+      - name: Set version, pack, and publish 'create-cli' package
+        run: |
+          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version
+          pnpm pack
+          npm publish create-checkly-*.tgz --provenance --tag "$TAG"
+        working-directory: packages/create-cli
+      # CHECKLY_CLI_VERSION is the git ref packages/create-cli fetches `examples/`
+      # templates from, hence the dispatched branch rather than the canary version.
       - name: Publish summary
         run: |
           {
-            echo "Published \`checkly@${{ env.CANARY_VERSION }}\` (dist-tag: \`${{ inputs.tag }}\`)"
+            echo "Published \`checkly@${CANARY_VERSION}\` and \`create-checkly@${CANARY_VERSION}\` (dist-tag: \`${TAG}\`)"
             echo '```'
-            echo "npm install checkly@${{ env.CANARY_VERSION }}"
+            echo "npm install checkly@${CANARY_VERSION}"
+            echo "CHECKLY_CLI_VERSION=${GITHUB_REF_NAME} npm create checkly@${CANARY_VERSION}"
             echo '```'
+            echo "\`CHECKLY_CLI_VERSION\` is the git ref create-checkly fetches \`examples/\` templates from; the canary version is not a valid ref."
+            echo "The scaffolded project pins \`checkly@latest\`; set \`\"checkly\": \"${CANARY_VERSION}\"\` in its package.json to test the canary CLI inside it."
           } >> "$GITHUB_STEP_SUMMARY"
