@@ -22,13 +22,17 @@ jobs:
     if: ${{ github.event_name == 'release' }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions-ecosystem/action-regex-match@9e6c4fb3d5e898f505be7a1fb6e7b0a278f6665b # v2.0.2
-        id: tag-match
-        with:
-          text: ${{ github.event.release.tag_name }}
-          regex: '^\d+\.\d+\.\d+$'
-      - run: echo "Please create tag for release with format like 4.0.1" && exit 1
-        if: ${{ steps.tag-match.outputs.match == '' }}
+      # This step must stay first: later steps interpolate the tag name directly
+      # and rely on this check having rejected anything unexpected. Here the tag
+      # is read from an env var so the check itself cannot be injected.
+      - name: Validate release tag format
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          if [[ ! "$TAG_NAME" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Please create tag for release with format like 4.0.1 (got '$TAG_NAME')"
+            exit 1
+          fi
       # Old create-checkly versions still look for the tag with a `v` prefix.
       # We can automatically push the necessary tag to keep those working.
       - name: Create tag for old create-checkly versions
