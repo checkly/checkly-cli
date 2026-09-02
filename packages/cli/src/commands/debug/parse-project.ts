@@ -1,7 +1,7 @@
 import { Command, Flags } from '@oclif/core'
 
 import { parseProject } from '../../services/project-parser.js'
-import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
+import { loadChecklyConfig, resolveDependencyCacheVersion } from '../../services/checkly-config-loader.js'
 import { InvalidConfigError } from '../../services/config-diagnostics.js'
 import {
   Diagnostics,
@@ -208,7 +208,7 @@ export default class ParseProjectCommand extends Command {
         }
 
         const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
-          dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+          dependencyCacheVersion: resolveDependencyCacheVersion(checklyConfig),
           embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
           packageManager: Session.packageManager,
           packagePrune: checklyConfig.bundle?.packages?.prune,

@@ -452,8 +452,11 @@ export async function loadWorkspaceCacheHashInputs (
 
 export interface ComputeWorkspaceCacheHashOptions {
   /**
-   * Optional user-provided cache version (`caching.dependencyCache.version`
-   * in the checkly config) mixed into the hash as an extra record. Numbers
+   * Optional user-provided cache version (`runner.cache.install.version` in
+   * the checkly config, or its deprecated alias
+   * `caching.dependencyCache.version` — see resolveDependencyCacheVersion in
+   * services/checkly-config-loader.ts) mixed into the hash as an extra
+   * record. Numbers
    * are converted with {@link String} and must be safe integers — larger or
    * fractional values do not stringify exactly (or use exponent notation),
    * which would break parity with non-JavaScript implementations of this

@@ -4,7 +4,7 @@ import * as api from '../rest/api.js'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand.js'
 import { parseProject } from '../services/project-parser.js'
-import { loadChecklyConfig } from '../services/checkly-config-loader.js'
+import { loadChecklyConfig, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
 import {
   Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
   MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
@@ -192,7 +192,7 @@ export default class Deploy extends AuthCommand {
     await this.validateProject(project, { configDiagnostics })
 
     const bundler = await Bundler.createForWorkspace(Session.workspace.unwrap(), {
-      dependencyCacheVersion: checklyConfig.caching?.dependencyCache?.version,
+      dependencyCacheVersion: resolveDependencyCacheVersion(checklyConfig),
       embeddedPackagesMaterializer: Session.getEmbeddedPackagesMaterializer(),
       packageManager: Session.packageManager,
       packagePrune: checklyConfig.bundle?.packages?.prune,

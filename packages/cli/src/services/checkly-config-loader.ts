@@ -7,6 +7,8 @@ import { Session } from '../constructs/index.js'
 import { Construct } from '../constructs/construct.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import {
+  ConflictingPropertyDiagnostic,
+  DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
   RequiredPropertyDiagnostic,
   UnsupportedPropertyDiagnostic,
@@ -279,31 +281,22 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
   }
   /**
    * Caching-related configuration properties.
+   *
+   * @deprecated Use `runner.cache` instead.
    */
   caching?: {
     /**
-     * Controls the dependency cache used by Checkly runners when executing
-     * the Playwright Check Suite code bundle. Has no effect on browser or
-     * multistep checks.
+     * Deprecated alias of `runner.cache.install`.
+     *
+     * @deprecated Use `runner.cache.install` instead.
      */
     dependencyCache?: {
       /**
-       * Optional value mixed into the code bundle's cache hash in addition
-       * to its usual inputs — the workspace's dependency-install inputs.
-       * The exhaustive input list lives with the hash itself; see
-       * `ComposeCacheHashInput` in
-       * `services/check-parser/cache-hash.ts`.
-       * Change the value to force runners to reinstall the bundle's
-       * dependencies. Setting it for the first time invalidates the cache
-       * once. Numbers must be safe integers; unset and empty string leave
-       * the hash unchanged, so a dynamic value such as
-       * `process.env.DEPENDENCY_CACHE_VERSION` behaves sanely when the
-       * environment variable is missing.
+       * Deprecated alias of `runner.cache.install.version`; see that
+       * option for the full semantics. Declaring both fails config loading
+       * with a conflict error.
        *
-       * Unlike the `--refresh-cache` flag available on the run/test
-       * commands, which forces a reinstall for a single ad-hoc run, this
-       * value is persistent and also applies to deployed, scheduled
-       * checks.
+       * @deprecated Use `runner.cache.install.version` instead.
        */
       version?: string | number
     }
@@ -359,6 +352,39 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
      * enforced at config load for plain-JS configs.
      */
     registries?: Registries<UpstreamName>
+    /**
+     * Cache-related configuration for the Checkly runner.
+     */
+    cache?: {
+      /**
+       * Controls the dependency-install cache used by Checkly runners when
+       * executing the Playwright Check Suite code bundle. Has no effect on
+       * browser or multistep checks.
+       */
+      install?: {
+        /**
+         * Optional value mixed into the code bundle's cache hash in addition
+         * to its usual inputs — the workspace's dependency-install inputs.
+         * The exhaustive input list lives with the hash itself; see
+         * `ComposeCacheHashInput` in
+         * `services/check-parser/cache-hash.ts`.
+         * Change the value to force runners to reinstall the bundle's
+         * dependencies. Setting it for the first time invalidates the cache
+         * once. Numbers must be safe integers; unset and empty string leave
+         * the hash unchanged, so a dynamic value such as
+         * `process.env.DEPENDENCY_CACHE_VERSION` behaves sanely when the
+         * environment variable is missing. Declaring this option together
+         * with the deprecated `caching.dependencyCache.version` fails config
+         * loading with a conflict error.
+         *
+         * Unlike the `--refresh-cache` flag available on the run/test
+         * commands, which forces a reinstall for a single ad-hoc run, this
+         * value is persistent and also applies to deployed, scheduled
+         * checks.
+         */
+        version?: string | number
+      }
+    }
   }
   /**
    * CLI default configuration properties.
@@ -539,13 +565,77 @@ function validateConfigFields (
   }
 }
 
-function validateDependencyCacheVersion (config: ChecklyConfig, diagnostics: Diagnostics): void {
+/**
+ * Resolves the effective dependency cache version from the config,
+ * preferring the current `runner.cache.install.version` location over the
+ * legacy `caching.dependencyCache.version` one.
+ */
+export function resolveDependencyCacheVersion (config: ChecklyConfig): string | number | undefined {
+  const version = config.runner?.cache?.install?.version
+  // The empty string means "unset" for cache version values (see the JSDoc
+  // on `runner.cache.install.version`) — e.g. an unset environment variable
+  // — so it must not shadow a value set at the legacy location.
+  if (version !== undefined && version !== '') {
+    return version
+  }
+  return config.caching?.dependencyCache?.version
+}
+
+function validateCacheVersionValue (property: string, version: unknown, diagnostics: Diagnostics): void {
   try {
-    normalizeDependencyCacheVersion(config.caching?.dependencyCache?.version)
+    normalizeDependencyCacheVersion(version as string | number | undefined)
   } catch (cause) {
     diagnostics.add(new InvalidPropertyValueDiagnostic(
-      'caching.dependencyCache.version',
+      property,
       cause as Error,
+    ))
+  }
+}
+
+function validateDependencyCacheVersion (config: ChecklyConfig, diagnostics: Diagnostics): void {
+  if (config.caching === undefined) {
+    return
+  }
+
+  diagnostics.add(new DeprecatedPropertyDiagnostic(
+    'caching',
+    new Error(
+      `Use "runner.cache.install.version" instead of "caching.dependencyCache.version".`
+      + `\n\n`
+      + `Note: CLI versions that predate "runner.cache" either reject it as an unsupported property or ignore`
+      + ` it silently, dropping the cache version from the cache hash — upgrade every environment running the`
+      + ` CLI before migrating.`,
+    ),
+  ))
+
+  const caching = validateObjectBlock('caching', config.caching, ['dependencyCache'], diagnostics)
+  const dependencyCache = validateObjectBlock(
+    'caching.dependencyCache',
+    caching?.dependencyCache,
+    ['version'],
+    diagnostics,
+  )
+  if (dependencyCache === undefined) {
+    return
+  }
+
+  validateCacheVersionValue('caching.dependencyCache.version', dependencyCache.version, diagnostics)
+
+  // The conflict is based on the properties being declared, not on their
+  // values: either version may be a `process.env` reference, and a
+  // value-based rule would make the same committed config load in one
+  // environment and fail in another. The runner block has not been
+  // shape-validated yet (validateRunner runs later), so guard before using
+  // `in`; a misshapen block gets its own fatal diagnostics from
+  // validateRunner.
+  const install = config.runner?.cache?.install
+  const installDeclaresVersion = install !== null && typeof install === 'object'
+    && !Array.isArray(install) && 'version' in install
+  if ('version' in dependencyCache && installDeclaresVersion) {
+    diagnostics.add(new ConflictingPropertyDiagnostic(
+      'caching.dependencyCache.version',
+      'runner.cache.install.version',
+      new Error(`Remove the deprecated "caching.dependencyCache.version" option.`),
     ))
   }
 }
@@ -610,33 +700,56 @@ function validateBundle (config: ChecklyConfig, diagnostics: Diagnostics): void 
   }
 }
 
-function validateRunner (config: ChecklyConfig, diagnostics: Diagnostics): void {
-  const { runner } = config
-  if (runner === undefined) {
+/**
+ * Validates that a config block is a plain object (when set) and reports any
+ * keys outside `knownKeys` as unsupported, returning the block for further
+ * validation or undefined when it is absent or misshapen. Plain-JS configs
+ * bypass the TypeScript type, so a misshapen block or misspelled key would
+ * otherwise be silently ignored — e.g. a `runner` typo would read as
+ * `registries: undefined` and silently disable routing, surfacing only as an
+ * install failure on the runner.
+ */
+function validateObjectBlock (
+  path: string,
+  value: unknown,
+  knownKeys: string[],
+  diagnostics: Diagnostics,
+): Record<string, unknown> | undefined {
+  if (value === undefined) {
     return
   }
 
-  // Same rationale as `validateBundle`: plain-JS configs bypass the
-  // TypeScript type, and a misshapen `runner` block would otherwise read as
-  // `registries: undefined` and silently disable routing, surfacing only as
-  // an install failure on the runner.
-  if (runner === null || typeof runner !== 'object' || Array.isArray(runner)) {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
     diagnostics.add(new InvalidPropertyValueDiagnostic(
-      'runner',
+      path,
       new Error(`Value must be an object if set.`),
     ))
     return
   }
 
-  // A misspelled key (`registires`) would silently disable routing the same
-  // way a misshapen block would.
-  for (const key of Object.keys(runner)) {
-    if (key !== 'registries') {
+  const expected = knownKeys.map(key => `'${key}'`).join(' and ')
+  for (const key of Object.keys(value)) {
+    if (!knownKeys.includes(key)) {
       diagnostics.add(new UnsupportedPropertyDiagnostic(
-        `runner.${key}`,
-        new Error(`Only 'registries' is supported in the 'runner' block.`),
+        `${path}.${key}`,
+        new Error(`Only ${expected} ${knownKeys.length === 1 ? 'is' : 'are'} supported in the '${path}' block.`),
       ))
     }
+  }
+
+  return value as Record<string, unknown>
+}
+
+function validateRunner (config: ChecklyConfig, diagnostics: Diagnostics): void {
+  const runner = validateObjectBlock('runner', config.runner, ['registries', 'cache'], diagnostics)
+  if (runner === undefined) {
+    return
+  }
+
+  const cache = validateObjectBlock('runner.cache', runner.cache, ['install'], diagnostics)
+  const install = validateObjectBlock('runner.cache.install', cache?.install, ['version'], diagnostics)
+  if (install !== undefined) {
+    validateCacheVersionValue('runner.cache.install.version', install.version, diagnostics)
   }
 
   const { registries } = runner
