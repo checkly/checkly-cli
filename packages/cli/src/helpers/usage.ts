@@ -99,7 +99,7 @@ export function describeUsageError (err: unknown): string | undefined {
       return 'More than one set of usage terms covers the requested date. '
         + 'Pass --usage-terms-id to choose one, or pick a --to date that only one contract covers.'
     case 'ACCOUNT_NOT_IN_USAGE_TERMS':
-      return `${err.message} Run "checkly usage terms" to list the accounts covered by the terms.`
+      return `${err.message} Run "checkly account usage terms" to list the accounts covered by the terms.`
     case 'INVALID_CURSOR':
       return 'The --cursor value is invalid or was issued for different flags. '
         + 'Re-run the original command with the same flags (including --from and --to) and use the cursor it prints.'

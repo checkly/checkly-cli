@@ -72,6 +72,9 @@
       "account": {
         "description": "View and manage your Checkly account."
       },
+      "account:usage": {
+        "description": "Report organization contract usage, credits, and projections."
+      },
       "alert-channels": {
         "description": "List and inspect alert channels in your Checkly account."
       },
@@ -101,9 +104,6 @@
       },
       "test-sessions": {
         "description": "Inspect recorded test sessions."
-      },
-      "usage": {
-        "description": "Report organization contract usage, credits, and projections."
       }
     },
     "helpClass": "./dist/help/help-extension.js"

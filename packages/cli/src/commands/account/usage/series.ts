@@ -1,17 +1,17 @@
 import { Flags } from '@oclif/core'
-import { AuthCommand } from '../authCommand.js'
-import { outputFlag } from '../../helpers/flags.js'
-import { validateIntegerRange } from '../../helpers/number.js'
-import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../helpers/usage.js'
-import * as api from '../../rest/api.js'
-import type { UsageGroupBy, UsageInterval } from '../../rest/usage.js'
-import type { OutputFormat } from '../../formatters/render.js'
+import { AuthCommand } from '../../authCommand.js'
+import { outputFlag } from '../../../helpers/flags.js'
+import { validateIntegerRange } from '../../../helpers/number.js'
+import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
+import * as api from '../../../rest/api.js'
+import type { UsageGroupBy, UsageInterval } from '../../../rest/usage.js'
+import type { OutputFormat } from '../../../formatters/render.js'
 import {
   formatUsageSeries,
   formatUsageSeriesNavigationHints,
   formatUsageSeriesPaginationInfo,
   formatUsageWarnings,
-} from '../../formatters/usage.js'
+} from '../../../formatters/usage.js'
 
 const INTERVALS: UsageInterval[] = ['total', 'day', 'week', 'month']
 const GROUP_BY: UsageGroupBy[] = ['account', 'checkType', 'account,checkType']
@@ -20,7 +20,7 @@ const GROUP_BY: UsageGroupBy[] = ['account', 'checkType', 'account,checkType']
 // repeat the flags verbatim. Values are validated enums, dates, and IDs.
 function buildSeriesCommand (flags: Record<string, any>): string {
   const parts = [
-    'checkly usage series',
+    'checkly account usage series',
     '--interval', flags.interval,
     '--group-by', flags['group-by'],
     '--limit', String(flags.limit),

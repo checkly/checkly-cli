@@ -1,9 +1,9 @@
-import { AuthCommand } from '../authCommand.js'
-import { outputFlag } from '../../helpers/flags.js'
-import { describeUsageError, usageTermsFlags, usageTermsParams } from '../../helpers/usage.js'
-import * as api from '../../rest/api.js'
-import { type OutputFormat, renderCommandHints } from '../../formatters/render.js'
-import { formatUsageTermsDetail } from '../../formatters/usage.js'
+import { AuthCommand } from '../../authCommand.js'
+import { outputFlag } from '../../../helpers/flags.js'
+import { describeUsageError, usageTermsFlags, usageTermsParams } from '../../../helpers/usage.js'
+import * as api from '../../../rest/api.js'
+import { type OutputFormat, renderCommandHints } from '../../../formatters/render.js'
+import { formatUsageTermsDetail } from '../../../formatters/usage.js'
 
 export default class UsageTermsCommand extends AuthCommand {
   static hidden = false
@@ -39,10 +39,10 @@ export default class UsageTermsCommand extends AuthCommand {
       output.push(formatUsageTermsDetail(terms, fmt))
       output.push('')
       output.push(renderCommandHints([
-        { label: 'Summary', command: `checkly usage summary --usage-terms-id ${terms.id}` },
+        { label: 'Summary', command: `checkly account usage summary --usage-terms-id ${terms.id}` },
         {
           label: 'Monthly by account',
-          command: `checkly usage series --usage-terms-id ${terms.id} --interval month --group-by account`,
+          command: `checkly account usage series --usage-terms-id ${terms.id} --interval month --group-by account`,
         },
       ], { gap: 1 }))
 

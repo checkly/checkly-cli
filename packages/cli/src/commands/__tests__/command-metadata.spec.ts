@@ -48,9 +48,9 @@ import MembersDelete from '../members/delete.js'
 import Api from '../api.js'
 import TestSessionsList from '../test-sessions/list.js'
 import TestSessionsGet from '../test-sessions/get.js'
-import UsageTermsCommand from '../usage/terms.js'
-import UsageSummaryCommand from '../usage/summary.js'
-import UsageSeriesCommand from '../usage/series.js'
+import UsageTermsCommand from '../account/usage/terms.js'
+import UsageSummaryCommand from '../account/usage/summary.js'
+import UsageSeriesCommand from '../account/usage/series.js'
 
 const commands: Array<[string, typeof BaseCommand]> = [
   ['api', Api],
@@ -71,9 +71,9 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['status-pages get', StatusPagesGet],
   ['test-sessions list', TestSessionsList],
   ['test-sessions get', TestSessionsGet],
-  ['usage terms', UsageTermsCommand],
-  ['usage summary', UsageSummaryCommand],
-  ['usage series', UsageSeriesCommand],
+  ['account usage terms', UsageTermsCommand],
+  ['account usage summary', UsageSummaryCommand],
+  ['account usage series', UsageSeriesCommand],
   ['incidents list', IncidentsList],
   ['incidents create', IncidentsCreate],
   ['incidents update', IncidentsUpdate],

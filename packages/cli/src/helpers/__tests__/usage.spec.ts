@@ -65,7 +65,7 @@ describe('describeUsageError', () => {
   it('explains an account outside the terms and keeps the upstream message', () => {
     const message = describeUsageError(new ValidationError(body('ACCOUNT_NOT_IN_USAGE_TERMS', 400, 'Account x is not part')))
     expect(message).toContain('Account x is not part')
-    expect(message).toContain('checkly usage terms')
+    expect(message).toContain('checkly account usage terms')
   })
 
   it('explains an invalid cursor', () => {

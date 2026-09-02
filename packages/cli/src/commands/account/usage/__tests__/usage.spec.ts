@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-vi.mock('../../../rest/api', () => ({
+vi.mock('../../../../rest/api', () => ({
   usage: { getTerms: vi.fn(), getSummary: vi.fn(), getSeries: vi.fn() },
 }))
 
-import * as api from '../../../rest/api.js'
-import { NotFoundError } from '../../../rest/errors.js'
+import * as api from '../../../../rest/api.js'
+import { NotFoundError } from '../../../../rest/errors.js'
 import UsageTermsCommand from '../terms.js'
 import UsageSummaryCommand from '../summary.js'
 import UsageSeriesCommand from '../series.js'
@@ -68,8 +68,8 @@ describe('usage terms', () => {
 
     expect(ctx.logged[0]).toContain('Usage terms: Acme Corp')
     expect(ctx.logged[0]).toContain('Acme Production')
-    expect(ctx.logged[0]).toContain(`checkly usage summary --usage-terms-id ${termsFixture.id}`)
-    expect(ctx.logged[0]).toContain(`checkly usage series --usage-terms-id ${termsFixture.id}`)
+    expect(ctx.logged[0]).toContain(`checkly account usage summary --usage-terms-id ${termsFixture.id}`)
+    expect(ctx.logged[0]).toContain(`checkly account usage series --usage-terms-id ${termsFixture.id}`)
   })
 
   it('renders markdown without hints', async () => {
@@ -78,7 +78,7 @@ describe('usage terms', () => {
     await UsageTermsCommand.prototype.run.call(ctx as any)
 
     expect(ctx.logged[0]).toContain('# Usage terms: Acme Corp')
-    expect(ctx.logged[0]).not.toContain('checkly usage summary')
+    expect(ctx.logged[0]).not.toContain('checkly account usage summary')
   })
 
   it('rejects an invalid --to date before calling the API', async () => {
@@ -225,8 +225,8 @@ describe('usage summary', () => {
     expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: termsFixture.id })
     expect(ctx.logged[0]).toContain('Usage: Acme Corp')
     expect(ctx.logged[0]).toContain('PROJECTIONS')
-    expect(ctx.logged[0]).toContain('checkly usage series --interval day')
-    expect(ctx.logged[0]).toContain('checkly usage terms')
+    expect(ctx.logged[0]).toContain('checkly account usage series --interval day')
+    expect(ctx.logged[0]).toContain('checkly account usage terms')
   })
 
   it('renders markdown', async () => {
@@ -236,7 +236,7 @@ describe('usage summary', () => {
 
     expect(ctx.logged[0]).toContain('# Usage: Acme Corp')
     expect(ctx.logged[0]).toContain('## Projections')
-    expect(ctx.logged[0]).not.toContain('checkly usage series')
+    expect(ctx.logged[0]).not.toContain('checkly account usage series')
   })
 
   it('rejects --from after --to before calling the API', async () => {
@@ -374,7 +374,7 @@ describe('usage series', () => {
     expect(out).toContain('Acme Production')
     expect(out).toContain('Showing 1 usage row (more available)')
     expect(out).toContain(
-      'checkly usage series --interval month --group-by account,checkType --limit 100'
+      'checkly account usage series --interval month --group-by account,checkType --limit 100'
       + ' --from 2026-01-01 --to 2026-01-31 --check-type API --cursor cursor-2',
     )
   })

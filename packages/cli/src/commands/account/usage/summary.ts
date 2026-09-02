@@ -1,9 +1,9 @@
-import { AuthCommand } from '../authCommand.js'
-import { outputFlag } from '../../helpers/flags.js'
-import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../helpers/usage.js'
-import * as api from '../../rest/api.js'
-import { type OutputFormat, renderCommandHints } from '../../formatters/render.js'
-import { formatUsageSummary } from '../../formatters/usage.js'
+import { AuthCommand } from '../../authCommand.js'
+import { outputFlag } from '../../../helpers/flags.js'
+import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
+import * as api from '../../../rest/api.js'
+import { type OutputFormat, renderCommandHints } from '../../../formatters/render.js'
+import { formatUsageSummary } from '../../../formatters/usage.js'
 
 export default class UsageSummaryCommand extends AuthCommand {
   static hidden = false
@@ -41,9 +41,9 @@ export default class UsageSummaryCommand extends AuthCommand {
       output.push(formatUsageSummary(summary, fmt, terms))
       output.push('')
       output.push(renderCommandHints([
-        { label: 'Daily series', command: 'checkly usage series --interval day' },
-        { label: 'Monthly by account', command: 'checkly usage series --interval month --group-by account' },
-        { label: 'Terms', command: 'checkly usage terms' },
+        { label: 'Daily series', command: 'checkly account usage series --interval day' },
+        { label: 'Monthly by account', command: 'checkly account usage series --interval month --group-by account' },
+        { label: 'Terms', command: 'checkly account usage terms' },
       ], { gap: 1 }))
 
       this.log(output.join('\n'))

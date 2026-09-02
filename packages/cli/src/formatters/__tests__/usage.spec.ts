@@ -337,10 +337,10 @@ describe('series pagination helpers', () => {
   })
 
   it('renders a next-page hint that repeats the command and appends the cursor', () => {
-    const hints = stripAnsi(formatUsageSeriesNavigationHints('cursor-1', 'checkly usage series --interval day --limit 100'))
+    const hints = stripAnsi(formatUsageSeriesNavigationHints('cursor-1', 'checkly account usage series --interval day --limit 100'))
 
     expect(hints).toContain('Next page:')
-    expect(hints).toContain('checkly usage series --interval day --limit 100 --cursor cursor-1')
-    expect(formatUsageSeriesNavigationHints(null, 'checkly usage series')).toBe('')
+    expect(hints).toContain('checkly account usage series --interval day --limit 100 --cursor cursor-1')
+    expect(formatUsageSeriesNavigationHints(null, 'checkly account usage series')).toBe('')
   })
 })
