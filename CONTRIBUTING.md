@@ -112,26 +112,41 @@ It depends on two GitHub settings outside this repo: **Allow GitHub Actions to c
 pull requests** must be enabled, and branch protection on `main` must require an approving review
 (a review count — not a Code Owners review, which a bot can't satisfy).
 
-## Prerelease experimental version
+## Canary builds
 
-To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
-triggered and a new experimental version can be installed by executing:
+To publish an experimental build of a branch, dispatch the release workflow on that branch:
 
+```bash
+gh workflow run release.yml --ref <branch>
 ```
-npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
+
+Pass `-f tag=<dist-tag>` to use a dist-tag other than the default `experimental`; the job refuses `latest` and `prerelease`, which belong to real releases. The same thing can be done from the Actions UI: open "Publish Package to npmjs", click "Run workflow" and pick the branch. The run shows up as `Canary build - <branch>`.
+
+The `canary` job publishes both `checkly` and `create-checkly` as `0.0.0-canary.<short-sha>` under the chosen dist-tag. The run summary shows the exact version and the install commands.
+
+To test the `checkly` package:
+
+```bash
+npm install checkly@0.0.0-canary.<short-sha>   # or checkly@experimental
 ```
 
-> **Note:** Canary builds authenticate to npm using the `NPM_TOKEN` secret (a long-lived token). This is because the canary workflow (`release-canary.yml`) is a separate workflow file from the one configured as a trusted publisher on npmjs.com.
+To test `create-checkly`:
+
+```bash
+CHECKLY_CLI_VERSION=<branch> npm create checkly@0.0.0-canary.<short-sha>
+```
+
+`CHECKLY_CLI_VERSION` is a git ref of this repository from which `create-checkly` fetches the project templates in `examples/`. The canary version is not a git ref, so the variable must be set; using the branch under test picks up any template changes on it. The scaffolded project pins `checkly@latest`, so to test a canary `checkly` inside it, edit the project's `package.json`.
+
+Canary builds authenticate to npm the same way releases do; see [NPM authentication](#npm-authentication).
 
 ## Releasing
 
 ### NPM authentication
 
-The release workflow (`release.yml`) uses [npm trusted publishing](https://docs.npmjs.com/generating-provenance-statements) with GitHub OIDC — no long-lived npm token is needed. GitHub Actions mints a short-lived OIDC token that npm validates against the trusted publisher configuration on npmjs.com.
+All publishing (`release.yml`: prerelease, release and canary jobs) uses [npm trusted publishing](https://docs.npmjs.com/generating-provenance-statements) with GitHub OIDC — no long-lived npm token is needed. GitHub Actions mints a short-lived OIDC token that npm validates against the trusted publisher configuration on npmjs.com.
 
-Both `checkly` and `create-checkly` packages have trusted publishing configured for `checkly/checkly-cli` / `release.yml`. There is no secret to rotate for releases.
-
-The canary workflow (`release-canary.yml`) still uses the `NPM_TOKEN` secret because npm only allows one trusted publisher entry per package, and it is bound to `release.yml`.
+Both `checkly` and `create-checkly` packages have trusted publishing configured for `checkly/checkly-cli` / `release.yml`. npm allows only one trusted publisher (repository + workflow file) per package, which is why the canary job lives in `release.yml` rather than in a separate workflow. There is no secret to rotate for releases, and no workflow in this repository uses an npm token.
 
 ### Releasing `checkly` packages
 
