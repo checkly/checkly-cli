@@ -89,7 +89,7 @@ export function usageRangeParams (flags: UsageRangeFlagValues): UsageRangeParams
 export function describeUsageError (err: unknown): string | undefined {
   if (!(err instanceof ApiError)) return undefined
 
-  // The usage API adds `code` to the standard Boom body; ErrorData does not declare it.
+  // The usage API adds `code` to its error body; ErrorData does not declare it.
   const code = (err.data as ErrorData & { code?: UsageErrorCode }).code
   switch (code) {
     case 'NO_USAGE_TERMS':

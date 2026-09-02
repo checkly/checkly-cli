@@ -134,7 +134,7 @@ export interface UsageSeries {
 type QueryValue = string | number
 
 // The API accepts repeated or comma-separated values. Axios would serialize
-// arrays as `accountIds[]=…`, which Hapi keeps as a literal key, so join them.
+// arrays as `accountIds[]=...`, which the API does not parse as a list, so join them.
 function toQuery (params: UsageSeriesParams): Record<string, QueryValue> {
   const query: Record<string, QueryValue> = {}
   const set = (key: string, value: QueryValue | undefined) => {
