@@ -101,6 +101,9 @@
       },
       "test-sessions": {
         "description": "Inspect recorded test sessions."
+      },
+      "usage": {
+        "description": "Report organization contract usage, credits, and projections."
       }
     },
     "helpClass": "./dist/help/help-extension.js"
