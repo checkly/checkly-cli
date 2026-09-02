@@ -9,6 +9,10 @@ export interface MaintenanceWindowResource {
   repeatInterval?: number | null
   repeatUnit?: string
   repeatEndsAt?: string
+  timezone?: string | null
+  pauseAllChecks?: boolean
+  silenceAlertsTags?: Array<string>
+  silenceAllAlerts?: boolean
 }
 
 const construct = 'MaintenanceWindow'
@@ -66,6 +70,29 @@ export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource>
                 builder.string(repeatEndsAt)
               })
             })
+          }
+
+          if (resource.timezone) {
+            builder.string('timezone', resource.timezone)
+          }
+
+          // The default value for pauseAllChecks is false, only include if true.
+          if (resource.pauseAllChecks !== undefined && resource.pauseAllChecks) {
+            builder.boolean('pauseAllChecks', resource.pauseAllChecks)
+          }
+
+          if (resource.silenceAlertsTags?.length) {
+            const silenceAlertsTags = resource.silenceAlertsTags
+            builder.array('silenceAlertsTags', builder => {
+              for (const tag of silenceAlertsTags) {
+                builder.string(tag)
+              }
+            })
+          }
+
+          // The default value for silenceAllAlerts is false, only include if true.
+          if (resource.silenceAllAlerts !== undefined && resource.silenceAllAlerts) {
+            builder.boolean('silenceAllAlerts', resource.silenceAllAlerts)
           }
         })
       })
