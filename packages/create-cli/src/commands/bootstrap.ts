@@ -73,7 +73,11 @@ export default class Bootstrap extends Command {
       }
     }
 
-    let version = process.env.CHECKLY_CLI_VERSION ?? this.config.version
+    // CHECKLY_E2E_CLI_VERSION is an internal override used by the e2e suite and
+    // for testing prereleases. It selects the version shown in the banner and
+    // the git tag project templates are fetched from; it does not change which
+    // create-checkly version runs.
+    let version = process.env.CHECKLY_E2E_CLI_VERSION ?? this.config.version
 
     // use latest version from NPM if it's running from the local environment or E2E
     if (version === '0.0.1-dev') {

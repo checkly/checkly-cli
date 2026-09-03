@@ -116,7 +116,7 @@ Source in `src/ai-context/`, built during `prepare`. Generates examples from fix
 - `CHECKLY_ACCOUNT_ID`, `CHECKLY_API_KEY` — authentication
 - `CHECKLY_ENV` — target environment (`production`, `staging`, `development`, `local`)
 - `CHECKLY_API_URL` — override API base URL (used when `CHECKLY_ENV=local`)
-- `CHECKLY_CLI_VERSION` — override reported CLI version (useful for testing `create-checkly`)
+- `CHECKLY_E2E_CLI_VERSION` — e2e/local-development override of the version the CLI reports to the API (`x-checkly-cli-version` header); for `create-checkly` it also selects the banner version and the template git tag. It never changes which CLI version runs
 - `CHECKLY_CACHE_DIR` — override the CLI's cache directory (embedded-package tarball downloads)
 - `CHECKLY_SKIP_NODE_VERSION_CHECK` — set to `1` to bypass the bin's hard Node version preflight (unsupported Node may then fail in unexpected ways); must be set in the shell environment — the preflight runs before `.env` is loaded
 - `CHECKLY_LOCKFILE_PRUNE` — set to `0` to disable pruning the bundled lockfile to the code bundle's contents; when a lockfile is bundled this also disables `bundle.packages.prune` (the manifest rewrite rolls back)

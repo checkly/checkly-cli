@@ -1,0 +1,32 @@
+# Only GitHub Actions are managed here. npm dependencies are deliberately not:
+# they are updated by a weekly batch that checks the Node floor and applies the
+# minimumReleaseAge embargo from pnpm-workspace.yaml consistently.
+#
+# The workflows pin every action by commit SHA with a `# vX.Y.Z` comment;
+# Dependabot rewrites both the SHA and the comment when it bumps an action.
+#
+# The example workflows under examples/*/.github/workflow.yml are templates
+# that users copy. They live outside .github/workflows, so Dependabot does not
+# see them and they are maintained by hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    # One PR for all minor and patch bumps. Majors open one PR each so they can
+    # be reviewed individually; the release workflows only run on a release, so
+    # a breaking action change there gets no signal from pull-request CI.
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: ci
+    # Action bumps are not user-facing; keep them out of generated release notes
+    # (see the exclude list in .github/release.yml).
+    labels:
+      - ignore-for-release

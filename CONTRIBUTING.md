@@ -19,7 +19,7 @@ When running commands from the `packages/create-cli` directory, the `--workspace
 
 ## Running locally
 
-Use `CHECKLY_CLI_VERSION` environment variable to set the latest version you want to test.
+Set the `CHECKLY_E2E_CLI_VERSION` environment variable to override the version the CLI reports to the Checkly API (the `x-checkly-cli-version` header). It is an e2e/local-development hook only and does not change which CLI version runs.
 
 You can configure the stage (`production`, `staging`, `development` or `local`) using `CHECKLY_ENV` environment variable. Use `CHECKLY_ENV=local` if you want to point the API URL to your local backend `http://localhost:3000`.
 
@@ -112,26 +112,41 @@ It depends on two GitHub settings outside this repo: **Allow GitHub Actions to c
 pull requests** must be enabled, and branch protection on `main` must require an approving review
 (a review count — not a Code Owners review, which a bot can't satisfy).
 
-## Prerelease experimental version
+## Canary builds
 
-To publish a NPM package for testing purpose, you can tag the pull-request with the `build` label. A GitHub Action will be
-triggered and a new experimental version can be installed by executing:
+To publish an experimental build of a branch, dispatch the release workflow on that branch:
 
+```bash
+gh workflow run release.yml --ref <branch>
 ```
-npm install checkly@0.0.0-pr.<PR-NUMBER>.<COMMIT_SHORT_SHA>
+
+Pass `-f tag=<dist-tag>` to use a dist-tag other than the default `experimental`; the job refuses `latest` and `prerelease`, which belong to real releases. The same thing can be done from the Actions UI: open "Publish Package to npmjs", click "Run workflow" and pick the branch. The run shows up as `Canary build - <branch>`.
+
+The `canary` job publishes both `checkly` and `create-checkly` as `0.0.0-canary.<short-sha>` under the chosen dist-tag. The run summary shows the exact version and the install commands.
+
+To test the `checkly` package:
+
+```bash
+npm install checkly@0.0.0-canary.<short-sha>   # or checkly@experimental
 ```
 
-> **Note:** Canary builds authenticate to npm using the `NPM_TOKEN` secret (a long-lived token). This is because the canary workflow (`release-canary.yml`) is a separate workflow file from the one configured as a trusted publisher on npmjs.com.
+To test `create-checkly`:
+
+```bash
+CHECKLY_E2E_CLI_VERSION=<branch> npm create checkly@0.0.0-canary.<short-sha>
+```
+
+`CHECKLY_E2E_CLI_VERSION` is a git ref of this repository from which `create-checkly` fetches the project templates in `examples/`. The canary version is not a git ref, so the variable must be set; using the branch under test picks up any template changes on it. The scaffolded project pins `checkly@latest`, so to test a canary `checkly` inside it, edit the project's `package.json`.
+
+Canary builds authenticate to npm the same way releases do; see [NPM authentication](#npm-authentication).
 
 ## Releasing
 
 ### NPM authentication
 
-The release workflow (`release.yml`) uses [npm trusted publishing](https://docs.npmjs.com/generating-provenance-statements) with GitHub OIDC — no long-lived npm token is needed. GitHub Actions mints a short-lived OIDC token that npm validates against the trusted publisher configuration on npmjs.com.
+All publishing (`release.yml`: prerelease, release and canary jobs) uses [npm trusted publishing](https://docs.npmjs.com/generating-provenance-statements) with GitHub OIDC — no long-lived npm token is needed. GitHub Actions mints a short-lived OIDC token that npm validates against the trusted publisher configuration on npmjs.com.
 
-Both `checkly` and `create-checkly` packages have trusted publishing configured for `checkly/checkly-cli` / `release.yml`. There is no secret to rotate for releases.
-
-The canary workflow (`release-canary.yml`) still uses the `NPM_TOKEN` secret because npm only allows one trusted publisher entry per package, and it is bound to `release.yml`.
+Both `checkly` and `create-checkly` packages have trusted publishing configured for `checkly/checkly-cli` / `release.yml`. npm allows only one trusted publisher (repository + workflow file) per package, which is why the canary job lives in `release.yml` rather than in a separate workflow. There is no secret to rotate for releases, and no workflow in this repository uses an npm token.
 
 ### Releasing `checkly` packages
 
@@ -142,7 +157,7 @@ To release packages to NPM:
 1. Publish a GitHub Release with a valid tag `#.#.#` (do **not** include a `v` prefix) and click the `Generate release notes` button to auto-generate notes following format defined [here](https://github.com/checkly/checkly-cli/blob/main/.github/release.yml). Under **Release label**, select **None** (not "Latest") — the workflow will mark it as latest automatically.
 2. When release is published the GitHub action is triggered. It builds and publishes `#.#.#-prerelease` prereleases (for both packages).
 3. Test the prerelease version to make sure that it's working.
-    * To test `npm create checkly`, run `CHECKLY_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates.
+    * To test `npm create checkly`, run `CHECKLY_E2E_CLI_VERSION=4.6.2 npm create checkly@4.6.2-prerelease-c6e8165` (substituting `4.6.2` and `4.6.2-prerelease` for your versions, which you can find at https://www.npmjs.com/package/checkly?activeTab=versions). `CHECKLY_E2E_CLI_VERSION` is needed since the `create-checkly` package looks up the corresponding tag on GitHub to pull project templates. Published `create-checkly` versions older than the one that introduced `CHECKLY_E2E_CLI_VERSION` (9.0.0 and earlier) read the former name `CHECKLY_CLI_VERSION` instead.
     * Ensure your project `package.json` has `"checkly": "4.6.2-prerelease-c6e8165"`
 4. A `production` deployment will be waiting for approval. After it's approved, the `#.#.#` version will be published. The workflow will then automatically mark the GitHub Release as latest (if the version is higher than the current latest).
 
