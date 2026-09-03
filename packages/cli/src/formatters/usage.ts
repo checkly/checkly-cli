@@ -19,6 +19,7 @@ import {
   type OutputFormat,
   escapeMdCell,
   formatMs,
+  heading,
   padColumn,
   renderAdaptiveTable,
   renderCommandHints,
@@ -62,7 +63,7 @@ function dateRange (from: string, to: string): string {
 }
 
 function sectionHeading (text: string, format: OutputFormat): string {
-  return format === 'md' ? `## ${text}` : chalk.bold(text.toUpperCase())
+  return heading(format === 'md' ? text : text.toUpperCase(), 2, format)
 }
 
 interface MeasureEntry {
@@ -220,13 +221,9 @@ function toProjectionRow (label: string, window: UsageProjectionWindow): Project
   }
 }
 
-function buildProjectionColumns (format: OutputFormat): ColumnDef<ProjectionRow>[] {
-  const windowColumn: ColumnDef<ProjectionRow> = format === 'md'
-    ? { header: 'Window', value: row => row.window }
-    : { header: 'Window', width: 20, value: row => row.window }
-
+function buildProjectionColumns (): ColumnDef<ProjectionRow>[] {
   return [
-    windowColumn,
+    { header: 'Window', width: 20, value: row => row.window },
     { header: 'Credits used', width: 14, align: 'right', value: (row, fmt) => formatNumber(row.creditsUsed, fmt) },
     {
       header: 'Annual % of budget',
@@ -273,7 +270,7 @@ export function formatUsageSummary (summary: UsageSummary, format: OutputFormat,
   lines.push(renderMeasureList(resolveEntries(summary.totals, format), format))
   lines.push('')
   lines.push(sectionHeading('Projections', format), ...headingGap)
-  lines.push(renderAdaptiveTable(buildProjectionColumns(format), projectionRows, format))
+  lines.push(renderAdaptiveTable(buildProjectionColumns(), projectionRows, format))
 
   return lines.join('\n')
 }

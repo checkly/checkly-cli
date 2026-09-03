@@ -1,7 +1,10 @@
 import type { AxiosInstance } from 'axios'
 
-export type UsageInterval = 'total' | 'day' | 'week' | 'month'
-export type UsageGroupBy = 'account' | 'checkType' | 'account,checkType'
+export const USAGE_INTERVALS = ['total', 'day', 'week', 'month'] as const
+export type UsageInterval = typeof USAGE_INTERVALS[number]
+
+export const USAGE_GROUP_BY = ['account', 'checkType', 'account,checkType'] as const
+export type UsageGroupBy = typeof USAGE_GROUP_BY[number]
 export type UsageWarningCode = 'PARTIAL_WINDOW' | 'USAGE_TERMS_FLAGGED' | 'UNKNOWN_BUDGET'
 export type UsageErrorCode =
   | 'ACCOUNT_NOT_IN_USAGE_TERMS'

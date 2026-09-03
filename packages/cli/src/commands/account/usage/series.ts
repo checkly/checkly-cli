@@ -2,9 +2,9 @@ import { Flags } from '@oclif/core'
 import { AuthCommand } from '../../authCommand.js'
 import { outputFlag } from '../../../helpers/flags.js'
 import { validateIntegerRange } from '../../../helpers/number.js'
-import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
+import { describeUsageError, usageRangeFlags, usageRangeParams, usageTermsParams } from '../../../helpers/usage.js'
 import * as api from '../../../rest/api.js'
-import type { UsageGroupBy, UsageInterval } from '../../../rest/usage.js'
+import { USAGE_GROUP_BY, USAGE_INTERVALS, type UsageGroupBy, type UsageInterval } from '../../../rest/usage.js'
 import type { OutputFormat } from '../../../formatters/render.js'
 import {
   formatUsageSeries,
@@ -13,12 +13,20 @@ import {
   formatUsageWarnings,
 } from '../../../formatters/usage.js'
 
-const INTERVALS: UsageInterval[] = ['total', 'day', 'week', 'month']
-const GROUP_BY: UsageGroupBy[] = ['account', 'checkType', 'account,checkType']
+interface SeriesHintFlags {
+  'interval': string
+  'group-by': string
+  'limit': number
+  'usage-terms-id'?: string
+  'from'?: string
+  'to'?: string
+  'account-id'?: string[]
+  'check-type'?: string[]
+}
 
 // The API binds the cursor to every resolved query param, so the hint must
 // repeat the flags verbatim. Values are validated enums, dates, and IDs.
-function buildSeriesCommand (flags: Record<string, any>): string {
+function buildSeriesCommand (flags: SeriesHintFlags): string {
   const parts = [
     'checkly account usage series',
     '--interval', flags.interval,
@@ -33,14 +41,6 @@ function buildSeriesCommand (flags: Record<string, any>): string {
   return parts.join(' ')
 }
 
-// A standalone function, not a private method: the command's `run` is invoked
-// via `UsageSeriesCommand.prototype.run.call(ctx)` in tests with a plain
-// context object, which does not inherit the class prototype's methods.
-async function loadAccountNames (usageTermsId: string): Promise<Map<string, string>> {
-  const { data: terms } = await api.usage.getTerms({ usageTermsId })
-  return new Map(terms.accounts.map(account => [account.id, account.name]))
-}
-
 export default class UsageSeriesCommand extends AuthCommand {
   static hidden = false
   static readOnly = true
@@ -51,12 +51,12 @@ export default class UsageSeriesCommand extends AuthCommand {
     ...usageRangeFlags(),
     'interval': Flags.string({
       description: 'Aggregation interval for each row.',
-      options: INTERVALS,
+      options: USAGE_INTERVALS,
       default: 'day',
     }),
     'group-by': Flags.string({
       description: 'Dimensions to group rows by.',
-      options: GROUP_BY,
+      options: USAGE_GROUP_BY,
       default: 'account,checkType',
     }),
     'limit': Flags.integer({
@@ -75,13 +75,18 @@ export default class UsageSeriesCommand extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      const { data: series } = await api.usage.getSeries({
-        ...usageRangeParams(flags),
-        interval: flags.interval as UsageInterval,
-        groupBy: flags['group-by'] as UsageGroupBy,
-        limit: validateIntegerRange(flags.limit, '--limit', 1, 500),
-        nextId: flags.cursor,
-      })
+      // Account names only matter for the human views, and they come from the terms.
+      const wantsAccountNames = flags.output !== 'json' && flags['group-by'].includes('account')
+      const [{ data: series }, terms] = await Promise.all([
+        api.usage.getSeries({
+          ...usageRangeParams(flags),
+          interval: flags.interval as UsageInterval,
+          groupBy: flags['group-by'] as UsageGroupBy,
+          limit: validateIntegerRange(flags.limit, '--limit', 1, 500),
+          nextId: flags.cursor,
+        }),
+        wantsAccountNames ? api.usage.getTerms(usageTermsParams(flags)) : undefined,
+      ])
 
       if (flags.output === 'json') {
         this.log(JSON.stringify({
@@ -107,9 +112,7 @@ export default class UsageSeriesCommand extends AuthCommand {
       }
 
       const { interval, groupBy } = series.period
-      const accountNames = groupBy.includes('account')
-        ? await loadAccountNames(series.usageTermsId)
-        : undefined
+      const accountNames = terms && new Map(terms.data.accounts.map(account => [account.id, account.name]))
       output.push(formatUsageSeries(series.data, fmt, { interval, groupBy, accountNames }))
 
       if (fmt === 'md') {

@@ -9,6 +9,7 @@ import { NotFoundError } from '../../../../rest/errors.js'
 import UsageTermsCommand from '../terms.js'
 import UsageSummaryCommand from '../summary.js'
 import UsageSeriesCommand from '../series.js'
+import { summaryFixture, termsFixture } from '../../../../formatters/__tests__/__fixtures__/usage-fixtures.js'
 
 export function createCommandContext (parsed: unknown) {
   const logged: string[] = []
@@ -20,21 +21,6 @@ export function createCommandContext (parsed: unknown) {
     style: { outputFormat: undefined as string | undefined, longError: vi.fn() },
     logged,
   }
-}
-
-export const termsFixture = {
-  id: '5c6f0a1e-7c4d-4a4f-9d6b-1e2f3a4b5c6d',
-  name: 'Acme Corp',
-  accounts: [
-    { id: 'a1111111-1111-4111-8111-111111111111', name: 'Acme Production' },
-    { id: 'b2222222-2222-4222-8222-222222222222', name: 'Acme Staging' },
-  ],
-  contractStartDate: '2026-01-01',
-  contractEndDate: '2026-12-31',
-  usageStartDate: '2026-01-01',
-  creditBudget: 1000,
-  standardCreditsPerUnit: 2,
-  premiumCreditsPerUnit: 3,
 }
 
 describe('usage terms', () => {
@@ -113,75 +99,11 @@ describe('usage terms', () => {
   })
 })
 
-export const summaryFixture = {
-  usageTermsId: termsFixture.id,
-  period: { from: '2026-01-01', to: '2026-01-31' },
-  totals: {
-    credits: { used: 45, percentOfBudget: 4.5 },
-    meters: [
-      {
-        meterType: 'CHECK_RUN',
-        measures: {
-          totalRuns: 11,
-          finalRuns: 10,
-          retryRuns: 1,
-          cancelledRuns: 1,
-          multiStepRequests: 9,
-          playwrightBillableDurationMs: 90_000,
-          degradedRuns: 1,
-          failedRuns: 1,
-          errorRuns: 1,
-          abortedRuns: 1,
-          overMaxResponseTimeRuns: 1,
-          standardBillableUnits: 12,
-          premiumBillableUnits: 7,
-        },
-      },
-      { meterType: 'AI_INVOCATION', measures: { invocations: 3, durationMs: 1234 } },
-    ],
-  },
-  projections: {
-    weeksSinceStart: 4,
-    weeksRemaining: 47,
-    remainingCredits: 955,
-    windows: {
-      sinceStart: {
-        usage: { credits: { used: 45, percentOfBudget: 4.5 }, meters: [] },
-        projectedAnnualPercentOfBudget: 57.2,
-        projectedCreditsAtContractEnd: 562,
-        projectedPercentAtContractEnd: 56,
-        projectedWeeksUntilExhausted: 87,
-      },
-      last30Days: {
-        usage: { credits: { used: 45, percentOfBudget: 4.5 }, meters: [] },
-        projectedAnnualPercentOfBudget: 54.75,
-        projectedCreditsAtContractEnd: 530,
-        projectedPercentAtContractEnd: 53,
-        projectedWeeksUntilExhausted: 92,
-      },
-      last7Days: {
-        usage: { credits: { used: 0, percentOfBudget: 0 }, meters: [] },
-        projectedAnnualPercentOfBudget: 0,
-        projectedCreditsAtContractEnd: 45,
-        projectedPercentAtContractEnd: 5,
-        projectedWeeksUntilExhausted: null,
-      },
-      last1Day: {
-        usage: { credits: { used: 0, percentOfBudget: 0 }, meters: [] },
-        projectedAnnualPercentOfBudget: 0,
-        projectedCreditsAtContractEnd: null,
-        projectedPercentAtContractEnd: null,
-        projectedWeeksUntilExhausted: null,
-      },
-    },
-  },
-}
-
 describe('usage summary', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     process.exitCode = undefined
-    vi.mocked(api.usage.getSummary).mockResolvedValue({ data: summaryFixture } as any)
+    vi.mocked(api.usage.getSummary).mockResolvedValue({ data: summaryFixture() } as any)
     vi.mocked(api.usage.getTerms).mockResolvedValue({ data: termsFixture } as any)
   })
 
@@ -190,7 +112,7 @@ describe('usage summary', () => {
 
     await UsageSummaryCommand.prototype.run.call(ctx as any)
 
-    expect(JSON.parse(ctx.logged[0])).toEqual(summaryFixture)
+    expect(JSON.parse(ctx.logged[0])).toEqual(summaryFixture())
     expect(api.usage.getTerms).not.toHaveBeenCalled()
   })
 
@@ -222,7 +144,7 @@ describe('usage summary', () => {
 
     await UsageSummaryCommand.prototype.run.call(ctx as any)
 
-    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: termsFixture.id })
+    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: undefined, to: undefined })
     expect(ctx.logged[0]).toContain('Usage: Acme Corp')
     expect(ctx.logged[0]).toContain('PROJECTIONS')
     expect(ctx.logged[0]).toContain('checkly account usage series --interval day')
@@ -368,7 +290,7 @@ describe('usage series', () => {
 
     await UsageSeriesCommand.prototype.run.call(ctx as any)
 
-    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: termsFixture.id })
+    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: undefined, to: '2026-01-31' })
     const out = ctx.logged[0]
     expect(out).toContain('The requested range was clamped.')
     expect(out).toContain('Acme Production')

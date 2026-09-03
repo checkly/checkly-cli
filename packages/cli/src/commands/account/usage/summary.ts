@@ -1,6 +1,6 @@
 import { AuthCommand } from '../../authCommand.js'
 import { outputFlag } from '../../../helpers/flags.js'
-import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
+import { describeUsageError, usageRangeFlags, usageRangeParams, usageTermsParams } from '../../../helpers/usage.js'
 import * as api from '../../../rest/api.js'
 import { type OutputFormat, renderCommandHints } from '../../../formatters/render.js'
 import { formatUsageSummary } from '../../../formatters/usage.js'
@@ -21,15 +21,17 @@ export default class UsageSummaryCommand extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      const { data: summary } = await api.usage.getSummary(usageRangeParams(flags))
-
       if (flags.output === 'json') {
+        const { data: summary } = await api.usage.getSummary(usageRangeParams(flags))
         this.log(JSON.stringify(summary, null, 2))
         return
       }
 
       // The summary carries no organization name or budget; the terms do.
-      const { data: terms } = await api.usage.getTerms({ usageTermsId: summary.usageTermsId })
+      const [{ data: summary }, { data: terms }] = await Promise.all([
+        api.usage.getSummary(usageRangeParams(flags)),
+        api.usage.getTerms(usageTermsParams(flags)),
+      ])
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
 
       if (fmt === 'md') {
