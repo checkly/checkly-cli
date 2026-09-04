@@ -3,18 +3,23 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 
+import Debug from 'debug'
 import { describe, it, expect, afterAll, vi } from 'vitest'
 
 import {
   pruneBundledLockfile,
   selectMaterializationEntries,
   shouldPruneLockfile,
+  redactDetail,
+  PruneBundledLockfileResult,
 } from '../lockfile-pruner.js'
 import { createFauxPackageFiles } from '../faux-package.js'
+import { UNPRINTABLE_URL } from '../../embedded-packages/diagnostics.js'
 import { BunDetector, NpmDetector, PackageManager, PNpmDetector, Runnable, YarnDetector } from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { File } from '../parser.js'
+import { captureStderr } from '../../../testing/capture-stderr.js'
 
 const PNPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-workspace')
 // Same shape as PNPM_FIXTURE_ROOT, plus two patched dependencies: `ms` is
@@ -297,6 +302,20 @@ describe('lockfile-pruner', () => {
     })
   })
 
+  describe('redactDetail()', () => {
+    it('collapses every URL to scheme and host and drops bare userinfo, leaving plain text alone', () => {
+      expect(redactDetail('GET https://user:pw@registry.example/secret-token/pkg?token=abc failed'))
+        .toEqual('GET https://registry.example failed')
+      expect(redactDetail('see http://localhost:4873/p and https://[bad failed'))
+        .toEqual(`see http://localhost:4873 and ${UNPRINTABLE_URL} failed`)
+      expect(redactDetail('HTTPS://user:pw@registry.example/secret-token/pkg'))
+        .toEqual('https://registry.example')
+      expect(redactDetail('registry //alice:p@ss@registry.example/ rejected'))
+        .toEqual('registry //registry.example/ rejected')
+      expect(redactDetail('  did you mean this? yes  ')).toEqual('did you mean this? yes')
+    })
+  })
+
   describe('pruneBundledLockfile()', () => {
     it('skips notably for an unsupported package manager even when the lockfile is unreadable', async () => {
       // Pins the ordering invariant in pruneBundledLockfile: the capability
@@ -345,16 +364,49 @@ describe('lockfile-pruner', () => {
       })
     })
 
-    it('fails when the command times out', async () => {
+    it('fails when the command times out and debug-logs the partial output', async () => {
       const { workspace, files } = makePnpmScenario()
-      const result = await pruneBundledLockfile({
-        workspace,
-        packageManager: stubPackageManager(new Runnable('node', ['-e', 'setInterval(() => {}, 1000)'])),
-        files,
-        timeoutMs: 500,
-        env: testEnv(),
-      })
-      expect(result).toMatchObject({ status: 'failed', reason: expect.stringContaining('timed out') })
+      // The timeout reason stays a one-liner; the child's partial output is
+      // only visible on the debug channel, so pin that it gets there.
+      const previouslyEnabled = Debug.disable()
+      Debug.enable('checkly:cli:services:check-parser:lockfile-pruner')
+      try {
+        let result: PruneBundledLockfileResult | undefined
+        const written = await captureStderr(async () => {
+          result = await pruneBundledLockfile({
+            workspace,
+            // The URL travels via the environment (passed through to the
+            // child) rather than the script text, which the pruner echoes
+            // in its own "Running ..." debug line.
+            packageManager: stubPackageManager(new Runnable('node', ['-e', `
+              process.stdout.write('x'.repeat(10_000) + '\\nOUTMARK ' + process.env.PRUNE_TEST_URL + '\\n')
+              process.stderr.write('ERRMARK\\n')
+              setInterval(() => {}, 1000)
+            `])),
+            files,
+            // Generous: the assertions need the child to have started and
+            // written before the kill, even on a loaded CI host.
+            timeoutMs: 2_000,
+            env: { ...testEnv(), PRUNE_TEST_URL: 'https://user:secret@registry.example/pkg?token=abc' },
+          })
+        })
+        expect(result).toMatchObject({ status: 'failed', reason: expect.stringContaining('timed out') })
+        // Assertions do not span the newline after the stream label: with
+        // DEBUG_COLORS on, debug re-prefixes every line.
+        const debugOutput = written.join('')
+        expect(debugOutput).toContain('partial stdout:')
+        expect(debugOutput).toContain('OUTMARK https://registry.example')
+        expect(debugOutput).toContain('partial stderr:')
+        expect(debugOutput).toContain('ERRMARK')
+        expect(debugOutput).not.toContain('secret')
+        expect(debugOutput).not.toContain('token=abc')
+        expect(debugOutput).not.toContain('/pkg')
+        // Only the tail survives the cap, marked as truncated.
+        expect(debugOutput).toContain('…')
+        expect(debugOutput).not.toContain('x'.repeat(10_000))
+      } finally {
+        Debug.enable(previouslyEnabled)
+      }
     }, 30_000)
 
     it('skips when the regenerated lockfile is identical and nothing was backfilled', async () => {
@@ -618,7 +670,7 @@ describe('lockfile-pruner', () => {
       // child's output, not in the displayed command line.
       const scriptPath = path.join(await makeTempDir(), 'fail.cjs')
       await fs.writeFile(scriptPath, `
-        process.stdout.write('GET https://alice:sup3rsecret@registry.example.com/pkg failed ' + 'x'.repeat(600))
+        process.stdout.write('GET https://alice:sup3rsecret@registry.example.com/pkg?token=abc failed ' + 'x'.repeat(600))
         process.exit(1)
       `)
       const result = await pruneBundledLockfile({
@@ -632,7 +684,8 @@ describe('lockfile-pruner', () => {
         return
       }
       expect(result.reason).not.toContain('sup3rsecret')
-      expect(result.reason).toContain('registry.example.com')
+      expect(result.reason).not.toContain('token=abc')
+      expect(result.reason).toContain('https://registry.example.com failed')
       expect(result.reason).toContain('…')
     })
 

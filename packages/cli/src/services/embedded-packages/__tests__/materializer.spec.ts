@@ -9,6 +9,7 @@ import Debug from 'debug'
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
 import { EmbeddedPackageError, EmbeddedPackagesMaterializer } from '../materializer.js'
+import { captureStderr } from '../../../testing/capture-stderr.js'
 
 const fooTarball = Buffer.from('fake tarball content for @acme/foo')
 const fooIntegrity = `sha512-${createHash('sha512').update(fooTarball).digest('base64')}`
@@ -28,21 +29,6 @@ packages:
   'git-dep@https://codeload.github.com/user/git-dep/tar.gz/abc123':
     resolution: {tarball: https://codeload.github.com/user/git-dep/tar.gz/abc123}
 `
-}
-
-async function captureStderr (fn: () => Promise<void>): Promise<string[]> {
-  const written: string[] = []
-  const original = process.stderr.write.bind(process.stderr)
-  process.stderr.write = ((chunk: string) => {
-    written.push(String(chunk))
-    return true
-  }) as never
-  try {
-    await fn()
-  } finally {
-    process.stderr.write = original
-  }
-  return written
 }
 
 // The lead-in of the warning a configuration gets when it selects no
