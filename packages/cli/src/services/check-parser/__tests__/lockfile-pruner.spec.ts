@@ -29,6 +29,7 @@ import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { File } from '../parser.js'
 import { captureStderr } from '../../../testing/capture-stderr.js'
+import { shellQuote } from '../../shell.js'
 
 const PNPM_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures', 'pnpm-workspace')
 // Same shape as PNPM_FIXTURE_ROOT, plus two patched dependencies: `ms` is
@@ -594,7 +595,9 @@ describe('lockfile-pruner', () => {
         // call (carrying the store), not from the capability check's.
         expect(result).toMatchObject({
           status: 'failed',
-          reason: expect.stringContaining(`store=${path.dirname(storePath)} failed:`),
+          // Quoted the way the pruner renders the command: a Windows path
+          // carries backslashes, which the shell quoting wraps in quotes.
+          reason: expect.stringContaining(`${shellQuote(`store=${path.dirname(storePath)}`)} failed:`),
         })
       })
 
