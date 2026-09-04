@@ -587,6 +587,12 @@ describe('lockfileOnlyInstallCommand', () => {
     ])
   })
 
+  it('pins the pnpm store when given one', () => {
+    const runnable = new PNpmDetector().lockfileOnlyInstallCommand({ storeDir: '/stores/pnpm' })
+    expect(runnable.args.at(-1)).toEqual('--config.storeDir=/stores/pnpm')
+    expect(runnable.args).toHaveLength(new PNpmDetector().lockfileOnlyInstallCommand().args.length + 1)
+  })
+
   it('regenerates the lockfile without installing for npm, preferring cached metadata', () => {
     const runnable = new NpmDetector().lockfileOnlyInstallCommand()
     expect(runnable?.executable).toEqual('npm')
@@ -610,6 +616,22 @@ describe('lockfileOnlyInstallCommand', () => {
   it('is unsupported for cnpm and deno', () => {
     expect(new CNpmDetector().lockfileOnlyInstallCommand()).toBeUndefined()
     expect(new DenoDetector().lockfileOnlyInstallCommand()).toBeUndefined()
+  })
+})
+
+describe('storeDirCommand', () => {
+  it('looks the store up with pnpm, whose store depends on the project location', () => {
+    const runnable = new PNpmDetector().storeDirCommand()
+    expect(runnable.executable).toEqual('pnpm')
+    expect(runnable.args).toEqual(['store', 'path'])
+  })
+
+  it('is absent for package managers with a single home-directory cache', () => {
+    for (const detector of [
+      new NpmDetector(), new CNpmDetector(), new YarnDetector(), new BunDetector(), new DenoDetector(),
+    ]) {
+      expect(detector.storeDirCommand(), detector.name).toBeUndefined()
+    }
   })
 })
 
