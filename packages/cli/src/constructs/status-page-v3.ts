@@ -61,6 +61,11 @@ export interface StatusPageV3Props {
    * Whether search engines may index the public page. Defaults to true.
    */
   allowIndexing?: boolean
+  /**
+   * Protect the status page with a generated password. The password is shown
+   * once after the deployment that enables protection.
+   */
+  isPrivate?: boolean
 }
 
 /**
@@ -117,6 +122,7 @@ export class StatusPageV3 extends Construct {
   footerText?: string
   googleAnalyticsTag?: string
   allowIndexing?: boolean
+  isPrivate?: boolean
 
   // Same resource type as the v2 page: both live in one table and are told
   // apart by the `version` discriminator synthesized below.
@@ -146,6 +152,7 @@ export class StatusPageV3 extends Construct {
     this.footerText = props.footerText
     this.googleAnalyticsTag = props.googleAnalyticsTag
     this.allowIndexing = props.allowIndexing
+    this.isPrivate = props.isPrivate
 
     Session.registerConstruct(this)
   }
@@ -177,6 +184,7 @@ export class StatusPageV3 extends Construct {
       footerText: this.footerText,
       googleAnalyticsTag: this.googleAnalyticsTag,
       allowIndexing: this.allowIndexing,
+      isPrivate: this.isPrivate,
       version: 3,
     }
   }

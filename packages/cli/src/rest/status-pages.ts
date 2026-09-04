@@ -37,6 +37,10 @@ export interface PaginatedStatusPages {
   length: number
 }
 
+export interface GeneratedStatusPagePassword {
+  password: string
+}
+
 class StatusPages {
   api: AxiosInstance
   constructor (api: AxiosInstance) {
@@ -51,6 +55,10 @@ class StatusPages {
   async get (id: string): Promise<StatusPage> {
     const response = await this.api.get<StatusPage>(`/v1/status-pages/${id}`)
     return response.data
+  }
+
+  regeneratePasswordV3 (id: string) {
+    return this.api.post<GeneratedStatusPagePassword>(`/v3/status-pages/${id}/password`)
   }
 }
 
