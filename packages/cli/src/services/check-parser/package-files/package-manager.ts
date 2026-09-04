@@ -222,7 +222,18 @@ export class NpmDetector extends PackageManagerDetector implements PackageManage
   lockfileOnlyInstallCommand (): Runnable {
     // npm has no lockfile-location setting; package-lock.json always lives
     // next to the package.json npm operates on, so there is nothing to pin.
-    return new Runnable('npm', ['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
+    //
+    // --prefer-offline: the pruner's manifests deliberately differ from the
+    // lockfile, so npm re-resolves rather than taking its up-to-date fast
+    // path, and by default re-fetches every packument it considers stale.
+    // With the flag npm accepts cached packuments regardless of age and only
+    // contacts the registry for misses. A stale packument can at most change
+    // a fresh resolution, and the pruner's subset verification rejects any
+    // regenerated entry absent from the original lockfile, so the worst case
+    // is a fallback to the original lockfile, never a wrong one.
+    return new Runnable('npm', [
+      'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund', '--prefer-offline',
+    ])
   }
 
   addCommand (options: AddCommandOptions): Runnable {
@@ -386,13 +397,36 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     // npm_config_trust_lockfile env var does not disable the verification
     // on pnpm 11.
     //
-    // Verified on pnpm 10 and 11: neither --config. setting reaches the
-    // regenerated lockfile's `settings` section, so the snapshot
-    // comparisons below are unaffected.
+    // --prefer-offline: the pruner's manifests deliberately differ from the
+    // lockfile (pruned members, faux manifests, a partial importer set), so
+    // pnpm never takes its "lockfile up to date, resolution skipped" fast
+    // path. It re-resolves, and for every package it cannot serve from the
+    // store it needs registry metadata; without the flag pnpm 10 only serves
+    // that from its metadata cache for exact-version specs, while range and
+    // catalog specs and optional dependencies are re-fetched on every prune.
+    // Behind a slow or intercepting proxy one stalled request plus pnpm's
+    // fetch retries exceeds the prune budget on its own. With the flag pnpm
+    // uses cached metadata for any spec type and only contacts the registry
+    // for misses, so a machine that has installed the project needs little
+    // or no network. The soft flag is deliberate: unlike yarn, which
+    // regenerates from locked entries and is run with the network blocked,
+    // pnpm resolves from metadata, and a cold cache (a machine that never
+    // installed the project) is a legitimate first-prune state that --offline
+    // would turn into a guaranteed fallback. A stale cached packument can at
+    // most change a fresh resolution, and the pruner's subset verification
+    // rejects any regenerated entry absent from the original lockfile, so
+    // the worst case is a fallback, never a wrong lockfile.
+    //
+    // The pruner does not compare the lockfile's `settings` section, so any
+    // setting pnpm records there ships to the runner unchecked and could
+    // mismatch the runner's own install configuration. Verified on pnpm 10
+    // and 11: neither --config. setting nor --prefer-offline is recorded in
+    // `settings` (only autoInstallPeers and excludeLinksFromLockfile are).
     return new Runnable('pnpm', [
       'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
       '--config.allowUnusedPatches=true',
       '--config.trustLockfile=true',
+      '--prefer-offline',
     ])
   }
 
