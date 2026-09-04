@@ -26,7 +26,7 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStra
    * The JavaScript engine used to run the Playwright tests.
    * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance.
    * When omitted, the CLI auto-detects from project version files
-   * (.node-version, .nvmrc, .tool-versions, .bun-version, or package.json engines).
+   * (.node-version, .nvmrc, .tool-versions, .bun-version, or package.json volta/engines).
    *
    * @example Engine.node('24')
    * @example Engine.bun('1.3')
@@ -378,7 +378,8 @@ export class PlaywrightCheck extends RuntimeCheck {
 
   async #resolveEngine (diagnostics: Diagnostics): Promise<void> {
     if (!this.engine && Session.basePath) {
-      Session.detectedEnginePromise ??= detectEngine(Session.basePath).then(e => e ?? null)
+      Session.detectedEnginePromise ??= detectEngine(Session.basePath, Session.contextPath)
+        .then(e => e ?? null)
       const result = await Session.detectedEnginePromise
       if (result) {
         this.engine = result.engine
@@ -392,7 +393,7 @@ export class PlaywrightCheck extends RuntimeCheck {
               notice
               + '\n\n'
               + `Hint: The value was automatically detected from your `
-              + `project's version files (.node-version, .nvmrc, etc.). `
+              + `project's version files (.node-version, .nvmrc, package.json volta/engines, etc.). `
               + `To override, set "engine" explicitly using Engine.node() `
               + `or Engine.bun().`),
           ))
