@@ -14,7 +14,7 @@ import { lineage } from './package-files/walk.js'
 import { PackageManager, PathLookup, Runnable } from './package-files/package-manager.js'
 import { Package, Workspace } from './package-files/workspace.js'
 import { File, VirtualFile } from './parser.js'
-import { redactUrl } from '../embedded-packages/diagnostics.js'
+import { capList, redactUrl } from '../embedded-packages/diagnostics.js'
 import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:lockfile-pruner')
@@ -380,8 +380,10 @@ interface LockfileSnapshot {
   /** Dependency edges by a format-specific unique key. */
   edges: Map<string, LockfileEdge>
   /**
-   * Resolution entries: key → recorded version (or empty when the key
-   * itself pins the version, as in pnpm). Used for the subset check.
+   * Resolution entries for the subset check, keyed per format so that the
+   * key pins the exact resolution (pnpm and npm include the version, yarn
+   * and bun the whole serialized entry), mapped to a short `name@version`
+   * display form for messages.
    */
   resolutions: Map<string, string>
   /** Importer directories, relative to the root ('.' for the root itself). */
@@ -459,7 +461,10 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
     // is what the subset check needs.
     for (const section of ['packages', 'snapshots']) {
       for (const key of Object.keys(doc[section] ?? {})) {
-        snapshot.resolutions.set(`${section}\0${key}`, '')
+        // The display name drops the peer suffix (`foo@1.0.0(bar@2.0.0)`)
+        // that the `snapshots` key carries and the `packages` key does not,
+        // so a re-resolved package is named once across the two sections.
+        snapshot.resolutions.set(`${section}\0${key}`, key.replace(/\(.*$/, ''))
       }
     }
 
@@ -507,7 +512,11 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
         isLink: entry.link === true,
       })
       if (entry.link !== true) {
-        snapshot.resolutions.set(key, String(entry.version ?? entry.resolved ?? ''))
+        // Paths are unique per lockfile, so the version can ride along in
+        // the key to make a changed version an unknown entry.
+        const version = String(entry.version ?? entry.resolved ?? '')
+        const pinned = version === '' ? key : `${key}@${version}`
+        snapshot.resolutions.set(pinned, pinned)
       }
     }
 
@@ -602,7 +611,8 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
     // still fail the check. Serialization is stable because both sides are
     // parsed from bun's own deterministic output by this same function.
     for (const tuple of Object.values(packages)) {
-      snapshot.resolutions.set(JSON.stringify(tuple), '')
+      const name = Array.isArray(tuple) && typeof tuple[0] === 'string' ? tuple[0] : JSON.stringify(tuple)
+      snapshot.resolutions.set(JSON.stringify(tuple), name)
     }
 
     return snapshot
@@ -717,7 +727,7 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
         // dependencies) must still fail the check. Serialization is stable
         // because both sides are parsed from yarn's own deterministic
         // output by this same function.
-        snapshot.resolutions.set(JSON.stringify(entry), '')
+        snapshot.resolutions.set(JSON.stringify(entry), resolution)
         continue
       }
       // Workspace entries are the importers: their resolution carries the
@@ -803,11 +813,27 @@ function verifyPrunedLockfile (
   // lockfile was out of date with the bundled manifests and the package
   // manager resolved something fresh from the registry — versions the user
   // never installed or tested with.
-  for (const [key, version] of regenerated.resolutions) {
-    if (original.resolutions.get(key) !== version) {
-      return `the regenerated lockfile resolves entries not present in the original `
-        + `(is the lockfile out of date with package.json?)`
+  // Collected by display name: pnpm records a re-resolved package under
+  // both `packages` and `snapshots`, which would otherwise list it twice.
+  const unexpected = new Set<string>()
+  for (const [key, name] of regenerated.resolutions) {
+    if (!original.resolutions.has(key)) {
+      unexpected.add(name)
     }
+  }
+  if (unexpected.size > 0) {
+    // Names can be URLs (tarball and git dependencies), so each is
+    // redacted on its own, after deduplication (two entries can redact to
+    // the same text) and before joining (a URL's redaction would swallow
+    // the separator after it). Only the length cap applies to the joined
+    // sample; the complete list goes to the debug channel.
+    const listed = [...unexpected].map(name => redactDetail(name))
+    if (debug.enabled) {
+      debug('%d unexpected resolution(s) in the regenerated lockfile: %s', listed.length, listed.join(', '))
+    }
+    return `the regenerated lockfile resolves entries not present in the original: `
+      + capDetail(capList(listed, ', ', ' and '))
+      + ` (is the lockfile out of date with package.json?)`
   }
 
   // Every dependency edge that was a workspace link and that still exists
@@ -993,11 +1019,15 @@ export function redactDetail (detail: string): string {
 }
 
 function sanitizeDetail (detail: string): string {
-  const redacted = redactDetail(detail)
-  if (redacted.length <= MAX_FAILURE_DETAIL_LENGTH) {
-    return redacted
+  return capDetail(redactDetail(detail))
+}
+
+/** The length cap alone, for text that is already redacted. */
+function capDetail (detail: string): string {
+  if (detail.length <= MAX_FAILURE_DETAIL_LENGTH) {
+    return detail
   }
-  return `${redacted.slice(0, MAX_FAILURE_DETAIL_LENGTH)}…`
+  return `${detail.slice(0, MAX_FAILURE_DETAIL_LENGTH)}…`
 }
 
 /**

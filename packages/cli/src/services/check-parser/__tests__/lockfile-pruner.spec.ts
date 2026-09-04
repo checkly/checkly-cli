@@ -895,8 +895,88 @@ describe('lockfile-pruner', () => {
       })
       expect(result).toMatchObject({
         status: 'failed',
-        reason: expect.stringContaining('not present in the original'),
+        reason: expect.stringContaining('not present in the original: safe-buffer@5.2.1 (is the lockfile'),
       })
+    })
+
+    it('names a bounded sample of the unexpected entries, once each, and lists all at debug level', async () => {
+      const { workspace, files } = makePnpmScenario()
+      // A real re-resolution records a new package under both `packages`
+      // and `snapshots`, the latter with a peer suffix; the reason must
+      // name it once. Nine packages exceeds the eight the reason shows.
+      const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map(name => `fresh-${name}@1.0.0`)
+      const packagesBlock = names.map(name => `  ${name}:\n    resolution: {integrity: sha512-x}\n`).join('')
+      const snapshotsBlock = names.map(name => `  ${name}(peer-dep@2.0.0): {}\n`).join('')
+      const script = `
+        const fs = require('fs')
+        const content = fs.readFileSync('pnpm-lock.yaml', 'utf8')
+        fs.writeFileSync('pnpm-lock.yaml', content
+          .replace('\\npackages:\\n', '\\npackages:\\n' + ${JSON.stringify(packagesBlock)})
+          .replace('\\nsnapshots:\\n', '\\nsnapshots:\\n' + ${JSON.stringify(snapshotsBlock)}))
+      `
+      const previouslyEnabled = Debug.disable()
+      Debug.enable('checkly:cli:services:check-parser:lockfile-pruner')
+      try {
+        let result: PruneBundledLockfileResult | undefined
+        const written = await captureStderr(async () => {
+          result = await pruneBundledLockfile({
+            workspace,
+            packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+            files,
+            env: testEnv(),
+          })
+        })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: 'the regenerated lockfile resolves entries not present in the original: '
+            + `${names.slice(0, 8).join(', ')} and 1 more (is the lockfile out of date with package.json?)`,
+        })
+        const debugOutput = written.join('')
+        expect(debugOutput).toContain(`9 unexpected resolution(s) in the regenerated lockfile: ${names.join(', ')}`)
+      } finally {
+        Debug.enable(previouslyEnabled)
+      }
+    })
+
+    it('redacts URL-form entries in the reason and in the debug list', async () => {
+      const { workspace, files } = makePnpmScenario()
+      // Tarball and git dependencies are keyed by their URL, which can carry
+      // registry credentials. A plain entry follows the URL one, so the
+      // separator between them must survive redaction.
+      const script = `
+        const fs = require('fs')
+        const content = fs.readFileSync('pnpm-lock.yaml', 'utf8')
+        fs.writeFileSync('pnpm-lock.yaml', content
+          + '\\n  ' + process.env.PRUNE_TEST_KEY + ':\\n    resolution: {integrity: sha512-x}\\n'
+          + '  after-dep@1.0.0:\\n    resolution: {integrity: sha512-x}\\n')
+      `
+      const previouslyEnabled = Debug.disable()
+      Debug.enable('checkly:cli:services:check-parser:lockfile-pruner')
+      try {
+        let result: PruneBundledLockfileResult | undefined
+        const written = await captureStderr(async () => {
+          result = await pruneBundledLockfile({
+            workspace,
+            packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+            files,
+            env: { ...testEnv(), PRUNE_TEST_KEY: 'tarball-dep@https://user:secret@registry.example/T0KEN/dep.tgz' },
+          })
+        })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: expect.stringContaining('not present in the original: tarball-dep@https://registry.example, after-dep@1.0.0 ('),
+        })
+        const debugOutput = written.join('')
+        expect(debugOutput).toContain(
+          '2 unexpected resolution(s) in the regenerated lockfile: tarball-dep@https://registry.example, after-dep@1.0.0',
+        )
+        for (const output of [result?.reason ?? '', debugOutput]) {
+          expect(output).not.toContain('secret')
+          expect(output).not.toContain('T0KEN')
+        }
+      } finally {
+        Debug.enable(previouslyEnabled)
+      }
     })
 
     it('fails when the lockfile format version changes', async () => {
@@ -1246,7 +1326,7 @@ describe('lockfile-pruner', () => {
       })
       expect(result).toMatchObject({
         status: 'failed',
-        reason: expect.stringContaining('not present in the original'),
+        reason: expect.stringContaining('not present in the original: node_modules/ms@2.0.0 ('),
       })
     })
 
@@ -1453,7 +1533,7 @@ describe('lockfile-pruner', () => {
       })
       expect(result).toMatchObject({
         status: 'failed',
-        reason: expect.stringContaining('not present in the original'),
+        reason: expect.stringContaining('not present in the original: ms@2.1.3 ('),
       })
     })
 
@@ -1942,7 +2022,7 @@ describe('lockfile-pruner', () => {
       })
       expect(result).toMatchObject({
         status: 'failed',
-        reason: expect.stringContaining('not present in the original'),
+        reason: expect.stringContaining('not present in the original: ms@npm:2.1.3 ('),
       })
     })
 
