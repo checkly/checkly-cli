@@ -15,8 +15,7 @@ export type UsageErrorCode =
   | 'USAGE_TERMS_CONFLICT'
 
 export interface UsageTermsParams {
-  usageTermsId?: string
-  /** YYYY-MM-DD, inclusive. Resolves the usage terms when usageTermsId is absent. */
+  /** YYYY-MM-DD, inclusive. Resolves the usage terms that cover this date. Defaults to today. */
   to?: string
 }
 
@@ -145,7 +144,6 @@ function toQuery (params: UsageSeriesParams): Record<string, QueryValue> {
   }
   const joined = (values: string[] | undefined) => (values?.length ? values.join(',') : undefined)
 
-  set('usageTermsId', params.usageTermsId)
   set('from', params.from)
   set('to', params.to)
   set('accountIds', joined(params.accountIds))

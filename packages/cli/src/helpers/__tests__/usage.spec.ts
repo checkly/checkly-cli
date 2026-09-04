@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../../rest/errors.js'
-import { describeUsageError, parseDateOnly, usageRangeParams, usageTermsParams } from '../usage.js'
+import { describeUsageError, parseDateOnly, usageRangeParams, usageTermsFlags, usageTermsParams } from '../usage.js'
 
 describe('parseDateOnly', () => {
   it('returns undefined when the value is omitted', () => {
@@ -16,25 +16,26 @@ describe('parseDateOnly', () => {
   })
 })
 
+describe('usageTermsFlags', () => {
+  it('only exposes --to; the public API resolves the terms by date', () => {
+    expect(Object.keys(usageTermsFlags())).toEqual(['to'])
+  })
+})
+
 describe('usageTermsParams', () => {
   it('maps flags to API params', () => {
-    expect(usageTermsParams({ 'usage-terms-id': 'terms-1', 'to': '2026-01-31' })).toEqual({
-      usageTermsId: 'terms-1',
-      to: '2026-01-31',
-    })
+    expect(usageTermsParams({ to: '2026-01-31' })).toStrictEqual({ to: '2026-01-31' })
   })
 })
 
 describe('usageRangeParams', () => {
   it('maps flags to API params', () => {
     expect(usageRangeParams({
-      'usage-terms-id': 'terms-1',
       'from': '2026-01-01',
       'to': '2026-01-31',
       'account-id': ['acc-a'],
       'check-type': ['API', 'BROWSER'],
-    })).toEqual({
-      usageTermsId: 'terms-1',
+    })).toStrictEqual({
       from: '2026-01-01',
       to: '2026-01-31',
       accountIds: ['acc-a'],
@@ -57,15 +58,27 @@ describe('describeUsageError', () => {
       .toContain('No usage terms cover this account')
   })
 
-  it('explains conflicting usage terms', () => {
-    expect(describeUsageError(new ValidationError(body('USAGE_TERMS_CONFLICT', 409))))
-      .toContain('--usage-terms-id')
+  it('names the --to date when no terms cover it, without implying there is no contract at all', () => {
+    const message = describeUsageError(new NotFoundError(body('NO_USAGE_TERMS', 404)), { to: '2020-01-01' })
+    expect(message).toContain('on 2020-01-01')
+    expect(message).toContain('checkly account usage terms')
+    expect(message).not.toContain('organization with a usage contract')
   })
 
-  it('explains an account outside the terms and keeps the upstream message', () => {
+  it('explains conflicting usage terms without suggesting the removed --usage-terms-id flag', () => {
+    const message = describeUsageError(new ValidationError(body('USAGE_TERMS_CONFLICT', 409)))
+    expect(message).toContain('--to')
+    expect(message).not.toContain('--usage-terms-id')
+  })
+
+  it('explains an account outside the terms, keeping the upstream message and separating the sentences', () => {
     const message = describeUsageError(new ValidationError(body('ACCOUNT_NOT_IN_USAGE_TERMS', 400, 'Account x is not part')))
-    expect(message).toContain('Account x is not part')
-    expect(message).toContain('checkly account usage terms')
+    expect(message).toBe('Account x is not part. Run "checkly account usage terms" to list the accounts covered by the terms.')
+  })
+
+  it('does not double the period when the upstream message already ends with one', () => {
+    const message = describeUsageError(new ValidationError(body('ACCOUNT_NOT_IN_USAGE_TERMS', 400, 'Account x is not part.')))
+    expect(message).toBe('Account x is not part. Run "checkly account usage terms" to list the accounts covered by the terms.')
   })
 
   it('explains an invalid cursor', () => {

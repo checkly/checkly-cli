@@ -17,7 +17,6 @@ interface SeriesHintFlags {
   'interval': string
   'group-by': string
   'limit': number
-  'usage-terms-id'?: string
   'from'?: string
   'to'?: string
   'account-id'?: string[]
@@ -33,7 +32,6 @@ function buildSeriesCommand (flags: SeriesHintFlags): string {
     '--group-by', flags['group-by'],
     '--limit', String(flags.limit),
   ]
-  if (flags['usage-terms-id']) parts.push('--usage-terms-id', flags['usage-terms-id'])
   if (flags.from) parts.push('--from', flags.from)
   if (flags.to) parts.push('--to', flags.to)
   for (const accountId of flags['account-id'] ?? []) parts.push('--account-id', accountId)
@@ -127,7 +125,7 @@ export default class UsageSeriesCommand extends AuthCommand {
 
       this.log(output.join('\n'))
     } catch (err: any) {
-      this.style.longError('Failed to load usage series.', describeUsageError(err) ?? err)
+      this.style.longError('Failed to load usage series.', describeUsageError(err, { to: flags.to }) ?? err)
       process.exitCode = 1
     }
   }

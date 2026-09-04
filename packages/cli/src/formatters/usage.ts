@@ -298,7 +298,8 @@ function buildSeriesColumns (format: OutputFormat, options: UsageSeriesTableOpti
   ]
 
   if (options.groupBy.includes('account')) {
-    columns.push({ header: 'Account', minWidth: 10, maxWidth: 40, value: (row, fmt) => accountLabel(row, fmt) })
+    // 15 keeps a 13-character prefix on narrow terminals; the terminal view has no ID column to fall back on.
+    columns.push({ header: 'Account', minWidth: 15, maxWidth: 40, value: (row, fmt) => accountLabel(row, fmt) })
     if (format === 'md') {
       columns.push({ header: 'Account ID', value: (row, fmt) => row.accountId ?? dash(fmt) })
     }

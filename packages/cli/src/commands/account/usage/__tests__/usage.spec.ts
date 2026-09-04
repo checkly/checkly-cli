@@ -6,6 +6,13 @@ vi.mock('../../../../rest/api', () => ({
 
 import * as api from '../../../../rest/api.js'
 import { NotFoundError } from '../../../../rest/errors.js'
+
+const noUsageTerms = () => new NotFoundError({
+  statusCode: 404,
+  error: 'Not Found',
+  message: 'No usage terms found for the requested date',
+  code: 'NO_USAGE_TERMS',
+} as any)
 import UsageTermsCommand from '../terms.js'
 import UsageSummaryCommand from '../summary.js'
 import UsageSeriesCommand from '../series.js'
@@ -35,16 +42,16 @@ describe('usage terms', () => {
 
     await UsageTermsCommand.prototype.run.call(ctx as any)
 
-    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: undefined, to: undefined })
+    expect(api.usage.getTerms).toHaveBeenCalledWith({ to: undefined })
     expect(JSON.parse(ctx.logged[0])).toEqual(termsFixture)
   })
 
-  it('passes --usage-terms-id and --to through', async () => {
-    const ctx = createCommandContext({ flags: { 'usage-terms-id': 'terms-1', 'to': '2026-03-31', 'output': 'json' } })
+  it('passes --to through', async () => {
+    const ctx = createCommandContext({ flags: { to: '2026-03-31', output: 'json' } })
 
     await UsageTermsCommand.prototype.run.call(ctx as any)
 
-    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: 'terms-1', to: '2026-03-31' })
+    expect(api.usage.getTerms).toHaveBeenCalledWith({ to: '2026-03-31' })
   })
 
   it('renders the detail view with follow-up hints', async () => {
@@ -54,8 +61,19 @@ describe('usage terms', () => {
 
     expect(ctx.logged[0]).toContain('Usage terms: Acme Corp')
     expect(ctx.logged[0]).toContain('Acme Production')
-    expect(ctx.logged[0]).toContain(`checkly account usage summary --usage-terms-id ${termsFixture.id}`)
-    expect(ctx.logged[0]).toContain(`checkly account usage series --usage-terms-id ${termsFixture.id}`)
+    expect(ctx.logged[0]).toContain('checkly account usage summary')
+    expect(ctx.logged[0]).toContain('checkly account usage series --interval month --group-by account')
+    expect(ctx.logged[0]).not.toContain('--usage-terms-id')
+    expect(ctx.logged[0]).not.toContain('--to')
+  })
+
+  it('repeats --to in the follow-up hints so they resolve the same terms', async () => {
+    const ctx = createCommandContext({ flags: { to: '2026-03-31', output: 'detail' } })
+
+    await UsageTermsCommand.prototype.run.call(ctx as any)
+
+    expect(ctx.logged[0]).toContain('checkly account usage summary --to 2026-03-31')
+    expect(ctx.logged[0]).toContain('checkly account usage series --interval month --group-by account --to 2026-03-31')
   })
 
   it('renders markdown without hints', async () => {
@@ -81,12 +99,7 @@ describe('usage terms', () => {
   })
 
   it('translates NO_USAGE_TERMS into an actionable message', async () => {
-    vi.mocked(api.usage.getTerms).mockRejectedValue(new NotFoundError({
-      statusCode: 404,
-      error: 'Not Found',
-      message: 'No usage terms found for the requested date',
-      code: 'NO_USAGE_TERMS',
-    } as any))
+    vi.mocked(api.usage.getTerms).mockRejectedValue(noUsageTerms())
     const ctx = createCommandContext({ flags: { output: 'detail' } })
 
     await UsageTermsCommand.prototype.run.call(ctx as any)
@@ -96,6 +109,15 @@ describe('usage terms', () => {
       expect.stringContaining('No usage terms cover this account'),
     )
     expect(process.exitCode).toBe(1)
+  })
+
+  it('names the --to date when no terms cover it', async () => {
+    vi.mocked(api.usage.getTerms).mockRejectedValue(noUsageTerms())
+    const ctx = createCommandContext({ flags: { to: '2020-01-01', output: 'detail' } })
+
+    await UsageTermsCommand.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to load usage terms.', expect.stringContaining('on 2020-01-01'))
   })
 })
 
@@ -121,7 +143,6 @@ describe('usage summary', () => {
       flags: {
         'from': '2026-01-01',
         'to': '2026-01-31',
-        'usage-terms-id': 'terms-1',
         'account-id': ['acc-a', 'acc-b'],
         'check-type': ['API'],
         'output': 'json',
@@ -131,7 +152,6 @@ describe('usage summary', () => {
     await UsageSummaryCommand.prototype.run.call(ctx as any)
 
     expect(api.usage.getSummary).toHaveBeenCalledWith({
-      usageTermsId: 'terms-1',
       from: '2026-01-01',
       to: '2026-01-31',
       accountIds: ['acc-a', 'acc-b'],
@@ -144,7 +164,7 @@ describe('usage summary', () => {
 
     await UsageSummaryCommand.prototype.run.call(ctx as any)
 
-    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: undefined, to: undefined })
+    expect(api.usage.getTerms).toHaveBeenCalledWith({ to: undefined })
     expect(ctx.logged[0]).toContain('Usage: Acme Corp')
     expect(ctx.logged[0]).toContain('PROJECTIONS')
     expect(ctx.logged[0]).toContain('checkly account usage series --interval day')
@@ -159,6 +179,15 @@ describe('usage summary', () => {
     expect(ctx.logged[0]).toContain('# Usage: Acme Corp')
     expect(ctx.logged[0]).toContain('## Projections')
     expect(ctx.logged[0]).not.toContain('checkly account usage series')
+  })
+
+  it('names the --to date when no terms cover it', async () => {
+    vi.mocked(api.usage.getSummary).mockRejectedValue(noUsageTerms())
+    const ctx = createCommandContext({ flags: { to: '2020-01-01', output: 'json' } })
+
+    await UsageSummaryCommand.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to load usage summary.', expect.stringContaining('on 2020-01-01'))
   })
 
   it('rejects --from after --to before calling the API', async () => {
@@ -259,7 +288,6 @@ describe('usage series', () => {
         ...seriesFlags,
         'from': '2026-01-01',
         'to': '2026-01-31',
-        'usage-terms-id': 'terms-1',
         'account-id': ['acc-a'],
         'check-type': ['API', 'BROWSER'],
         'limit': 50,
@@ -271,7 +299,6 @@ describe('usage series', () => {
     await UsageSeriesCommand.prototype.run.call(ctx as any)
 
     expect(api.usage.getSeries).toHaveBeenCalledWith({
-      usageTermsId: 'terms-1',
       from: '2026-01-01',
       to: '2026-01-31',
       accountIds: ['acc-a'],
@@ -290,7 +317,7 @@ describe('usage series', () => {
 
     await UsageSeriesCommand.prototype.run.call(ctx as any)
 
-    expect(api.usage.getTerms).toHaveBeenCalledWith({ usageTermsId: undefined, to: '2026-01-31' })
+    expect(api.usage.getTerms).toHaveBeenCalledWith({ to: '2026-01-31' })
     const out = ctx.logged[0]
     expect(out).toContain('The requested range was clamped.')
     expect(out).toContain('Acme Production')
@@ -339,6 +366,15 @@ describe('usage series', () => {
     expect(out).toContain('| Period | Account | Account ID |')
     expect(out).toContain('Next page cursor: `cursor-2`')
     expect(out).not.toContain('Next page:')
+  })
+
+  it('names the --to date when no terms cover it', async () => {
+    vi.mocked(api.usage.getSeries).mockRejectedValue(noUsageTerms())
+    const ctx = createCommandContext({ flags: { ...seriesFlags, to: '2020-01-01' } })
+
+    await UsageSeriesCommand.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to load usage series.', expect.stringContaining('on 2020-01-01'))
   })
 
   it('rejects an out-of-range --limit before calling the API', async () => {

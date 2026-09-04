@@ -14,14 +14,20 @@ describe('Usage REST client', () => {
     expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', { params: {} })
   })
 
-  it('passes usageTermsId and to when requesting usage terms', async () => {
+  it('passes to when requesting usage terms', async () => {
     const api = createApi()
 
-    await new Usage(api as any).getTerms({ usageTermsId: 'terms-1', to: '2026-01-31' })
+    await new Usage(api as any).getTerms({ to: '2026-01-31' })
 
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', {
-      params: { usageTermsId: 'terms-1', to: '2026-01-31' },
-    })
+    expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', { params: { to: '2026-01-31' } })
+  })
+
+  it('never forwards usageTermsId; the public API rejects it with a 400', async () => {
+    const api = createApi()
+
+    await new Usage(api as any).getTerms({ usageTermsId: 'terms-1', to: '2026-01-31' } as any)
+
+    expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', { params: { to: '2026-01-31' } })
   })
 
   it('comma-joins account and check type filters for the summary', async () => {

@@ -7,11 +7,8 @@ const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 
 export function usageTermsFlags () {
   return {
-    'usage-terms-id': Flags.string({
-      description: 'Usage terms ID to report on. Defaults to the terms that cover the --to date.',
-    }),
-    'to': Flags.string({
-      description: 'End date (YYYY-MM-DD, inclusive). Defaults to today.',
+    to: Flags.string({
+      description: 'End date (YYYY-MM-DD, inclusive). Defaults to today. Selects the usage terms that cover this date.',
     }),
   }
 }
@@ -54,8 +51,7 @@ export function parseDateOnly (value: string | undefined, label: string): string
 }
 
 interface UsageTermsFlagValues {
-  'usage-terms-id'?: string
-  'to'?: string
+  to?: string
 }
 
 interface UsageRangeFlagValues extends UsageTermsFlagValues {
@@ -66,8 +62,7 @@ interface UsageRangeFlagValues extends UsageTermsFlagValues {
 
 export function usageTermsParams (flags: UsageTermsFlagValues): UsageTermsParams {
   return {
-    usageTermsId: flags['usage-terms-id'],
-    to: parseDateOnly(flags['to'], '--to'),
+    to: parseDateOnly(flags.to, '--to'),
   }
 }
 
@@ -86,20 +81,33 @@ export function usageRangeParams (flags: UsageRangeFlagValues): UsageRangeParams
   }
 }
 
-export function describeUsageError (err: unknown): string | undefined {
+export interface UsageErrorContext {
+  /** The --to flag as given, when the user pinned the terms to a date. */
+  to?: string
+}
+
+export function describeUsageError (err: unknown, context: UsageErrorContext = {}): string | undefined {
   if (!(err instanceof ApiError)) return undefined
 
   // The usage API adds `code` to its error body; ErrorData does not declare it.
   const code = (err.data as ErrorData & { code?: UsageErrorCode }).code
   switch (code) {
     case 'NO_USAGE_TERMS':
+      // With an explicit --to the organization may well have a contract; it just does not cover that date.
+      if (context.to) {
+        return `No usage terms cover this account on ${context.to}. `
+          + 'Run "checkly account usage terms" to see the contract dates, then pick a --to date inside them.'
+      }
       return 'No usage terms cover this account for the requested date. '
         + 'Usage reporting is available to accounts that belong to an organization with a usage contract.'
     case 'USAGE_TERMS_CONFLICT':
       return 'More than one set of usage terms covers the requested date. '
-        + 'Pass --usage-terms-id to choose one, or pick a --to date that only one contract covers.'
-    case 'ACCOUNT_NOT_IN_USAGE_TERMS':
-      return `${err.message} Run "checkly account usage terms" to list the accounts covered by the terms.`
+        + 'Pick a --to date that only one contract covers.'
+    case 'ACCOUNT_NOT_IN_USAGE_TERMS': {
+      // API error messages carry no trailing punctuation, so supply the sentence break.
+      const message = /[.!?]$/.test(err.message) ? err.message : `${err.message}.`
+      return `${message} Run "checkly account usage terms" to list the accounts covered by the terms.`
+    }
     case 'INVALID_CURSOR':
       return 'The --cursor value is invalid or was issued for different flags. '
         + 'Re-run the original command with the same flags (including --from and --to) and use the cursor it prints.'

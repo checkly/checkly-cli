@@ -50,7 +50,7 @@ export default class UsageSummaryCommand extends AuthCommand {
 
       this.log(output.join('\n'))
     } catch (err: any) {
-      this.style.longError('Failed to load usage summary.', describeUsageError(err) ?? err)
+      this.style.longError('Failed to load usage summary.', describeUsageError(err, { to: flags.to }) ?? err)
       process.exitCode = 1
     }
   }

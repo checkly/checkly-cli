@@ -21,7 +21,8 @@ export default class UsageTermsCommand extends AuthCommand {
     this.style.outputFormat = flags.output
 
     try {
-      const { data: terms } = await api.usage.getTerms(usageTermsParams(flags))
+      const params = usageTermsParams(flags)
+      const { data: terms } = await api.usage.getTerms(params)
 
       if (flags.output === 'json') {
         this.log(JSON.stringify(terms, null, 2))
@@ -35,20 +36,22 @@ export default class UsageTermsCommand extends AuthCommand {
         return
       }
 
+      // The API resolves terms by date only, so repeat --to for the follow-ups to hit the same contract.
+      const toFlag = params.to ? ` --to ${params.to}` : ''
       const output: string[] = []
       output.push(formatUsageTermsDetail(terms, fmt))
       output.push('')
       output.push(renderCommandHints([
-        { label: 'Summary', command: `checkly account usage summary --usage-terms-id ${terms.id}` },
+        { label: 'Summary', command: `checkly account usage summary${toFlag}` },
         {
           label: 'Monthly by account',
-          command: `checkly account usage series --usage-terms-id ${terms.id} --interval month --group-by account`,
+          command: `checkly account usage series --interval month --group-by account${toFlag}`,
         },
       ], { gap: 1 }))
 
       this.log(output.join('\n'))
     } catch (err: any) {
-      this.style.longError('Failed to load usage terms.', describeUsageError(err) ?? err)
+      this.style.longError('Failed to load usage terms.', describeUsageError(err, { to: flags.to }) ?? err)
       process.exitCode = 1
     }
   }

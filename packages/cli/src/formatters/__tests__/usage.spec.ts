@@ -246,6 +246,22 @@ describe('formatUsageSeries', () => {
     }
   })
 
+  it('keeps a readable account prefix even when the table cannot fit', () => {
+    // At 120 columns the fixed columns alone overflow; the account column must still show a useful prefix.
+    const originalColumns = process.stdout.columns
+    Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 120 })
+    try {
+      const result = stripAnsi(formatUsageSeries([rowFixture()], 'terminal', {
+        interval: 'month',
+        groupBy: 'account,checkType',
+        accountNames: new Map([[rowFixture().accountId!, 'An account with an unusually long display name']]),
+      }))
+      expect(result).toContain('An account w…')
+    } finally {
+      Object.defineProperty(process.stdout, 'columns', { configurable: true, value: originalColumns })
+    }
+  })
+
   it('renders markdown with an explicit account id column', () => {
     const result = formatUsageSeries([rowFixture()], 'md', {
       interval: 'month',

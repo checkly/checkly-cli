@@ -456,6 +456,55 @@ describe('renderAdaptiveTable', () => {
     expect(result).toContain('Long production check name')
     expect(result).toContain('Monitors a very important endpoint with a verbose description')
   })
+
+  describe('without an explicit width', () => {
+    const longName = 'A'.repeat(100)
+    const wideColumns: ColumnDef<Row>[] = [
+      { header: 'Name', minWidth: 8, value: r => r.name },
+      { header: 'Type', width: 8, value: r => r.type },
+      { header: 'Note', minWidth: 8, value: r => r.note },
+    ]
+    const wideRows: Row[] = [{ name: longName, type: 'API', note: 'B'.repeat(60) }]
+
+    const withStdout = (stdout: { isTTY: boolean | undefined, columns: number | undefined }, run: () => void) => {
+      const original = { isTTY: process.stdout.isTTY, columns: process.stdout.columns }
+      Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: stdout.isTTY })
+      Object.defineProperty(process.stdout, 'columns', { configurable: true, value: stdout.columns })
+      try {
+        run()
+      } finally {
+        Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: original.isTTY })
+        Object.defineProperty(process.stdout, 'columns', { configurable: true, value: original.columns })
+      }
+    }
+
+    it('does not shrink columns when stdout is a file or pipe', () => {
+      withStdout({ isTTY: false, columns: undefined }, () => {
+        const result = stripAnsi(renderAdaptiveTable(wideColumns, wideRows, 'terminal'))
+        expect(result).toContain(longName)
+        expect(result).not.toContain('…')
+      })
+    })
+
+    it('falls back to 120 columns on a terminal that reports no width', () => {
+      withStdout({ isTTY: true, columns: undefined }, () => {
+        const result = stripAnsi(renderAdaptiveTable(wideColumns, wideRows, 'terminal'))
+        for (const line of result.split('\n')) {
+          expect(visWidth(line)).toBeLessThanOrEqual(120)
+        }
+        expect(result).toContain('…')
+      })
+    })
+
+    it('honours a reported terminal width', () => {
+      withStdout({ isTTY: true, columns: 60 }, () => {
+        const result = stripAnsi(renderAdaptiveTable(wideColumns, wideRows, 'terminal'))
+        for (const line of result.split('\n')) {
+          expect(visWidth(line)).toBeLessThanOrEqual(60)
+        }
+      })
+    })
+  })
 })
 
 describe('field-count parity', () => {
