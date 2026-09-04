@@ -88,9 +88,13 @@ const rewriteBunLockScript = (...replacements: Array<[string, string]>): string 
 const rewriteYarnLockScript = (...replacements: Array<[string, string]>): string =>
   rewriteLockfileScript('yarn.lock', ...replacements)
 
-// Ambient values (particularly CHECKLY_LOCKFILE_PRUNE) must not leak into
-// test outcomes.
-const testEnv = (): NodeJS.ProcessEnv => ({ ...process.env, CHECKLY_LOCKFILE_PRUNE: undefined })
+// Ambient values (CHECKLY_LOCKFILE_PRUNE and its timeout override) must not
+// leak into test outcomes.
+const testEnv = (): NodeJS.ProcessEnv => ({
+  ...process.env,
+  CHECKLY_LOCKFILE_PRUNE: undefined,
+  CHECKLY_LOCKFILE_PRUNE_TIMEOUT: undefined,
+})
 
 // A PackageManager whose lockfile-only install command is replaced, for
 // exercising failure paths without a real package manager.
@@ -408,6 +412,55 @@ describe('lockfile-pruner', () => {
         Debug.enable(previouslyEnabled)
       }
     }, 30_000)
+
+    it('takes the time budget from CHECKLY_LOCKFILE_PRUNE_TIMEOUT in seconds', async () => {
+      const { workspace, files } = makePnpmScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', 'setInterval(() => {}, 1000)'])),
+        files,
+        env: { ...testEnv(), CHECKLY_LOCKFILE_PRUNE_TIMEOUT: '1' },
+      })
+      expect(result).toMatchObject({
+        status: 'failed',
+        reason: 'node timed out after 1s; set CHECKLY_LOCKFILE_PRUNE_TIMEOUT=<seconds> to raise it',
+      })
+    }, 30_000)
+
+    it('lets an explicit timeout option outrank CHECKLY_LOCKFILE_PRUNE_TIMEOUT', async () => {
+      const { workspace, files } = makePnpmScenario()
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', 'setInterval(() => {}, 1000)'])),
+        files,
+        timeoutMs: 500,
+        env: { ...testEnv(), CHECKLY_LOCKFILE_PRUNE_TIMEOUT: '60' },
+      })
+      expect(result).toMatchObject({ status: 'failed', reason: expect.stringContaining('timed out after 500ms') })
+    }, 30_000)
+
+    it.each(['abc', '-5', '1.5', '2147484'])('ignores an unusable CHECKLY_LOCKFILE_PRUNE_TIMEOUT (%j)', async value => {
+      const { workspace, files } = makePnpmScenario()
+      // The stub exits at once, so the rejection is only observable on the
+      // debug channel; the outcome shows the parse did not fail the prune.
+      const previouslyEnabled = Debug.disable()
+      Debug.enable('checkly:cli:services:check-parser:lockfile-pruner')
+      try {
+        let result: PruneBundledLockfileResult | undefined
+        const written = await captureStderr(async () => {
+          result = await pruneBundledLockfile({
+            workspace,
+            packageManager: stubPackageManager(new Runnable('node', ['-e', ''])),
+            files,
+            env: { ...testEnv(), CHECKLY_LOCKFILE_PRUNE_TIMEOUT: value },
+          })
+        })
+        expect(result?.status).not.toEqual('failed')
+        expect(written.join('')).toContain(`Ignoring CHECKLY_LOCKFILE_PRUNE_TIMEOUT=${JSON.stringify(value)}`)
+      } finally {
+        Debug.enable(previouslyEnabled)
+      }
+    })
 
     it('skips when the regenerated lockfile is identical and nothing was backfilled', async () => {
       const { workspace, files } = makePnpmScenario()

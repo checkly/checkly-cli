@@ -101,6 +101,38 @@ const MAX_FAILURE_DETAIL_LENGTH = 400
 // progress lines, bounded so a chatty child cannot flood the log.
 const MAX_DEBUG_OUTPUT_LENGTH = 8_192
 
+const TIMEOUT_HINT = 'set CHECKLY_LOCKFILE_PRUNE_TIMEOUT=<seconds> to raise it'
+
+// Node's timers cannot represent a delay beyond 2^31-1 ms and would clamp a
+// larger one to 1 ms, turning a "raise the budget" request into an instant
+// timeout, so anything past that is rejected as unusable.
+const MAX_TIMEOUT_SECONDS = Math.floor(2_147_483_647 / 1000)
+
+/**
+ * Reads the prune time budget from CHECKLY_LOCKFILE_PRUNE_TIMEOUT, given in
+ * whole seconds; `0` disables the timeout (execa's own semantics). Anything
+ * else (unset, empty, negative, fractional, non-numeric, too large) yields
+ * undefined so the caller falls back to the default; an unusable value is
+ * only noted on the debug channel, since it cannot make a prune fail.
+ */
+function timeoutFromEnv (env: NodeJS.ProcessEnv): number | undefined {
+  const raw = env.CHECKLY_LOCKFILE_PRUNE_TIMEOUT
+  if (raw === undefined || raw === '') {
+    return undefined
+  }
+  if (!/^\d+$/.test(raw) || Number(raw) > MAX_TIMEOUT_SECONDS) {
+    debug(`Ignoring CHECKLY_LOCKFILE_PRUNE_TIMEOUT=${JSON.stringify(raw)}: not a whole number of seconds`
+      + ` up to ${MAX_TIMEOUT_SECONDS}`)
+    return undefined
+  }
+  return Number(raw) * 1000
+}
+
+/** Whole seconds where possible, so the reason matches the env var's unit. */
+function formatBudget (timeoutMs: number): string {
+  return timeoutMs % 1000 === 0 ? `${timeoutMs / 1000}s` : `${timeoutMs}ms`
+}
+
 /**
  * Environment keys that alter the very behavior the prune command pins with
  * explicit flags. Everything else (registry and auth configuration in
@@ -1021,9 +1053,11 @@ export async function pruneBundledLockfile (
     packageManager,
     files,
     rewrittenManifests = new Set(),
-    timeoutMs = DEFAULT_TIMEOUT_MS,
     env = process.env,
   } = options
+  // An explicit option (tests) outranks the environment; the destructuring
+  // carries no default so that an omitted option is distinguishable.
+  const timeoutMs = options.timeoutMs ?? timeoutFromEnv(env) ?? DEFAULT_TIMEOUT_MS
 
   const decision = shouldPruneLockfile(workspace, files, env, rewrittenManifests)
   if (!decision.prune) {
@@ -1198,7 +1232,7 @@ export async function pruneBundledLockfile (
         // The probe consumed the whole budget; spawning the install with
         // the ~zero remainder would only produce a confusing second kill.
         debugTimedOutChildOutput(`${runnable.executable} --version`, probe)
-        return { status: 'failed', reason: `${runnable.executable} timed out after ${timeoutMs}ms` }
+        return { status: 'failed', reason: `${runnable.executable} timed out after ${formatBudget(timeoutMs)}; ${TIMEOUT_HINT}` }
       }
       if (timeoutMs > 0) {
         const remaining = timeoutMs - (Date.now() - probeStartedAt)
@@ -1209,7 +1243,7 @@ export async function pruneBundledLockfile (
           return {
             status: 'failed',
             reason: 'provisioning the yarn toolchain used up the prune time budget before the'
-              + ' lockfile could be regenerated; pre-install yarn or raise the timeout',
+              + ` lockfile could be regenerated; pre-install yarn or ${TIMEOUT_HINT}`,
           }
         }
         installTimeoutMs = remaining
@@ -1267,7 +1301,7 @@ export async function pruneBundledLockfile (
 
     if (result.timedOut) {
       debugTimedOutChildOutput(runnable.executable, result)
-      return { status: 'failed', reason: `${runnable.executable} timed out after ${installTimeoutMs}ms` }
+      return { status: 'failed', reason: `${runnable.executable} timed out after ${formatBudget(installTimeoutMs)}; ${TIMEOUT_HINT}` }
     }
     if ((result as any).code === 'ENOENT') {
       // A spawn ENOENT can also mean the working directory vanished (a temp
