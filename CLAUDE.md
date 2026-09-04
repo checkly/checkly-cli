@@ -120,3 +120,4 @@ Source in `src/ai-context/`, built during `prepare`. Generates examples from fix
 - `CHECKLY_CACHE_DIR` — override the CLI's cache directory (embedded-package tarball downloads)
 - `CHECKLY_SKIP_NODE_VERSION_CHECK` — set to `1` to bypass the bin's hard Node version preflight (unsupported Node may then fail in unexpected ways); must be set in the shell environment — the preflight runs before `.env` is loaded
 - `CHECKLY_LOCKFILE_PRUNE` — set to `0` to disable pruning the bundled lockfile to the code bundle's contents; when a lockfile is bundled this also disables `bundle.packages.prune` (the manifest rewrite rolls back)
+- `CHECKLY_LOCKFILE_PRUNE_TIMEOUT` — lockfile prune time budget in seconds (default 30; `0` disables the timeout); invalid values are ignored

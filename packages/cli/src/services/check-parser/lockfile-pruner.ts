@@ -14,6 +14,7 @@ import { lineage } from './package-files/walk.js'
 import { PackageManager, PathLookup } from './package-files/package-manager.js'
 import { Package, Workspace } from './package-files/workspace.js'
 import { File, VirtualFile } from './parser.js'
+import { redactUrl } from '../embedded-packages/diagnostics.js'
 import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:lockfile-pruner')
@@ -94,6 +95,43 @@ const DEFAULT_TIMEOUT_MS = 30_000
 const YARN_PROBE_MIN_INSTALL_BUDGET_MS = 1_000
 
 const MAX_FAILURE_DETAIL_LENGTH = 400
+
+// Cap for the child's partial output logged at debug level when a prune
+// times out. Generous enough to reach the stalled request past pnpm's
+// progress lines, bounded so a chatty child cannot flood the log.
+const MAX_DEBUG_OUTPUT_LENGTH = 8_192
+
+const TIMEOUT_HINT = 'set CHECKLY_LOCKFILE_PRUNE_TIMEOUT=<seconds> to raise it'
+
+// Node's timers cannot represent a delay beyond 2^31-1 ms and would clamp a
+// larger one to 1 ms, turning a "raise the budget" request into an instant
+// timeout, so anything past that is rejected as unusable.
+const MAX_TIMEOUT_SECONDS = Math.floor(2_147_483_647 / 1000)
+
+/**
+ * Reads the prune time budget from CHECKLY_LOCKFILE_PRUNE_TIMEOUT, given in
+ * whole seconds; `0` disables the timeout (execa's own semantics). Anything
+ * else (unset, empty, negative, fractional, non-numeric, too large) yields
+ * undefined so the caller falls back to the default; an unusable value is
+ * only noted on the debug channel, since it cannot make a prune fail.
+ */
+function timeoutFromEnv (env: NodeJS.ProcessEnv): number | undefined {
+  const raw = env.CHECKLY_LOCKFILE_PRUNE_TIMEOUT
+  if (raw === undefined || raw === '') {
+    return undefined
+  }
+  if (!/^\d+$/.test(raw) || Number(raw) > MAX_TIMEOUT_SECONDS) {
+    debug(`Ignoring CHECKLY_LOCKFILE_PRUNE_TIMEOUT=${JSON.stringify(raw)}: not a whole number of seconds`
+      + ` up to ${MAX_TIMEOUT_SECONDS}`)
+    return undefined
+  }
+  return Number(raw) * 1000
+}
+
+/** Whole seconds where possible, so the reason matches the env var's unit. */
+function formatBudget (timeoutMs: number): string {
+  return timeoutMs % 1000 === 0 ? `${timeoutMs / 1000}s` : `${timeoutMs}ms`
+}
 
 /**
  * Environment keys that alter the very behavior the prune command pins with
@@ -874,14 +912,55 @@ function buildChildEnv (baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return env
 }
 
+/**
+ * Scrubs credentials from package manager output before it is surfaced
+ * anywhere. Every http(s) URL is collapsed to scheme and host by
+ * `redactUrl`: registries carry tokens in userinfo, in the query string and
+ * in path segments (Gemfury-style `https://host/<token>/npm/`), and the host
+ * is all a stalled-request diagnosis needs. A scheme-less `//user:pw@host`
+ * (pnpm prints registry keys in that form) loses its userinfo. Redaction is
+ * by removal only; nothing is reconstructed from the credential-bearing
+ * parts.
+ */
+export function redactDetail (detail: string): string {
+  return detail
+    .replace(/https?:\/\/\S+/gi, url => redactUrl(url))
+    // Greedy up to the last '@' before the path, so an unencoded '@' inside
+    // the password does not leave its tail behind.
+    .replace(/\/\/[^/\s]+@/g, '//')
+    .trim()
+}
+
 function sanitizeDetail (detail: string): string {
-  // Package manager output can embed registry URLs with userinfo credentials
-  // (pnpm does not redact them); scrub before surfacing anywhere.
-  const redacted = detail.replace(/\/\/[^/@\s]+@/g, '//').trim()
+  const redacted = redactDetail(detail)
   if (redacted.length <= MAX_FAILURE_DETAIL_LENGTH) {
     return redacted
   }
   return `${redacted.slice(0, MAX_FAILURE_DETAIL_LENGTH)}…`
+}
+
+/**
+ * Logs a timed-out child's partial stdout/stderr at debug level. The tail
+ * is kept because the most recent output is where a stalled request shows;
+ * the user-facing reason stays a one-liner, so this is the only place the
+ * output survives.
+ */
+function debugTimedOutChildOutput (label: string, output: { stdout?: string, stderr?: string }): void {
+  if (!debug.enabled) {
+    return
+  }
+  for (const [stream, text] of [['stdout', output.stdout], ['stderr', output.stderr]] as const) {
+    const redacted = redactDetail(text ?? '')
+    if (redacted.length === 0) {
+      continue
+    }
+    const tail = redacted.length <= MAX_DEBUG_OUTPUT_LENGTH
+      ? redacted
+      : `…${redacted.slice(-MAX_DEBUG_OUTPUT_LENGTH)}`
+    // The output goes in as an argument, not the format string, so `%o`
+    // and `%%` sequences in it are printed verbatim.
+    debug('%s timed out; partial %s:\n%s', label, stream, tail)
+  }
 }
 
 // Larger files are not plausible manifests; the cap also keeps a scan of a
@@ -974,9 +1053,11 @@ export async function pruneBundledLockfile (
     packageManager,
     files,
     rewrittenManifests = new Set(),
-    timeoutMs = DEFAULT_TIMEOUT_MS,
     env = process.env,
   } = options
+  // An explicit option (tests) outranks the environment; the destructuring
+  // carries no default so that an omitted option is distinguishable.
+  const timeoutMs = options.timeoutMs ?? timeoutFromEnv(env) ?? DEFAULT_TIMEOUT_MS
 
   const decision = shouldPruneLockfile(workspace, files, env, rewrittenManifests)
   if (!decision.prune) {
@@ -1150,7 +1231,8 @@ export async function pruneBundledLockfile (
       if (probe.timedOut) {
         // The probe consumed the whole budget; spawning the install with
         // the ~zero remainder would only produce a confusing second kill.
-        return { status: 'failed', reason: `${runnable.executable} timed out after ${timeoutMs}ms` }
+        debugTimedOutChildOutput(`${runnable.executable} --version`, probe)
+        return { status: 'failed', reason: `${runnable.executable} timed out after ${formatBudget(timeoutMs)}; ${TIMEOUT_HINT}` }
       }
       if (timeoutMs > 0) {
         const remaining = timeoutMs - (Date.now() - probeStartedAt)
@@ -1161,7 +1243,7 @@ export async function pruneBundledLockfile (
           return {
             status: 'failed',
             reason: 'provisioning the yarn toolchain used up the prune time budget before the'
-              + ' lockfile could be regenerated; pre-install yarn or raise the timeout',
+              + ` lockfile could be regenerated; pre-install yarn or ${TIMEOUT_HINT}`,
           }
         }
         installTimeoutMs = remaining
@@ -1218,7 +1300,8 @@ export async function pruneBundledLockfile (
     })
 
     if (result.timedOut) {
-      return { status: 'failed', reason: `${runnable.executable} timed out after ${installTimeoutMs}ms` }
+      debugTimedOutChildOutput(runnable.executable, result)
+      return { status: 'failed', reason: `${runnable.executable} timed out after ${formatBudget(installTimeoutMs)}; ${TIMEOUT_HINT}` }
     }
     if ((result as any).code === 'ENOENT') {
       // A spawn ENOENT can also mean the working directory vanished (a temp

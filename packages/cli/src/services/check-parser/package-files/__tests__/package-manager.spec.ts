@@ -576,20 +576,23 @@ describe('detectNearestConfigFiles', () => {
 
 describe('lockfileOnlyInstallCommand', () => {
   it('regenerates the lockfile without installing for pnpm, pinning the lockfile location,'
-    + ' tolerating patches that apply to nothing and trusting the lockfile', () => {
+    + ' tolerating patches that apply to nothing, trusting the lockfile and preferring cached metadata', () => {
     const runnable = new PNpmDetector().lockfileOnlyInstallCommand()
     expect(runnable?.executable).toEqual('pnpm')
     expect(runnable?.args).toEqual([
       'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
       '--config.allowUnusedPatches=true',
       '--config.trustLockfile=true',
+      '--prefer-offline',
     ])
   })
 
-  it('regenerates the lockfile without installing for npm', () => {
+  it('regenerates the lockfile without installing for npm, preferring cached metadata', () => {
     const runnable = new NpmDetector().lockfileOnlyInstallCommand()
     expect(runnable?.executable).toEqual('npm')
-    expect(runnable?.args).toEqual(['install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund'])
+    expect(runnable?.args).toEqual([
+      'install', '--package-lock-only', '--ignore-scripts', '--no-audit', '--no-fund', '--prefer-offline',
+    ])
   })
 
   it('regenerates the lockfile without installing for bun', () => {

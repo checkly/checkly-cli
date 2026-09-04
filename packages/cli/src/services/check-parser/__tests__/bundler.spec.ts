@@ -297,6 +297,7 @@ describe('Bundler.finalize() lockfile prune reporting', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -477,6 +478,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -806,6 +808,7 @@ describe('Bundler.finalize() patch filtering', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -1189,6 +1192,7 @@ describe('Bundler.finalize() package pruning', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -1910,6 +1914,7 @@ describe('Bundler.finalize() patch filtering with real pnpm', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
