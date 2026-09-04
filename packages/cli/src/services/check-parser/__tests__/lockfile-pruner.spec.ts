@@ -908,15 +908,15 @@ describe('lockfile-pruner', () => {
       // and `snapshots`, the latter with a peer suffix; the reason must
       // name it once. Nine packages exceeds the eight the reason shows.
       const names = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i'].map(name => `fresh-${name}@1.0.0`)
-      const packagesBlock = names.map(name => `  ${name}:\n    resolution: {integrity: sha512-x}\n`).join('')
-      const snapshotsBlock = names.map(name => `  ${name}(peer-dep@2.0.0): {}\n`).join('')
-      const script = `
-        const fs = require('fs')
-        const content = fs.readFileSync('pnpm-lock.yaml', 'utf8')
-        fs.writeFileSync('pnpm-lock.yaml', content
-          .replace('\\npackages:\\n', '\\npackages:\\n' + ${JSON.stringify(packagesBlock)})
-          .replace('\\nsnapshots:\\n', '\\nsnapshots:\\n' + ${JSON.stringify(snapshotsBlock)}))
-      `
+      const packagesBlock = names.map(name => `  ${name}:\n    resolution: {integrity: sha512-x}`).join('\n')
+      const snapshotsBlock = names.map(name => `  ${name}(peer-dep@2.0.0): {}`).join('\n')
+      // The anchors carry no newline on purpose: a Windows checkout can
+      // hold the fixture with CRLF, and the helper fails the script when an
+      // anchor is absent, so the injection can never silently no-op.
+      const script = rewriteLockfileScript('pnpm-lock.yaml',
+        ['packages:', `packages:\n${packagesBlock}`],
+        ['snapshots:', `snapshots:\n${snapshotsBlock}`],
+      )
       const previouslyEnabled = Debug.disable()
       Debug.enable('checkly:cli:services:check-parser:lockfile-pruner')
       try {
