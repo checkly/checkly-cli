@@ -19,10 +19,12 @@ concurrency:
 
 jobs:
   # ---------------------------------------------------------------------------
-  # Detects whether anything outside the ignore list below changed. Meta files
-  # (agent instructions, docs, license, .gitignore) cannot affect lint,
-  # packaging or test outcomes, so a change touching only those skips the whole
-  # matrix.
+  # Path-based change detection with two outputs. `code` is true when anything
+  # outside the ignore list below changed: meta files (agent instructions,
+  # docs, license, .gitignore) cannot affect lint, packaging or test outcomes,
+  # so a change touching only those skips the whole matrix. `create-cli` is
+  # true when an input of the create-checkly e2e suite changed; only those
+  # jobs are gated on it.
   #
   # The filter runs inside a job rather than as an `on: paths-ignore` trigger:
   # a workflow skipped by a trigger-level path filter never reports a status, so
@@ -37,6 +39,7 @@ jobs:
       pull-requests: read
     outputs:
       code: ${{ steps.filter.outputs.code }}
+      create-cli: ${{ steps.create-cli-filter.outputs.create-cli }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -56,6 +59,23 @@ jobs:
               - '!LICENSE'
               - '!README.md'
               - '!.gitignore'
+      # Separate step because it needs the default 'some' quantifier: a file
+      # matches `create-cli` when it matches *any* pattern. Selects the changes
+      # that can affect the create-checkly e2e suite: the package itself, the
+      # example templates it scaffolds from (the e2e runner points
+      # CHECKLY_E2E_LOCAL_TEMPLATE_ROOT at the checked-out `examples/`), the
+      # workspace-wide dependency/config files, and this workflow.
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: create-cli-filter
+        with:
+          filters: |
+            create-cli:
+              - 'packages/create-cli/**'
+              - 'examples/**'
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - '.github/workflows/test.yml'
 
   lint:
     needs: changes
@@ -253,12 +273,17 @@ jobs:
           CHECKLY_EMPTY_API_KEY: ${{ secrets.E2E_EMPTY_CHECKLY_API_KEY }}
 
   # ---------------------------------------------------------------------------
-  # create-checkly e2e (PRs only)
+  # create-checkly e2e (PRs only, and only when the suite's inputs changed)
+  #
+  # The suite is slow enough to hold up the CI gates, so it runs only for PRs
+  # that touch something it depends on (see the `create-cli` filter in the
+  # `changes` job). Unrelated PRs skip it; a skipped job counts as success in
+  # the gates below, so the `needs:` wiring stays intact.
   # ---------------------------------------------------------------------------
   test-e2e-create-checkly-ubuntu:
     name: e2e - create-checkly - ubuntu
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.create-cli == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -274,7 +299,7 @@ jobs:
   test-e2e-create-checkly-windows:
     name: e2e - create-checkly - windows
     needs: changes
-    if: github.event_name == 'pull_request' && needs.changes.outputs.code == 'true'
+    if: github.event_name == 'pull_request' && needs.changes.outputs.create-cli == 'true'
     runs-on: blacksmith-4vcpu-windows-2025
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
