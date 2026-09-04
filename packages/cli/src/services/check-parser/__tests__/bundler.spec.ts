@@ -527,6 +527,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
     ].join('\n'))
     return Object.assign(Object.create(new PNpmDetector()), {
       lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+      storeDirCommand: () => undefined,
     })
   }
 
@@ -833,6 +834,7 @@ describe('Bundler.finalize() patch filtering', () => {
     ].join('\n'))
     return Object.assign(Object.create(new PNpmDetector()), {
       lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+      storeDirCommand: () => undefined,
     })
   }
 
@@ -1231,6 +1233,7 @@ describe('Bundler.finalize() package pruning', () => {
     await fs.writeFile(scriptPath, lines.join('\n'))
     return Object.assign(Object.create(new PNpmDetector()), {
       lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+      storeDirCommand: () => undefined,
     })
   }
 

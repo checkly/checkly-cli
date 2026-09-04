@@ -37,6 +37,16 @@ export interface AddCommandOptions {
   saveDev?: boolean
 }
 
+export interface LockfileOnlyInstallOptions {
+  /**
+   * The content-addressable store the install must resolve from, as the
+   * value of the package manager's store setting (for pnpm the parent of
+   * what `storeDirCommand` prints, see `PNpmDetector`). Only meaningful for
+   * package managers with a `storeDirCommand`; others ignore it.
+   */
+  storeDir?: string
+}
+
 export interface PackageManager {
   get name (): string
   get representativeLockfiles (): string[]
@@ -44,6 +54,22 @@ export interface PackageManager {
   installCommand (): Runnable
   addCommand (options: AddCommandOptions): Runnable
   execCommand (args: string[]): Runnable
+  /**
+   * Command that prints the content-addressable store the project in the
+   * spawn working directory would install from, or undefined when the
+   * package manager's cache location does not depend on the project's
+   * location: npm and bun keep a single cache under the home directory,
+   * and yarn's lockfile-only install runs with the network blocked and
+   * never touches its cache.
+   *
+   * Output contract, which the lockfile pruner enforces: the last non-empty
+   * stdout line is an absolute path whose last segment is the store's
+   * version (`<storeDir>/v10`), and the PARENT of that path is what the
+   * pruner hands back to `lockfileOnlyInstallCommand` as `storeDir`. This
+   * is pnpm's `store path` shape; an implementation for another package
+   * manager must print the same shape or the pruner skips notably.
+   */
+  storeDirCommand (): Runnable | undefined
   /**
    * Command that regenerates the lockfile from the manifests on disk without
    * installing anything (resolution only). Undefined when the package
@@ -62,7 +88,7 @@ export interface PackageManager {
    * lockfile pruner refuses to run when its temp dir sits inside a
    * workspace.
    */
-  lockfileOnlyInstallCommand (): Runnable | undefined
+  lockfileOnlyInstallCommand (options?: LockfileOnlyInstallOptions): Runnable | undefined
   lookupWorkspace (dir: string): Promise<Workspace | undefined>
   /**
    * Resolves the version of a single package as recorded in the package
@@ -155,6 +181,15 @@ export abstract class PackageManagerDetector {
    * mode either.
    */
   lockfileOnlyInstallCommand (): Runnable | undefined {
+    return undefined
+  }
+
+  /**
+   * Default: the cache location does not depend on the project's location,
+   * so the lockfile pruner has nothing to pin. See PNpmDetector for the one
+   * package manager where it does.
+   */
+  storeDirCommand (): Runnable | undefined {
     return undefined
   }
 
@@ -364,7 +399,16 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     return new Runnable('pnpm', ['install'])
   }
 
-  lockfileOnlyInstallCommand (): Runnable {
+  storeDirCommand (): Runnable {
+    // Prints the VERSIONED store (`<storeDir>/v10`) the project in the
+    // working directory would install from — the setting from
+    // pnpm-workspace.yaml, the npmrc layers or npm_config_store_dir, or
+    // pnpm's own per-mount default. See lockfileOnlyInstallCommand for why
+    // that matters and why the pruner pins the parent of the printed path.
+    return new Runnable('pnpm', ['store', 'path'])
+  }
+
+  lockfileOnlyInstallCommand (options: LockfileOnlyInstallOptions = {}): Runnable {
     // --no-frozen-lockfile is load-bearing: pnpm auto-enables frozen mode
     // when CI=true, and a lockfile-only regeneration is by definition not a
     // frozen install. --lockfile-dir is equally load-bearing: as a CLI flag
@@ -417,16 +461,43 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     // rejects any regenerated entry absent from the original lockfile, so
     // the worst case is a fallback, never a wrong lockfile.
     //
+    // --config.storeDir pins the store the temp-dir install resolves from.
+    // Left to pnpm, the choice depends on the temp dir's location: on a
+    // mount other than the home directory's (tmpfs /tmp, a TMPDIR on
+    // another volume, containers) pnpm picks an EMPTY store at the mount
+    // root, and then every package in the re-resolved trees needs registry
+    // metadata — thousands of requests behind a slow proxy, or, served by
+    // --prefer-offline from a metadata cache that predates the locked
+    // version, a different version that the subset verification rejects.
+    // With the workspace's own store pinned the re-resolution is answered
+    // from the store, as it is when the same command runs in the checkout.
+    // The value is the PARENT of what `pnpm store path` prints: pnpm
+    // appends its own version segment (`v10`, `v11`) to the setting unless
+    // the path already ends in exactly that segment, and the probe and the
+    // install can resolve to different pnpm majors (corepack, mise and
+    // volta pick the version per directory, and the temp dir's root
+    // manifest can be a faux one without a packageManager field). Handed
+    // `<storeDir>/v10`, a pnpm 11 install would use `<storeDir>/v10/v11` —
+    // an empty store again — whereas handed `<storeDir>` each pnpm lands in
+    // the workspace's store for its own major. Verified on pnpm 10 and 11:
+    // the flag is what `install --lockfile-only` resolves from (it reports
+    // the store in its ndjson context event), it outranks a storeDir in a
+    // materialized pnpm-workspace.yaml or .npmrc and npm_config_store_dir,
+    // and npm/bun keep a single home-directory cache regardless of the
+    // project's location, so they need no equivalent.
+    //
     // The pruner does not compare the lockfile's `settings` section, so any
     // setting pnpm records there ships to the runner unchecked and could
     // mismatch the runner's own install configuration. Verified on pnpm 10
-    // and 11: neither --config. setting nor --prefer-offline is recorded in
-    // `settings` (only autoInstallPeers and excludeLinksFromLockfile are).
+    // and 11: neither --config. setting, --prefer-offline nor the storeDir
+    // is recorded in `settings` (only autoInstallPeers and
+    // excludeLinksFromLockfile are).
     return new Runnable('pnpm', [
       'install', '--lockfile-only', '--ignore-scripts', '--no-frozen-lockfile', '--lockfile-dir', '.',
       '--config.allowUnusedPatches=true',
       '--config.trustLockfile=true',
       '--prefer-offline',
+      ...options.storeDir !== undefined ? [`--config.storeDir=${options.storeDir}`] : [],
     ])
   }
 

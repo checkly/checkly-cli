@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process'
+import { rmSync } from 'node:fs'
 import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -15,7 +16,15 @@ import {
 } from '../lockfile-pruner.js'
 import { createFauxPackageFiles } from '../faux-package.js'
 import { UNPRINTABLE_URL } from '../../embedded-packages/diagnostics.js'
-import { BunDetector, NpmDetector, PackageManager, PNpmDetector, Runnable, YarnDetector } from '../package-files/package-manager.js'
+import {
+  BunDetector,
+  LockfileOnlyInstallOptions,
+  NpmDetector,
+  PackageManager,
+  PNpmDetector,
+  Runnable,
+  YarnDetector,
+} from '../package-files/package-manager.js'
 import { Package, Workspace } from '../package-files/workspace.js'
 import { Err, Ok } from '../package-files/result.js'
 import { File } from '../parser.js'
@@ -97,11 +106,33 @@ const testEnv = (): NodeJS.ProcessEnv => ({
 })
 
 // A PackageManager whose lockfile-only install command is replaced, for
-// exercising failure paths without a real package manager.
+// exercising failure paths without a real package manager. The store
+// lookup is disabled too, so no test on this stub spawns a real pnpm.
 const stubPackageManager = (runnable: Runnable | undefined): PackageManager => {
   return Object.assign(Object.create(new PNpmDetector()), {
     lockfileOnlyInstallCommand: () => runnable,
+    storeDirCommand: () => undefined,
   })
+}
+
+// Like stubPackageManager, but with a store lookup command of its own, and
+// recording the options the install command was requested with so a test
+// can see what the lookup fed into it. A requested store is appended to
+// the install's arguments (a trailing argument node ignores), so the
+// command the pruner runs and reports is distinguishable from the
+// unpinned one.
+const stubPackageManagerWithStoreProbe = (install: Runnable, probe: Runnable) => {
+  const installOptions: LockfileOnlyInstallOptions[] = []
+  const packageManager: PackageManager = Object.assign(Object.create(new PNpmDetector()), {
+    lockfileOnlyInstallCommand: (options: LockfileOnlyInstallOptions = {}) => {
+      installOptions.push(options)
+      return options.storeDir === undefined
+        ? install
+        : new Runnable(install.executable, [...install.args, `store=${options.storeDir}`])
+    },
+    storeDirCommand: () => probe,
+  })
+  return { packageManager, installOptions }
 }
 
 describe('lockfile-pruner', () => {
@@ -366,6 +397,280 @@ describe('lockfile-pruner', () => {
         reason: expect.stringContaining('checkly-no-such-executable-xyz is not installed'),
         notable: true,
       })
+    })
+
+    describe('store directory lookup', () => {
+      // A lookup that prints like `pnpm store path` does: the VERSIONED
+      // store directory, as the last line.
+      const printingProbe = (...lines: string[]) => new Runnable('node', [
+        '-e', `process.stdout.write(${JSON.stringify(lines.join('\n') + '\n')})`,
+      ])
+      const noopInstall = () => new Runnable('node', ['-e', ''])
+      const versionedStorePath = async () => path.join(await makeTempDir(), 'store', 'v10')
+
+      it('pins the install to the parent of the printed versioned store path', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const storePath = await versionedStorePath()
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(
+          noopInstall(), printingProbe(storePath),
+        )
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        expect(result.status).not.toEqual('failed')
+        // The capability check asks without options; the install itself is
+        // requested with the store. The parent is passed so that an install
+        // whose pnpm major differs from the lookup's still lands in the
+        // workspace's store (pnpm appends its own version segment).
+        expect(installOptions).toEqual([{}, { storeDir: path.dirname(storePath) }])
+      })
+
+      it('takes the last non-empty line, so a warning printed ahead of the path is ignored', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const storePath = await versionedStorePath()
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(
+          noopInstall(),
+          printingProbe('WARN  the "pnpm" field in package.json is no longer read', storePath, ''),
+        )
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        expect(result.status).not.toEqual('failed')
+        expect(installOptions.at(-1)).toEqual({ storeDir: path.dirname(storePath) })
+      })
+
+      it.each([
+        ['a relative path', path.join('store', 'v10')],
+        ['an absolute path without a version segment', path.resolve(os.tmpdir(), 'store')],
+        ['nothing', ''],
+      ])('skips notably when the lookup prints %s', async (_, printed) => {
+        const { workspace, files } = makePnpmScenario()
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(
+          noopInstall(), printingProbe(printed),
+        )
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        expect(result).toMatchObject({
+          status: 'skipped',
+          reason: expect.stringContaining('store directory could not be determined'),
+          notable: true,
+        })
+        // Only the capability check ran; nothing was installed.
+        expect(installOptions).toEqual([{}])
+      })
+
+      it('skips notably when the lookup fails, quoting its output', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const probe = new Runnable('node', ['-e', `process.stderr.write('ERR_PNPM_BOOM\\n'); process.exit(1)`])
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(noopInstall(), probe)
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        expect(result).toMatchObject({
+          status: 'skipped',
+          reason: expect.stringContaining('store directory could not be determined'),
+          notable: true,
+        })
+        expect(result.reason).toContain('failed: ERR_PNPM_BOOM')
+        expect(installOptions).toEqual([{}])
+      })
+
+      it('skips notably when the lookup executable does not exist', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const { packageManager } = stubPackageManagerWithStoreProbe(
+          noopInstall(),
+          new Runnable('checkly-no-such-executable-xyz', ['store', 'path']),
+        )
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        expect(result).toMatchObject({
+          status: 'skipped',
+          reason: expect.stringContaining('checkly-no-such-executable-xyz is not installed'),
+          notable: true,
+        })
+      })
+
+      it('fails, not skips, when the workspace directory is gone by the time the lookup runs', async () => {
+        // execa reports an invalid working directory as ENOENT too, which
+        // must not be mistaken for a missing executable. storeDirCommand()
+        // is consulted after the bundle is materialized and right before
+        // the lookup spawns, so removing the root there hits exactly that
+        // window.
+        const root = await makeTempDir()
+        await fs.cp(PNPM_FIXTURE_ROOT, root, { recursive: true })
+        const { workspace, files } = makePnpmScenario(root)
+        const packageManager: PackageManager = Object.assign(Object.create(new PNpmDetector()), {
+          lockfileOnlyInstallCommand: () => noopInstall(),
+          storeDirCommand: () => {
+            rmSync(root, { recursive: true, force: true })
+            return new Runnable('checkly-no-such-executable-xyz', ['store', 'path'])
+          },
+        })
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: `the workspace directory '${root}' disappeared`,
+        })
+      })
+
+      it('redacts the lookup output it logs at debug level', async () => {
+        const { workspace, files } = makePnpmScenario()
+        // A misconfigured npmrc makes pnpm echo registry URLs, credentials
+        // included, when the lookup fails; the debug log must scrub them
+        // like the timed-out path does.
+        const probe = new Runnable('node', ['-e', `
+          process.stderr.write('ERR_PNPM_REGISTRY ' + process.env.PRUNE_TEST_URL + '\\n')
+          process.exit(1)
+        `])
+        const { packageManager } = stubPackageManagerWithStoreProbe(noopInstall(), probe)
+        const previouslyEnabled = Debug.disable()
+        Debug.enable('checkly:cli:services:check-parser:lockfile-pruner')
+        try {
+          let result: PruneBundledLockfileResult | undefined
+          const written = await captureStderr(async () => {
+            result = await pruneBundledLockfile({
+              workspace,
+              packageManager,
+              files,
+              env: { ...testEnv(), PRUNE_TEST_URL: 'https://user:secret@registry.example/pkg?token=abc' },
+            })
+          })
+          expect(result).toMatchObject({ status: 'skipped', notable: true })
+          expect(result?.reason).not.toContain('secret')
+          const debugOutput = written.join('')
+          expect(debugOutput).toContain('ERR_PNPM_REGISTRY https://registry.example')
+          expect(debugOutput).not.toContain('secret')
+          expect(debugOutput).not.toContain('token=abc')
+        } finally {
+          Debug.enable(previouslyEnabled)
+        }
+      })
+
+      it('fails when the lookup times out', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const probe = new Runnable('node', ['-e', 'setInterval(() => {}, 1000)'])
+        const { packageManager } = stubPackageManagerWithStoreProbe(noopInstall(), probe)
+        const result = await pruneBundledLockfile({
+          workspace, packageManager, files, timeoutMs: 1_000, env: testEnv(),
+        })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: expect.stringContaining('timed out after 1s; set CHECKLY_LOCKFILE_PRUNE_TIMEOUT=<seconds> to raise it'),
+        })
+      }, 30_000)
+
+      it('fails when the lookup uses up the time budget the install needs', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const storePath = await versionedStorePath()
+        // Answers correctly, but only after most of the budget is gone. The
+        // delay sits well inside the budget so that node's own startup
+        // latency on a loaded host cannot turn this into a probe timeout.
+        const probe = new Runnable('node', ['-e', `
+          setTimeout(() => process.stdout.write(${JSON.stringify(storePath + '\n')}), 2_200)
+        `])
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(noopInstall(), probe)
+        const result = await pruneBundledLockfile({
+          workspace, packageManager, files, timeoutMs: 3_000, env: testEnv(),
+        })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: expect.stringContaining('determining the pnpm store directory used up the prune time budget'),
+        })
+        expect(installOptions).toEqual([{}])
+      }, 30_000)
+
+      it('runs the lookup and the install without a timeout when the budget is unlimited', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const storePath = await versionedStorePath()
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(
+          noopInstall(), printingProbe(storePath),
+        )
+        // timeoutMs 0 is "no timeout"; it must reach the install rather
+        // than be clamped to a 1 ms budget for either spawn.
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, timeoutMs: 0, env: testEnv() })
+        expect(result.status).not.toEqual('failed')
+        expect(installOptions).toEqual([{}, { storeDir: path.dirname(storePath) }])
+      })
+
+      it('names the store-pinned install command when the install fails', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const storePath = await versionedStorePath()
+        const failingInstall = new Runnable('node', ['-e', 'process.exit(2)'])
+        const { packageManager } = stubPackageManagerWithStoreProbe(failingInstall, printingProbe(storePath))
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, env: testEnv() })
+        // The reason must come from the command returned by the post-lookup
+        // call (carrying the store), not from the capability check's.
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: expect.stringContaining(`store=${path.dirname(storePath)} failed:`),
+        })
+      })
+
+      it('rejects a budget below the install floor before running the lookup', async () => {
+        const { workspace, files } = makePnpmScenario()
+        const { packageManager, installOptions } = stubPackageManagerWithStoreProbe(
+          noopInstall(),
+          printingProbe(await versionedStorePath()),
+        )
+        const result = await pruneBundledLockfile({ workspace, packageManager, files, timeoutMs: 500, env: testEnv() })
+        expect(result).toMatchObject({
+          status: 'failed',
+          reason: expect.stringContaining('below the minimum needed to run pnpm'),
+        })
+        expect(installOptions).toEqual([{}])
+      })
+
+      // The real-pnpm pair below plants a storeDir in both places pnpm could
+      // read one from: the workspace's own pnpm-workspace.yaml (what the
+      // lookup, run in the workspace root, must honor) and the materialized
+      // copy in the prune temp dir (what an unpinned install would honor).
+      // pnpm creates its versioned store directory on every install,
+      // lockfile-only included, so which of the two directories appears
+      // tells which store the install used. The prune's own outcome is not
+      // asserted: an empty store legitimately falls back on a machine whose
+      // metadata cache is stale.
+      const plantStoreDirDecoys = async () => {
+        const root = await makeTempDir()
+        await fs.cp(PNPM_FIXTURE_ROOT, root, { recursive: true })
+        const workspaceStore = path.join(await makeTempDir(), 'workspace-store')
+        const decoyStore = path.join(await makeTempDir(), 'decoy-store')
+        const workspaceYamlPath = path.join(root, 'pnpm-workspace.yaml')
+        const workspaceYaml = await fs.readFile(workspaceYamlPath, 'utf8')
+        await fs.writeFile(workspaceYamlPath, `${workspaceYaml}storeDir: ${workspaceStore}\n`)
+        const { workspace, files } = makePnpmScenario(root)
+        files.set('pnpm-workspace.yaml', {
+          filePath: workspaceYamlPath,
+          physical: false,
+          content: `${workspaceYaml}storeDir: ${decoyStore}\n`,
+        })
+        return { workspace, files, workspaceStore, decoyStore }
+      }
+      const versionedStoreCreatedIn = async (store: string) => {
+        const entries = await fs.readdir(store)
+        expect(entries).toEqual([expect.stringMatching(/^v\d+$/)])
+      }
+
+      it('resolves from the store of the workspace, not one chosen for the temp dir, with real pnpm', async () => {
+        const { workspace, files, workspaceStore, decoyStore } = await plantStoreDirDecoys()
+        await pruneBundledLockfile({
+          workspace,
+          packageManager: new PNpmDetector(),
+          files,
+          env: testEnv(),
+        })
+        await versionedStoreCreatedIn(workspaceStore)
+        await expect(fs.access(decoyStore)).rejects.toThrow()
+      }, 60_000)
+
+      it('decoy control: pnpm honors the materialized storeDir when the store is not pinned', async () => {
+        // Positive control for the test above: proves the planted channel
+        // actually reaches the pnpm on PATH, so the pinning test cannot
+        // pass vacuously.
+        const { workspace, files, workspaceStore, decoyStore } = await plantStoreDirDecoys()
+        const unpinned: PackageManager = Object.assign(Object.create(new PNpmDetector()), {
+          storeDirCommand: () => undefined,
+        })
+        await pruneBundledLockfile({
+          workspace,
+          packageManager: unpinned,
+          files,
+          env: testEnv(),
+        })
+        await versionedStoreCreatedIn(decoyStore)
+        await expect(fs.access(workspaceStore)).rejects.toThrow()
+      }, 60_000)
     })
 
     it('fails when the command times out and debug-logs the partial output', async () => {
