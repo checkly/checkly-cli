@@ -21,7 +21,8 @@ export default class ChecklyHelpClass extends Help {
 
     const formatCommandsWithTopics = (commands: Array<Command.Loadable>) => {
       const explicitTopics = new Map(topics.map(t => [t.name, t.description]))
-      const topicNames = new Set<string>(topics.map(t => t.name))
+      // Nested topics (e.g. account:usage) are listed under their parent's help, not at the root.
+      const topicNames = new Set<string>(topics.map(t => t.name).filter(name => !name.includes(':')))
 
       for (const command of commands) {
         const separatorIndex = command.id.indexOf(':')
