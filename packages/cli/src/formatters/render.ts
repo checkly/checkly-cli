@@ -333,7 +333,9 @@ export function renderAdaptiveTable<T> (
   if (format === 'md') return renderTable(columns, rows, format)
 
   const resolvedRows = rows.map(row => columns.map(col => col.value(row, format)))
-  const terminalWidth = options.terminalWidth ?? (process.stdout.columns || 120)
+  // Files and pipes do not wrap, so only a real terminal constrains the width.
+  const terminalWidth = options.terminalWidth
+    ?? (process.stdout.columns || (process.stdout.isTTY ? 120 : Number.POSITIVE_INFINITY))
   const widths = resolveAdaptiveWidths(columns, resolvedRows, terminalWidth)
   const lastIdx = columns.length - 1
 
