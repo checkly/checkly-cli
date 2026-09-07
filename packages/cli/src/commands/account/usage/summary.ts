@@ -9,7 +9,7 @@ export default class UsageSummaryCommand extends AuthCommand {
   static hidden = false
   static readOnly = true
   static idempotent = true
-  static description = 'Show organization usage totals, credit consumption, and projections for a date range.'
+  static description = 'Show organization usage totals for a date range, plus credit projections as of today.'
 
   static flags = {
     ...usageRangeFlags(),

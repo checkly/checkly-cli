@@ -269,7 +269,7 @@ export function formatUsageSummary (summary: UsageSummary, format: OutputFormat,
   lines.push(sectionHeading('Resolve', format), ...headingGap)
   lines.push(renderMeasureList(resolveEntries(summary.totals, format), format))
   lines.push('')
-  lines.push(sectionHeading('Projections', format), ...headingGap)
+  lines.push(sectionHeading('Projections (as of today)', format), ...headingGap)
   lines.push(renderAdaptiveTable(buildProjectionColumns(), projectionRows, format))
 
   return lines.join('\n')
