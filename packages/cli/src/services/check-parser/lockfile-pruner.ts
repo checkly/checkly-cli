@@ -4,16 +4,17 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import Debug from 'debug'
-import { execa } from 'execa'
+import { execa, type Result } from 'execa'
 import JSON5 from 'json5'
 import { parse as parseYaml } from 'yaml'
 
 import { createFauxPackageFiles } from './faux-package.js'
 import { isPnpmfilePath } from './package-files/pnpmfile.js'
 import { lineage } from './package-files/walk.js'
-import { PackageManager, PathLookup } from './package-files/package-manager.js'
+import { PackageManager, PathLookup, Runnable } from './package-files/package-manager.js'
 import { Package, Workspace } from './package-files/workspace.js'
 import { File, VirtualFile } from './parser.js'
+import { capList, redactUrl } from '../embedded-packages/diagnostics.js'
 import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:lockfile-pruner')
@@ -88,12 +89,110 @@ export type PruneBundledLockfileResult =
 // resolutions — so waiting minutes buys nothing.
 const DEFAULT_TIMEOUT_MS = 30_000
 
-// The yarn version probe shares the install's budget; if it leaves the
-// install less than this, the prune is abandoned with a provisioning
-// message rather than spawning an install doomed to time out.
-const YARN_PROBE_MIN_INSTALL_BUDGET_MS = 1_000
+// A pre-install probe (yarn's version check, pnpm's store lookup) shares
+// the install's budget, see PruneBudget; if it leaves the install less than
+// this, the prune is abandoned with a message naming the probe rather than
+// spawning an install doomed to time out.
+const PROBE_MIN_INSTALL_BUDGET_MS = 1_000
+
+/** What a prune spawn yields: execa's non-rejecting result with string streams. */
+type ChildResult = Result<{ reject: false }>
+
+/**
+ * The prune's time budget, shared between the pre-install probes (yarn's
+ * version check, pnpm's store lookup) and the install itself, so the prune
+ * cannot block for longer than the documented timeout in total — a stalled
+ * first-use corepack download would otherwise be paid once per spawn. A
+ * total of 0 means "no timeout" (execa's own semantics), so nothing is
+ * ever exhausted then.
+ */
+class PruneBudget {
+  #spentMs = 0
+
+  constructor (readonly totalMs: number) {}
+
+  /**
+   * execa timeout for the next spawn. Never 0 for a bounded budget: execa
+   * would read that as "no timeout".
+   */
+  get remainingMs (): number {
+    if (this.totalMs === 0) {
+      return 0
+    }
+    return Math.max(this.totalMs - this.#spentMs, 1)
+  }
+
+  /**
+   * Whether a bounded budget has less than the install floor left, in
+   * which case spawning the install would only produce a misleading
+   * ~zero-length timeout.
+   */
+  get belowFloor (): boolean {
+    return this.totalMs > 0 && this.totalMs - this.#spentMs < PROBE_MIN_INSTALL_BUDGET_MS
+  }
+
+  /**
+   * Spawns a child within the remaining budget and charges its wall-clock
+   * time. The timeout is read before the clock starts, so the first spawn
+   * reports exactly the configured budget when it times out. Returned
+   * alongside the result for that message.
+   */
+  async spawn (
+    runnable: Runnable,
+    options: { cwd: string, env: NodeJS.ProcessEnv },
+  ): Promise<{ result: ChildResult, timeoutMs: number }> {
+    const timeoutMs = this.remainingMs
+    const startedAt = Date.now()
+    const result = await execa(runnable.executable, runnable.args, {
+      cwd: options.cwd,
+      env: options.env,
+      extendEnv: false,
+      timeout: timeoutMs,
+      reject: false,
+    })
+    this.#spentMs += Date.now() - startedAt
+    return { result, timeoutMs }
+  }
+}
 
 const MAX_FAILURE_DETAIL_LENGTH = 400
+
+// Cap for the child's partial output logged at debug level when a prune
+// times out. Generous enough to reach the stalled request past pnpm's
+// progress lines, bounded so a chatty child cannot flood the log.
+const MAX_DEBUG_OUTPUT_LENGTH = 8_192
+
+const TIMEOUT_HINT = 'set CHECKLY_LOCKFILE_PRUNE_TIMEOUT=<seconds> to raise it'
+
+// Node's timers cannot represent a delay beyond 2^31-1 ms and would clamp a
+// larger one to 1 ms, turning a "raise the budget" request into an instant
+// timeout, so anything past that is rejected as unusable.
+const MAX_TIMEOUT_SECONDS = Math.floor(2_147_483_647 / 1000)
+
+/**
+ * Reads the prune time budget from CHECKLY_LOCKFILE_PRUNE_TIMEOUT, given in
+ * whole seconds; `0` disables the timeout (execa's own semantics). Anything
+ * else (unset, empty, negative, fractional, non-numeric, too large) yields
+ * undefined so the caller falls back to the default; an unusable value is
+ * only noted on the debug channel, since it cannot make a prune fail.
+ */
+function timeoutFromEnv (env: NodeJS.ProcessEnv): number | undefined {
+  const raw = env.CHECKLY_LOCKFILE_PRUNE_TIMEOUT
+  if (raw === undefined || raw === '') {
+    return undefined
+  }
+  if (!/^\d+$/.test(raw) || Number(raw) > MAX_TIMEOUT_SECONDS) {
+    debug(`Ignoring CHECKLY_LOCKFILE_PRUNE_TIMEOUT=${JSON.stringify(raw)}: not a whole number of seconds`
+      + ` up to ${MAX_TIMEOUT_SECONDS}`)
+    return undefined
+  }
+  return Number(raw) * 1000
+}
+
+/** Whole seconds where possible, so the reason matches the env var's unit. */
+function formatBudget (timeoutMs: number): string {
+  return timeoutMs % 1000 === 0 ? `${timeoutMs / 1000}s` : `${timeoutMs}ms`
+}
 
 /**
  * Environment keys that alter the very behavior the prune command pins with
@@ -281,8 +380,10 @@ interface LockfileSnapshot {
   /** Dependency edges by a format-specific unique key. */
   edges: Map<string, LockfileEdge>
   /**
-   * Resolution entries: key → recorded version (or empty when the key
-   * itself pins the version, as in pnpm). Used for the subset check.
+   * Resolution entries for the subset check, keyed per format so that the
+   * key pins the exact resolution (pnpm and npm include the version, yarn
+   * and bun the whole serialized entry), mapped to a short `name@version`
+   * display form for messages.
    */
   resolutions: Map<string, string>
   /** Importer directories, relative to the root ('.' for the root itself). */
@@ -360,7 +461,10 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
     // is what the subset check needs.
     for (const section of ['packages', 'snapshots']) {
       for (const key of Object.keys(doc[section] ?? {})) {
-        snapshot.resolutions.set(`${section}\0${key}`, '')
+        // The display name drops the peer suffix (`foo@1.0.0(bar@2.0.0)`)
+        // that the `snapshots` key carries and the `packages` key does not,
+        // so a re-resolved package is named once across the two sections.
+        snapshot.resolutions.set(`${section}\0${key}`, key.replace(/\(.*$/, ''))
       }
     }
 
@@ -408,7 +512,11 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
         isLink: entry.link === true,
       })
       if (entry.link !== true) {
-        snapshot.resolutions.set(key, String(entry.version ?? entry.resolved ?? ''))
+        // Paths are unique per lockfile, so the version can ride along in
+        // the key to make a changed version an unknown entry.
+        const version = String(entry.version ?? entry.resolved ?? '')
+        const pinned = version === '' ? key : `${key}@${version}`
+        snapshot.resolutions.set(pinned, pinned)
       }
     }
 
@@ -503,7 +611,8 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
     // still fail the check. Serialization is stable because both sides are
     // parsed from bun's own deterministic output by this same function.
     for (const tuple of Object.values(packages)) {
-      snapshot.resolutions.set(JSON.stringify(tuple), '')
+      const name = Array.isArray(tuple) && typeof tuple[0] === 'string' ? tuple[0] : JSON.stringify(tuple)
+      snapshot.resolutions.set(JSON.stringify(tuple), name)
     }
 
     return snapshot
@@ -618,7 +727,7 @@ function parseLockfileSnapshot (content: string, lockfileName: string): Lockfile
         // dependencies) must still fail the check. Serialization is stable
         // because both sides are parsed from yarn's own deterministic
         // output by this same function.
-        snapshot.resolutions.set(JSON.stringify(entry), '')
+        snapshot.resolutions.set(JSON.stringify(entry), resolution)
         continue
       }
       // Workspace entries are the importers: their resolution carries the
@@ -704,11 +813,27 @@ function verifyPrunedLockfile (
   // lockfile was out of date with the bundled manifests and the package
   // manager resolved something fresh from the registry — versions the user
   // never installed or tested with.
-  for (const [key, version] of regenerated.resolutions) {
-    if (original.resolutions.get(key) !== version) {
-      return `the regenerated lockfile resolves entries not present in the original `
-        + `(is the lockfile out of date with package.json?)`
+  // Collected by display name: pnpm records a re-resolved package under
+  // both `packages` and `snapshots`, which would otherwise list it twice.
+  const unexpected = new Set<string>()
+  for (const [key, name] of regenerated.resolutions) {
+    if (!original.resolutions.has(key)) {
+      unexpected.add(name)
     }
+  }
+  if (unexpected.size > 0) {
+    // Names can be URLs (tarball and git dependencies), so each is
+    // redacted on its own, after deduplication (two entries can redact to
+    // the same text) and before joining (a URL's redaction would swallow
+    // the separator after it). Only the length cap applies to the joined
+    // sample; the complete list goes to the debug channel.
+    const listed = [...unexpected].map(name => redactDetail(name))
+    if (debug.enabled) {
+      debug('%d unexpected resolution(s) in the regenerated lockfile: %s', listed.length, listed.join(', '))
+    }
+    return `the regenerated lockfile resolves entries not present in the original: `
+      + capDetail(capList(listed, ', ', ' and '))
+      + ` (is the lockfile out of date with package.json?)`
   }
 
   // Every dependency edge that was a workspace link and that still exists
@@ -874,14 +999,73 @@ function buildChildEnv (baseEnv: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
   return env
 }
 
+/**
+ * Scrubs credentials from package manager output before it is surfaced
+ * anywhere. Every http(s) URL is collapsed to scheme and host by
+ * `redactUrl`: registries carry tokens in userinfo, in the query string and
+ * in path segments (Gemfury-style `https://host/<token>/npm/`), and the host
+ * is all a stalled-request diagnosis needs. A scheme-less `//user:pw@host`
+ * (pnpm prints registry keys in that form) loses its userinfo. Redaction is
+ * by removal only; nothing is reconstructed from the credential-bearing
+ * parts.
+ */
+export function redactDetail (detail: string): string {
+  return detail
+    .replace(/https?:\/\/\S+/gi, url => redactUrl(url))
+    // Greedy up to the last '@' before the path, so an unencoded '@' inside
+    // the password does not leave its tail behind.
+    .replace(/\/\/[^/\s]+@/g, '//')
+    .trim()
+}
+
 function sanitizeDetail (detail: string): string {
-  // Package manager output can embed registry URLs with userinfo credentials
-  // (pnpm does not redact them); scrub before surfacing anywhere.
-  const redacted = detail.replace(/\/\/[^/@\s]+@/g, '//').trim()
-  if (redacted.length <= MAX_FAILURE_DETAIL_LENGTH) {
-    return redacted
+  return capDetail(redactDetail(detail))
+}
+
+/** The length cap alone, for text that is already redacted. */
+function capDetail (detail: string): string {
+  if (detail.length <= MAX_FAILURE_DETAIL_LENGTH) {
+    return detail
   }
-  return `${redacted.slice(0, MAX_FAILURE_DETAIL_LENGTH)}…`
+  return `${detail.slice(0, MAX_FAILURE_DETAIL_LENGTH)}…`
+}
+
+/**
+ * Logs a child's stdout/stderr at debug level, redacted. Only the tail is
+ * kept: for a timed-out child the most recent output is where a stalled
+ * request shows, and a probe's answer is its last line. The user-facing
+ * reason stays a one-liner, so this is the only place the output survives.
+ */
+function debugChildOutput (
+  label: string,
+  output: { stdout?: string, stderr?: string },
+  { timedOut }: { timedOut: boolean },
+): void {
+  if (!debug.enabled) {
+    return
+  }
+  for (const [stream, text] of [['stdout', output.stdout], ['stderr', output.stderr]] as const) {
+    const redacted = redactDetail(text ?? '')
+    if (redacted.length === 0) {
+      continue
+    }
+    const tail = redacted.length <= MAX_DEBUG_OUTPUT_LENGTH
+      ? redacted
+      : `…${redacted.slice(-MAX_DEBUG_OUTPUT_LENGTH)}`
+    // The output goes in as an argument, not the format string, so `%o`
+    // and `%%` sequences in it are printed verbatim.
+    debug(timedOut ? '%s timed out; partial %s:\n%s' : '%s %s:\n%s', label, stream, tail)
+  }
+}
+
+/**
+ * The first non-empty stream of a failed child, for the failure reason:
+ * stderr carries the error for most package managers, stdout for some,
+ * and execa's own message covers a child that never wrote at all.
+ */
+function firstChildOutput (result: ChildResult): string {
+  return [result.stderr, result.stdout, result.shortMessage]
+    .find(value => typeof value === 'string' && value.trim() !== '') ?? 'unknown error'
 }
 
 // Larger files are not plausible manifests; the cap also keeps a scan of a
@@ -918,6 +1102,26 @@ function executableMissing (executable: string): PruneBundledLockfileResult {
     reason: `${executable} is not installed or not on PATH; install it so the lockfile can be pruned`,
     notable: true,
   }
+}
+
+/**
+ * Classifies a failed spawn whose executable may simply be absent. On
+ * Windows a missing executable never surfaces as a spawn ENOENT: execa
+ * resolves the command itself (via which-command) and wraps an
+ * unresolvable command in cmd.exe, so the child "runs" and exits non-zero
+ * with cmd.exe's not-recognized message. Classify after the fact with a
+ * PATH probe — safe against probe/spawn resolution differences, because
+ * the command has already failed either way and only the reporting is at
+ * stake. Executables given as a path are left to the spawn's own error
+ * detail. Returns undefined when the executable exists, i.e. the failure
+ * is the command's own.
+ */
+async function missingFromPath (executable: string): Promise<PruneBundledLockfileResult | undefined> {
+  if (path.basename(executable) !== executable) {
+    return undefined
+  }
+  const executablePath = await new PathLookup().lookupPath(executable)
+  return executablePath === undefined ? executableMissing(executable) : undefined
 }
 
 /**
@@ -974,9 +1178,11 @@ export async function pruneBundledLockfile (
     packageManager,
     files,
     rewrittenManifests = new Set(),
-    timeoutMs = DEFAULT_TIMEOUT_MS,
     env = process.env,
   } = options
+  // An explicit option (tests) outranks the environment; the destructuring
+  // carries no default so that an omitted option is distinguishable.
+  const timeoutMs = options.timeoutMs ?? timeoutFromEnv(env) ?? DEFAULT_TIMEOUT_MS
 
   const decision = shouldPruneLockfile(workspace, files, env, rewrittenManifests)
   if (!decision.prune) {
@@ -993,7 +1199,9 @@ export async function pruneBundledLockfile (
   // unsupported package manager should always skip notably, never surface
   // a lockfile read error as a 'failed' warning that implies pruning was
   // attempted.
-  const runnable = packageManager.lockfileOnlyInstallCommand()
+  // Reassigned once the store directory is known (see below), so every
+  // message past that point names the command that actually ran.
+  let runnable = packageManager.lockfileOnlyInstallCommand()
   if (runnable === undefined) {
     return {
       status: 'skipped',
@@ -1122,49 +1330,39 @@ export async function pruneBundledLockfile (
     // below. Probe and install share the executable, cwd and env, so their
     // version resolution cannot diverge.
     const childEnv = buildChildEnv(env)
-    // The probe shares the install's time budget so the yarn path cannot
-    // block for longer than the documented timeout in total (a stalled
-    // first-use corepack download would otherwise be paid twice).
-    // timeoutMs === 0 means "no timeout" to execa, so the whole budget
-    // dance is skipped in that case.
-    let installTimeoutMs = timeoutMs
-    if (packageManager.name === 'yarn') {
-      // A whole budget below the install floor can never succeed (the yarn
-      // path spends a probe plus an install), so reject it up front —
-      // before the probe, whose own outcome under such a budget would be a
-      // misleading "timed out" rather than this caller-misconfiguration.
-      if (timeoutMs > 0 && timeoutMs < YARN_PROBE_MIN_INSTALL_BUDGET_MS) {
-        return {
-          status: 'failed',
-          reason: `the prune timeout (${timeoutMs}ms) is below the minimum needed to run yarn`,
-        }
+    const budget = new PruneBudget(timeoutMs)
+    const storeDirCommand = packageManager.storeDirCommand()
+    // A whole budget below the install floor can never succeed when a probe
+    // precedes the install (the yarn version check, the store lookup), so
+    // reject it up front — before the probe, whose own outcome under such
+    // a budget would be a misleading "timed out" rather than this
+    // caller-misconfiguration.
+    if ((packageManager.name === 'yarn' || storeDirCommand !== undefined) && budget.belowFloor) {
+      return {
+        status: 'failed',
+        reason: `the prune timeout (${timeoutMs}ms) is below the minimum needed to run ${packageManager.name}`,
       }
-      const probeStartedAt = Date.now()
-      const probe = await execa(runnable.executable, ['--version'], {
-        cwd: tempDir,
-        env: childEnv,
-        extendEnv: false,
-        timeout: timeoutMs,
-        reject: false,
-      })
+    }
+    if (packageManager.name === 'yarn') {
+      const { result: probe, timeoutMs: probeTimeoutMs } = await budget.spawn(
+        new Runnable(runnable.executable, ['--version']),
+        { cwd: tempDir, env: childEnv },
+      )
       if (probe.timedOut) {
         // The probe consumed the whole budget; spawning the install with
         // the ~zero remainder would only produce a confusing second kill.
-        return { status: 'failed', reason: `${runnable.executable} timed out after ${timeoutMs}ms` }
+        debugChildOutput(`${runnable.executable} --version`, probe, { timedOut: true })
+        return { status: 'failed', reason: `${runnable.executable} timed out after ${formatBudget(probeTimeoutMs)}; ${TIMEOUT_HINT}` }
       }
-      if (timeoutMs > 0) {
-        const remaining = timeoutMs - (Date.now() - probeStartedAt)
-        if (remaining < YARN_PROBE_MIN_INSTALL_BUDGET_MS) {
-          // The probe (typically a slow first-use corepack toolchain
-          // download) left too little for the install; a 1 ms install would
-          // be a misleading second timeout, so say what actually happened.
-          return {
-            status: 'failed',
-            reason: 'provisioning the yarn toolchain used up the prune time budget before the'
-              + ' lockfile could be regenerated; pre-install yarn or raise the timeout',
-          }
+      if (budget.belowFloor) {
+        // The probe (typically a slow first-use corepack toolchain
+        // download) left too little for the install; a 1 ms install would
+        // be a misleading second timeout, so say what actually happened.
+        return {
+          status: 'failed',
+          reason: 'provisioning the yarn toolchain used up the prune time budget before the'
+            + ` lockfile could be regenerated; pre-install yarn or ${TIMEOUT_HINT}`,
         }
-        installTimeoutMs = remaining
       }
       const probeVersion = probe.failed ? '' : probe.stdout?.trim() ?? ''
       const major = Number.parseInt(probeVersion, 10)
@@ -1207,18 +1405,78 @@ export async function pruneBundledLockfile (
       }
     }
 
+    // Pins the store the install resolves from to the workspace's own,
+    // which pnpm would not pick for a temp dir on another filesystem (the
+    // rationale is with PNpmDetector.lockfileOnlyInstallCommand). The
+    // lookup runs in the WORKSPACE ROOT so it reads the workspace's own
+    // config and applies pnpm's same-mount rule to the real project dir.
+    // An unusable answer is a notable skip, not a failure: running against
+    // an empty store is the very thing being avoided, and the remedy is
+    // the package manager's installation or configuration, not the
+    // lockfile.
+    if (storeDirCommand !== undefined) {
+      const display = storeDirCommand.unsafeDisplayCommand
+      const { result: probe, timeoutMs: probeTimeoutMs } = await budget.spawn(
+        storeDirCommand,
+        { cwd: workspace.root.path, env: childEnv },
+      )
+      if (probe.timedOut) {
+        debugChildOutput(display, probe, { timedOut: true })
+        return { status: 'failed', reason: `${display} timed out after ${formatBudget(probeTimeoutMs)}; ${TIMEOUT_HINT}` }
+      }
+      debugChildOutput(display, probe, { timedOut: false })
+      if (probe.code === 'ENOENT') {
+        // execa also reports ENOENT for an invalid working directory, so
+        // rule out a vanished workspace root before blaming the executable.
+        if (!await directoryExists(workspace.root.path)) {
+          return { status: 'failed', reason: `the workspace directory '${workspace.root.path}' disappeared` }
+        }
+        return executableMissing(storeDirCommand.executable)
+      }
+      if (budget.belowFloor) {
+        return {
+          status: 'failed',
+          reason: `determining the ${packageManager.name} store directory used up the prune time budget before the`
+            + ` lockfile could be regenerated; pre-install ${packageManager.name} or ${TIMEOUT_HINT}`,
+        }
+      }
+      if (probe.failed || probe.exitCode !== 0) {
+        const missing = await missingFromPath(storeDirCommand.executable)
+        if (missing !== undefined) {
+          return missing
+        }
+        return {
+          status: 'skipped',
+          reason: `the ${packageManager.name} store directory could not be determined`
+            + ` (${display} failed: ${sanitizeDetail(firstChildOutput(probe))})`,
+          notable: true,
+        }
+      }
+      // The path is the last non-empty line: pnpm 10's default reporter
+      // can print warnings to stdout ahead of it. It must be absolute and
+      // versioned (`<storeDir>/v10`) — anything else means the command's
+      // output changed shape, and guessing would risk an empty store. The
+      // PARENT is what gets pinned: pnpm appends its own version segment,
+      // and the install's pnpm may be of another major than the lookup's.
+      const printed = (probe.stdout ?? '').split(/\r?\n/).map(line => line.trim()).filter(line => line !== '').at(-1)
+      if (printed === undefined || !path.isAbsolute(printed) || !/^v\d+$/.test(path.basename(printed))) {
+        return {
+          status: 'skipped',
+          reason: `the ${packageManager.name} store directory could not be determined (${display} printed`
+            + ` ${printed === undefined ? 'nothing' : `'${sanitizeDetail(printed)}'`} instead of a versioned store path)`,
+          notable: true,
+        }
+      }
+      runnable = packageManager.lockfileOnlyInstallCommand({ storeDir: path.dirname(printed) }) ?? runnable
+    }
+
     debug(`Running ${runnable.unsafeDisplayCommand} in ${tempDir}`)
 
-    const result = await execa(runnable.executable, runnable.args, {
-      cwd: tempDir,
-      env: childEnv,
-      extendEnv: false,
-      timeout: installTimeoutMs,
-      reject: false,
-    })
+    const { result, timeoutMs: installTimeoutMs } = await budget.spawn(runnable, { cwd: tempDir, env: childEnv })
 
     if (result.timedOut) {
-      return { status: 'failed', reason: `${runnable.executable} timed out after ${installTimeoutMs}ms` }
+      debugChildOutput(runnable.executable, result, { timedOut: true })
+      return { status: 'failed', reason: `${runnable.executable} timed out after ${formatBudget(installTimeoutMs)}; ${TIMEOUT_HINT}` }
     }
     if ((result as any).code === 'ENOENT') {
       // A spawn ENOENT can also mean the working directory vanished (a temp
@@ -1230,22 +1488,11 @@ export async function pruneBundledLockfile (
       return executableMissing(runnable.executable)
     }
     if (result.failed || result.exitCode !== 0) {
-      // On Windows a missing executable never surfaces as a spawn ENOENT:
-      // execa resolves the command itself (via which-command) and wraps an
-      // unresolvable command in cmd.exe, so the child "runs" and exits
-      // non-zero with cmd.exe's not-recognized message. Classify after the fact with a
-      // PATH probe — safe against probe/spawn resolution differences,
-      // because the command has already failed either way and only the
-      // reporting is at stake. Executables given as a path are left to the
-      // spawn's own error detail.
-      if (path.basename(runnable.executable) === runnable.executable) {
-        const executablePath = await new PathLookup().lookupPath(runnable.executable)
-        if (executablePath === undefined) {
-          return executableMissing(runnable.executable)
-        }
+      const missing = await missingFromPath(runnable.executable)
+      if (missing !== undefined) {
+        return missing
       }
-      const detail = [result.stderr, result.stdout, (result as any).shortMessage]
-        .find(value => typeof value === 'string' && value.trim() !== '') ?? 'unknown error'
+      const detail = firstChildOutput(result)
       // Yarn's blocked-request error is the network guard doing its job;
       // surfaced verbatim it reads like the user's own configuration is
       // broken. Name the two real causes instead — a stale lockfile, or a
@@ -1271,7 +1518,7 @@ export async function pruneBundledLockfile (
       }
       return {
         status: 'failed',
-        reason: `${runnable.unsafeDisplayCommand} failed: ${sanitizeDetail(String(detail))}`,
+        reason: `${runnable.unsafeDisplayCommand} failed: ${sanitizeDetail(detail)}`,
       }
     }
 

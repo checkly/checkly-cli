@@ -297,6 +297,7 @@ describe('Bundler.finalize() lockfile prune reporting', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -477,6 +478,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -525,6 +527,7 @@ describe('Bundler.finalize() embedded package materialization', () => {
     ].join('\n'))
     return Object.assign(Object.create(new PNpmDetector()), {
       lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+      storeDirCommand: () => undefined,
     })
   }
 
@@ -806,6 +809,7 @@ describe('Bundler.finalize() patch filtering', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -830,6 +834,7 @@ describe('Bundler.finalize() patch filtering', () => {
     ].join('\n'))
     return Object.assign(Object.create(new PNpmDetector()), {
       lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+      storeDirCommand: () => undefined,
     })
   }
 
@@ -1189,6 +1194,7 @@ describe('Bundler.finalize() package pruning', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
@@ -1227,6 +1233,7 @@ describe('Bundler.finalize() package pruning', () => {
     await fs.writeFile(scriptPath, lines.join('\n'))
     return Object.assign(Object.create(new PNpmDetector()), {
       lockfileOnlyInstallCommand: () => new Runnable('node', [scriptPath]),
+      storeDirCommand: () => undefined,
     })
   }
 
@@ -1910,6 +1917,7 @@ describe('Bundler.finalize() patch filtering with real pnpm', () => {
       return true
     })
     vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '')
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE_TIMEOUT', '')
   })
 
   afterEach(async () => {
