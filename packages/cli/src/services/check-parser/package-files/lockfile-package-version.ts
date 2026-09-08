@@ -2,6 +2,8 @@ import semver from 'semver'
 import { parse as parseYaml } from 'yaml'
 import JSON5 from 'json5'
 
+import { splitPnpmLockfileDocuments } from '../../pnpm-lockfile-documents.js'
+
 /**
  * One candidate importer to resolve a package version against, identified by
  * its path relative to the workspace root (POSIX, `.` for the root) and the
@@ -108,12 +110,15 @@ export function parseNpmLockfileVersion (
  * enclosing member that does declare it — which is exactly the nearest
  * declaring importer in this chain. (The `node-linker=hoisted` and PnP layouts
  * can diverge; those degrade to the caller's node_modules fallback.)
+ *
+ * pnpm 12 may prepend an environment document to the lockfile; only the
+ * application document is parsed.
  */
 export function parsePnpmLockfileVersion (
   content: string,
   query: LockfilePackageQuery,
 ): string | undefined {
-  const data = parseYaml(content)
+  const data = parseYaml(splitPnpmLockfileDocuments(content).main)
   const importers = data?.importers
   if (typeof importers !== 'object' || importers === null) {
     return undefined

@@ -4,6 +4,7 @@ import { isDeepStrictEqual } from 'node:util'
 import Debug from 'debug'
 import { isMap, parse as parseYaml, parseDocument } from 'yaml'
 
+import { joinPnpmLockfileDocuments, splitPnpmLockfileDocuments } from '../pnpm-lockfile-documents.js'
 import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:patched-dependencies')
@@ -158,11 +159,12 @@ export function readPatchedDependencies (config: PatchConfigFile): PatchDeclarat
  * Reads a lockfile's `patchedDependencies` section as key → patch hash.
  * pnpm 10 records `{ hash, path }` objects and pnpm 11 a bare hash string;
  * both are accepted. Returns `undefined` when the lockfile cannot be parsed.
+ * A pnpm 12 environment document, if present, is skipped.
  */
 export function readLockfilePatchHashes (lockfileContent: string): Map<string, string> | undefined {
   let parsed: unknown
   try {
-    parsed = parseYaml(lockfileContent)
+    parsed = parseYaml(splitPnpmLockfileDocuments(lockfileContent).main)
   } catch (err) {
     debug(`Could not parse the lockfile: ${err}`)
     return undefined
@@ -382,7 +384,7 @@ export function planPatchFilter (options: PlanPatchFilterOptions): PatchFilterPl
     content: configContent,
   }
 
-  const lockfileContent = rewriteYamlSection(prunedLockfileContent, removed)
+  const lockfileContent = rewriteLockfileSection(prunedLockfileContent, removed)
   if (lockfileContent === undefined) {
     return undefined
   }
@@ -403,14 +405,20 @@ function rewriteConfig (config: PatchConfigFile, removed: Set<string>): string |
 }
 
 /**
- * Removes keys from a YAML document's top-level `patchedDependencies` map,
- * dropping the map itself once it empties. Shared by `pnpm-workspace.yaml` and
- * `pnpm-lock.yaml`, whose sections have the same shape.
+ * Removes keys from a single YAML document's top-level `patchedDependencies`
+ * map, dropping the map itself once it empties. Used for `pnpm-workspace.yaml`
+ * directly and for `pnpm-lock.yaml` through {@link rewriteLockfileSection};
+ * both files' sections have the same shape.
  *
  * The result is verified structurally before it is returned: a serializer that
  * reformatted or dropped anything else would ship silently, and for the
  * lockfile it would also invalidate the verification the pruner already ran
  * over the bytes it produced.
+ *
+ * A `pnpm-lock.yaml` may carry a leading environment document, which
+ * {@link rewriteLockfileSection} strips first; `pnpm-workspace.yaml` is
+ * passed as-is, since a leading `---` there is an ordinary document-start
+ * marker and not a separate document.
  */
 export function rewriteYamlSection (content: string, removed: Set<string>): string | undefined {
   // parseDocument collects syntax errors on the document rather than throwing,
@@ -440,6 +448,24 @@ export function rewriteYamlSection (content: string, removed: Set<string>): stri
 
   const rewritten = doc.toString(YAML_STRINGIFY_OPTIONS)
   return verifyRewrite(content, rewritten, removed, parseYaml)
+}
+
+/**
+ * {@link rewriteYamlSection} for `pnpm-lock.yaml`. A pnpm 12 lockfile may
+ * lead with an environment document; only the application document is
+ * edited and verified, and the environment document is carried over verbatim
+ * so pnpm still finds it in the bundled lockfile.
+ */
+export function rewriteLockfileSection (content: string, removed: Set<string>): string | undefined {
+  const { env, main } = splitPnpmLockfileDocuments(content)
+  if (env === undefined) {
+    return rewriteYamlSection(content, removed)
+  }
+  const rewritten = rewriteYamlSection(main, removed)
+  if (rewritten === undefined) {
+    return undefined
+  }
+  return joinPnpmLockfileDocuments({ env, main: rewritten })
 }
 
 function rewritePackageJson (content: string, removed: Set<string>): string | undefined {
