@@ -34,6 +34,7 @@ export class HeartbeatMonitorCodegen extends Codegen<HeartbeatMonitorResource> {
 
           buildMonitorProps(this.program, file, builder, resource, context, {
             skipIntent: true,
+            skipAutomaticCheckRepair: true,
           })
         })
       })

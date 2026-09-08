@@ -42,6 +42,7 @@ export class TracerouteMonitorCodegen extends Codegen<TracerouteMonitorResource>
 
           buildMonitorProps(this.program, file, builder, resource, context, {
             skipIntent: true,
+            skipAutomaticCheckRepair: true,
           })
 
           builder.value('request', valueForTracerouteRequest(this.program, file, context, resource.request))

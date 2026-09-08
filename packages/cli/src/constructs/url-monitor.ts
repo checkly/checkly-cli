@@ -113,6 +113,10 @@ export class UrlMonitor extends Monitor {
     return this.checkIntent
   }
 
+  get aiAutoRepairEnabled (): boolean | null | undefined {
+    return this.checkAiAutoRepairEnabled
+  }
+
   /**
    * Constructs the URL Monitor instance
    *

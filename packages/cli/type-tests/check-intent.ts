@@ -16,6 +16,7 @@ import type {
 } from '../src/constructs/index.js'
 
 type HasIntent<Props> = 'intent' extends keyof Props ? true : false
+type HasAutomaticCheckRepair<Props> = 'aiAutoRepairEnabled' extends keyof Props ? true : false
 
 type IntentExposure = {
   api: HasIntent<ApiCheckProps>
@@ -34,6 +35,38 @@ type IntentExposure = {
 }
 
 export const intentExposure: IntentExposure = {
+  api: true,
+  browser: true,
+  multiStep: true,
+  url: true,
+  dns: true,
+  icmp: true,
+  tcp: true,
+  grpc: true,
+  playwright: true,
+  agentic: false,
+  heartbeat: false,
+  ssl: false,
+  traceroute: false,
+}
+
+type AutomaticCheckRepairExposure = {
+  api: HasAutomaticCheckRepair<ApiCheckProps>
+  browser: HasAutomaticCheckRepair<BrowserCheckProps>
+  multiStep: HasAutomaticCheckRepair<MultiStepCheckProps>
+  url: HasAutomaticCheckRepair<UrlMonitorProps>
+  dns: HasAutomaticCheckRepair<DnsMonitorProps>
+  icmp: HasAutomaticCheckRepair<IcmpMonitorProps>
+  tcp: HasAutomaticCheckRepair<TcpMonitorProps>
+  grpc: HasAutomaticCheckRepair<GrpcMonitorProps>
+  playwright: HasAutomaticCheckRepair<PlaywrightCheckProps>
+  agentic: HasAutomaticCheckRepair<AgenticCheckProps>
+  heartbeat: HasAutomaticCheckRepair<HeartbeatMonitorProps>
+  ssl: HasAutomaticCheckRepair<SslMonitorProps>
+  traceroute: HasAutomaticCheckRepair<TracerouteMonitorProps>
+}
+
+export const automaticCheckRepairExposure: AutomaticCheckRepairExposure = {
   api: true,
   browser: true,
   multiStep: true,

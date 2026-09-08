@@ -130,6 +130,17 @@ export interface CheckIntentProps {
    * ```
    */
   intent?: CheckIntent | null
+
+  /**
+   * Determines whether automatic check repair is enabled for this check.
+   *
+   * - Omit this property to leave an existing backend-authored setting unchanged.
+   * - Set it to `true` or `false` to override the account default for this check.
+   * - Set it to `null` to explicitly inherit the account-level setting.
+   *
+   * @defaultValue null (inherit the account setting)
+   */
+  aiAutoRepairEnabled?: boolean | null
 }
 
 /**
@@ -359,10 +370,11 @@ export abstract class Check extends Construct {
   triggerIncident?: IncidentTrigger
   __checkFilePath?: string // internal variable to filter by check file name from the CLI
   #intent?: CheckIntent | null
+  #aiAutoRepairEnabled?: boolean | null
 
   static readonly __checklyType = 'check'
 
-  protected constructor (logicalId: string, props: CheckProps) {
+  protected constructor (logicalId: string, props: CheckProps & Partial<CheckIntentProps>) {
     super(Check.__checklyType, logicalId)
     const config = this.applyConfigDefaults(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
@@ -394,6 +406,7 @@ export abstract class Check extends Construct {
     this.useGlobalAlertSettings = !this.alertSettings
     this.runParallel = config.runParallel ?? false
     this.triggerIncident = config.triggerIncident
+    this.#aiAutoRepairEnabled = props.aiAutoRepairEnabled
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -438,6 +451,14 @@ export abstract class Check extends Construct {
 
   protected set checkIntent (intent: CheckIntent | null | undefined) {
     this.#intent = intent
+  }
+
+  protected get checkAiAutoRepairEnabled (): boolean | null | undefined {
+    return this.#aiAutoRepairEnabled
+  }
+
+  protected set checkAiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
+    this.#aiAutoRepairEnabled = aiAutoRepairEnabled
   }
 
   protected validateIntent (diagnostics: Diagnostics): void {
@@ -701,10 +722,15 @@ export abstract class Check extends Construct {
               },
         }
 
+    const automaticRepair = this.#aiAutoRepairEnabled === undefined
+      ? {}
+      : { aiAutoRepairEnabled: this.#aiAutoRepairEnabled }
+
     return {
       name: this.name,
       ...(this.description != null && { description: this.description }),
       ...intent,
+      ...automaticRepair,
       activated: this.activated,
       muted: this.muted,
       shouldFail: this.shouldFail,
@@ -772,6 +798,14 @@ export abstract class RuntimeCheck extends Check {
 
   set intent (intent: CheckIntent | null | undefined) {
     this.checkIntent = intent
+  }
+
+  get aiAutoRepairEnabled (): boolean | null | undefined {
+    return this.checkAiAutoRepairEnabled
+  }
+
+  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
+    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
   }
 
   protected constructor (logicalId: string, props: RuntimeCheckProps) {

@@ -45,6 +45,7 @@ export interface CheckResource {
   name: string
   description?: string | null
   intent?: CheckIntentResource | null
+  aiAutoRepairEnabled?: boolean | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -84,6 +85,12 @@ export interface BuildCheckPropsOptions {
    * Skip emitting the `intent` property for constructs that do not support it.
    */
   skipIntent?: boolean
+
+  /**
+   * Skip emitting `aiAutoRepairEnabled` for constructs that do not support
+   * automatic check repair.
+   */
+  skipAutomaticCheckRepair?: boolean
 }
 
 export function buildCheckProps (
@@ -120,6 +127,14 @@ export function buildCheckProps (
         })
       }
     })
+  }
+
+  if (!options.skipAutomaticCheckRepair && resource.aiAutoRepairEnabled !== undefined) {
+    if (resource.aiAutoRepairEnabled === null) {
+      builder.null('aiAutoRepairEnabled')
+    } else {
+      builder.boolean('aiAutoRepairEnabled', resource.aiAutoRepairEnabled)
+    }
   }
 
   if (resource.activated !== undefined) {

@@ -140,6 +140,14 @@ export class TcpMonitor extends Monitor {
     this.checkIntent = intent
   }
 
+  get aiAutoRepairEnabled (): boolean | null | undefined {
+    return this.checkAiAutoRepairEnabled
+  }
+
+  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
+    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
+  }
+
   /**
    * Constructs the TCP Monitor instance
    *

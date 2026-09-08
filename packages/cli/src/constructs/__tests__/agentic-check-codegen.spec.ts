@@ -116,14 +116,16 @@ describe('AgenticCheckCodegen', () => {
       expect(source).not.toContain('RetryStrategyBuilder')
     })
 
-    it('should not emit intent because AgenticCheck does not support it', async () => {
+    it('should not emit self-healing settings because AgenticCheck does not support them', async () => {
       const source = await renderResource(env, baseResource({
+        aiAutoRepairEnabled: true,
         intent: {
           goal: 'Backend data that must not be exposed on this construct.',
         },
       }))
 
       expect(source).not.toContain('intent:')
+      expect(source).not.toContain('aiAutoRepairEnabled:')
     })
 
     it('should not emit `agentRuntime` when `agenticCheckData` is missing', async () => {
