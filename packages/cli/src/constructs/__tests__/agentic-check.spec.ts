@@ -84,15 +84,13 @@ describe('AgenticCheck', () => {
       fixt.abspath('test-cases/test-unsupported-automatic-repair/checkly.config.js'),
     )
 
-    expect(output.payload.resources).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        logicalId: 'unsupported-automatic-repair',
-        type: 'check',
-        payload: expect.not.objectContaining({
-          aiAutoRepairEnabled: expect.anything(),
-        }),
-      }),
-    ]))
+    const resource = output.payload.resources.find(resource => resource.logicalId === 'unsupported-automatic-repair')
+    if (resource === undefined) {
+      throw new Error('Expected the authored AgenticCheck resource')
+    }
+
+    expect(resource.type).toBe('check')
+    expect(resource.payload).not.toHaveProperty('aiAutoRepairEnabled')
   }, DEFAULT_TEST_TIMEOUT)
 
   it('should expose agentRuntime skills', async () => {
