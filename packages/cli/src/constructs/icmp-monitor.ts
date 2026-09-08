@@ -1,4 +1,4 @@
-import { MonitorProps, RepairableMonitor } from './monitor.js'
+import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { IcmpRequest } from './icmp-request.js'
@@ -42,7 +42,7 @@ export interface IcmpMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates an ICMP Monitor
  */
-export class IcmpMonitor extends RepairableMonitor {
+export class IcmpMonitor extends Monitor {
   request: IcmpRequest
   degradedPacketLossThreshold?: number
   maxPacketLossThreshold?: number

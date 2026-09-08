@@ -1,4 +1,4 @@
-import { MonitorProps, RepairableMonitor } from './monitor.js'
+import { Monitor, MonitorProps } from './monitor.js'
 import { IPFamily } from './ip.js'
 import { Session } from './session.js'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
@@ -127,7 +127,7 @@ export interface TcpMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates a TCP Monitor
  */
-export class TcpMonitor extends RepairableMonitor {
+export class TcpMonitor extends Monitor {
   request: TcpRequest
   degradedResponseTime?: number
   maxResponseTime?: number

@@ -87,10 +87,10 @@ export interface BuildCheckPropsOptions {
   skipIntent?: boolean
 
   /**
-   * Skip emitting `aiAutoRepairEnabled` for constructs that do not support
-   * automatic check repair.
+   * Emit `aiAutoRepairEnabled` for constructs that support automatic check
+   * repair. Browser and MultiStep checks are the only current consumers.
    */
-  skipAutomaticCheckRepair?: boolean
+  includeAutomaticCheckRepair?: boolean
 }
 
 export function buildCheckProps (
@@ -129,7 +129,7 @@ export function buildCheckProps (
     })
   }
 
-  if (!options.skipAutomaticCheckRepair && resource.aiAutoRepairEnabled !== undefined) {
+  if (options.includeAutomaticCheckRepair && resource.aiAutoRepairEnabled !== undefined) {
     if (resource.aiAutoRepairEnabled === null) {
       builder.null('aiAutoRepairEnabled')
     } else {
@@ -282,8 +282,9 @@ export function buildRuntimeCheckProps (
   builder: ObjectValueBuilder,
   resource: RuntimeCheckResource,
   context: Context,
+  options: BuildCheckPropsOptions = {},
 ): void {
-  buildCheckProps(program, genfile, builder, resource, context)
+  buildCheckProps(program, genfile, builder, resource, context, options)
 
   if (resource.runtimeId) {
     builder.string('runtimeId', resource.runtimeId)

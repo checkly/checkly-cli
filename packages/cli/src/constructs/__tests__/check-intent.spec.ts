@@ -38,11 +38,10 @@ const synthesizedCompleteIntent = {
 
 let nextLogicalId = 0
 
-function apiCheck (intent?: CheckIntent | null, aiAutoRepairEnabled?: boolean | null): ApiCheck {
+function apiCheck (intent?: CheckIntent | null): ApiCheck {
   return new ApiCheck(`api-intent-${nextLogicalId++}`, {
     name: 'Dashboard API',
     intent,
-    aiAutoRepairEnabled,
     request: {
       method: 'GET',
       url: 'https://example.com/api/dashboard',
@@ -127,18 +126,6 @@ describe('check intent', () => {
       expect(apiCheck(null).synthesize()).toHaveProperty('intent', null)
     })
 
-    it.each([true, false, null])(
-      'synthesizes automatic check repair override %j',
-      aiAutoRepairEnabled => {
-        expect(apiCheck(undefined, aiAutoRepairEnabled).synthesize())
-          .toHaveProperty('aiAutoRepairEnabled', aiAutoRepairEnabled)
-      },
-    )
-
-    it('omits automatic check repair when the construct does not take ownership', () => {
-      expect(apiCheck().synthesize()).not.toHaveProperty('aiAutoRepairEnabled')
-    })
-
     it('uses reassigned runtime-check intent for validation and synthesis', async () => {
       const check = apiCheck(completeIntent)
       check.intent = { goal: '   ' }
@@ -173,34 +160,6 @@ describe('check intent', () => {
       monitor.intent = null
 
       expect(monitor.synthesize()).toHaveProperty('intent', null)
-    })
-
-    it('uses inherited automatic repair accessors for runtime checks and monitors', () => {
-      const check = apiCheck(undefined, true)
-      const monitor = new DnsMonitor('dns-automatic-repair-reassignment', {
-        name: 'Dashboard DNS',
-        aiAutoRepairEnabled: false,
-        request: {
-          recordType: 'A',
-          query: 'example.com',
-        },
-      })
-      const urlMonitor = new UrlMonitor('url-automatic-repair-reassignment', {
-        name: 'Dashboard URL',
-        request: { url: 'https://example.com' },
-      })
-
-      expect(check.aiAutoRepairEnabled).toBe(true)
-      expect(monitor.aiAutoRepairEnabled).toBe(false)
-      expect(urlMonitor.aiAutoRepairEnabled).toBeUndefined()
-
-      check.aiAutoRepairEnabled = null
-      monitor.aiAutoRepairEnabled = true
-      urlMonitor.aiAutoRepairEnabled = false
-
-      expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', null)
-      expect(monitor.synthesize()).toHaveProperty('aiAutoRepairEnabled', true)
-      expect(urlMonitor.synthesize()).toHaveProperty('aiAutoRepairEnabled', false)
     })
   })
 

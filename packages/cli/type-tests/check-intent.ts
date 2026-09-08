@@ -67,15 +67,15 @@ type AutomaticCheckRepairExposure = {
 }
 
 export const automaticCheckRepairExposure: AutomaticCheckRepairExposure = {
-  api: true,
+  api: false,
   browser: true,
   multiStep: true,
-  url: true,
-  dns: true,
-  icmp: true,
-  tcp: true,
-  grpc: true,
-  playwright: true,
+  url: false,
+  dns: false,
+  icmp: false,
+  tcp: false,
+  grpc: false,
+  playwright: false,
   agentic: false,
   heartbeat: false,
   ssl: false,

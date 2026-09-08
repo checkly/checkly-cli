@@ -1,4 +1,4 @@
-import { MonitorProps, RepairableMonitor } from './monitor.js'
+import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
@@ -49,7 +49,7 @@ export interface DnsMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates a DNS Monitor
  */
-export class DnsMonitor extends RepairableMonitor {
+export class DnsMonitor extends Monitor {
   request: DnsRequest
   degradedResponseTime?: number
   maxResponseTime?: number

@@ -130,7 +130,9 @@ export interface CheckIntentProps {
    * ```
    */
   intent?: CheckIntent | null
+}
 
+export interface AutomaticCheckRepairProps {
   /**
    * Determines whether automatic check repair is enabled for this check.
    *
@@ -799,19 +801,10 @@ export abstract class RuntimeCheck extends Check {
     this.checkIntent = intent
   }
 
-  get aiAutoRepairEnabled (): boolean | null | undefined {
-    return this.checkAiAutoRepairEnabled
-  }
-
-  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
-    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
-  }
-
   protected constructor (logicalId: string, props: RuntimeCheckProps) {
     super(logicalId, props)
     const config = this.applyConfigDefaults(props)
     this.intent = props.intent
-    this.aiAutoRepairEnabled = props.aiAutoRepairEnabled
     this.runtimeId = config.runtimeId
     this.environmentVariables = config.environmentVariables ?? []
   }
@@ -832,5 +825,26 @@ export abstract class RuntimeCheck extends Check {
       runtimeId: this.runtimeId,
       environmentVariables: this.environmentVariables,
     }
+  }
+}
+
+/**
+ * Base class for runtime checks that support automatic check repair.
+ *
+ * API and Playwright checks intentionally remain on `RuntimeCheck` until the
+ * platform supports automatic repair for those check types.
+ */
+export abstract class RepairableRuntimeCheck extends RuntimeCheck {
+  get aiAutoRepairEnabled (): boolean | null | undefined {
+    return this.checkAiAutoRepairEnabled
+  }
+
+  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
+    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
+  }
+
+  protected constructor (logicalId: string, props: RuntimeCheckProps & AutomaticCheckRepairProps) {
+    super(logicalId, props)
+    this.aiAutoRepairEnabled = props.aiAutoRepairEnabled
   }
 }

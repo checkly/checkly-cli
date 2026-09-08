@@ -1,4 +1,4 @@
-import { MonitorProps, RepairableMonitor } from './monitor.js'
+import { Monitor, MonitorProps } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
@@ -45,7 +45,7 @@ export interface GrpcMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates a gRPC Monitor
  */
-export class GrpcMonitor extends RepairableMonitor {
+export class GrpcMonitor extends Monitor {
   request: GrpcRequest
   degradedResponseTime?: number
   maxResponseTime?: number

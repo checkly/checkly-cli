@@ -168,13 +168,10 @@ describe('GrpcMonitorCodegen', () => {
     expect(source).not.toContain('intent:')
   })
 
-  it.each([true, false, null])(
-    'emits automatic check repair ownership %j',
-    async aiAutoRepairEnabled => {
-      const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({ aiAutoRepairEnabled }))
-      expect(source).toContain(`aiAutoRepairEnabled: ${String(aiAutoRepairEnabled)}`)
-    },
-  )
+  it('does not emit automatic check repair before gRPC support lands', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({ aiAutoRepairEnabled: true }))
+    expect(source).not.toContain('aiAutoRepairEnabled:')
+  })
 
   it('describes the resource by name', () => {
     const program = new Program({

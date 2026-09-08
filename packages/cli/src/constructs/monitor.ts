@@ -14,7 +14,7 @@ import {
   NoRetriesRetryStrategy,
   SingleRetryRetryStrategy,
 } from './retry-strategy.js'
-import { Check, CheckIntentProps, CheckProps } from './check.js'
+import { Check, CheckProps } from './check.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateUnsupportedDoubleCheck } from './internal/common-diagnostics.js'
 
@@ -125,26 +125,5 @@ export abstract class Monitor extends Check {
       ...super.synthesize(),
       doubleCheck: false,
     }
-  }
-}
-
-/**
- * Base class for monitors that support automatic check repair.
- *
- * Keep this separate from `Monitor` so monitors without repair support do not
- * expose the setting through their construct type.
- */
-export abstract class RepairableMonitor extends Monitor {
-  protected constructor (logicalId: string, props: MonitorProps & CheckIntentProps) {
-    super(logicalId, props)
-    this.aiAutoRepairEnabled = props.aiAutoRepairEnabled
-  }
-
-  get aiAutoRepairEnabled (): boolean | null | undefined {
-    return this.checkAiAutoRepairEnabled
-  }
-
-  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
-    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
   }
 }

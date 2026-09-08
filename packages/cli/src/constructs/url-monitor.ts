@@ -1,7 +1,7 @@
 import { Diagnostics } from './diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
-import { MonitorProps, RepairableMonitor } from './monitor.js'
+import { Monitor, MonitorProps } from './monitor.js'
 import { CheckIntent, CheckIntentProps } from './check.js'
 import { Session } from './session.js'
 import { UrlRequest } from './url-request.js'
@@ -104,7 +104,7 @@ export interface UrlMonitorProps extends MonitorProps, CheckIntentProps {
  * @see {@link https://www.checklyhq.com/docs/constructs/url-monitor/ | UrlMonitor API Reference}
  * @see {@link https://www.checklyhq.com/docs/detect/uptime-monitoring/url-monitors/overview/ | URL Monitors Documentation}
  */
-export class UrlMonitor extends RepairableMonitor {
+export class UrlMonitor extends Monitor {
   readonly request: UrlRequest
   readonly degradedResponseTime?: number
   readonly maxResponseTime?: number

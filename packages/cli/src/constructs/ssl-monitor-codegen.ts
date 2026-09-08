@@ -85,7 +85,6 @@ export class SslMonitorCodegen extends Codegen<SslMonitorResource> {
 
           buildMonitorProps(this.program, file, builder, resource, context, {
             skipIntent: true,
-            skipAutomaticCheckRepair: true,
           })
 
           builder.value('request', valueForSslRequest(this.program, file, context, constructRequest))
