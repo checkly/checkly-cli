@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 
-import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check.js'
+import { AutomaticCheckRepairProps, CheckProps, RepairableRuntimeCheck, RuntimeCheckProps } from './check.js'
 import { Session, SharedFileRef } from './session.js'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
 import { CheckTypes } from '../constants.js'
@@ -12,7 +12,7 @@ import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.j
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 
-export interface MultiStepCheckProps extends RuntimeCheckProps {
+export interface MultiStepCheckProps extends RuntimeCheckProps, AutomaticCheckRepairProps {
   /**
    * A valid piece of Node.js javascript code describing a multi-step interaction
    * with the Puppeteer or Playwright frameworks.
@@ -28,7 +28,7 @@ export interface MultiStepCheckProps extends RuntimeCheckProps {
  *
  * This class make use of the multi-step checks endpoints.
  */
-export class MultiStepCheck extends RuntimeCheck {
+export class MultiStepCheck extends RepairableRuntimeCheck {
   readonly code: Content | Entrypoint
   readonly playwrightConfig?: PlaywrightConfig
 

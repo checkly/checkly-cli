@@ -77,6 +77,22 @@ describe('AgenticCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
+  it('ignores automatic repair supplied by an untyped authored config', async () => {
+    const output = await parseProject(
+      fixt,
+      '--config',
+      fixt.abspath('test-cases/test-unsupported-automatic-repair/checkly.config.js'),
+    )
+
+    const resource = output.payload.resources.find(resource => resource.logicalId === 'unsupported-automatic-repair')
+    if (resource === undefined) {
+      throw new Error('Expected the authored AgenticCheck resource')
+    }
+
+    expect(resource.type).toBe('check')
+    expect(resource.payload).not.toHaveProperty('aiAutoRepairEnabled')
+  }, DEFAULT_TEST_TIMEOUT)
+
   it('should expose agentRuntime skills', async () => {
     const output = await parseProject(
       fixt,

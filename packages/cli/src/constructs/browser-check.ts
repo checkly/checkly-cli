@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 
-import { CheckProps, RuntimeCheck, RuntimeCheckProps } from './check.js'
+import { AutomaticCheckRepairProps, CheckProps, RepairableRuntimeCheck, RuntimeCheckProps } from './check.js'
 import { Session, SharedFileRef } from './session.js'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
 import { detectSnapshots } from '../services/snapshot-service.js'
@@ -12,7 +12,7 @@ import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.j
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
 
-export interface BrowserCheckProps extends RuntimeCheckProps {
+export interface BrowserCheckProps extends RuntimeCheckProps, AutomaticCheckRepairProps {
   /**
    * A valid piece of Node.js javascript code describing a browser interaction
    * with the Puppeteer or Playwright frameworks.
@@ -76,7 +76,7 @@ export interface BrowserCheckProps extends RuntimeCheckProps {
  * @see {@link https://www.checklyhq.com/docs/detect/synthetic-monitoring/browser-checks/overview/ | Browser Checks Documentation}
  * @see {@link https://playwright.dev/ | Playwright Documentation}
  */
-export class BrowserCheck extends RuntimeCheck {
+export class BrowserCheck extends RepairableRuntimeCheck {
   readonly code: Content | Entrypoint
   readonly sslCheckDomain?: string
   readonly playwrightConfig?: PlaywrightConfig

@@ -45,6 +45,7 @@ export interface CheckResource {
   name: string
   description?: string | null
   intent?: CheckIntentResource | null
+  aiAutoRepairEnabled?: boolean | null
   activated?: boolean
   muted?: boolean
   // Handled by the backend which creates the appropriate retryStrategy.
@@ -84,6 +85,12 @@ export interface BuildCheckPropsOptions {
    * Skip emitting the `intent` property for constructs that do not support it.
    */
   skipIntent?: boolean
+
+  /**
+   * Emit `aiAutoRepairEnabled` for constructs that support automatic check
+   * repair. Browser and MultiStep checks are the only current consumers.
+   */
+  includeAutomaticCheckRepair?: boolean
 }
 
 export function buildCheckProps (
@@ -120,6 +127,14 @@ export function buildCheckProps (
         })
       }
     })
+  }
+
+  if (options.includeAutomaticCheckRepair && resource.aiAutoRepairEnabled !== undefined) {
+    if (resource.aiAutoRepairEnabled === null) {
+      builder.null('aiAutoRepairEnabled')
+    } else {
+      builder.boolean('aiAutoRepairEnabled', resource.aiAutoRepairEnabled)
+    }
   }
 
   if (resource.activated !== undefined) {
@@ -267,8 +282,9 @@ export function buildRuntimeCheckProps (
   builder: ObjectValueBuilder,
   resource: RuntimeCheckResource,
   context: Context,
+  options: BuildCheckPropsOptions = {},
 ): void {
-  buildCheckProps(program, genfile, builder, resource, context)
+  buildCheckProps(program, genfile, builder, resource, context, options)
 
   if (resource.runtimeId) {
     builder.string('runtimeId', resource.runtimeId)

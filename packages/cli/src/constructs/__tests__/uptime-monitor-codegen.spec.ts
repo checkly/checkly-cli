@@ -168,6 +168,11 @@ describe('GrpcMonitorCodegen', () => {
     expect(source).not.toContain('intent:')
   })
 
+  it('does not emit automatic check repair before gRPC support lands', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({ aiAutoRepairEnabled: true }))
+    expect(source).not.toContain('aiAutoRepairEnabled:')
+  })
+
   it('describes the resource by name', () => {
     const program = new Program({
       rootDirectory: env.rootDirectory,
@@ -225,14 +230,16 @@ describe('SslMonitorCodegen', () => {
     expect(source).not.toContain('maxResponseTimeMs:')
   })
 
-  it('does not emit intent because SslMonitor does not support it', async () => {
+  it('does not emit self-healing settings because SslMonitor does not support them', async () => {
     const source = await renderResource(env, p => new SslMonitorCodegen(p), resource({
+      aiAutoRepairEnabled: true,
       intent: {
         goal: 'Backend data that must not be exposed on this construct.',
       },
     }))
 
     expect(source).not.toContain('intent:')
+    expect(source).not.toContain('aiAutoRepairEnabled:')
   })
 
   it('emits assertions through SslAssertionBuilder', async () => {
