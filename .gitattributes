@@ -3,3 +3,8 @@
 # byte-identical across platforms. (pnpm normalizes line endings before hashing
 # a patch, so this does not affect the `patch_hash=` it records in the lockfile.)
 *.patch -text
+
+# pnpm 12 lockfile fixtures are asserted to round-trip byte for byte through
+# the document splitter, which normalizes CRLF to LF as pnpm's own reader does.
+# A CRLF checkout on Windows would make that assertion fail by construction.
+packages/cli/src/services/__tests__/fixtures/pnpm12-lockfile/** -text
