@@ -175,7 +175,7 @@ describe('check intent', () => {
       expect(monitor.synthesize()).toHaveProperty('intent', null)
     })
 
-    it('uses reassigned automatic repair settings for runtime checks and monitors', () => {
+    it('uses inherited automatic repair accessors for runtime checks and monitors', () => {
       const check = apiCheck(undefined, true)
       const monitor = new DnsMonitor('dns-automatic-repair-reassignment', {
         name: 'Dashboard DNS',
@@ -185,15 +185,22 @@ describe('check intent', () => {
           query: 'example.com',
         },
       })
+      const urlMonitor = new UrlMonitor('url-automatic-repair-reassignment', {
+        name: 'Dashboard URL',
+        request: { url: 'https://example.com' },
+      })
 
       expect(check.aiAutoRepairEnabled).toBe(true)
       expect(monitor.aiAutoRepairEnabled).toBe(false)
+      expect(urlMonitor.aiAutoRepairEnabled).toBeUndefined()
 
       check.aiAutoRepairEnabled = null
       monitor.aiAutoRepairEnabled = true
+      urlMonitor.aiAutoRepairEnabled = false
 
       expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', null)
       expect(monitor.synthesize()).toHaveProperty('aiAutoRepairEnabled', true)
+      expect(urlMonitor.synthesize()).toHaveProperty('aiAutoRepairEnabled', false)
     })
   })
 

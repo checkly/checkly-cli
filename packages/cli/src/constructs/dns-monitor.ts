@@ -1,4 +1,4 @@
-import { Monitor, MonitorProps } from './monitor.js'
+import { MonitorProps, RepairableMonitor } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
@@ -49,7 +49,7 @@ export interface DnsMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates a DNS Monitor
  */
-export class DnsMonitor extends Monitor {
+export class DnsMonitor extends RepairableMonitor {
   request: DnsRequest
   degradedResponseTime?: number
   maxResponseTime?: number
@@ -60,14 +60,6 @@ export class DnsMonitor extends Monitor {
 
   set intent (intent: CheckIntent | null | undefined) {
     this.checkIntent = intent
-  }
-
-  get aiAutoRepairEnabled (): boolean | null | undefined {
-    return this.checkAiAutoRepairEnabled
-  }
-
-  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
-    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
   }
 
   /**

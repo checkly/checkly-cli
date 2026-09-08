@@ -1,4 +1,4 @@
-import { Monitor, MonitorProps } from './monitor.js'
+import { MonitorProps, RepairableMonitor } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
@@ -45,7 +45,7 @@ export interface GrpcMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates a gRPC Monitor
  */
-export class GrpcMonitor extends Monitor {
+export class GrpcMonitor extends RepairableMonitor {
   request: GrpcRequest
   degradedResponseTime?: number
   maxResponseTime?: number
@@ -56,14 +56,6 @@ export class GrpcMonitor extends Monitor {
 
   set intent (intent: CheckIntent | null | undefined) {
     this.checkIntent = intent
-  }
-
-  get aiAutoRepairEnabled (): boolean | null | undefined {
-    return this.checkAiAutoRepairEnabled
-  }
-
-  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
-    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
   }
 
   /**

@@ -1,4 +1,4 @@
-import { Monitor, MonitorProps } from './monitor.js'
+import { MonitorProps, RepairableMonitor } from './monitor.js'
 import { Session } from './session.js'
 import { Diagnostics } from './diagnostics.js'
 import { IcmpRequest } from './icmp-request.js'
@@ -42,7 +42,7 @@ export interface IcmpMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates an ICMP Monitor
  */
-export class IcmpMonitor extends Monitor {
+export class IcmpMonitor extends RepairableMonitor {
   request: IcmpRequest
   degradedPacketLossThreshold?: number
   maxPacketLossThreshold?: number
@@ -53,14 +53,6 @@ export class IcmpMonitor extends Monitor {
 
   set intent (intent: CheckIntent | null | undefined) {
     this.checkIntent = intent
-  }
-
-  get aiAutoRepairEnabled (): boolean | null | undefined {
-    return this.checkAiAutoRepairEnabled
-  }
-
-  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
-    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
   }
 
   /**

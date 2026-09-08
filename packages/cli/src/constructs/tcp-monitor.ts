@@ -1,4 +1,4 @@
-import { Monitor, MonitorProps } from './monitor.js'
+import { MonitorProps, RepairableMonitor } from './monitor.js'
 import { IPFamily } from './ip.js'
 import { Session } from './session.js'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
@@ -127,7 +127,7 @@ export interface TcpMonitorProps extends MonitorProps, CheckIntentProps {
 /**
  * Creates a TCP Monitor
  */
-export class TcpMonitor extends Monitor {
+export class TcpMonitor extends RepairableMonitor {
   request: TcpRequest
   degradedResponseTime?: number
   maxResponseTime?: number
@@ -138,14 +138,6 @@ export class TcpMonitor extends Monitor {
 
   set intent (intent: CheckIntent | null | undefined) {
     this.checkIntent = intent
-  }
-
-  get aiAutoRepairEnabled (): boolean | null | undefined {
-    return this.checkAiAutoRepairEnabled
-  }
-
-  set aiAutoRepairEnabled (aiAutoRepairEnabled: boolean | null | undefined) {
-    this.checkAiAutoRepairEnabled = aiAutoRepairEnabled
   }
 
   /**

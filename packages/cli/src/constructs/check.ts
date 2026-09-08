@@ -374,7 +374,7 @@ export abstract class Check extends Construct {
 
   static readonly __checklyType = 'check'
 
-  protected constructor (logicalId: string, props: CheckProps & Partial<CheckIntentProps>) {
+  protected constructor (logicalId: string, props: CheckProps) {
     super(Check.__checklyType, logicalId)
     const config = this.applyConfigDefaults(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
@@ -406,7 +406,6 @@ export abstract class Check extends Construct {
     this.useGlobalAlertSettings = !this.alertSettings
     this.runParallel = config.runParallel ?? false
     this.triggerIncident = config.triggerIncident
-    this.#aiAutoRepairEnabled = props.aiAutoRepairEnabled
     this.__checkFilePath = Session.checkFilePath
   }
 
@@ -812,6 +811,7 @@ export abstract class RuntimeCheck extends Check {
     super(logicalId, props)
     const config = this.applyConfigDefaults(props)
     this.intent = props.intent
+    this.aiAutoRepairEnabled = props.aiAutoRepairEnabled
     this.runtimeId = config.runtimeId
     this.environmentVariables = config.environmentVariables ?? []
   }
