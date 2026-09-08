@@ -206,7 +206,11 @@ describe('resolvePlaywrightVersion()', () => {
   // up Session as project-parser would. This reproduces a local install that
   // has drifted from the lockfile (e.g. switching branches without
   // reinstalling), where the lockfile must win over the stale install.
-  async function setupProject (lockfileVersion: string, installedVersion: string): Promise<string> {
+  async function setupProject (
+    lockfileVersion: string,
+    installedVersion: string,
+    { environmentDocument = false } = {},
+  ): Promise<string> {
     const root = await fs.realpath(
       await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-pw-version-')),
     )
@@ -220,9 +224,23 @@ describe('resolvePlaywrightVersion()', () => {
       }),
     )
 
+    // pnpm 12 leads with a separate environment document that pins pnpm
+    // itself when package.json has a packageManager field.
+    const envDocument = environmentDocument
+      ? `---\n`
+      + `lockfileVersion: '9.0'\n`
+      + `importers:\n`
+      + `  .:\n`
+      + `    packageManagerDependencies:\n`
+      + `      pnpm:\n`
+      + `        specifier: 12.3.4\n`
+      + `        version: 12.3.4\n`
+      + `\n---\n`
+      : ''
     await fs.writeFile(
       path.join(root, 'pnpm-lock.yaml'),
-      `lockfileVersion: '9.0'\n`
+      envDocument
+      + `lockfileVersion: '9.0'\n`
       + `importers:\n`
       + `  .:\n`
       + `    devDependencies:\n`
@@ -253,6 +271,12 @@ describe('resolvePlaywrightVersion()', () => {
 
   it('prefers the lockfile version over the installed node_modules version', async () => {
     const root = await setupProject('1.41.0', '1.40.0')
+    const version = await resolvePlaywrightVersion(root)
+    expect(version).toBe('1.41.0')
+  })
+
+  it('reads the lockfile version from a pnpm 12 lockfile with an environment document', async () => {
+    const root = await setupProject('1.41.0', '1.40.0', { environmentDocument: true })
     const version = await resolvePlaywrightVersion(root)
     expect(version).toBe('1.41.0')
   })

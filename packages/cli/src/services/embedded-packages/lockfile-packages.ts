@@ -5,6 +5,8 @@ import { parse as parseYaml } from 'yaml'
 import JSON5 from 'json5'
 import semver from 'semver'
 
+import { splitPnpmLockfileDocuments } from '../pnpm-lockfile-documents.js'
+
 /**
  * One embeddable `name@version` entry from the lockfile: a package that a
  * registry serves as a tarball, with the integrity hash recorded for it.
@@ -203,7 +205,9 @@ function classifyRegistryEntry (
 }
 
 export function parsePnpmLockfilePackages (content: string): LockfilePackages {
-  const data = parseYaml(content)
+  // pnpm 12 may prepend an environment document; only the application
+  // document lists embeddable packages.
+  const data = parseYaml(splitPnpmLockfileDocuments(content).main)
 
   // The version can arrive as a number: pnpm writes `lockfileVersion: '9.0'`
   // quoted, but a YAML re-serializer (merge tooling, formatters) may drop

@@ -119,6 +119,25 @@ importers:
       .toBe('1.40.0')
   })
 
+  it('reads the application document of a pnpm 12 lockfile with an environment document', () => {
+    // pnpm 12 pins itself in a leading environment document whose root
+    // importer has no application dependencies at all.
+    const envDocument = `lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.3.4
+        version: 12.3.4
+`
+    expect(parsePnpmLockfileVersion(`---\n${envDocument}\n---\n${lockfile}`, {
+      packageName: PKG,
+      importers: [{ relPath: '.' }],
+    })).toBe('1.40.0')
+  })
+
   it('resolves a member importer version', () => {
     expect(parsePnpmLockfileVersion(lockfile, {
       packageName: PKG,

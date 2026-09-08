@@ -12,6 +12,7 @@ import {
   planPatchFilter,
   readLockfilePatchHashes,
   readPatchedDependencies,
+  rewriteLockfileSection,
   rewriteYamlSection,
   verifyRewrite,
 } from '../patched-dependencies.js'
@@ -20,6 +21,22 @@ const PNPM_PATCHED_FIXTURE_ROOT = path.join(__dirname, 'lockfile-pruner-fixtures
 
 const MS_HASH = '8efb625dd8ccb88e78507bea1f647ed25671bcda20a8554ea02a4122021736bb'
 const EE_FIRST_HASH = '90b918fd6167721e405a502ac35adb29ec15497947e9d3b032d6da16a460b4af'
+
+const PNPM12_ENV_DOCUMENT = `lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.3.4
+        version: 12.3.4
+
+packages:
+
+  pnpm@12.3.4:
+    resolution: {integrity: sha512-pnpm}
+`
 
 const workspaceYaml = (entries: string[]): PatchConfigFile => ({
   archivePath: 'pnpm-workspace.yaml',
@@ -147,6 +164,13 @@ describe('readLockfilePatchHashes()', () => {
     expect(readLockfilePatchHashes(`lockfileVersion: '9.0'\n`)).toEqual(new Map())
   })
 
+  it('reads the application document of a pnpm 12 lockfile with an environment document', () => {
+    expect(readLockfilePatchHashes(`---\n${PNPM12_ENV_DOCUMENT}\n---\n${prunedLockfile}`)).toEqual(new Map([
+      ['ee-first@1.1.1', EE_FIRST_HASH],
+      ['ms@2.1.3', MS_HASH],
+    ]))
+  })
+
   // Every decline below must stay a decline: a caller that read one as "no
   // patches recorded" would classify every declaration as unused and strip
   // patches that are actually in force.
@@ -205,6 +229,42 @@ describe('rewriteYamlSection()', () => {
   it('leaves a document without the section untouched', () => {
     const content = `lockfileVersion: '9.0'\n`
     expect(rewriteYamlSection(content, new Set(['ms@2.1.3']))).toEqual(content)
+  })
+
+  it('treats a leading document-start marker as part of the document, as pnpm-workspace.yaml may carry one', () => {
+    // A workspace config is a single document even when it starts with
+    // `---`; only pnpm-lock.yaml uses that marker to introduce an
+    // environment document.
+    const content = [
+      '---',
+      'packages:',
+      '  - packages/*',
+      'patchedDependencies:',
+      '  ms@2.1.3: patches/ms@2.1.3.patch',
+      '  ee-first@1.1.1: patches/ee-first@1.1.1.patch',
+      '',
+    ].join('\n')
+    const rewritten = rewriteYamlSection(content, new Set(['ms@2.1.3']))
+    expect(rewritten).toBeDefined()
+    expect(rewritten).not.toContain('ms@2.1.3')
+    expect(rewritten).toContain('ee-first@1.1.1')
+  })
+})
+
+describe('rewriteLockfileSection()', () => {
+  it('edits a single-document lockfile like rewriteYamlSection', () => {
+    expect(rewriteLockfileSection(prunedLockfile, new Set(['ee-first@1.1.1'])))
+      .toEqual(rewriteYamlSection(prunedLockfile, new Set(['ee-first@1.1.1'])))
+  })
+
+  it('edits the application document of a pnpm 12 lockfile and keeps its environment document', () => {
+    const content = `---\n${PNPM12_ENV_DOCUMENT}\n---\n${prunedLockfile}`
+    const rewritten = rewriteLockfileSection(content, new Set(['ee-first@1.1.1']))
+    expect(rewritten).toBeDefined()
+    expect(rewritten!.startsWith(`---\n${PNPM12_ENV_DOCUMENT}\n---\n`)).toBe(true)
+    expect(rewritten).not.toContain('ee-first@1.1.1')
+    expect(rewritten).toContain('ms@2.1.3')
+    expect(readLockfilePatchHashes(rewritten!)).toEqual(new Map([['ms@2.1.3', MS_HASH]]))
   })
 })
 

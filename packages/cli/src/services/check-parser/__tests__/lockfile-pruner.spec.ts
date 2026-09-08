@@ -883,6 +883,58 @@ describe('lockfile-pruner', () => {
       })
     })
 
+    it('prunes a pnpm 12 lockfile that leads with an environment document', async () => {
+      // pnpm 12 writes the package manager pin as a separate YAML document
+      // in front of the application document, and regenerates the same
+      // shape. Both sides must be read as their application document only:
+      // the environment document's entries (pnpm's own binaries) are not
+      // resolutions the bundle depends on.
+      const root = await makeTempDir()
+      await fs.cp(PNPM_FIXTURE_ROOT, root, { recursive: true })
+      const lockfilePath = path.join(root, 'pnpm-lock.yaml')
+      const envDocument = [
+        `lockfileVersion: '9.0'`,
+        ``,
+        `importers:`,
+        ``,
+        `  .:`,
+        `    packageManagerDependencies:`,
+        `      pnpm:`,
+        `        specifier: 12.3.4`,
+        `        version: 12.3.4`,
+        ``,
+        `packages:`,
+        ``,
+        `  pnpm@12.3.4:`,
+        `    resolution: {integrity: sha512-pnpm}`,
+        ``,
+      ].join('\n')
+      await fs.writeFile(lockfilePath, `---\n${envDocument}\n---\n${await fs.readFile(lockfilePath, 'utf8')}`)
+      const { workspace, files } = makePnpmScenario(root)
+      // Regeneration drops the absent member's importer from the application
+      // document, as a real pnpm run would, and leaves the environment
+      // document in front of it.
+      const script = `
+        const fs = require('fs')
+        const content = fs.readFileSync('pnpm-lock.yaml', 'utf8')
+        const [, env, main] = content.split(/^---\\n/m)
+        const pruned = main.replace(/\\n  packages\\/absent:[\\s\\S]*?(?=\\n  packages\\/|\\npackages:)/, '')
+        fs.writeFileSync('pnpm-lock.yaml', '---\\n' + env + '---\\n' + pruned)
+      `
+      const result = await pruneBundledLockfile({
+        workspace,
+        packageManager: stubPackageManager(new Runnable('node', ['-e', script])),
+        files,
+        env: testEnv(),
+      })
+      expect(result).toMatchObject({ status: 'pruned' })
+      if (result.status !== 'pruned') {
+        return
+      }
+      expect(result.content.startsWith(`---\n${envDocument}\n---\n`)).toBe(true)
+      expect(result.content).not.toContain('packages/absent:')
+    })
+
     it('fails when the regenerated lockfile resolves new entries', async () => {
       const { workspace, files } = makePnpmScenario()
       const script = `

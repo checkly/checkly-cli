@@ -111,6 +111,37 @@ packages:
     expect(excluded[0].reason).toContain('no integrity hash')
   })
 
+  it('reads the application document of a pnpm 12 lockfile with an environment document', () => {
+    // pnpm 12 pins itself in a leading environment document; its packages
+    // are pnpm's own binaries, not candidates for embedding.
+    const { registry, excluded } = parsePnpmLockfilePackages(`---
+lockfileVersion: '9.0'
+
+importers:
+
+  .:
+    packageManagerDependencies:
+      pnpm:
+        specifier: 12.3.4
+        version: 12.3.4
+
+packages:
+
+  pnpm@12.3.4:
+    resolution: {integrity: sha512-pnpm}
+
+---
+lockfileVersion: '9.0'
+packages:
+  bar@2.0.0:
+    resolution: {integrity: sha512-bbb}
+`)
+    expect(registry).toEqual([
+      { name: 'bar', version: '2.0.0', integrity: 'sha512-bbb', tarballUrl: undefined },
+    ])
+    expect(excluded).toEqual([])
+  })
+
   it('accepts an unquoted lockfileVersion that YAML reads as a number', () => {
     const { registry } = parsePnpmLockfilePackages(`
 lockfileVersion: 9.0
