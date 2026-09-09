@@ -900,6 +900,12 @@
           "repeatInterval": 1,
           "repeatUnit": "WEEK",
           "repeatEndsAt": "2025-08-01T00:00:00.000Z",
+          "timezone": "America/New_York",
+          "pauseAllChecks": false,
+          "silenceAlertsTags": [
+            "app:webshop"
+          ],
+          "silenceAllAlerts": false,
           "created_at": "2025-07-07T08:43:03.466Z",
           "updated_at": "2025-07-07T08:43:03.465Z"
         }

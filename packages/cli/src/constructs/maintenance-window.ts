@@ -10,8 +10,9 @@ export interface MaintenanceWindowProps {
   name: string
   /**
    * A list of one or more tags that filter which checks are affected by the maintenance window.
+   * Not needed when `pauseAllChecks` is true.
    */
-  tags: Array<string>
+  tags?: Array<string>
   /**
    * The start date and time of the maintenance window in ISO 8601 format, "YYYY-MM-DDTHH:mm:ss.sssZ" as returned by
    * `new Date()`
@@ -34,6 +35,25 @@ export interface MaintenanceWindowProps {
    * The end date and time when the maintenance window should stop repeating.
    */
   repeatEndsAt?: Date
+  /**
+   * Named IANA time zone used for recurring maintenance scheduling, e.g. "America/New_York".
+   * UTC offset identifiers such as "+05:00" are not accepted. Defaults to UTC.
+   */
+  timezone?: string
+  /**
+   * When true, checks are paused for every check in the account, regardless of `tags`.
+   */
+  pauseAllChecks?: boolean
+  /**
+   * A list of tags that filter which checks have their alerts silenced. Ignored when
+   * `silenceAllAlerts` is true.
+   */
+  silenceAlertsTags?: Array<string>
+  /**
+   * When true, alerts are silenced for every check in the account, overriding
+   * `silenceAlertsTags`.
+   */
+  silenceAllAlerts?: boolean
 }
 
 /**
@@ -45,12 +65,16 @@ export interface MaintenanceWindowProps {
  */
 export class MaintenanceWindow extends Construct {
   name: string
-  tags: Array<string>
+  tags?: Array<string>
   startsAt: Date
   endsAt: Date
   repeatInterval?: number
   repeatUnit?: MaintenanceWindowRepeatUnit
   repeatEndsAt?: Date
+  timezone?: string
+  pauseAllChecks?: boolean
+  silenceAlertsTags?: Array<string>
+  silenceAllAlerts?: boolean
 
   static readonly __checklyType = 'maintenance-window'
 
@@ -71,6 +95,10 @@ export class MaintenanceWindow extends Construct {
     this.repeatInterval = props.repeatInterval
     this.repeatUnit = props.repeatUnit
     this.repeatEndsAt = props.repeatEndsAt
+    this.timezone = props.timezone
+    this.pauseAllChecks = props.pauseAllChecks
+    this.silenceAlertsTags = props.silenceAlertsTags
+    this.silenceAllAlerts = props.silenceAllAlerts
     Session.registerConstruct(this)
   }
 
@@ -87,6 +115,10 @@ export class MaintenanceWindow extends Construct {
       repeatInterval: this.repeatInterval,
       repeatUnit: this.repeatUnit,
       repeatEndsAt: this.repeatEndsAt,
+      timezone: this.timezone,
+      pauseAllChecks: this.pauseAllChecks,
+      silenceAlertsTags: this.silenceAlertsTags,
+      silenceAllAlerts: this.silenceAllAlerts,
     }
   }
 }
