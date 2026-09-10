@@ -18,6 +18,7 @@ export interface Change {
   physicalId?: string | number
   type: string
   action: string
+  sensitiveOutput?: 'status-page-password'
 }
 
 export interface ResourceSync {
