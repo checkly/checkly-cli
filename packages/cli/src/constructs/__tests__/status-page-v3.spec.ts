@@ -24,6 +24,7 @@ describe('StatusPageV3', () => {
       url: 'acme-status',
       defaultTheme: 'DARK',
       termsOfServiceLink: 'https://acme.example/terms',
+      supportLink: 'https://acme.example/support',
       allowIndexing: false,
     })
 
@@ -33,6 +34,7 @@ describe('StatusPageV3', () => {
       url: 'acme-status',
       defaultTheme: 'DARK',
       termsOfServiceLink: 'https://acme.example/terms',
+      supportLink: 'https://acme.example/support',
       allowIndexing: false,
       version: 3,
     }))
@@ -91,6 +93,7 @@ describe('StatusPageV3Component', () => {
       description: undefined,
       hidden: undefined,
       displayOrder: 1,
+      configuration: undefined,
     })
     expect(service.synthesize()).toEqual(expect.objectContaining({
       statusPageId: { ref: 'acme' },
@@ -104,6 +107,59 @@ describe('StatusPageV3Component', () => {
     const page = StatusPageV3.fromId('e79b4cf8-467e-4902-917d-82b155b42024')
     const component = new StatusPageV3Component('login', { statusPage: page, name: 'Login', displayOrder: 1 })
     expect(component.synthesize().statusPageId).toEqual({ ref: page.logicalId })
+  })
+
+  it('synthesizes the type-specific configuration as-is', async () => {
+    const page = new StatusPageV3('acme', { name: 'ACME', url: 'acme-status' })
+    const group = new StatusPageV3Component('web-app', {
+      statusPage: page,
+      type: 'GROUP',
+      name: 'Web',
+      displayOrder: 1,
+      configuration: { expandedByDefault: true, showHistoricalData: false },
+    })
+    const service = new StatusPageV3Component('login', {
+      statusPage: page,
+      name: 'Login',
+      displayOrder: 2,
+      configuration: { showHistoricalData: false },
+    })
+
+    expect(group.synthesize().configuration).toEqual({ expandedByDefault: true, showHistoricalData: false })
+    expect(service.synthesize().configuration).toEqual({ showHistoricalData: false })
+
+    for (const component of [group, service]) {
+      const diagnostics = new Diagnostics()
+      await component.validate(diagnostics)
+      expect(diagnostics.isFatal()).toBe(false)
+    }
+  })
+
+  it('rejects a configuration that belongs to the other component type', async () => {
+    const page = new StatusPageV3('acme', { name: 'ACME', url: 'acme-status' })
+    // Loosely typed on purpose: the props union already stops this in TypeScript.
+    const props: any = { statusPage: page, name: 'Login', displayOrder: 1, configuration: { expandedByDefault: true } }
+    const service = new StatusPageV3Component('login', props)
+
+    const diagnostics = new Diagnostics()
+    await service.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining('"expandedByDefault"') }),
+    ]))
+  })
+
+  it('rejects non-boolean configuration values', async () => {
+    const page = new StatusPageV3('acme', { name: 'ACME', url: 'acme-status' })
+    const props: any = { statusPage: page, name: 'Login', displayOrder: 1, configuration: { showHistoricalData: 'yes' } }
+    const service = new StatusPageV3Component('login', props)
+
+    const diagnostics = new Diagnostics()
+    await service.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    expect(diagnostics.observations).toEqual(expect.arrayContaining([
+      expect.objectContaining({ message: expect.stringContaining('boolean') }),
+    ]))
   })
 
   it('rejects a parent that is not a GROUP', async () => {
