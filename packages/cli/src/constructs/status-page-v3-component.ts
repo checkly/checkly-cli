@@ -9,44 +9,6 @@ import { StatusPageV3, StatusPageV3Ref } from './status-page-v3.js'
 
 export type StatusPageV3ComponentType = 'SERVICE' | 'GROUP'
 
-/**
- * Type-specific settings of a `SERVICE` component.
- *
- * Mirrors the backend contract (`@checkly/shapes/status-pages-component` in
- * the monorepo): an omitted key takes the backend default, an unknown key is
- * rejected at deploy time.
- */
-export interface StatusPageV3ServiceComponentConfiguration {
-  /**
-   * Show the historical status (the uptime bar) of the component on the
-   * status page. Defaults to true.
-   */
-  showHistoricalData?: boolean
-}
-
-/**
- * Type-specific settings of a `GROUP` component.
- *
- * Mirrors the backend contract (`@checkly/shapes/status-pages-component` in
- * the monorepo): an omitted key takes the backend default, an unknown key is
- * rejected at deploy time.
- */
-export interface StatusPageV3GroupComponentConfiguration {
-  /**
-   * Render the group expanded when the status page loads. Defaults to false.
-   */
-  expandedByDefault?: boolean
-  /**
-   * Show the historical status (the uptime bar) of the group on the status
-   * page. Defaults to true.
-   */
-  showHistoricalData?: boolean
-}
-
-export type StatusPageV3ComponentConfiguration =
-  | StatusPageV3ServiceComponentConfiguration
-  | StatusPageV3GroupComponentConfiguration
-
 interface StatusPageV3ComponentBaseProps {
   /**
    * The v3 status page this component belongs to. A component belongs to
@@ -83,9 +45,14 @@ export interface StatusPageV3ServiceComponentProps extends StatusPageV3Component
    */
   type?: 'SERVICE'
   /**
-   * Settings specific to a SERVICE component. Omit to use the defaults.
+   * Show the historical status (the uptime bar) of the component on the
+   * status page. Defaults to true.
    */
-  configuration?: StatusPageV3ServiceComponentConfiguration
+  showHistoricalData?: boolean
+  /**
+   * Only available on a `GROUP` component.
+   */
+  expandedByDefault?: never
 }
 
 export interface StatusPageV3GroupComponentProps extends StatusPageV3ComponentBaseProps {
@@ -94,14 +61,20 @@ export interface StatusPageV3GroupComponentProps extends StatusPageV3ComponentBa
    */
   type: 'GROUP'
   /**
-   * Settings specific to a GROUP component. Omit to use the defaults.
+   * Render the group expanded when the status page loads. Defaults to false.
    */
-  configuration?: StatusPageV3GroupComponentConfiguration
+  expandedByDefault?: boolean
+  /**
+   * Show the historical status (the uptime bar) of the group on the status
+   * page. Defaults to true.
+   */
+  showHistoricalData?: boolean
 }
 
 /**
- * Discriminated on `type`: with `type: 'GROUP'` the `configuration` is the
- * group one, otherwise (including when `type` is omitted) the service one.
+ * Discriminated on `type`: `expandedByDefault` is only available with
+ * `type: 'GROUP'`. The type-specific settings are sent to the backend as the
+ * component's `configuration`; an omitted setting takes the backend default.
  */
 export type StatusPageV3ComponentProps =
   | StatusPageV3ServiceComponentProps
@@ -144,7 +117,8 @@ export class StatusPageV3Component extends Construct {
   hidden?: boolean
   displayOrder: number
   parent?: StatusPageV3Component | StatusPageV3ComponentRef
-  configuration?: StatusPageV3ComponentConfiguration
+  showHistoricalData?: boolean
+  expandedByDefault?: boolean
 
   static readonly __checklyType = 'status-page-component'
 
@@ -165,7 +139,10 @@ export class StatusPageV3Component extends Construct {
     this.hidden = props.hidden
     this.displayOrder = props.displayOrder
     this.parent = props.parent
-    this.configuration = props.configuration
+    this.showHistoricalData = props.showHistoricalData
+    // Only a GROUP prop; read it regardless so validate() can report it on
+    // a SERVICE for loosely typed callers.
+    this.expandedByDefault = 'expandedByDefault' in props ? props.expandedByDefault : undefined
 
     Session.registerConstruct(this)
   }
@@ -212,7 +189,7 @@ export class StatusPageV3Component extends Construct {
       ))
     }
 
-    this.validateConfiguration(diagnostics)
+    this.validateSettings(diagnostics)
 
     // A referenced parent (fromId) can only be checked on the backend.
     if (this.parent instanceof StatusPageV3Component) {
@@ -231,40 +208,37 @@ export class StatusPageV3Component extends Construct {
     }
   }
 
-  // The props type already pairs `configuration` with `type`; this repeats
-  // the check at runtime for JavaScript users and loosely typed objects,
-  // matching what the backend rejects.
-  private validateConfiguration (diagnostics: Diagnostics): void {
-    if (this.configuration === undefined) {
-      return
-    }
+  // The backend `configuration` of this component: every type-specific
+  // setting that is set, keyed as the API expects. Unset ones are left out so
+  // the backend fills its defaults; nothing set means no configuration.
+  private settings (): Record<string, unknown> {
+    return { showHistoricalData: this.showHistoricalData, expandedByDefault: this.expandedByDefault }
+  }
 
-    if (typeof this.configuration !== 'object' || this.configuration === null || Array.isArray(this.configuration)) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'configuration',
-        new Error('Value must be an object.'),
-      ))
-      return
-    }
-
+  private configuration (): Record<string, boolean> | undefined {
     const allowedKeys = Object.keys(defaultConfigurationByType[this.componentType] ?? {})
-    const unknownKeys = Object.keys(this.configuration).filter(key => !allowedKeys.includes(key))
-    if (unknownKeys.length > 0) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'configuration',
-        new Error(
-          `Unknown ${unknownKeys.length === 1 ? 'property' : 'properties'} for a ${this.componentType} component: `
-          + `${unknownKeys.map(key => `"${key}"`).join(', ')}. `
-          + `Allowed: ${allowedKeys.map(key => `"${key}"`).join(', ')}.`,
-        ),
-      ))
-    }
+    const entries = Object.entries(this.settings())
+      .filter((entry): entry is [string, boolean] => allowedKeys.includes(entry[0]) && entry[1] !== undefined)
+    return entries.length > 0 ? Object.fromEntries(entries) : undefined
+  }
 
-    const values: Record<string, unknown> = { ...this.configuration }
-    for (const key of allowedKeys) {
-      if (values[key] !== undefined && typeof values[key] !== 'boolean') {
+  // The props type already pairs each setting with `type`; this repeats the
+  // check at runtime for JavaScript users and loosely typed objects, matching
+  // what the backend rejects.
+  private validateSettings (diagnostics: Diagnostics): void {
+    const allowedKeys = Object.keys(defaultConfigurationByType[this.componentType] ?? {})
+    for (const [key, value] of Object.entries(this.settings())) {
+      if (value === undefined) {
+        continue
+      }
+      if (!allowedKeys.includes(key)) {
         diagnostics.add(new InvalidPropertyValueDiagnostic(
-          `configuration.${key}`,
+          key,
+          new Error(`Not supported for a ${this.componentType} component.`),
+        ))
+      } else if (typeof value !== 'boolean') {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          key,
           new Error('Value must be a boolean.'),
         ))
       }
@@ -280,7 +254,7 @@ export class StatusPageV3Component extends Construct {
       description: this.description,
       hidden: this.hidden,
       displayOrder: this.displayOrder,
-      configuration: this.configuration,
+      configuration: this.configuration(),
     }
   }
 }

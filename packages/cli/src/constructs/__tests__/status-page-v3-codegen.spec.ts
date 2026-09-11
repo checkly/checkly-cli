@@ -126,8 +126,8 @@ describe('StatusPageV3 codegen', () => {
     expect(groupSource).toContain('statusPage: acmeStatusPage')
     expect(groupSource).toContain('type: \'GROUP\'')
     expect(groupSource).toContain('displayOrder: 0')
-    expect(groupSource).toContain('configuration: {')
     expect(groupSource).toContain('expandedByDefault: true')
+    expect(groupSource).not.toContain('configuration')
     // Only the value that differs from the backend default is generated.
     expect(groupSource).not.toContain('showHistoricalData')
     expect(groupSource).not.toContain('parent:')
@@ -152,7 +152,7 @@ describe('StatusPageV3 codegen', () => {
     expect(ruleSource).toContain('targetImpact: \'MAJOR_OUTAGE\'')
   })
 
-  it('leaves a configuration that only carries the backend defaults implicit', async () => {
+  it('leaves settings that only restate the backend defaults implicit', async () => {
     const sources = await generate(rootDirectory, [
       {
         type: 'status-page-component',
@@ -167,8 +167,11 @@ describe('StatusPageV3 codegen', () => {
       { type: 'status-page', logicalId: 'acme', payload: page },
     ])
 
-    expect(sources['resources/status-pages/components/platform.check.ts']).not.toContain('configuration')
-    expect(sources['resources/status-pages/components/public-api.check.ts']).not.toContain('configuration')
+    for (const file of ['platform', 'public-api']) {
+      const source = sources[`resources/status-pages/components/${file}.check.ts`]
+      expect(source).not.toContain('expandedByDefault')
+      expect(source).not.toContain('showHistoricalData')
+    }
   })
 
   it('falls back to fromId() references for resources outside the plan', async () => {

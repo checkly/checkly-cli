@@ -1,6 +1,6 @@
 import { Codegen, Context } from './internal/codegen/index.js'
 import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
-import { StatusPageV3ComponentConfiguration, StatusPageV3ComponentType } from './status-page-v3-component.js'
+import { StatusPageV3ComponentType } from './status-page-v3-component.js'
 import { defaultConfigurationByType } from './internal/status-page-v3-component-configuration.js'
 import { valueForStatusPageV3Ref } from './status-page-v3-codegen.js'
 
@@ -13,11 +13,12 @@ export interface StatusPageV3ComponentResource {
   description?: string | null
   hidden?: boolean | null
   displayOrder: number
-  configuration?: StatusPageV3ComponentConfiguration | null
+  configuration?: Record<string, boolean> | null
 }
 
-// The backend fills the defaults when a configuration is omitted, so only
-// values that differ are worth generating.
+// The configuration's properties are top-level props on the construct. The
+// backend fills the defaults when one is omitted, so only values that differ
+// are worth generating.
 function nonDefaultConfiguration (resource: StatusPageV3ComponentResource): Array<[string, boolean]> {
   const defaults = defaultConfigurationByType[resource.type] ?? {}
   return Object.entries(resource.configuration ?? {})
@@ -105,13 +106,8 @@ export class StatusPageV3ComponentCodegen extends Codegen<StatusPageV3ComponentR
 
             builder.number('displayOrder', resource.displayOrder)
 
-            const configuration = nonDefaultConfiguration(resource)
-            if (configuration.length > 0) {
-              builder.object('configuration', builder => {
-                for (const [key, value] of configuration) {
-                  builder.boolean(key, value)
-                }
-              })
+            for (const [key, value] of nonDefaultConfiguration(resource)) {
+              builder.boolean(key, value)
             }
 
             if (resource.parentId) {

@@ -21,7 +21,7 @@
 - A v3 status page has no cards or services. Its structure is declared with `StatusPageV3Component` constructs that point at the page via `statusPage`; nest a `SERVICE` under a `GROUP` via `parent`.
 - `StatusPageV3AutomationRule` opens one incident impacting the listed components when a check whose tags overlap with the rule's `tags` fails, and resolves it on recovery. Requires the automated incident management add-on.
 - A logical id deployed as a `StatusPage` cannot be redeployed as a `StatusPageV3` (or vice versa); use a new logical id.
-- `configuration` holds type-specific settings and is typed by `type`: a `SERVICE` takes `{ showHistoricalData?: boolean }` (default `true`), a `GROUP` takes `{ expandedByDefault?: boolean, showHistoricalData?: boolean }` (defaults `false` and `true`). Omit it to keep the defaults.
+- Type-specific settings are top-level props checked against `type`: both types take `showHistoricalData` (default `true`); only a `GROUP` takes `expandedByDefault` (default `false`). Omit them to keep the defaults.
 
 ```ts
 import { StatusPageV3, StatusPageV3AutomationRule, StatusPageV3Component } from 'checkly/constructs'
@@ -38,7 +38,7 @@ const webApp = new StatusPageV3Component('example-web-app-group', {
   type: 'GROUP',
   name: 'Web application',
   displayOrder: 1,
-  configuration: { expandedByDefault: true },
+  expandedByDefault: true,
 })
 
 const signUp = new StatusPageV3Component('example-sign-up-service', {
@@ -48,7 +48,7 @@ const signUp = new StatusPageV3Component('example-sign-up-service', {
   name: 'Sign up',
   description: 'The sign up flow',
   displayOrder: 1,
-  configuration: { showHistoricalData: false },
+  showHistoricalData: false,
 })
 
 new StatusPageV3AutomationRule('example-api-down-rule', {
