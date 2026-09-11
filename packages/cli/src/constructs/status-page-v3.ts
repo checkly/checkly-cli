@@ -50,6 +50,10 @@ export interface StatusPageV3Props {
    */
   termsOfServiceLink?: string
   /**
+   * A link to your support channel, shown in the page footer.
+   */
+  supportLink?: string
+  /**
    * Free-form footer text.
    */
   footerText?: string
@@ -114,6 +118,7 @@ export class StatusPageV3 extends Construct {
   defaultTheme?: StatusPageTheme
   privacyPolicyLink?: string
   termsOfServiceLink?: string
+  supportLink?: string
   footerText?: string
   googleAnalyticsTag?: string
   allowIndexing?: boolean
@@ -143,6 +148,7 @@ export class StatusPageV3 extends Construct {
     this.defaultTheme = props.defaultTheme
     this.privacyPolicyLink = props.privacyPolicyLink
     this.termsOfServiceLink = props.termsOfServiceLink
+    this.supportLink = props.supportLink
     this.footerText = props.footerText
     this.googleAnalyticsTag = props.googleAnalyticsTag
     this.allowIndexing = props.allowIndexing
@@ -174,6 +180,7 @@ export class StatusPageV3 extends Construct {
       defaultTheme: this.defaultTheme,
       privacyPolicyLink: this.privacyPolicyLink,
       termsOfServiceLink: this.termsOfServiceLink,
+      supportLink: this.supportLink,
       footerText: this.footerText,
       googleAnalyticsTag: this.googleAnalyticsTag,
       allowIndexing: this.allowIndexing,
