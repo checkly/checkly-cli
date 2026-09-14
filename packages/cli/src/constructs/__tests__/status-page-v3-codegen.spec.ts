@@ -26,6 +26,7 @@ const page: StatusPageV3Resource = {
   description: 'All systems',
   defaultTheme: 'DARK',
   allowIndexing: false,
+  supportLink: 'https://acme.example/support',
 }
 
 const group: StatusPageV3ComponentResource = {
@@ -35,6 +36,7 @@ const group: StatusPageV3ComponentResource = {
   type: 'GROUP',
   name: 'Platform',
   displayOrder: 0,
+  configuration: { expandedByDefault: true, showHistoricalData: true },
 }
 
 const service: StatusPageV3ComponentResource = {
@@ -46,6 +48,7 @@ const service: StatusPageV3ComponentResource = {
   description: 'REST API',
   hidden: true,
   displayOrder: 1,
+  configuration: { showHistoricalData: false },
 }
 
 const rule: StatusPageV3AutomationRuleResource = {
@@ -114,6 +117,7 @@ describe('StatusPageV3 codegen', () => {
     expect(pageSource).toContain('description: \'All systems\'')
     expect(pageSource).toContain('defaultTheme: \'DARK\'')
     expect(pageSource).toContain('allowIndexing: false')
+    expect(pageSource).toContain('supportLink: \'https://acme.example/support\'')
     expect(pageSource).not.toContain('cards')
 
     const groupSource = sources['resources/status-pages/components/platform.check.ts']
@@ -122,6 +126,10 @@ describe('StatusPageV3 codegen', () => {
     expect(groupSource).toContain('statusPage: acmeStatusPage')
     expect(groupSource).toContain('type: \'GROUP\'')
     expect(groupSource).toContain('displayOrder: 0')
+    expect(groupSource).toContain('expandedByDefault: true')
+    expect(groupSource).not.toContain('configuration')
+    // Only the value that differs from the backend default is generated.
+    expect(groupSource).not.toContain('showHistoricalData')
     expect(groupSource).not.toContain('parent:')
 
     const serviceSource = sources['resources/status-pages/components/public-api.check.ts']
@@ -129,6 +137,7 @@ describe('StatusPageV3 codegen', () => {
     expect(serviceSource).toContain('parent: platformComponent')
     expect(serviceSource).toContain('hidden: true')
     expect(serviceSource).toContain('description: \'REST API\'')
+    expect(serviceSource).toContain('showHistoricalData: false')
     // SERVICE is the default and is left implicit.
     expect(serviceSource).not.toContain('type: \'SERVICE\'')
 
@@ -141,6 +150,28 @@ describe('StatusPageV3 codegen', () => {
     expect(ruleSource).toMatch(/tags: \[\s*'api',\s*'prod',?\s*\]/)
     expect(ruleSource).toContain('component: publicApiComponent')
     expect(ruleSource).toContain('targetImpact: \'MAJOR_OUTAGE\'')
+  })
+
+  it('leaves settings that only restate the backend defaults implicit', async () => {
+    const sources = await generate(rootDirectory, [
+      {
+        type: 'status-page-component',
+        logicalId: 'platform',
+        payload: { ...group, configuration: { expandedByDefault: false, showHistoricalData: true } },
+      },
+      {
+        type: 'status-page-component',
+        logicalId: 'public-api',
+        payload: { ...service, configuration: { showHistoricalData: true } },
+      },
+      { type: 'status-page', logicalId: 'acme', payload: page },
+    ])
+
+    for (const file of ['platform', 'public-api']) {
+      const source = sources[`resources/status-pages/components/${file}.check.ts`]
+      expect(source).not.toContain('expandedByDefault')
+      expect(source).not.toContain('showHistoricalData')
+    }
   })
 
   it('falls back to fromId() references for resources outside the plan', async () => {

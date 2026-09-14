@@ -16,6 +16,7 @@ export interface StatusPageV3Resource {
   defaultTheme?: StatusPageTheme | null
   privacyPolicyLink?: string | null
   termsOfServiceLink?: string | null
+  supportLink?: string | null
   footerText?: string | null
   googleAnalyticsTag?: string | null
   allowIndexing?: boolean | null
@@ -124,6 +125,10 @@ export class StatusPageV3Codegen extends Codegen<StatusPageV3Resource> {
 
             if (resource.termsOfServiceLink) {
               builder.string('termsOfServiceLink', resource.termsOfServiceLink)
+            }
+
+            if (resource.supportLink) {
+              builder.string('supportLink', resource.supportLink)
             }
 
             if (resource.footerText) {
