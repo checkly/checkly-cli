@@ -22,6 +22,7 @@ export class Program {
   #options: ProgramOptions
   #ext: string
   #generatedFiles = new Map<string, GeneratedFile>()
+  #generatedConstructFiles = new Set<GeneratedFile>()
   #staticAuxiliaryFiles = new Map<string, StaticAuxiliaryFile>()
 
   constructor (options: ProgramOptions) {
@@ -57,6 +58,18 @@ export class Program {
     return paths
   }
 
+  /**
+   * The files declaring constructs, in the order they were first asked for.
+   *
+   * Support and static auxiliary files are not included: a caller that wants
+   * the construct a single `gencode` call produced has no other way to tell
+   * that file apart from the script, snippet and stylesheet files the same
+   * call may register beside it.
+   */
+  get generatedConstructFiles (): GeneratedFile[] {
+    return Array.from(this.#generatedConstructFiles)
+  }
+
   generatedConstructFile (path: string): GeneratedFile {
     if (this.#shouldModifyPath(path)) {
       path += this.#options.constructFileSuffix
@@ -71,6 +84,10 @@ export class Program {
       }
       this.#generatedFiles.set(path, file)
     }
+
+    // Unconditional, and a set: being asked for as a construct file is what
+    // makes a file one, even if a support file at the same path came first.
+    this.#generatedConstructFiles.add(file)
 
     return file
   }
@@ -267,14 +284,25 @@ export class GeneratedFile extends ProgramFile {
     this.#sections.push(content)
   }
 
-  render (output: Output): void {
-    for (const header of this.#headers) {
-      header.render(output)
-      output.endLine()
-      output.endLine()
+  /**
+   * @param options `scaffolding` defaults to true, so writing a file to disk
+   * needs no options. A caller rendering one construct for a reader — a diff
+   * of what a deploy would change, say — passes false: the generated-file
+   * header and the import list belong to the file, not to the construct, and
+   * an import path invented for an in-memory render would be noise.
+   */
+  render (output: Output, options: { scaffolding?: boolean } = {}): void {
+    const { scaffolding = true } = options
+
+    if (scaffolding) {
+      for (const header of this.#headers) {
+        header.render(output)
+        output.endLine()
+        output.endLine()
+      }
     }
 
-    if (this.#namedImports.size > 0) {
+    if (scaffolding && this.#namedImports.size > 0) {
       for (const [pkg, imports] of this.#namedImports.entries()) {
         output.append('import')
         output.cosmeticWhitespace()
@@ -304,7 +332,7 @@ export class GeneratedFile extends ProgramFile {
       }
     }
 
-    if (this.#plainImports.size > 0) {
+    if (scaffolding && this.#plainImports.size > 0) {
       for (const pkg of this.#plainImports.values()) {
         output.append('import')
         output.significantWhitespace()
