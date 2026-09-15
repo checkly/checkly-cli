@@ -402,11 +402,13 @@ Skip (testOnly):
       // The check should only be listed under "Delete" and not "Skip".
       expect(stdout).toContain(
         `Delete:
-    Check: testonly-true-check
-
-Update and Unchanged:
-    ApiCheck: not-testonly-default-check
-    ApiCheck: not-testonly-false-check`)
+    Check: testonly-true-check`)
+      // The two surviving checks are unchanged between the deploys. An API that
+      // reports the deploy diff says so and they are counted; an older one
+      // reports every retained resource as an update and they are listed.
+      expect(stdout).toMatch(
+        /(Unchanged: 2)|(Update:\n {4}ApiCheck: not-testonly-default-check\n {4}ApiCheck: not-testonly-false-check)/,
+      )
       // --output without --verbose should not show name or id
       expect(stdout).not.toContain('name:')
       expect(stdout).not.toContain('id:')
