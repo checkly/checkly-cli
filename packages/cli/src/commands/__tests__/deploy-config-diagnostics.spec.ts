@@ -23,6 +23,7 @@ vi.mock('../../services/util', () => ({
     configFilenames: ['checkly.config.ts'],
   }),
   getGitInformation: vi.fn(),
+  getGitRepoRoot: vi.fn(),
 }))
 
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'

@@ -26,6 +26,12 @@ export interface ResourceSync {
   type: string
   member: boolean
   payload: any
+  /**
+   * The file that declares the construct, relative to the git repository
+   * root with posix separators. Absent outside a git repository or when the
+   * file lives outside the repository.
+   */
+  sourceFile?: string
 }
 
 export interface AlertChannelFriendResource {

@@ -492,7 +492,16 @@ export async function loadChecklyConfig (
       } catch {
         continue
       }
-      config = await Session.loadFile<ChecklyConfig>(filePath)
+      // Constructs declared in the config file capture the file they come
+      // from, like constructs in check files do, so deploys can report it.
+      // Only the absolute path is set: Session.checkFilePath drives
+      // `checkly test --files` filtering and must stay unset here.
+      Session.checkFileAbsolutePath = path.resolve(filePath)
+      try {
+        config = await Session.loadFile<ChecklyConfig>(filePath)
+      } finally {
+        Session.checkFileAbsolutePath = undefined
+      }
       configFileName = path.relative(process.cwd(), filePath)
       break
     }

@@ -174,6 +174,17 @@ export function getGitInformation (repoUrl?: string): GitInformation | null {
   return gitInformation
 }
 
+/**
+ * The absolute path of the git repository root the CLI runs in, or
+ * `undefined` outside a repository. Kept separate from GitInformation, which
+ * is sent to the API as `repoInfo` verbatim and must not carry local
+ * filesystem paths.
+ */
+export function getGitRepoRoot (): string | undefined {
+  const { root } = gitRepoInfo()
+  return root || undefined
+}
+
 export function getCiInformation (): CiInformation {
   return {
     environment: process.env.CHECKLY_TEST_ENVIRONMENT ?? null,

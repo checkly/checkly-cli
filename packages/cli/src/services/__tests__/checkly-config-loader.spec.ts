@@ -1,10 +1,11 @@
 import path from 'node:path'
 
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 
 import { loadChecklyConfig, defaultFilenames, resolveDependencyCacheVersion } from '../checkly-config-loader.js'
 import { InvalidConfigError } from '../config-diagnostics.js'
 import { splitConfigFilePath } from '../util.js'
+import { Session } from '../../constructs/session.js'
 
 const configDir = path.join(__dirname, 'fixtures', 'configs')
 
@@ -452,6 +453,43 @@ describe('loadChecklyConfig()', () => {
       configDir,
       ['runner-registries-literal-token.js'],
     )).rejects.toThrow(/must be exactly one environment variable reference in \$\{VAR\} syntax/)
+  })
+  describe('construct source file attribution', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+    it('loads the config file with its absolute path as the current check file', async () => {
+      const filename = 'good-config.ts'
+      let checkFileAbsolutePath: string | undefined
+      let checkFilePath: string | undefined
+      const loadFile = vi.spyOn(Session, 'loadFile').mockImplementation(() => {
+        checkFileAbsolutePath = Session.checkFileAbsolutePath
+        checkFilePath = Session.checkFilePath
+        return Promise.resolve({ logicalId: 'test', projectName: 'Test' })
+      })
+
+      await loadChecklyConfig(configDir, [filename])
+
+      expect(loadFile).toHaveBeenCalledOnce()
+      expect(checkFileAbsolutePath).toBe(path.join(configDir, filename))
+      expect(path.isAbsolute(checkFileAbsolutePath!)).toBe(true)
+      // Session.checkFilePath drives `checkly test --files` filtering and is
+      // reserved for check files.
+      expect(checkFilePath).toBeUndefined()
+    })
+    it('clears the current check file after loading the config, even on failure', async () => {
+      const filename = 'good-config.ts'
+      let checkFileAbsolutePath: string | undefined
+      vi.spyOn(Session, 'loadFile').mockImplementation(() => {
+        checkFileAbsolutePath = Session.checkFileAbsolutePath
+        return Promise.reject(new Error('boom'))
+      })
+
+      await expect(loadChecklyConfig(configDir, [filename])).rejects.toThrow('boom')
+
+      expect(checkFileAbsolutePath).toBe(path.join(configDir, filename))
+      expect(Session.checkFileAbsolutePath).toBeUndefined()
+    })
   })
   it('config from absolute path', async () => {
     const filename = 'good-config.ts'

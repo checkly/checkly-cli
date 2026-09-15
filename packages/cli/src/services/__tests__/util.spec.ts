@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it, expect } from 'vitest'
 
 import {
   getGitInformation,
+  getGitRepoRoot,
   pathToPosix,
   isFileSync,
 } from '../util.js'
@@ -68,6 +69,20 @@ describe('util', () => {
     })
     it('should determine if a file is not present at a given path', () => {
       expect(isFileSync('some random string')).toBeFalsy()
+    })
+  })
+
+  describe('getGitRepoRoot()', () => {
+    it('returns the absolute root of the enclosing git repository', () => {
+      const root = getGitRepoRoot()
+      expect(root).toBeDefined()
+      expect(path.isAbsolute(root!)).toBe(true)
+      expect(isFileSync(path.join(root!, '.git'))).toBe(true)
+    })
+
+    it('is not part of the git information sent to the API', () => {
+      process.env.CHECKLY_REPO_SHA = 'abc123'
+      expect(getGitInformation()).not.toHaveProperty('repoRoot')
     })
   })
 
