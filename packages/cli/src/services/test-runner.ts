@@ -6,7 +6,7 @@ import { GitInformation } from './util.js'
 import { Check } from '../constructs/check.js'
 import { RetryStrategy, SharedFile } from '../constructs/index.js'
 import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle.js'
-import { pullSnapshots } from '../services/snapshot-service.js'
+import { pullSnapshots, stripContentHashes } from '../services/snapshot-service.js'
 import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle.js'
 
 export default class TestRunner extends AbstractCheckRunner {
@@ -71,9 +71,13 @@ export default class TestRunner extends AbstractCheckRunner {
         : check.groupId
 
       return {
-        ...bundle.synthesize(),
+        // The content hashes describe uploads for a deploy to compare; a run
+        // has no use for them and a run route may not accept them.
+        ...stripContentHashes(bundle.synthesize()),
         testRetryStrategy: this.testRetryStrategy,
-        group: groupId ? this.projectBundle.data['check-group'][groupId.ref].bundle.synthesize() : undefined,
+        group: groupId
+          ? stripContentHashes(this.projectBundle.data['check-group'][groupId.ref].bundle.synthesize())
+          : undefined,
         sourceInfo: {
           checkRunSuiteId,
           checkRunId: uuid.v4(),

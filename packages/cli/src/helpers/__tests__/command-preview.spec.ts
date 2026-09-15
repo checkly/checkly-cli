@@ -142,4 +142,17 @@ describe('buildConfirmCommand', () => {
     const result = buildConfirmCommand('deploy', { 'schedule-on-deploy': true })
     expect(result).toBe('checkly deploy --schedule-on-deploy --force')
   })
+
+  it('escapes what would otherwise end the quoting', () => {
+    // The result is meant to be run in a shell, and a value can come from a
+    // path the user typed or a token the API returned.
+    const result = buildConfirmCommand('deploy', {
+      'config': 'my "project"/checkly.config.ts',
+      'plan-token': 'v1.$(id)`id`\\',
+    })
+    expect(result).toBe(
+      'checkly deploy --config="my \\"project\\"/checkly.config.ts" '
+      + '--plan-token="v1.\\$(id)\\`id\\`\\\\" --force',
+    )
+  })
 })

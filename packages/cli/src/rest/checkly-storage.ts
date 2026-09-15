@@ -15,11 +15,22 @@ class ChecklyStorage {
     )
   }
 
-  uploadCodeBundle (stream: Readable, size: number) {
+  /**
+   * @param sha256 Lowercase hex SHA-256 of the archive. Stored as object
+   * metadata, so an uploaded bundle can be matched to the hash the deploy
+   * payload reports for it.
+   */
+  uploadCodeBundle (stream: Readable, size: number, sha256?: string) {
     return this.api.post<{ key: string }>(
       '/next/checkly-storage/upload-code-bundle',
       stream,
-      { headers: { 'Content-Type': 'application/octet-stream', 'content-length': size } },
+      {
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'content-length': size,
+          ...sha256 ? { 'x-bundle-checksum-sha256': sha256 } : {},
+        },
+      },
     )
   }
 

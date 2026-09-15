@@ -1,4 +1,4 @@
-import { Snapshot } from '../services/snapshot-service.js'
+import { RawSnapshot, Snapshot } from '../services/snapshot-service.js'
 import { BrowserCheck } from './browser-check.js'
 import { Bundle } from './construct.js'
 import { SharedFileRef } from './session.js'
@@ -7,7 +7,7 @@ export interface BrowserCheckBundleProps {
   script: string
   scriptPath?: string
   dependencies?: SharedFileRef[]
-  rawSnapshots?: { absolutePath: string, path: string }[]
+  rawSnapshots?: RawSnapshot[]
 }
 
 export class BrowserCheckBundle implements Bundle {
@@ -17,7 +17,7 @@ export class BrowserCheckBundle implements Bundle {
   dependencies?: SharedFileRef[]
   // For snapshots, we first store `rawSnapshots` with the path to the file.
   // The `snapshots` field is set later (with a `key`) after these are uploaded to storage.
-  rawSnapshots?: { absolutePath: string, path: string }[]
+  rawSnapshots?: RawSnapshot[]
   snapshots?: Snapshot[]
 
   constructor (browserCheck: BrowserCheck, props: BrowserCheckBundleProps) {
@@ -34,7 +34,11 @@ export class BrowserCheckBundle implements Bundle {
       script: this.script,
       scriptPath: this.scriptPath,
       dependencies: this.dependencies,
-      snapshots: this.snapshots,
+      // Until the upload has run there is no storage key, but the content hash
+      // is already known, and that is what a deploy preview compares. Checkly
+      // requires the key on every route that writes or runs a check, so a
+      // key-less entry can only ever reach the preview.
+      snapshots: this.snapshots ?? this.rawSnapshots?.map(({ path, sha256 }) => ({ path, sha256 })),
     }
   }
 }
