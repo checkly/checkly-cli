@@ -28,6 +28,21 @@ export interface ResourceSync {
   payload: any
 }
 
+/**
+ * A resource as sent by `checkly deploy`. The import plan API returns plain
+ * ResourceSync entries and never carries `sourceFile`.
+ */
+export interface DeployResourceSync extends ResourceSync {
+  /**
+   * The file that declares the construct, relative to the git repository
+   * root with posix separators. Absent outside a git repository or when the
+   * file lives outside the repository. A hint: constructs instantiated in a
+   * module imported by a check file or checkly.config.ts report the
+   * importing file, so the backend should verify before editing.
+   */
+  sourceFile?: string
+}
+
 export interface AlertChannelFriendResource {
   type: 'alert-channel'
   logicalId: string
@@ -81,7 +96,7 @@ export interface AuxiliaryResourceSync {
 export interface ProjectSync {
   project: Project
   sharedFiles?: SharedFile[]
-  resources: Array<ResourceSync>
+  resources: Array<DeployResourceSync>
   repoInfo: GitInformation | null
 }
 

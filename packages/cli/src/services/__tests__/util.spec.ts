@@ -1,8 +1,11 @@
+import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, it, expect } from 'vitest'
 
 import {
   getGitInformation,
+  getGitRepoRoot,
   pathToPosix,
   isFileSync,
 } from '../util.js'
@@ -68,6 +71,61 @@ describe('util', () => {
     })
     it('should determine if a file is not present at a given path', () => {
       expect(isFileSync('some random string')).toBeFalsy()
+    })
+  })
+
+  describe('getGitRepoRoot()', () => {
+    let tmpDir: string
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkly-git-root-'))
+    })
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    })
+
+    it('returns the absolute root of the enclosing git repository', () => {
+      const root = getGitRepoRoot()
+      expect(root).toBeDefined()
+      expect(path.isAbsolute(root!)).toBe(true)
+      expect(isFileSync(path.join(root!, '.git'))).toBe(true)
+    })
+
+    it('walks up from a nested directory to the `.git` directory', () => {
+      fs.mkdirSync(path.join(tmpDir, '.git'))
+      const nested = path.join(tmpDir, 'src', '__checks__')
+      fs.mkdirSync(nested, { recursive: true })
+      expect(getGitRepoRoot(nested)).toBe(tmpDir)
+    })
+
+    it('treats a linked worktree as its own root, not the main checkout', () => {
+      // Layout git produces for `git worktree add .claude/worktrees/feat`:
+      // the worktree holds a `.git` *file* pointing at a gitdir inside the
+      // main checkout's `.git`, which in turn carries a `commondir`.
+      const mainGitDir = path.join(tmpDir, '.git')
+      const worktreeGitDir = path.join(mainGitDir, 'worktrees', 'feat')
+      fs.mkdirSync(worktreeGitDir, { recursive: true })
+      fs.writeFileSync(path.join(worktreeGitDir, 'commondir'), '../..\n')
+      const worktree = path.join(tmpDir, '.claude', 'worktrees', 'feat')
+      const checksDir = path.join(worktree, 'src')
+      fs.mkdirSync(checksDir, { recursive: true })
+      fs.writeFileSync(path.join(worktree, '.git'), `gitdir: ${worktreeGitDir}\n`)
+
+      expect(getGitRepoRoot(checksDir)).toBe(worktree)
+    })
+
+    it('returns undefined outside a git repository', () => {
+      expect(getGitRepoRoot(tmpDir)).toBeUndefined()
+    })
+
+    it('is not part of the git information sent to the API', () => {
+      process.env.CHECKLY_REPO_SHA = 'abc123'
+      // Exact key set: any new field on repoInfo must be a deliberate choice,
+      // since the object goes to the API verbatim.
+      expect(Object.keys(getGitInformation()!).sort()).toEqual([
+        'branchName', 'commitId', 'commitMessage', 'commitOwner', 'repoUrl',
+      ])
     })
   })
 

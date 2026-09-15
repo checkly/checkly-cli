@@ -37,6 +37,7 @@ vi.mock('../../services/util', () => ({
     configFilenames: ['checkly.config.ts'],
   }),
   getGitInformation: vi.fn(),
+  getGitRepoRoot: vi.fn(),
 }))
 
 vi.mock('prompts', () => ({

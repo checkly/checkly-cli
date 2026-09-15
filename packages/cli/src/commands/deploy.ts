@@ -13,7 +13,7 @@ import {
   StatusPageV3Component, StatusPageV3AutomationRule,
 } from '../constructs/index.js'
 import chalk from 'chalk'
-import { splitConfigFilePath, getGitInformation } from '../services/util.js'
+import { splitConfigFilePath, getGitInformation, getGitRepoRoot } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { forceFlag } from '../helpers/flags.js'
 import { ProjectDeployResponse, ProjectDeployCancelledError } from '../rest/projects.js'
@@ -186,6 +186,7 @@ export default class Deploy extends AuthCommand {
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
     })
     const repoInfo = getGitInformation(project.repoUrl)
+    const repoRoot = getGitRepoRoot()
 
     this.style.actionSuccess()
 
@@ -254,7 +255,7 @@ export default class Deploy extends AuthCommand {
       }
     }
 
-    const projectPayload = projectBundle.synthesize()
+    const projectPayload = projectBundle.synthesize({ repoRoot })
     if (!projectPayload.resources.length) {
       if (preview) {
         this.log('\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
