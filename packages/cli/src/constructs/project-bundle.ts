@@ -1,7 +1,6 @@
 import * as path from 'node:path'
 import { Bundle, Construct } from './construct.js'
 import { Project, Resources } from './project.js'
-import { pathToPosix } from '../services/util.js'
 
 export type ResourceDataBundle<T> = {
   construct: T
@@ -38,13 +37,14 @@ export function resolveSourceFile (
     return undefined
   }
   const relativePath = platformPath.relative(repoRoot, checkFileAbsolutePath)
-  // An empty result means the file is the root itself; a leading `..` or an
-  // absolute result (a different Windows drive) means it lives outside the
-  // repository. Neither can be opened as a file in the repository.
-  if (!relativePath || relativePath.startsWith('..') || platformPath.isAbsolute(relativePath)) {
+  // An empty result means the file is the root itself; a leading `..`
+  // segment or an absolute result (a different Windows drive) means it lives
+  // outside the repository. Neither can be opened as a file in the repository.
+  const escapesRoot = relativePath === '..' || relativePath.startsWith(`..${platformPath.sep}`)
+  if (!relativePath || escapesRoot || platformPath.isAbsolute(relativePath)) {
     return undefined
   }
-  return pathToPosix(relativePath, platformPath.sep)
+  return relativePath.split(platformPath.sep).join(path.posix.sep)
 }
 
 export class ProjectBundle implements Bundle {

@@ -34,6 +34,11 @@ describe('resolveSourceFile()', () => {
     expect(resolveSourceFile(repoRoot, repoRoot)).toBeUndefined()
   })
 
+  it('keeps a repository entry whose name merely starts with two dots', () => {
+    expect(resolveSourceFile(repoRoot, path.join(repoRoot, '..dotted', 'api.check.ts')))
+      .toBe('..dotted/api.check.ts')
+  })
+
   it('uses posix separators for Windows paths', () => {
     expect(resolveSourceFile('C:\\repo', 'C:\\repo\\src\\api.check.ts', path.win32))
       .toBe('src/api.check.ts')

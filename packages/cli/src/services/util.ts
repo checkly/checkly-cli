@@ -179,10 +179,25 @@ export function getGitInformation (repoUrl?: string): GitInformation | null {
  * `undefined` outside a repository. Kept separate from GitInformation, which
  * is sent to the API as `repoInfo` verbatim and must not carry local
  * filesystem paths.
+ *
+ * Walks up from `startDir` to the nearest `.git` entry rather than using
+ * `git-repo-info`'s `root`: in a linked worktree that library reports the
+ * main checkout, and files would then be attributed relative to the wrong
+ * tree. A `.git` *file* (worktree or submodule) counts as a root just like
+ * a `.git` directory does.
  */
-export function getGitRepoRoot (): string | undefined {
-  const { root } = gitRepoInfo()
-  return root || undefined
+export function getGitRepoRoot (startDir: string = process.cwd()): string | undefined {
+  let current = path.resolve(startDir)
+  for (;;) {
+    if (fsSync.existsSync(path.join(current, '.git'))) {
+      return current
+    }
+    const parent = path.dirname(current)
+    if (parent === current) {
+      return undefined
+    }
+    current = parent
+  }
 }
 
 export function getCiInformation (): CiInformation {
