@@ -131,6 +131,13 @@ export interface ErrorData {
    * deployment that blocked this one. Lets the client attach to or cancel it.
    */
   deploymentId?: string
+  /**
+   * The response's `retry-after` header, verbatim, when it carried one. Set
+   * from the response rather than the body, so a caller that retries a
+   * transient failure itself (rather than leaving it to the retry
+   * interceptor) can honour what the server asked for.
+   */
+  retryAfter?: string
 }
 
 function isErrorData (value: any): value is ErrorData {
@@ -332,13 +339,18 @@ export function handleErrorResponse (err: Error): never {
       throw new MissingResponseError({ cause: err })
     }
 
-    const { status: statusCode, data } = err.response
+    const { status: statusCode, data, headers } = err.response
 
     const errorData = parseErrorData(data, {
       statusCode,
     })
 
     if (errorData !== undefined) {
+      const retryAfter = headers?.['retry-after']
+      if (typeof retryAfter === 'string') {
+        errorData.retryAfter = retryAfter
+      }
+
       if (statusCode === 400) {
         throw new ValidationError(errorData, { cause: err })
       }

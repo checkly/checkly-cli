@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { AxiosResponse } from 'axios'
-import type { Archiver } from 'archiver'
+import type { Archiver, EntryData } from 'archiver'
 import Debug from 'debug'
 import * as uuid from 'uuid'
 
@@ -47,6 +47,7 @@ import { PackageManager } from './package-files/package-manager.js'
 import { File } from './parser.js'
 import { Registries, REGISTRIES_ARCHIVE_PATH, serializeRegistries, validateRegistries } from '../runner/registries.js'
 import { Workspace } from './package-files/workspace.js'
+import { sha256OfFile } from '../content-hash.js'
 import { pathToPosix } from '../util.js'
 
 const debug = Debug('checkly:cli:services:check-parser:bundler')
@@ -138,6 +139,13 @@ function dropSymlinksWithChildren (entries: Array<[string, File]>): File[] {
     })
     .map(([, file]) => file)
 }
+
+/**
+ * Timestamp stamped on every archive entry, in place of the file's own mtime or
+ * the clock. Fixed so the archive's content hash describes the content and
+ * nothing else; see {@link BundleArchive.add}.
+ */
+const ARCHIVE_ENTRY_DATE = new Date(0)
 
 export interface CreateBundleArchiveOptions {
   tempDir?: string
@@ -248,6 +256,15 @@ export class BundleArchive {
       const entry = {
         mode: 0o755, // Default mode for files in the archive
         name,
+        // Every entry's timestamp is pinned, because the archive's SHA-256 is
+        // what tells Checkly whether the code bundle changed and it has to
+        // describe the content alone. Left alone, a tar entry carries the
+        // file's mtime — or, for an entry the bundler generates in memory (a
+        // faux workspace manifest, a pruned lockfile, the runner's registries
+        // file), the current time. Either makes two archives of identical
+        // content differ: a CI pipeline that clones fresh per run would report
+        // every Playwright suite as changed on every deploy.
+        date: ARCHIVE_ENTRY_DATE,
       }
 
       if (!file.physical) {
@@ -256,7 +273,18 @@ export class BundleArchive {
       }
 
       if (file.symlinkTarget !== undefined) {
-        this.#archive.symlink(name, file.symlinkTarget, entry.mode)
+        // Appended rather than added through archiver's symlink(), which takes
+        // no date and would stamp the entry with the current time — the same
+        // reproducibility problem as any other entry, and one that hits every
+        // pnpm or npm workspace bundle, since those are symlink farms.
+        // `linkname` is the field archiver's tar sink reads for a symlink
+        // entry — the same one its own symlink() fills in; the published types
+        // do not list it.
+        this.#archive.append(Buffer.alloc(0), {
+          ...entry,
+          type: 'symlink',
+          linkname: file.symlinkTarget,
+        } as EntryData)
         continue
       }
 
@@ -279,6 +307,10 @@ export class BundleArchive {
 
     return await FinalizedBundleArchive.create({
       archiveFile: this.#archiveFile,
+      // Hashed here, where the archive is complete on disk and has not been
+      // uploaded yet: the deploy sends the hash, and a preview of that deploy
+      // describes the bundle by hash alone.
+      sha256: await sha256OfFile(this.#archiveFile),
       containsEmbeddedPackages: this.#containsEmbeddedPackages,
     })
   }
@@ -368,25 +400,30 @@ function parseMaxBytes (message: string): number | undefined {
 
 export interface CreateFinalizedBundleArchiveOptions {
   archiveFile: string
+  sha256: string
   containsEmbeddedPackages?: boolean
 }
 
 interface FinalizedBundleArchiveOptions {
   archiveFile: string
+  sha256: string
   containsEmbeddedPackages?: boolean
 }
 
 export class FinalizedBundleArchive {
   #archiveFile: string
+  #sha256: string
   #containsEmbeddedPackages: boolean
 
   private constructor (options: FinalizedBundleArchiveOptions) {
     const {
       archiveFile,
+      sha256,
       containsEmbeddedPackages,
     } = options
 
     this.#archiveFile = archiveFile
+    this.#sha256 = sha256
     this.#containsEmbeddedPackages = containsEmbeddedPackages ?? false
   }
 
@@ -399,6 +436,11 @@ export class FinalizedBundleArchive {
     return this.#archiveFile
   }
 
+  /** Lowercase hex SHA-256 of the archive's bytes. */
+  get sha256 (): string {
+    return this.#sha256
+  }
+
   async store (): Promise<RemoteBundleArchive> {
     const { size } = await fs.stat(this.#archiveFile)
 
@@ -407,7 +449,7 @@ export class FinalizedBundleArchive {
         data: {
           key,
         },
-      } = await this.#uploadCodeBundle(this.#archiveFile, size)
+      } = await this.#uploadCodeBundle(this.#archiveFile, size, this.#sha256)
 
       return await RemoteBundleArchive.create({
         key,
@@ -426,13 +468,13 @@ export class FinalizedBundleArchive {
     }
   }
 
-  async #uploadCodeBundle (filePath: string, size: number): Promise<AxiosResponse> {
+  async #uploadCodeBundle (filePath: string, size: number, sha256: string): Promise<AxiosResponse> {
     const stream = createReadStream(filePath)
     stream.on('error', err => {
       throw new Error(`Failed to read Playwright project file: ${err.message}`)
     })
     try {
-      return await checklyStorage.uploadCodeBundle(stream, size)
+      return await checklyStorage.uploadCodeBundle(stream, size, sha256)
     } finally {
       // A failed upload leaves the stream unconsumed and its file handle
       // open; on Windows the open handle blocks deleting the archive's
@@ -620,6 +662,7 @@ export class Bundler {
   #id: string
   #marker: BundlePathMarker
   #cacheHashMarker: CacheHashMarker
+  #codeBundleChecksumMarker: CodeBundleChecksumMarker
   #tempDir?: string
   #stripPrefix?: string
   #workspaceContext?: WorkspaceBundleContext
@@ -645,6 +688,7 @@ export class Bundler {
     this.#id = uuid.v4()
     this.#marker = new BundlePathMarker(`bundle:${this.#id}`)
     this.#cacheHashMarker = new CacheHashMarker(cacheHash)
+    this.#codeBundleChecksumMarker = new CodeBundleChecksumMarker()
     this.#stripPrefix = stripPrefix
     this.#tempDir = tempDir
     this.#workspaceContext = workspaceContext
@@ -738,6 +782,14 @@ export class Bundler {
    */
   get cacheHash (): CacheHashMarker {
     return this.#cacheHashMarker
+  }
+
+  /**
+   * The code bundle's content hash, filled in by finalize(). See
+   * {@link CodeBundleChecksumMarker} for why it is a holder.
+   */
+  get codeBundleSha256 (): CodeBundleChecksumMarker {
+    return this.#codeBundleChecksumMarker
   }
 
   /**
@@ -1349,12 +1401,18 @@ export class Bundler {
     })
 
     const files = dropSymlinksWithChildren(
-      Array.from(this.#files.entries()).sort(([a], [b]) => a.localeCompare(b)),
+      // Ordered by code point, not `localeCompare`: the order decides the
+      // archive's bytes and therefore its hash, and a locale-sensitive
+      // comparison would make that hash depend on the machine that built it.
+      Array.from(this.#files.entries()).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)),
     )
 
     await archive.add(...files)
 
-    return await archive.finalize()
+    const finalized = await archive.finalize()
+    this.#codeBundleChecksumMarker.updateValue(finalized.sha256)
+
+    return finalized
   }
 }
 
@@ -1410,6 +1468,31 @@ export class CacheHashMarker {
   }
 
   toJSON (): string {
+    return this.#value
+  }
+}
+
+/**
+ * Mutable holder for the code bundle's SHA-256, serialized as a plain string.
+ * Checks copy it into their payloads during bundle(), but the archive it
+ * describes only exists once finalize() has run — the same ordering problem
+ * {@link BundlePathMarker} solves for the archive path.
+ *
+ * Starts empty and serializes to `undefined` until finalize() fills it in, so
+ * a payload synthesized without a finalized archive simply omits the key
+ * instead of claiming a hash of nothing.
+ *
+ * Deliberately a standalone class rather than a subclass of
+ * {@link BundlePathMarker}, for the reason given on {@link CacheHashMarker}.
+ */
+export class CodeBundleChecksumMarker {
+  #value?: string
+
+  updateValue (newValue: string) {
+    this.#value = newValue
+  }
+
+  toJSON (): string | undefined {
     return this.#value
   }
 }

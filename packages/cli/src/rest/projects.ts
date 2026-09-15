@@ -4,6 +4,7 @@ import type { GitInformation } from '../services/util.js'
 import { compressJSONPayload } from './util.js'
 import { SharedFile } from '../constructs/index.js'
 import { ConflictError, ForbiddenError, handleErrorResponse, NotFoundError, RequestTimeoutError } from './errors.js'
+import { parseRetryAfter } from './retry.js'
 
 export interface Project {
   name: string
@@ -18,6 +19,70 @@ export interface Change {
   physicalId?: string | number
   type: string
   action: string
+}
+
+/**
+ * One property of one resource that a deploy would change, or has changed.
+ *
+ * `origin` says which side moved since the last deploy: `code` for a local
+ * edit, `remote` for one made outside the CLI (the web app, the API), `both`
+ * when the property moved on both sides — in which case `remote` carries the
+ * movement the deploy is about to overwrite. A value too large to inline, or
+ * one Checkly stores encrypted, is reported as a `{ $hash }` object rather
+ * than in the clear; `detail: 'full'` resolves the large ones, never the
+ * secrets. `cause` names the reason for a change with no user-facing property
+ * behind it, such as a new code bundle.
+ */
+export interface DiffChange {
+  path: string
+  /**
+   * `unmanaged` marks an alert channel or private location attached to this
+   * project's check or group from outside the project: reported on the resource
+   * it belongs to, and only deleted with `--prune-relations`.
+   */
+  origin: 'code' | 'remote' | 'both' | 'unmanaged'
+  before?: unknown
+  after?: unknown
+  remote?: { before?: unknown, after?: unknown }
+  cause?: string
+}
+
+/**
+ * A resource in a deploy plan or an applied deploy. `action` is CREATE,
+ * UPDATE, DELETE, DETACH (removed from code but kept in the account) or
+ * UNCHANGED.
+ */
+export interface DiffEntry extends Change {
+  origin?: 'code' | 'remote' | 'unmanaged'
+  /** Absent under `detail: 'summary'`. */
+  changes?: DiffChange[]
+  /** The resource's current state, in payload shape. Only under `detail: 'full'`. */
+  before?: Record<string, unknown>
+  /**
+   * Set on a relation (an alert channel subscription, a private location
+   * assignment) whose change is reported as part of the check or group it
+   * belongs to, so a renderer can fold it into that resource instead of
+   * listing it separately.
+   */
+  foldedInto?: { type: string, logicalId: string }
+  /** The file Checkly has recorded for the resource, or null if none. */
+  sourceFile?: string | null
+}
+
+/** How much of each change a preview reports. */
+export type ProjectPreviewDetail = 'summary' | 'changes' | 'full'
+
+export interface ProjectPreviewResponse {
+  /** The project as currently deployed; absent before its first deploy. */
+  project?: DeployedProject | null
+  /**
+   * Opaque fingerprint of the Checkly-side state this plan was computed
+   * against. Passing it to a deploy makes that deploy refuse, rather than
+   * apply a different plan than the one that was reviewed, if anything moved
+   * in between.
+   */
+  planToken: string
+  diff: DiffEntry[]
 }
 
 export interface ResourceSync {
@@ -111,7 +176,7 @@ export interface DeployedProject extends Project {
 
 export interface ProjectDeployResponse {
   project: DeployedProject
-  diff: Array<Change>
+  diff: Array<DiffEntry>
 }
 
 export type ProjectDeploymentStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
@@ -255,6 +320,66 @@ export class NoImportableResourcesFoundError extends Error {
   }
 }
 
+/**
+ * The plan a deploy was pinned to no longer describes Checkly's state: a
+ * change landed between the preview and the deploy, so the deploy applied
+ * nothing. `diff` is the plan as it looks now.
+ */
+export class ProjectPlanStaleError extends Error {
+  readonly diff: DiffEntry[]
+
+  constructor (message: string, diff: DiffEntry[], options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'ProjectPlanStaleError'
+    this.diff = diff
+  }
+}
+
+/**
+ * A deployment that was already running finished while this one waited for it.
+ * Whatever it wrote, it moved the state the plan was computed against, so the
+ * plan is stale before the deploy is even attempted — reported here rather
+ * than after re-sending the whole payload for a refusal that is certain.
+ *
+ * A subtype of {@link ProjectPlanStaleError}: callers recover from both the
+ * same way, by planning again. It carries no diff, because no new plan has
+ * been computed yet.
+ */
+export class ProjectPlanSupersededError extends ProjectPlanStaleError {
+  constructor (options?: ErrorOptions) {
+    super(
+      'Another deployment of this project finished while this one was waiting for it, '
+      + 'so the plan this deploy was pinned to no longer describes your Checkly account.',
+      [],
+      options,
+    )
+    this.name = 'ProjectPlanSupersededError'
+  }
+}
+
+/**
+ * The preview could not be computed because another operation is holding the
+ * project. Transient: the operation holding it finishes.
+ */
+export class ProjectPreviewUnavailableError extends Error {
+  constructor (message: string, options?: ErrorOptions) {
+    super(message, options)
+    this.name = 'ProjectPreviewUnavailableError'
+  }
+}
+
+/**
+ * The account's Checkly API does not have the preview endpoint yet (a
+ * self-hosted or not-yet-updated backend). Callers fall back to the older,
+ * coarser deploy preview.
+ */
+export class ProjectPreviewNotSupportedError extends Error {
+  constructor (options?: ErrorOptions) {
+    super('This Checkly API does not support deploy previews.', options)
+    this.name = 'ProjectPreviewNotSupportedError'
+  }
+}
+
 export class ImportPlanNotFoundError extends Error {
   constructor (options?: ErrorOptions) {
     super(`Import plan does not exist.`, options)
@@ -273,6 +398,14 @@ export class InvalidImportPlanStateError extends Error {
 // in-progress operation before giving up and surfacing the 409. Generous, since a
 // large predecessor deploy or delete can legitimately run for many minutes.
 const DEPLOY_CONFLICT_WAIT_DEADLINE_MS = 30 * 60_000
+
+// A preview conflicts only while something else holds the project, which is
+// measured in seconds, so it is retried a few times rather than waited out
+// like a deploy's predecessor. The cap keeps a server asking for an
+// unreasonable wait from stalling the command instead of failing it.
+const PREVIEW_CONFLICT_ATTEMPTS = 3
+const PREVIEW_RETRY_AFTER_DEFAULT_MS = 2_000
+const PREVIEW_RETRY_AFTER_MAX_MS = 10_000
 
 class Projects {
   api: AxiosInstance
@@ -398,6 +531,71 @@ class Projects {
   }
 
   /**
+   * What deploying this payload would change, per resource and per property,
+   * without writing anything.
+   *
+   * The returned `planToken` pins the plan: pass it to {@link deploy} and the
+   * deploy refuses if Checkly's state moved in between. A code-side edit
+   * between the two is not such a move — the token describes Checkly's state,
+   * not the payload — so previewing, editing and deploying still works.
+   *
+   * @throws {ProjectPreviewNotSupportedError} If the API has no preview endpoint.
+   * @throws {ProjectPreviewUnavailableError} If the project stayed busy.
+   */
+  async preview (
+    resources: ProjectSync,
+    {
+      detail = 'changes',
+      preserveResources = false,
+      pruneRelations = false,
+      onStatus,
+    }: {
+      detail?: ProjectPreviewDetail
+      preserveResources?: boolean
+      pruneRelations?: boolean
+      /** Human-readable status updates (e.g. while retrying behind another operation). */
+      onStatus?: (message: string) => void
+    } = {},
+  ): Promise<ProjectPreviewResponse> {
+    const query = new URLSearchParams({ detail })
+    // Only sent when opted in, like deploy's: false is the default and the
+    // endpoint's contract is easier to keep stable if the CLI omits defaults.
+    if (preserveResources) {
+      query.set('preserveResources', 'true')
+    }
+    if (pruneRelations) {
+      query.set('pruneRelations', 'true')
+    }
+
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const { data } = await this.api.post<ProjectPreviewResponse>(
+          `/v1/projects/preview?${query.toString()}`,
+          resources,
+          { transformRequest: compressJSONPayload },
+        )
+        return data
+      } catch (err) {
+        if (err instanceof NotFoundError) {
+          throw new ProjectPreviewNotSupportedError({ cause: err })
+        }
+        if (!(err instanceof ConflictError)) {
+          throw err
+        }
+        if (attempt >= PREVIEW_CONFLICT_ATTEMPTS) {
+          throw new ProjectPreviewUnavailableError(err.data.message, { cause: err })
+        }
+        const retryAfterMs = Math.min(
+          parseRetryAfter(err.data.retryAfter) ?? PREVIEW_RETRY_AFTER_DEFAULT_MS,
+          PREVIEW_RETRY_AFTER_MAX_MS,
+        )
+        onStatus?.('Another operation is holding the project, retrying...')
+        await new Promise(resolve => setTimeout(resolve, retryAfterMs))
+      }
+    }
+  }
+
+  /**
    * Deploy a project. The deployment runs asynchronously on the backend: this
    * submits it, then follows its progress stream to completion, so large projects
    * are no longer bound by the API gateway request timeout. A dry run returns the
@@ -411,6 +609,8 @@ class Projects {
       dryRun = false,
       scheduleOnDeploy = true,
       preserveResources = false,
+      pruneRelations = false,
+      planToken,
       cancelInProgress = false,
       onProgress,
       onStatus,
@@ -422,6 +622,17 @@ class Projects {
        * instead of deleting them.
        */
       preserveResources?: boolean
+      /**
+       * Delete the alert channel subscriptions and private location assignments
+       * on this project's checks and groups that the project does not manage.
+       */
+      pruneRelations?: boolean
+      /**
+       * The `planToken` of the preview this deploy was reviewed against. The
+       * deploy is refused with {@link ProjectPlanStaleError}, having written
+       * nothing, if Checkly's state moved since that preview.
+       */
+      planToken?: string
       /**
        * On a 409 (another deployment is already in progress), cancel that
        * deployment instead of waiting for it to finish, then retry.
@@ -443,7 +654,14 @@ class Projects {
     const deadlineAt = Date.now() + DEPLOY_CONFLICT_WAIT_DEADLINE_MS
     for (;;) {
       try {
-        return await this.submitDeployment(resources, { dryRun, scheduleOnDeploy, preserveResources, onProgress })
+        return await this.submitDeployment(resources, {
+          dryRun,
+          scheduleOnDeploy,
+          preserveResources,
+          pruneRelations,
+          planToken,
+          onProgress,
+        })
       } catch (err) {
         if (
           dryRun
@@ -453,11 +671,21 @@ class Projects {
         ) {
           throw err
         }
-        await this.resolveInProgressDeployment(logicalId, err.data.deploymentId, {
+        const finished = await this.resolveInProgressDeployment(logicalId, err.data.deploymentId, {
           cancel: cancelInProgress,
           onStatus,
           deadlineAt,
         })
+        // A predecessor that ran to completion is what invalidates a plan
+        // token, so re-POSTing with this one would spend the whole payload on a
+        // refusal nobody can act on. Two cases are not that: one we cancelled
+        // ourselves (the caller asked to deploy instead of it, and it may well
+        // have written nothing), and one still running when the wait gave up —
+        // nothing has changed, and the re-POST surfaces the conflict the caller
+        // needs to hear about.
+        if (planToken !== undefined && !cancelInProgress && finished) {
+          throw new ProjectPlanSupersededError({ cause: err })
+        }
         // loop → re-POST, now that the predecessor has reached a final state
       }
     }
@@ -465,19 +693,26 @@ class Projects {
 
   private async submitDeployment (
     resources: ProjectSync,
-    { dryRun, scheduleOnDeploy, preserveResources, onProgress }: {
+    { dryRun, scheduleOnDeploy, preserveResources, pruneRelations, planToken, onProgress }: {
       dryRun: boolean
       scheduleOnDeploy: boolean
       preserveResources: boolean
+      pruneRelations: boolean
+      planToken?: string
       onProgress?: (progress: number) => void
     },
   ): Promise<{ data: ProjectDeployResponse }> {
     // Only send preserveResources when the user opted in. The endpoint rejects
     // unknown query params, and preserveResources=false is the default (delete)
     // behavior, so omitting it keeps default deploys backwards compatible.
+    // pruneRelations and planToken are omitted for the same reason: an older
+    // API knows neither.
     const preserveParam = preserveResources ? '&preserveResources=true' : ''
+    const pruneParam = pruneRelations ? '&pruneRelations=true' : ''
+    const tokenParam = planToken ? `&planToken=${encodeURIComponent(planToken)}` : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
-      `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}${preserveParam}`,
+      `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`
+      + `${preserveParam}${pruneParam}${tokenParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )
@@ -497,6 +732,13 @@ class Projects {
       )
     }
 
+    // A refused plan is not a failed deploy: nothing was written, and the
+    // deployment carries the plan as it looks now so the caller can show what
+    // moved instead of a bare error.
+    if (completed.error?.code === 'PLAN_STALE') {
+      throw new ProjectPlanStaleError(completed.error.message, completed.result?.diff ?? [])
+    }
+
     if (completed.status !== 'SUCCEEDED' || completed.result === null) {
       throw new ProjectDeployFailedError(completed.error?.message ?? 'The deployment did not complete successfully.')
     }
@@ -509,14 +751,18 @@ class Projects {
    * optionally cancel it, then wait until it reaches a final state (or is gone)
    * before returning — so the caller re-POSTs only when the slot is actually
    * free, never re-uploading the payload while the predecessor is still running.
-   * Returns early if the overall `deadlineAt` passes (the caller then re-POSTs
-   * once and surfaces the conflict).
+   *
+   * @returns Whether the predecessor was observed to reach a final state.
+   * `false` means the wait hit its deadline with the predecessor still running,
+   * which is a different situation for the caller: nothing has changed, so a
+   * plan computed before the wait still stands, and re-POSTing surfaces the
+   * conflict the caller needs to hear about.
    */
   private async resolveInProgressDeployment (
     logicalId: string,
     deploymentId: string,
     { cancel, onStatus, deadlineAt }: { cancel: boolean, onStatus?: (message: string) => void, deadlineAt: number },
-  ): Promise<void> {
+  ): Promise<boolean> {
     if (cancel) {
       onStatus?.('Cancelling an in-progress deployment...')
       try {
@@ -526,7 +772,7 @@ class Projects {
         if (!(err instanceof NotFoundError)) {
           throw err
         }
-        return
+        return true
       }
     } else {
       onStatus?.('Waiting for an in-progress deployment to finish...')
@@ -538,17 +784,17 @@ class Projects {
     for (;;) {
       try {
         await this.awaitDeploymentCompletion(logicalId, deploymentId)
-        return // reached a final state → slot free
+        return true // reached a final state → slot free
       } catch (err) {
         if (err instanceof NotFoundError) {
-          return // gone → slot free
+          return true // gone → slot free
         }
         // 408 = still running after the long-poll window. Keep waiting unless the
         // overall deadline has passed, in which case return and let the caller
         // re-POST once and surface the conflict.
         if (err instanceof RequestTimeoutError) {
           if (Date.now() >= deadlineAt) {
-            return
+            return false
           }
           continue
         }

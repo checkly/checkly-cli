@@ -75,7 +75,8 @@ Run `npx checkly skills manage plan` for the full reference.
 ## Deploying
 
 - Deploy checks using the `npx checkly deploy` command. Use `--output` to see the created, updated, and deleted resources. Use `--verbose` to also include each resource's name and physical ID (UUID), which is useful for programmatically referencing deployed resources (e.g. `npx checkly checks get <id>`).
-- Use `--preview` to see what a deploy would change without applying it.
+- Use `--preview` to see which resources a deploy would create, update, delete or keep, without applying it. The machine-readable forms (`--dry-run`, and the `confirmation_required` envelope) additionally carry the individual properties that would change.
+- Use `--prune-relations` to also delete the alert channel subscriptions and private location assignments on this project's checks and groups that the project does not manage. Without it they are only reported.
 
 ### Deleted resources
 
@@ -87,14 +88,16 @@ This matters when the local project isn't the whole picture — a partial checko
 
 `deploy` is a write command: without `--force` it returns exit code 2 and a `confirmation_required` envelope. Present its `changes` to the user and run the `confirmCommand` verbatim only after they approve.
 
-That confirmation happens **before the project is parsed**, so it cannot tell you which resources would be deleted — its `changes` only warn that deletion is possible. There is a second, itemised guard that lists each doomed resource by name, but it is skipped by `--force`, and `--force` is exactly what the `confirmCommand` carries. **An agent following the confirmation protocol never sees that list.** It is a prompt for humans deploying by hand.
+The confirmation happens **after** the project has been parsed and Checkly has been asked what the deploy would change, so it describes the actual deploy: every resource to be deleted is named in `changes`, and the envelope carries a `preview` object with the machine-readable plan — one entry per resource, with the properties that would change. Nothing has been uploaded or written at that point. Show the user the deletions before you run the `confirmCommand`.
 
-So when resources may have been removed from the code, don't rely on the confirmation to surface it — preview first:
+The envelope's `preview.planToken` identifies the plan, and the `confirmCommand` carries it as `--plan-token`. The confirming run therefore applies that plan against the same Checkly state and aborts if the account moved in between; it does not pin your local code, so an edit you make between the two runs is previewed again and deployed without a second prompt (see "Commands that pin a resolved target" in the `communicate` skill).
+
+To look without confirming anything:
 
 ```bash
 npx checkly deploy --preview
 ```
 
-This is a dry run: nothing is applied and nothing is confirmed. It prints the resources that would be created, updated, and deleted (add `--verbose` for names and IDs). Show the user what would be deleted, and only then deploy.
+Nothing is applied and nothing is confirmed. It prints the resources that would be created, updated, deleted and kept, and the plan token (add `--verbose` for names and IDs). `--dry-run` does the same for machine consumption: it prints the `dry_run` envelope, with the same `preview` object, and exits 0.
 
 Run `npx checkly skills communicate` for the full protocol.
