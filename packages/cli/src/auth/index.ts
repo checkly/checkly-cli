@@ -9,7 +9,8 @@ import { assignProxy } from '../services/proxy.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-export type AuthMode = 'signup' | 'login'
+/** 'any' leaves both login and sign-up enabled on the hosted page. */
+export type AuthMode = 'signup' | 'login' | 'any'
 
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 const AUTH0_AUTHORIZATION_URL = 'https://auth.checklyhq.com/authorize'
@@ -80,7 +81,7 @@ export class AuthContext {
       state: this.#codeVerifier,
       mode: this.mode === 'signup' ? 'signUp' : '',
       allowLogin: this.mode === 'signup' ? 'false' : 'true',
-      allowSignUp: this.mode === 'signup' ? 'true' : 'false',
+      allowSignUp: this.mode === 'login' ? 'false' : 'true',
     })
 
     url.search = params.toString()
