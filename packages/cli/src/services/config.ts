@@ -78,6 +78,11 @@ class ChecklyConfig {
   }
 
   getApiUrl (): string {
+    // Allow overriding the API URL via CHECKLY_BASE_URL environment variable
+    if (process.env.CHECKLY_BASE_URL) {
+      return process.env.CHECKLY_BASE_URL
+    }
+
     const environments = {
       local: process.env.CHECKLY_API_URL || 'http://127.0.0.1:3000',
       development: 'https://api-dev.checklyhq.com',
@@ -88,6 +93,10 @@ class ChecklyConfig {
   }
 
   getMqttUrl (): string {
+    if (process.env.CHECKLY_MQTT_URL) {
+      return process.env.CHECKLY_MQTT_URL
+    }
+
     const environments = {
       // Overridable for local development setups whose event stream is served
       // from a different broker, mirroring how CHECKLY_API_URL overrides the API.
