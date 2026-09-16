@@ -90,8 +90,10 @@ describe('login with the device flow (fake Auth0 + API)', () => {
   })
 
   async function runLogin (args: string[], env: Record<string, string>) {
-    // Isolated HOME: the CLI stores credentials under the home directory, and
-    // this must never touch the developer's real login.
+    // Isolated home: the CLI stores credentials under the user's config
+    // directory, and this must never touch the developer's real login.
+    // Node reads HOME on POSIX but USERPROFILE on Windows, and the config
+    // store uses XDG_CONFIG_HOME / APPDATA, so all of them point at the temp dir.
     home = await mkdtemp(path.join(os.tmpdir(), 'checkly-login-e2e-'))
     try {
       return await execa(fixt.abspath('node_modules/.bin/checkly'), args, {
@@ -99,10 +101,16 @@ describe('login with the device flow (fake Auth0 + API)', () => {
         extendEnv: false,
         reject: false,
         timeout: 30_000,
+        // No stdin: an unexpected prompt must fail fast instead of hanging.
+        stdin: 'ignore',
         env: {
           PATH: process.env.PATH,
           HOME: home,
+          USERPROFILE: home,
+          APPDATA: path.join(home, 'AppData', 'Roaming'),
+          LOCALAPPDATA: path.join(home, 'AppData', 'Local'),
           XDG_CONFIG_HOME: path.join(home, '.config'),
+          SystemRoot: process.env.SystemRoot,
           CHECKLY_ENV: 'local',
           CHECKLY_API_URL: fake.baseUrl,
           CHECKLY_AUTH_URL: fake.baseUrl,
