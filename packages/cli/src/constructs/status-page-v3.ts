@@ -1,8 +1,85 @@
 import { Construct } from './construct.js'
+import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { Diagnostics } from './diagnostics.js'
 import { validatePhysicalIdIsUuid } from './internal/common-diagnostics.js'
+import {
+  hexColorPattern,
+  statusPageV3ThemeColorProperties,
+  statusPageV3Themes,
+} from './internal/status-page-v3-theme-colors.js'
 import { Session } from './session.js'
 import type { StatusPageTheme } from './status-page.js'
+
+/**
+ * The colors of one theme (light or dark) of a v3 status page. Each color is
+ * a hex string such as `#FF0000` or `#F00`. Any color left out keeps
+ * Checkly's default for that theme.
+ */
+export interface StatusPageV3ThemeColorGroup {
+  /**
+   * Background of the page.
+   */
+  bodyBackgroundColor?: string
+  /**
+   * Background of the page header.
+   */
+  headerBackgroundColor?: string
+  /**
+   * Text in the page header.
+   */
+  headerFontColor?: string
+  /**
+   * Titles and headings.
+   */
+  titleFontColor?: string
+  /**
+   * Regular body text.
+   */
+  bodyFontColor?: string
+  /**
+   * De-emphasized body text, such as timestamps.
+   */
+  bodyFontColorMuted?: string
+  /**
+   * Navigation links.
+   */
+  navigationFontColor?: string
+  /**
+   * Links in the page content.
+   */
+  linkFontColor?: string
+  /**
+   * Background of component and incident cards.
+   */
+  cardBackgroundColor?: string
+  /**
+   * Borders and dividers.
+   */
+  borderColor?: string
+  /**
+   * Background of primary buttons, such as "Subscribe".
+   */
+  primaryButtonBackgroundColor?: string
+  /**
+   * Text of primary buttons.
+   */
+  primaryButtonFontColor?: string
+}
+
+/**
+ * Custom colors of a v3 status page, per theme. Either theme can be left out
+ * to keep its defaults.
+ */
+export interface StatusPageV3ThemeColors {
+  /**
+   * Colors used when the page renders in light mode.
+   */
+  light?: StatusPageV3ThemeColorGroup
+  /**
+   * Colors used when the page renders in dark mode.
+   */
+  dark?: StatusPageV3ThemeColorGroup
+}
 
 export interface StatusPageV3Props {
   /**
@@ -65,6 +142,12 @@ export interface StatusPageV3Props {
    * Whether search engines may index the public page. Defaults to true.
    */
   allowIndexing?: boolean
+  /**
+   * Custom colors for the light and dark theme of the page. Only the colors
+   * you set are changed; the rest keep Checkly's defaults. Requires custom
+   * theme colors to be part of your plan.
+   */
+  themeColors?: StatusPageV3ThemeColors
 }
 
 /**
@@ -122,6 +205,7 @@ export class StatusPageV3 extends Construct {
   footerText?: string
   googleAnalyticsTag?: string
   allowIndexing?: boolean
+  themeColors?: StatusPageV3ThemeColors
 
   // Same resource type as the v2 page: both live in one table and are told
   // apart by the `version` discriminator synthesized below.
@@ -152,12 +236,68 @@ export class StatusPageV3 extends Construct {
     this.footerText = props.footerText
     this.googleAnalyticsTag = props.googleAnalyticsTag
     this.allowIndexing = props.allowIndexing
+    this.themeColors = props.themeColors
 
     Session.registerConstruct(this)
   }
 
   describe (): string {
     return `StatusPageV3:${this.logicalId}`
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    this.validateThemeColors(diagnostics)
+  }
+
+  // TypeScript already rejects unknown colors and non-string values; this
+  // repeats the check at runtime for JavaScript users and loosely typed
+  // objects, so a typo is an error here rather than silently dropped by the
+  // backend.
+  private validateThemeColors (diagnostics: Diagnostics): void {
+    if (this.themeColors === undefined) {
+      return
+    }
+
+    if (typeof this.themeColors !== 'object' || this.themeColors === null) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'themeColors',
+        new Error('Value must be an object with optional "light" and "dark" color groups.'),
+      ))
+      return
+    }
+
+    for (const theme of statusPageV3Themes) {
+      const colors = this.themeColors[theme]
+      if (colors === undefined) {
+        continue
+      }
+
+      if (typeof colors !== 'object' || colors === null) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          `themeColors.${theme}`,
+          new Error('Value must be an object of color properties.'),
+        ))
+        continue
+      }
+
+      for (const [property, value] of Object.entries(colors)) {
+        if (value === undefined) {
+          continue
+        }
+        if (!(statusPageV3ThemeColorProperties as string[]).includes(property)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            `themeColors.${theme}.${property}`,
+            new Error(`Unknown color. Supported colors: ${statusPageV3ThemeColorProperties.join(', ')}.`),
+          ))
+        } else if (typeof value !== 'string' || !hexColorPattern.test(value)) {
+          diagnostics.add(new InvalidPropertyValueDiagnostic(
+            `themeColors.${theme}.${property}`,
+            new Error('Value must be a hex color such as "#FF0000" or "#F00".'),
+          ))
+        }
+      }
+    }
   }
 
   /**
@@ -184,6 +324,7 @@ export class StatusPageV3 extends Construct {
       footerText: this.footerText,
       googleAnalyticsTag: this.googleAnalyticsTag,
       allowIndexing: this.allowIndexing,
+      themeColors: this.themeColors,
       version: 3,
     }
   }

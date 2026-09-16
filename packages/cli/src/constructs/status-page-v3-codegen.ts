@@ -1,6 +1,8 @@
 import { Codegen, Context } from './internal/codegen/index.js'
+import { statusPageV3ThemeColorProperties, statusPageV3Themes } from './internal/status-page-v3-theme-colors.js'
 import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
 import { StatusPageTheme } from './status-page.js'
+import type { StatusPageV3ThemeColors } from './status-page-v3.js'
 
 export interface StatusPageV3Resource {
   id: string
@@ -20,9 +22,33 @@ export interface StatusPageV3Resource {
   footerText?: string | null
   googleAnalyticsTag?: string | null
   allowIndexing?: boolean | null
+  themeColors?: StatusPageV3ThemeColors | null
 }
 
 const construct = 'StatusPageV3'
+
+// The stored palette is complete, so every color is generated as-is: the CLI
+// does not know the backend defaults and must not guess which ones to omit.
+function themeColorEntries (themeColors: StatusPageV3ThemeColors): Array<[string, Array<[string, string]>]> {
+  const themes: Array<[string, Array<[string, string]>]> = []
+  for (const theme of statusPageV3Themes) {
+    const colors = themeColors[theme]
+    if (!colors) {
+      continue
+    }
+    const entries: Array<[string, string]> = []
+    for (const property of statusPageV3ThemeColorProperties) {
+      const value = colors[property]
+      if (value) {
+        entries.push([property, value])
+      }
+    }
+    if (entries.length > 0) {
+      themes.push([theme, entries])
+    }
+  }
+  return themes
+}
 
 export function valueForStatusPageV3FromId (genfile: GeneratedFile, physicalId: string): Value {
   genfile.namedImport(construct, 'checkly/constructs')
@@ -142,6 +168,19 @@ export class StatusPageV3Codegen extends Codegen<StatusPageV3Resource> {
             // Indexing is on by default; only the opt-out is worth spelling out.
             if (resource.allowIndexing === false) {
               builder.boolean('allowIndexing', false)
+            }
+
+            const themes = resource.themeColors ? themeColorEntries(resource.themeColors) : []
+            if (themes.length > 0) {
+              builder.object('themeColors', builder => {
+                for (const [theme, colors] of themes) {
+                  builder.object(theme, builder => {
+                    for (const [property, value] of colors) {
+                      builder.string(property, value)
+                    }
+                  })
+                }
+              })
             }
           })
         })
