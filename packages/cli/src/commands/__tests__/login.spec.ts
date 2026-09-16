@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('open', () => ({ default: vi.fn() }))
 vi.mock('prompts', () => ({ default: vi.fn() }))
@@ -278,6 +278,31 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('browser opening', () => {
+    afterEach(() => {
+      delete process.env.CHECKLY_NO_BROWSER
+    })
+
+    it('does not open a browser with --no-browser but still shows the URL and code', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      const cmd = createCommand('--no-browser')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(open).not.toHaveBeenCalled()
+      expect(loggedLines(cmd).join('\n')).toContain('ABCD-EFGH')
+    })
+
+    it('does not open a browser when CHECKLY_NO_BROWSER is set, in agent mode too', async () => {
+      process.env.CHECKLY_NO_BROWSER = '1'
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(open).not.toHaveBeenCalled()
+      expect(jsonLines(cmd)[0].status).toBe('action_required')
     })
   })
 
