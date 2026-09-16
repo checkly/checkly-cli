@@ -82,7 +82,10 @@ describe('login with the device flow (fake Auth0 + API)', () => {
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({})
     fake = await startFakeServers()
-  }, 180_000)
+    // The first CLI start in a fresh sandbox is slow on Windows runners; do it
+    // outside the timed tests.
+    await execa(fixt.abspath('node_modules/.bin/checkly'), ['--version'], { cwd: fixt.root, reject: false, timeout: 120_000 })
+  }, 300_000)
 
   afterAll(async () => {
     await fake?.close()
@@ -100,7 +103,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
         cwd: fixt.root,
         extendEnv: false,
         reject: false,
-        timeout: 30_000,
+        timeout: 120_000,
         // No stdin: an unexpected prompt must fail fast instead of hanging.
         stdin: 'ignore',
         env: {
@@ -177,7 +180,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
 
     expect(await storedApiKey()).toBe('cak_e2e')
     await rm(home, { recursive: true, force: true })
-  }, 60_000)
+  }, 180_000)
 
   it('interactive mode: shows the URL and code without any prompt and confirms the login', async () => {
     const { stdout, stderr, exitCode } = await runLogin(['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'interactive' })
@@ -189,7 +192,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(stdout).toContain('Successfully logged in as Ada Lovelace')
     expect(stdout).not.toContain('Do you want to')
     await rm(home, { recursive: true, force: true })
-  }, 60_000)
+  }, 180_000)
 
   it('an authenticated command without credentials logs in inline in agent mode', async () => {
     fake.seen.length = 0
@@ -202,5 +205,5 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     // whoami's own output follows the login lines
     expect(lines.slice(2).join('\n')).toContain('You are currently on account "E2E Account" (acc-e2e) as Ada Lovelace.')
     await rm(home, { recursive: true, force: true })
-  }, 60_000)
+  }, 180_000)
 })
