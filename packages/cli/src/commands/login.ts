@@ -54,13 +54,19 @@ export default class Login extends BaseCommand {
     'account-id': Flags.string({
       description: 'Select this account after logging in instead of asking (or defaulting to the first one).',
     }),
+    'no-browser': Flags.boolean({
+      description: 'Only print the login URL and code; do not try to open a browser. '
+        + 'Also honoured through CHECKLY_NO_BROWSER=1, e.g. on headless hosts.',
+      default: false,
+    }),
   }
 
   #mode: CliMode = 'interactive'
+  #openBrowser = true
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
-    const ok = await this.login({ accountId: flags['account-id'] })
+    const ok = await this.login({ accountId: flags['account-id'], openBrowser: !flags['no-browser'] })
     return this.exit(ok ? 0 : 1)
   }
 
@@ -70,8 +76,9 @@ export default class Login extends BaseCommand {
    * (the JSON error line has already been printed); throws otherwise.
    * Other commands call this to log the user in inline.
    */
-  async login (options: { accountId?: string } = {}): Promise<boolean> {
+  async login (options: { accountId?: string, openBrowser?: boolean } = {}): Promise<boolean> {
     this.#mode = detectCliMode()
+    this.#openBrowser = (options.openBrowser ?? true) && !process.env.CHECKLY_NO_BROWSER
 
     if (config.hasEnvVarsConfigured()) {
       this.warn(`${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`)
@@ -172,7 +179,7 @@ export default class Login extends BaseCommand {
       `Visit ${chalk.bold(authorization.verificationUri)} and enter the code ${chalk.bold(authorization.userCode)}`,
       chalk.dim(`Or open ${authorization.verificationUriComplete}`),
     ])
-    await this.#openBrowser(authorization.verificationUriComplete)
+    await this.#tryOpenBrowser(authorization.verificationUriComplete)
 
     if (this.#mode === 'interactive') {
       this.log(chalk.dim('Waiting for you to finish in the browser...'))
@@ -215,7 +222,7 @@ export default class Login extends BaseCommand {
           + '(it completes through a local callback).',
         verification_uri: authContext.authenticationUrl,
       }, [])
-      await this.#openBrowser(authContext.authenticationUrl)
+      await this.#tryOpenBrowser(authContext.authenticationUrl)
     }
 
     return authContext.getAuth0Credentials()
@@ -231,7 +238,10 @@ export default class Login extends BaseCommand {
     }
   }
 
-  async #openBrowser (url: string): Promise<void> {
+  async #tryOpenBrowser (url: string): Promise<void> {
+    if (!this.#openBrowser) {
+      return
+    }
     try {
       await open(url)
     } catch {

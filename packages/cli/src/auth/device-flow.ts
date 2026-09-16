@@ -1,6 +1,7 @@
 import axios from 'axios'
 
 import { assignProxy } from '../services/proxy.js'
+import config from '../services/config.js'
 
 // OAuth 2.0 Device Authorization Grant (RFC 8628) against Checkly's Auth0 tenant.
 // The user opens a URL on any device and enters a short code; the CLI polls for
@@ -10,6 +11,9 @@ import { assignProxy } from '../services/proxy.js'
 export const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
 export const AUTH0_DEVICE_CODE_URL = 'https://auth.checklyhq.com/oauth/device/code'
 export const AUTH0_TOKEN_URL = 'https://auth.checklyhq.com/oauth/token'
+
+const deviceCodeUrl = () => `${config.getAuthUrl()}/oauth/device/code`
+const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 const DEFAULT_INTERVAL_MS = 5_000
@@ -94,7 +98,7 @@ export class DeviceFlow {
       scope: AUTH0_SCOPES,
     })
 
-    const { status, data } = await this.#deps.post(AUTH0_DEVICE_CODE_URL, params)
+    const { status, data } = await this.#deps.post(deviceCodeUrl(), params)
 
     if (status < 200 || status >= 300) {
       throw errorFrom(data, 'device_authorization_failed')
@@ -124,7 +128,7 @@ export class DeviceFlow {
     while (this.#deps.now() + intervalMs <= auth.expiresAt) {
       await this.#deps.sleep(intervalMs)
 
-      const { status, data } = await this.#deps.post(AUTH0_TOKEN_URL, params)
+      const { status, data } = await this.#deps.post(tokenUrl(), params)
 
       if (status >= 200 && status < 300) {
         if (!data?.access_token || !data?.id_token) {

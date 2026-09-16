@@ -6,6 +6,7 @@ import * as path from 'path'
 import { fileURLToPath } from 'node:url'
 import { credentialsFromTokens } from './api-key.js'
 import { assignProxy } from '../services/proxy.js'
+import config from '../services/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -13,10 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 export type AuthMode = 'signup' | 'login' | 'any'
 
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
-const AUTH0_AUTHORIZATION_URL = 'https://auth.checklyhq.com/authorize'
+const authorizationUrl = () => `${config.getAuthUrl()}/authorize`
+const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const AUTH0_CALLBACK_URL = 'http://localhost:4242'
-const AUTH0_TOKEN_URL = 'https://auth.checklyhq.com/oauth/token'
 
 export function generatePKCE () {
   const codeVerifier = crypto
@@ -69,7 +70,7 @@ export class AuthContext {
   }
 
   #generateAuthenticationUrl () {
-    const url = new URL(AUTH0_AUTHORIZATION_URL)
+    const url = new URL(authorizationUrl())
 
     const params = new URLSearchParams({
       client_id: AUTH0_CLIENT_ID,
@@ -196,9 +197,9 @@ export class AuthContext {
     })
 
     const tokenResponse = await axios.post(
-      AUTH0_TOKEN_URL,
+      tokenUrl(),
       tokenParams,
-      assignProxy(AUTH0_TOKEN_URL, {
+      assignProxy(tokenUrl(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept-Encoding': '*',
