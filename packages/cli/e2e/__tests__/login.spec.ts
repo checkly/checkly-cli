@@ -113,4 +113,29 @@ describe('login', () => {
     expect(stdout).toContain('mode=signUp&allowLogin=false&allowSignUp=true')
     expect(stderr).toBe('')
   }, 15000)
+
+  it('in agent mode prints a machine-readable action_required line and no prompts', async () => {
+    const { stdout, stderr } = await runAndKill(fixt, ['login'], {
+      delay: 8000,
+      env: {
+        CHECKLY_CLI_MODE: 'agent',
+        CHECKLY_API_KEY: undefined,
+        CHECKLY_ACCOUNT_ID: undefined,
+      },
+    })
+
+    const lines = stdout.split('\n').filter(line => line.trim() !== '')
+    expect(lines.length).toBeGreaterThanOrEqual(1)
+    const first = JSON.parse(lines[0]!)
+    expect(first).toMatchObject({
+      status: 'action_required',
+      reason: 'login',
+      userActionRequired: true,
+    })
+    expect(first.verification_uri).toMatch(/^https:\/\/auth\.checklyhq\.com\//)
+    expect(first.message).toBeTruthy()
+    // Nothing interactive leaked into the agent's output.
+    expect(stdout).not.toContain('Do you want to')
+    expect(stderr).toBe('')
+  }, 20000)
 })
