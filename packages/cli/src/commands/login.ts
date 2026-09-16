@@ -60,15 +60,26 @@ export default class Login extends BaseCommand {
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
+    const ok = await this.login({ accountId: flags['account-id'] })
+    return this.exit(ok ? 0 : 1)
+  }
+
+  /**
+   * Runs the whole login flow for the detected CLI mode and stores the
+   * credentials. Returns false when the flow did not complete in agent mode
+   * (the JSON error line has already been printed); throws otherwise.
+   * Other commands call this to log the user in inline.
+   */
+  async login (options: { accountId?: string } = {}): Promise<boolean> {
     this.#mode = detectCliMode()
 
     if (config.hasEnvVarsConfigured()) {
       this.warn(`${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`)
-      return this.exit(0)
+      return true
     }
 
     if (config.hasValidCredentials() && !await this.#wantsToReplaceLogin()) {
-      return this.exit(0)
+      return true
     }
 
     if (this.#mode === 'ci') {
@@ -81,7 +92,7 @@ export default class Login extends BaseCommand {
       config.auth.set('apiKey', credentials.key)
 
       const { data: accounts } = await api.accounts.getAll()
-      const account = await this.#pickAccount(accounts, flags['account-id'])
+      const account = await this.#pickAccount(accounts, options.accountId)
 
       config.data.set('accountId', account.id)
       config.data.set('accountName', account.name)
@@ -100,15 +111,14 @@ export default class Login extends BaseCommand {
         this.log(`Successfully logged in as ${chalk.cyan.bold(credentials.name)}`)
         this.log('Welcome to the Checkly CLI')
       }
+      return true
     } catch (error: any) {
       if (this.#mode !== 'agent') {
         throw error
       }
       this.log(JSON.stringify({ success: false, error: error.message || String(error) }))
-      return this.exit(1)
+      return false
     }
-
-    return this.exit(0)
   }
 
   // ─── LOGIN STATE ────────────────────────────────────────────
