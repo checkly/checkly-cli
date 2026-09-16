@@ -375,3 +375,67 @@ describe('AbstractCheckRunner — scheduling watch', () => {
     expect(errors[0].code).toEqual('ABANDONED')
   })
 })
+
+describe('AbstractCheckRunner — per-check timeouts vs scheduling delay', () => {
+  const TIMEOUT_SECONDS = 60
+  const MAX_SCHEDULING_DELAY_SECONDS = 900
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function makeArmedRunner () {
+    const runner = new StubCheckRunner('acc-1', TIMEOUT_SECONDS, false)
+    runner.checks = new Map([['seq-1', { check: {} }]])
+    const failures: string[] = []
+    runner.on(Events.CHECK_FAILED, (_sequenceId, _check, message) => failures.push(message))
+    ;(runner as any).setAllTimeouts()
+    return { runner, failures }
+  }
+
+  it('does not time out a not-yet-started check before the scheduling-delay headroom elapses', async () => {
+    const { runner, failures } = makeArmedRunner()
+
+    // The backend may hold a check in an SQS delay slot for up to 900s on
+    // large staggered sessions: the plain execution timeout alone must not
+    // fail a check that has not started yet.
+    await vi.advanceTimersByTimeAsync((TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000 - 1000)
+    expect(failures).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toContain('did not start')
+    ;(runner as any).disableAllTimeouts()
+  })
+
+  it('re-arms to the plain execution timeout once the check starts', async () => {
+    const { runner, failures } = makeArmedRunner()
+
+    await (runner as any).processMessage('seq-1', 'run-start', {})
+
+    await vi.advanceTimersByTimeAsync(TIMEOUT_SECONDS * 1000 - 1000)
+    expect(failures).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toContain(`Reached timeout of ${TIMEOUT_SECONDS} seconds`)
+    ;(runner as any).disableAllTimeouts()
+  })
+
+  it('a final result before the timeout produces no failure', async () => {
+    const { runner, failures } = makeArmedRunner()
+    const successes: string[] = []
+    runner.on(Events.CHECK_SUCCESSFUL, sequenceId => successes.push(sequenceId))
+
+    await (runner as any).processMessage('seq-1', 'run-start', {})
+    await (runner as any).processMessage('seq-1', 'result', { result: {}, resultType: 'FINAL' })
+
+    await vi.advanceTimersByTimeAsync((TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000)
+    expect(failures).toHaveLength(0)
+    expect(successes).toEqual(['seq-1'])
+  })
+})
