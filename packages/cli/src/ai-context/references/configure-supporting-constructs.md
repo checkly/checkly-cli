@@ -21,6 +21,7 @@
 - A v3 status page has no cards or services. Its structure is declared with `StatusPageV3Component` constructs that point at the page via `statusPage`; nest a `SERVICE` under a `GROUP` via `parent`.
 - `StatusPageV3AutomationRule` opens one incident impacting the listed components when a check whose tags overlap with the rule's `tags` fails, and resolves it on recovery. Requires the automated incident management add-on.
 - A logical id deployed as a `StatusPage` cannot be redeployed as a `StatusPageV3` (or vice versa); use a new logical id.
+- `themeColors` overrides the page's colors per theme (`light` and `dark`) with hex strings; only the colors you set change, the rest keep the defaults. Requires custom theme colors on the plan.
 - Type-specific settings are top-level props checked against `type`: both types take `showHistoricalData` (default `true`); only a `GROUP` takes `expandedByDefault` (default `false`). Omit them to keep the defaults.
 
 ```ts
@@ -31,6 +32,10 @@ const statusPage = new StatusPageV3('example-status-page-v3', {
   url: 'example-status-page-v3',
   customDomain: 'status.example.com',
   defaultTheme: 'AUTO',
+  themeColors: {
+    light: { linkFontColor: '#005AC2', primaryButtonBackgroundColor: '#151A1E' },
+    dark: { linkFontColor: '#248AFF' },
+  },
 })
 
 const webApp = new StatusPageV3Component('example-web-app-group', {

@@ -152,6 +152,37 @@ describe('StatusPageV3 codegen', () => {
     expect(ruleSource).toContain('targetImpact: \'MAJOR_OUTAGE\'')
   })
 
+  it('generates the stored theme colors per theme', async () => {
+    const sources = await generate(rootDirectory, [
+      {
+        type: 'status-page',
+        logicalId: 'acme',
+        payload: {
+          ...page,
+          themeColors: {
+            light: { linkFontColor: '#005AC2', primaryButtonBackgroundColor: '#151A1E' },
+            dark: { bodyBackgroundColor: '#14171C' },
+          },
+        },
+      },
+    ])
+
+    const source = sources['resources/status-pages/acme-status.check.ts']
+    expect(source).toMatch(/themeColors: \{\s*light: \{\s*linkFontColor: '#005AC2',/)
+    expect(source).toMatch(/primaryButtonBackgroundColor: '#151A1E'/)
+    expect(source).toMatch(/dark: \{\s*bodyBackgroundColor: '#14171C'/)
+  })
+
+  it('leaves theme colors out when the page has none', async () => {
+    const sources = await generate(rootDirectory, [
+      { type: 'status-page', logicalId: 'acme', payload: { ...page, themeColors: null } },
+      { type: 'status-page', logicalId: 'acme-empty', payload: { ...page, name: 'Empty', url: 'empty', themeColors: { light: {} } } },
+    ])
+
+    expect(sources['resources/status-pages/acme-status.check.ts']).not.toContain('themeColors')
+    expect(sources['resources/status-pages/empty.check.ts']).not.toContain('themeColors')
+  })
+
   it('leaves settings that only restate the backend defaults implicit', async () => {
     const sources = await generate(rootDirectory, [
       {

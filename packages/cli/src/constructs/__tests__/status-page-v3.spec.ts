@@ -41,6 +41,72 @@ describe('StatusPageV3', () => {
     expect(page.synthesize()).not.toHaveProperty('cards')
   })
 
+  it('synthesizes partial theme colors as given and accepts them', async () => {
+    const page = new StatusPageV3('acme', {
+      name: 'ACME',
+      url: 'acme-status',
+      themeColors: {
+        light: { linkFontColor: '#005AC2', primaryButtonBackgroundColor: '#f00' },
+        dark: { bodyBackgroundColor: '#000' },
+      },
+    })
+
+    // Only what is set: the backend fills the defaults for the rest.
+    expect(page.synthesize().themeColors).toEqual({
+      light: { linkFontColor: '#005AC2', primaryButtonBackgroundColor: '#f00' },
+      dark: { bodyBackgroundColor: '#000' },
+    })
+
+    const diagnostics = new Diagnostics()
+    await page.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(false)
+  })
+
+  it('leaves theme colors out when not set', async () => {
+    const page = new StatusPageV3('acme', { name: 'ACME', url: 'acme-status' })
+    expect(page.synthesize().themeColors).toBeUndefined()
+
+    const diagnostics = new Diagnostics()
+    await page.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(false)
+  })
+
+  it('rejects theme colors that are not hex colors', async () => {
+    const page = new StatusPageV3('acme', {
+      name: 'ACME',
+      url: 'acme-status',
+      themeColors: { light: { linkFontColor: 'red' }, dark: { borderColor: '#12345' } },
+    })
+
+    const diagnostics = new Diagnostics()
+    await page.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    const messages = diagnostics.observations.map(o => o.message)
+    expect(messages).toEqual(expect.arrayContaining([
+      expect.stringContaining('themeColors.light.linkFontColor'),
+      expect.stringContaining('themeColors.dark.borderColor'),
+    ]))
+  })
+
+  it('rejects unknown color properties and malformed groups', async () => {
+    // Loosely typed on purpose: TypeScript already stops this.
+    const props: any = {
+      name: 'ACME',
+      url: 'acme-status',
+      themeColors: { light: { linkColor: '#000' }, dark: 'black' },
+    }
+    const page = new StatusPageV3('acme', props)
+
+    const diagnostics = new Diagnostics()
+    await page.validate(diagnostics)
+    expect(diagnostics.isFatal()).toBe(true)
+    const messages = diagnostics.observations.map(o => o.message)
+    expect(messages).toEqual(expect.arrayContaining([
+      expect.stringContaining('themeColors.light.linkColor'),
+      expect.stringContaining('themeColors.dark'),
+    ]))
+  })
+
   it('should produce a diagnostic if the same logicalId is used twice', async () => {
     const project = newProject()
 
