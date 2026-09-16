@@ -55,6 +55,12 @@ export interface Request {
   skipSSL?: boolean
 
   /**
+   * Whether to treat the response body as text even when the response Content-Type is marked as binary.
+   * @defaultValue false
+   */
+  treatResponseBodyAsText?: boolean
+
+  /**
    * Assertions to validate the HTTP response.
    * Check the main Checkly documentation on assertions for specific values like regular expressions
    * and JSON path descriptors you can use in the "property" field.
