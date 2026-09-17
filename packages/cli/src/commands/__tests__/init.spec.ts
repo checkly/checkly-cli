@@ -35,6 +35,7 @@ vi.mock('../../helpers/onboarding/messages', () => ({
   agentFooter: vi.fn(() => 'agent-footer'),
   noSkillWarning: vi.fn(() => 'no-skill-warning'),
   existingProjectFooter: vi.fn(() => 'existing-footer'),
+  localCliNote: vi.fn(() => 'local-cli-note'),
 }))
 vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
 vi.mock('../../helpers/onboarding/prompts-helpers', () => ({
@@ -206,6 +207,8 @@ describe('Init command', () => {
       const result = JSON.parse(logged[0] as string)
       expect(result.success).toBe(true)
       expect(result.hasChecklyConfig).toBe(true)
+      // The project has its own checkly copy now; the agent must keep using it.
+      expect(result.note).toBe('local-cli-note')
     })
 
     it('prints a JSON error when package.json cannot be created', async () => {
@@ -334,6 +337,7 @@ describe('Init command', () => {
       expect(greeting).not.toHaveBeenCalled()
       const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => String(msg))
       expect(logged.some(m => m.includes('Created package.json'))).toBe(true)
+      expect(logged.some(m => m.includes('local-cli-note'))).toBe(true)
     })
 
     it('does not create package.json when one exists', async () => {

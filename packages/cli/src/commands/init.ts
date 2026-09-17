@@ -27,6 +27,7 @@ import {
   agentFooter,
   noSkillWarning,
   existingProjectFooter,
+  localCliNote,
 } from '../helpers/onboarding/index.js'
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
@@ -435,6 +436,7 @@ export default class Init extends BaseCommand {
         hasChecklyConfig: setupResult.context.hasChecklyConfig,
         hasChecksDir: setupResult.context.hasChecksDir,
         hint: 'Run npx checkly skills for agent guidance',
+        note: localCliNote(),
       }))
     } catch (error: any) {
       this.log(JSON.stringify({
@@ -463,5 +465,7 @@ export default class Init extends BaseCommand {
         + ' --target <agent> --force')
       log(`  Available: ${VALID_TARGETS.join(', ')}`)
     }
+
+    log(`\n${localCliNote()}`)
   }
 }
