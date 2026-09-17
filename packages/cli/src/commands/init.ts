@@ -4,6 +4,7 @@ import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
 import { detectCliMode, type CliMode } from '../helpers/cli-mode.js'
+import { wrap } from '../helpers/wrap.js'
 import {
   PLATFORM_TARGETS,
   readSkillFile,
@@ -466,6 +467,6 @@ export default class Init extends BaseCommand {
       log(`  Available: ${VALID_TARGETS.join(', ')}`)
     }
 
-    log(`\n${localCliNote()}`)
+    log(`\n${wrap(localCliNote(), { length: 80 })}`)
   }
 }

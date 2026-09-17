@@ -73,6 +73,10 @@ export function localCliNote (): string {
     + 'A globally installed `checkly` cannot load this project.'
 }
 
+function localCliNoteBlock (): string[] {
+  return ['', chalk.dim(wrap(localCliNote(), { length: WARNING_WRAP_WIDTH, prefix: '  ' }))]
+}
+
 export function footer (hasPlaywright: boolean = false): string {
   const lines = [
     '',
@@ -92,7 +96,7 @@ export function footer (hasPlaywright: boolean = false): string {
     lines.push(...playwrightBlock())
   }
 
-  lines.push('', chalk.dim(`  ${localCliNote()}`))
+  lines.push(...localCliNoteBlock())
   lines.push(...docsBlock())
   return lines.join('\n')
 }
@@ -148,7 +152,7 @@ export function agentFooter (
     chalk.dim(`  ${chalk.bold('npx checkly deploy')}`),
   )
 
-  lines.push('', chalk.dim(`  ${localCliNote()}`))
+  lines.push(...localCliNoteBlock())
   lines.push(...docsBlock())
   return lines.join('\n')
 }
