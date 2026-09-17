@@ -5,9 +5,36 @@ import { Account } from '../rest/accounts.js'
 import { Session } from '../constructs/session.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import { detectCliMode } from '../helpers/cli-mode.js'
+import config from '../services/config.js'
+import Login from './login.js'
 import type { Project } from '../constructs/project.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
 import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview.js'
+
+/**
+ * Without stored credentials an interactive user or an agent gets the login
+ * flow right here instead of an error telling them to run it. CI keeps the
+ * error: it should be configured through environment variables.
+ */
+async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
+  if (process.env.CHECKLY_SKIP_AUTH === '1' || config.hasValidCredentials()) {
+    return
+  }
+
+  const mode = detectCliMode()
+  if (mode === 'ci') {
+    return
+  }
+
+  if (mode === 'interactive') {
+    command.log('No Checkly credentials found. Let\'s log in first.\n')
+  }
+
+  const ok = await new Login([], command.config).login()
+  if (!ok) {
+    return command.exit(1)
+  }
+}
 
 export abstract class AuthCommand extends BaseCommand {
   static hidden = true
@@ -24,6 +51,7 @@ export abstract class AuthCommand extends BaseCommand {
 
   protected async init (): Promise<any> {
     await super.init()
+    await loginInlineIfNeeded(this)
     this.#account = await api.validateAuthentication()
     // Constructs validate against account-specific limits and have no access to
     // the command instance.
