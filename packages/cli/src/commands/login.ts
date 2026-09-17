@@ -95,11 +95,37 @@ export default class Login extends BaseCommand {
     }
 
     try {
-      const credentials = await this.#authenticate()
-      config.auth.set('apiKey', credentials.key)
+      // A previous login may have stored the key but stopped before an
+      // account was chosen (agent mode with several accounts). Resume there
+      // instead of authenticating again.
+      const resuming = Boolean(config.getApiKey()) && !config.getAccountId()
+      let userName: string
+      if (resuming) {
+        userName = (await api.user.get()).data.name
+      } else {
+        const credentials = await this.#authenticate()
+        config.auth.set('apiKey', credentials.key)
+        userName = credentials.name
+      }
 
       const { data: accounts } = await api.accounts.getAll()
+      const accountSummaries = accounts.map(({ id, name }) => ({ id, name }))
       const account = await this.#pickAccount(accounts, options.accountId)
+
+      if (!account) {
+        // Agent mode, several accounts, none requested: do not guess.
+        this.log(JSON.stringify({
+          status: 'action_required',
+          reason: 'select_account',
+          userActionRequired: false,
+          message: 'Logged in, but this user belongs to several accounts. '
+            + 'Choose one with `npx checkly login --account-id <id>`.',
+          user: userName,
+          accounts: accountSummaries,
+          next: [{ command: 'npx checkly login --account-id <id>' }],
+        }))
+        return false
+      }
 
       config.data.set('accountId', account.id)
       config.data.set('accountName', account.name)
@@ -109,13 +135,13 @@ export default class Login extends BaseCommand {
       if (this.#mode === 'agent') {
         this.log(JSON.stringify({
           success: true,
-          user: credentials.name,
+          user: userName,
           accountId: account.id,
           accountName: account.name,
-          accounts: accounts.map(({ id, name }) => ({ id, name })),
+          accounts: accountSummaries,
         }))
       } else {
-        this.log(`Successfully logged in as ${chalk.cyan.bold(credentials.name)}`)
+        this.log(`Successfully logged in as ${chalk.cyan.bold(userName)}`)
         this.log('Welcome to the Checkly CLI')
       }
       return true
@@ -268,7 +294,11 @@ export default class Login extends BaseCommand {
 
   // ─── ACCOUNT SELECTION ──────────────────────────────────────
 
-  async #pickAccount (accounts: Account[], requestedId: string | undefined): Promise<Account> {
+  /**
+   * Returns undefined only in agent mode when several accounts are available
+   * and none was requested: the caller reports the choice instead of guessing.
+   */
+  async #pickAccount (accounts: Account[], requestedId: string | undefined): Promise<Account | undefined> {
     if (requestedId) {
       const match = accounts.find(account => account.id === requestedId)
       if (!match) {
@@ -282,8 +312,12 @@ export default class Login extends BaseCommand {
       throw new Error('This user has no Checkly accounts.')
     }
 
-    if (accounts.length === 1 || this.#mode !== 'interactive') {
+    if (accounts.length === 1) {
       return accounts[0]!
+    }
+
+    if (this.#mode !== 'interactive') {
+      return undefined
     }
 
     const selected = await selectAccount(accounts, {
