@@ -122,6 +122,21 @@ export const OPERATOR_TO_PLATFORM: Record<string, string> = {
   'goose': 'goose',
 }
 
+// Explicit agent markers may carry a suffix: Claude Code sets
+// AI_AGENT=claude-code_<version>_agent, which normalizes to an operator such as
+// "claude-code-2-1-273-agent". The raw name is kept for telemetry, but for the
+// skill target such wrappers still identify their underlying agent by prefix.
+export function platformForOperator (operator: string): string | undefined {
+  const direct = OPERATOR_TO_PLATFORM[operator]
+  if (direct) return direct
+
+  const prefix = Object.keys(OPERATOR_TO_PLATFORM)
+    .filter(known => operator.startsWith(`${known}-`))
+    .sort((a, b) => b.length - a.length)[0]
+
+  return prefix ? OPERATOR_TO_PLATFORM[prefix] : undefined
+}
+
 export function detectCliMode (fileExists: (path: string) => boolean = existsSync): CliMode {
   const envMode = process.env.CHECKLY_CLI_MODE
   if (envMode && VALID_CLI_MODES.has(envMode)) {

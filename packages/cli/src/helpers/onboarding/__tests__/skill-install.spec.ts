@@ -11,14 +11,18 @@ vi.mock('../../../services/skills', () => ({
   promptForPlatformTarget: vi.fn(),
 }))
 
-vi.mock('../../cli-mode', () => ({
-  detectCliMode: vi.fn(),
-  detectOperator: vi.fn(),
-  OPERATOR_TO_PLATFORM: {
+vi.mock('../../cli-mode', () => {
+  const platforms: Record<string, string> = {
     'claude-code': 'claude',
     'cursor': 'cursor',
-  },
-}))
+    'claude-code-2-1-273-agent': 'claude',
+  }
+  return {
+    detectCliMode: vi.fn(),
+    detectOperator: vi.fn(),
+    platformForOperator: (operator: string) => platforms[operator],
+  }
+})
 
 vi.mock('prompts', () => ({
   default: vi.fn(),
@@ -144,6 +148,20 @@ describe('runSkillInstallStep', () => {
 
       expect(mockPrompts).not.toHaveBeenCalled()
       expect(mockReadSkillFile).toHaveBeenCalled()
+      expect(mockWriteSkillToTarget).toHaveBeenCalledWith('.claude/skills/checkly', '# Checkly Skill')
+      expect(result).toEqual({
+        installed: true,
+        platform: 'claude',
+        targetPath: '/project/.claude/skills/checkly/SKILL.md',
+      })
+    })
+
+    it('resolves the platform through platformForOperator for wrapper operators', async () => {
+      mockDetectOperator.mockReturnValue('claude-code-2-1-273-agent')
+
+      const result = await runSkillInstallStep(log)
+
+      expect(mockPrompts).not.toHaveBeenCalled()
       expect(mockWriteSkillToTarget).toHaveBeenCalledWith('.claude/skills/checkly', '# Checkly Skill')
       expect(result).toEqual({
         installed: true,

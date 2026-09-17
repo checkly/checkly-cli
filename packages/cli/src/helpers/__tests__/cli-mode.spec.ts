@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { detectOperator, detectCliMode } from '../cli-mode.js'
+import { detectOperator, detectCliMode, platformForOperator } from '../cli-mode.js'
 
 const operatorEnvVars = [
   'AI_AGENT', 'AGENT', 'CLAUDECODE', 'CLAUDE_CODE', 'CLAUDE_CODE_IS_COWORK',
@@ -339,5 +339,38 @@ describe('detectCliMode', () => {
   it('ignores invalid CHECKLY_CLI_MODE values and falls back to auto-detect', () => {
     process.env.CHECKLY_CLI_MODE = 'bogus'
     expect(detectCliMode(noAgentFiles)).toBe('interactive')
+  })
+})
+
+describe('platformForOperator', () => {
+  it('maps known operators directly', () => {
+    expect(platformForOperator('claude-code')).toBe('claude')
+    expect(platformForOperator('codex-cli')).toBe('codex')
+  })
+
+  it('maps versioned wrapper operators by their known prefix', () => {
+    // Claude Code sets AI_AGENT=claude-code_<version>_agent
+    process.env.AI_AGENT = 'claude-code_2-1-273_agent'
+    process.env.CLAUDECODE = '1'
+    const operator = detectOperator(noAgentFiles)
+    expect(operator).toBe('claude-code-2-1-273-agent')
+    expect(detectCliMode(noAgentFiles)).toBe('agent')
+    expect(platformForOperator(operator)).toBe('claude')
+  })
+
+  it('prefers the longest matching known prefix', () => {
+    expect(platformForOperator('github-copilot-cli-1-0')).toBe('github-copilot')
+    expect(platformForOperator('claude-cowork-2-0')).toBe('claude')
+  })
+
+  it('only matches on a full dash-separated prefix', () => {
+    expect(platformForOperator('claude-codex')).toBeUndefined()
+    expect(platformForOperator('cursorx')).toBeUndefined()
+  })
+
+  it('returns undefined for unknown operators', () => {
+    expect(platformForOperator('my-company-agent')).toBeUndefined()
+    expect(platformForOperator('manual')).toBeUndefined()
+    expect(platformForOperator('agent')).toBeUndefined()
   })
 })
