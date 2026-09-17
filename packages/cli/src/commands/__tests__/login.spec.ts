@@ -5,12 +5,15 @@ vi.mock('prompts', () => ({ default: vi.fn() }))
 vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
 vi.mock('../../rest/api', () => ({
   accounts: { getAll: vi.fn() },
+  user: { get: vi.fn() },
   validateAuthentication: vi.fn(),
 }))
 vi.mock('../../services/config', () => ({
   default: {
     hasEnvVarsConfigured: vi.fn(),
     hasValidCredentials: vi.fn(),
+    getApiKey: vi.fn(),
+    getAccountId: vi.fn(),
     auth: { set: vi.fn() },
     data: { set: vi.fn(), get: vi.fn() },
   },
@@ -87,6 +90,9 @@ beforeEach(() => {
   authContext.getAuth0Credentials.mockResolvedValue({ name: 'Ada Lovelace', key: 'cak_pkce' })
   vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(false)
   vi.mocked(config.hasValidCredentials).mockReturnValue(false)
+  vi.mocked(config.getApiKey).mockReturnValue('')
+  vi.mocked(config.getAccountId).mockReturnValue('')
+  vi.mocked(api.user.get).mockResolvedValue({ data: { id: 'u1', name: 'Ada Lovelace' } } as any)
   vi.mocked(api.accounts.getAll).mockResolvedValue({ data: [{ id: 'acc-1', name: 'Acme' }] } as any)
   vi.mocked(api.validateAuthentication).mockResolvedValue({ id: 'acc-1', name: 'Acme' } as any)
   vi.mocked(open).mockResolvedValue({} as any)
@@ -150,17 +156,63 @@ describe('checkly login', () => {
       expect(jsonLines(cmd)[1]).toMatchObject({ accountId: 'acc-2', accountName: 'Globex' })
     })
 
-    it('defaults to the first account and lists the others so the agent can switch', async () => {
+    it('with several accounts and no --account-id stores the key but asks the agent to select one', async () => {
       vi.mocked(api.accounts.getAll).mockResolvedValue({
         data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
       } as any)
       const cmd = createCommand()
-      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
-      expect(jsonLines(cmd)[1]).toMatchObject({
-        accountId: 'acc-1',
+      expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
+      expect(config.data.set).not.toHaveBeenCalled()
+      expect(api.validateAuthentication).not.toHaveBeenCalled()
+
+      const [login, select] = jsonLines(cmd)
+      expect(login.status).toBe('action_required')
+      expect(select).toMatchObject({
+        status: 'action_required',
+        reason: 'select_account',
+        userActionRequired: false,
+        user: 'Ada Lovelace',
         accounts: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
       })
+      expect(select.next[0].command).toBe('npx checkly login --account-id <id>')
+      expect(loggedLines(cmd)).toHaveLength(2)
+    })
+
+    it('resumes a login that has a key but no account: selects with --account-id, no new authentication', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      const cmd = createCommand('--account-id', 'acc-2')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(AuthContext).not.toHaveBeenCalled()
+      expect(config.auth.set).not.toHaveBeenCalled()
+      expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
+      expect(jsonLines(cmd)).toEqual([{
+        success: true,
+        user: 'Ada Lovelace',
+        accountId: 'acc-2',
+        accountName: 'Globex',
+        accounts: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      }])
+    })
+
+    it('resumes and asks again when the key is stored but still no account is chosen', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      const [select] = jsonLines(cmd)
+      expect(select).toMatchObject({ status: 'action_required', reason: 'select_account' })
+      expect(loggedLines(cmd)).toHaveLength(1)
     })
 
     it('fails with a JSON error when --account-id does not match any account', async () => {
@@ -269,6 +321,21 @@ describe('checkly login', () => {
       expect(loggedLines(cmd).join('\n')).toContain('https://auth.checklyhq.com/authorize?client_id=x')
       expect(open).not.toHaveBeenCalled()
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_pkce')
+    })
+
+    it('resumes a login that has a key but no account by asking which account to use', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      vi.mocked(prompts).mockResolvedValueOnce({ selectedAccount: { id: 'acc-1', name: 'Acme' } })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(prompts).toHaveBeenCalledTimes(1)
+      expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
+      expect(loggedLines(cmd).join('\n')).toContain('Successfully logged in as Ada Lovelace')
     })
 
     it('lets the user keep the current login', async () => {
