@@ -218,8 +218,8 @@ describe('destroy confirmation flow', () => {
 
 describe('destroy confirmCommand', () => {
   it('echoes only the flags the user typed', async () => {
-    expect(await confirmCommandFor([])).toBe('checkly destroy --force')
-    expect(await confirmCommandFor(['--preserve-resources'])).toBe('checkly destroy --preserve-resources --force')
+    expect(await confirmCommandFor([])).toBe('npx checkly destroy --force')
+    expect(await confirmCommandFor(['--preserve-resources'])).toBe('npx checkly destroy --preserve-resources --force')
   })
 
   it('generates a command oclif can parse back', async () => {
