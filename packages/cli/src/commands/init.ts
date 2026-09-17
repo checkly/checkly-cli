@@ -305,24 +305,36 @@ export default class Init extends BaseCommand {
       return context
     }
 
-    if (cliMode !== 'interactive') {
-      this.log('No package.json found.')
-      return null
+    if (cliMode === 'interactive') {
+      const { createPkg } = await prompts({
+        type: 'confirm',
+        name: 'createPkg',
+        message: 'No package.json found. Create one?',
+        initial: true,
+      }, { onCancel: makeOnCancel(log) })
+
+      if (!createPkg) {
+        return null
+      }
     }
 
-    const { createPkg } = await prompts({
-      type: 'confirm',
-      name: 'createPkg',
-      message: 'No package.json found. Create one?',
-      initial: true,
-    }, { onCancel: makeOnCancel(log) })
-
-    if (!createPkg) {
-      return null
+    // Agents and CI cannot answer the prompt, so mirror its default and
+    // create the package.json. Agent mode must only ever print JSON.
+    if (cliMode !== 'agent') {
+      await this.createPackageJson(projectDir, log)
+      return detectProjectContext(projectDir)
     }
 
-    await this.createPackageJson(projectDir, log)
-    return detectProjectContext(projectDir)
+    try {
+      await this.createPackageJson(projectDir, () => {})
+      return detectProjectContext(projectDir)
+    } catch (error: any) {
+      this.log(JSON.stringify({
+        success: false,
+        error: `Could not create package.json: ${error.message || String(error)}`,
+      }))
+      return null
+    }
   }
 
   private async createPackageJson (

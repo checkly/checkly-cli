@@ -180,6 +180,53 @@ describe('Init command', () => {
   })
 
   describe('agent mode', () => {
+    const noPackageJson = { ...pristineContext, isExistingProject: false }
+
+    it('creates package.json without prompting when it is missing', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(detectProjectContext)
+        .mockReturnValueOnce(noPackageJson)
+        .mockReturnValueOnce(pristineContext) // re-detect after creation
+        .mockReturnValueOnce({ ...pristineContext, hasChecklyConfig: true })
+        .mockReturnValueOnce({ ...pristineContext, hasChecklyConfig: true })
+      const cmd = createCommand()
+      await cmd.run()
+
+      expect(prompts).not.toHaveBeenCalled()
+      expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(
+        expect.stringMatching(/package\.json$/),
+        expect.stringContaining('"private": true'),
+      )
+      expect(createConfig).toHaveBeenCalled()
+      expect(runDepsInstall).toHaveBeenCalled()
+
+      // Agent mode must print exactly one line, and it must be JSON.
+      const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => msg)
+      expect(logged).toHaveLength(1)
+      const result = JSON.parse(logged[0] as string)
+      expect(result.success).toBe(true)
+      expect(result.hasChecklyConfig).toBe(true)
+    })
+
+    it('prints a JSON error when package.json cannot be created', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(detectProjectContext).mockReturnValue(noPackageJson)
+      vi.mocked(writeFileSync).mockImplementationOnce(() => {
+        throw new Error('EACCES: permission denied')
+      })
+      const cmd = createCommand()
+      await cmd.run()
+
+      expect(createConfig).not.toHaveBeenCalled()
+      expect(runSkillInstallStep).not.toHaveBeenCalled()
+      const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => msg)
+      expect(logged).toHaveLength(1)
+      const result = JSON.parse(logged[0] as string)
+      expect(result.success).toBe(false)
+      expect(result.error).toContain('Could not create package.json')
+      expect(result.error).toContain('EACCES')
+    })
+
     it('outputs JSON, no greeting', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
       vi.mocked(detectProjectContext)
@@ -263,6 +310,38 @@ describe('Init command', () => {
           typeof msg === 'string' && msg.includes('"success":true'),
       )
       expect(jsonCall?.[0]).toContain('"skillPlatform":"claude"')
+    })
+  })
+
+  describe('CI mode', () => {
+    it('creates package.json without prompting when it is missing', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+      vi.mocked(detectProjectContext)
+        .mockReturnValueOnce({ ...pristineContext, isExistingProject: false })
+        .mockReturnValue(pristineContext)
+      const cmd = createCommand()
+      await cmd.run()
+
+      expect(prompts).not.toHaveBeenCalled()
+      expect(vi.mocked(writeFileSync)).toHaveBeenCalledWith(
+        expect.stringMatching(/package\.json$/),
+        expect.stringContaining('"private": true'),
+      )
+      expect(createConfig).toHaveBeenCalled()
+      expect(runDepsInstall).toHaveBeenCalledWith(
+        expect.any(String), expect.any(Function), { skipPrompts: true },
+      )
+      expect(greeting).not.toHaveBeenCalled()
+      const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => String(msg))
+      expect(logged.some(m => m.includes('Created package.json'))).toBe(true)
+    })
+
+    it('does not create package.json when one exists', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+      const cmd = createCommand()
+      await cmd.run()
+      expect(vi.mocked(writeFileSync)).not.toHaveBeenCalled()
+      expect(createConfig).toHaveBeenCalled()
     })
   })
 
