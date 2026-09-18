@@ -20,6 +20,7 @@ import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
 import { Program } from '../../../sourcegen/index.js'
 import {
   blankRedacted,
+  fillUnchangedFromBefore,
   idKey,
   physicalIdsFromPlan,
   registerProject,
@@ -77,6 +78,69 @@ describe('physicalIdsFromPlan', () => {
   })
 })
 
+describe('fillUnchangedFromBefore', () => {
+  const before = {
+    id: 'check-uuid',
+    name: 'API',
+    activated: true,
+    muted: false,
+    degradedResponseTime: 5000,
+    frequency: 10,
+    request: { url: 'https://example.com', method: 'GET', headers: [], assertions: [{ source: 'STATUS_CODE' }] },
+    agenticCheckData: { skills: [] },
+    alertChannelSubscriptions: [{ id: 1 }],
+    privateLocationAssignments: [],
+  }
+
+  it('fills what the payload leaves out and the plan does not report, at the top and inside objects', () => {
+    const local: Record<string, unknown> = { id: 'check-uuid', name: 'API', request: { url: 'https://example.com/v2' } }
+    fillUnchangedFromBefore(local, before, [{ path: '/request/url', origin: 'code' }])
+    expect(local).toEqual({
+      id: 'check-uuid',
+      name: 'API',
+      activated: true,
+      muted: false,
+      degradedResponseTime: 5000,
+      frequency: 10,
+      request: { url: 'https://example.com/v2', method: 'GET', headers: [], assertions: [{ source: 'STATUS_CODE' }] },
+      agenticCheckData: { skills: [] },
+    })
+  })
+
+  it('leaves a key alone when a change is reported at it, under it, or above it', () => {
+    const local: Record<string, unknown> = { id: 'check-uuid', request: { url: 'https://example.com' } }
+    fillUnchangedFromBefore(local, before, [
+      { path: '/activated', origin: 'code' },
+      { path: '/request', origin: 'code' },
+      { path: '/agentRuntime', origin: 'code' },
+    ])
+    expect(local).not.toHaveProperty('activated')
+    expect(local.request).toEqual({ url: 'https://example.com' })
+    // Reported under the deploy payload's own spelling.
+    expect(local).not.toHaveProperty('agenticCheckData')
+    const nested: Record<string, unknown> = { id: 'check-uuid', request: {} }
+    fillUnchangedFromBefore(nested, before, [{ path: '/request/headers/0', origin: 'code', secret: true }])
+    expect(nested.request).toEqual({ url: 'https://example.com', method: 'GET', assertions: [{ source: 'STATUS_CODE' }] })
+  })
+
+  it('keeps an explicit null, never fills list elements, and copies rather than shares', () => {
+    const local: Record<string, unknown> = { id: 'check-uuid', muted: null, request: { assertions: [] } }
+    fillUnchangedFromBefore(local, before, [])
+    expect(local.muted).toBeNull()
+    expect((local.request as { assertions: unknown[] }).assertions).toEqual([])
+    ;(local.agenticCheckData as { skills: unknown[] }).skills.push('x')
+    expect(before.agenticCheckData.skills).toEqual([])
+  })
+
+  it('never copies the id or the relation rows', () => {
+    const local: Record<string, unknown> = { name: 'API' }
+    fillUnchangedFromBefore(local, before, [])
+    expect(local).not.toHaveProperty('id')
+    expect(local).not.toHaveProperty('alertChannelSubscriptions')
+    expect(local).not.toHaveProperty('privateLocationAssignments')
+  })
+})
+
 describe('toImportResource', () => {
   it('sets the id, substitutes every kind of reference and drops the deploy-only keys', () => {
     const shaped = toImportResource(
@@ -125,6 +189,10 @@ describe('toImportResource', () => {
     expect(shaped.payload).toEqual({ id: 'page-uuid', name: 'Page', cards: [{ name: 'Card', services: [] }] })
     const absent = toImportResource('status-page', 'page', { name: 'Page', cards: [{ name: 'Card' }] }, ids)
     expect(absent.payload).toEqual({ id: 'page-uuid', name: 'Page', cards: [{ name: 'Card', services: [] }] })
+  })
+
+  it('drops the group version marker with the other deploy-only keys', () => {
+    expect(toImportResource('check-group', 'grp', { name: 'G', v: 2 }, ids).payload).toEqual({ id: 42, name: 'G' })
   })
 
   it('takes a self-serializing value as what it serializes to', () => {

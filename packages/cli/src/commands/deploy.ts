@@ -17,6 +17,8 @@ import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation, getGitRepoRoot } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { dryRunFlag, forceFlag } from '../helpers/flags.js'
+import { physicalIdsFromPlan } from '../services/deploy-diff/import-shape.js'
+import { renderResourceDiff } from '../services/deploy-diff/render.js'
 import {
   DiffEntry,
   ProjectDeployResponse,
@@ -25,6 +27,7 @@ import {
   ProjectPreviewNotSupportedError,
   ProjectPreviewResponse,
   ProjectSync,
+  ResourceSync,
 } from '../rest/projects.js'
 import { ConflictError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
@@ -325,13 +328,12 @@ export default class Deploy extends AuthCommand {
     // Ask Checkly what this payload would change. Writes nothing, and needs no
     // upload: the payload describes the code bundle and every snapshot by
     // content hash.
-    // `full` buys the text behind the values Checkly holds hashed, and today
-    // the only thing that reports those values is the machine-readable
-    // envelope: `--dry-run`, and the `confirmation_required` an agent or CI run
-    // prints. The terminal output lists resources, not properties, so asking
-    // for `full` there would download every changed resource's full state —
-    // which the backend has to materialize — and print none of it.
-    const detail = dryRun || (!preview && !force && detectCliMode() !== 'interactive') ? 'full' : 'changes'
+    // `full` buys each changed resource's current state, which is what the
+    // rendered construct diff (`--preview`, `--output`) and the machine-readable
+    // envelope (`--dry-run`, the `confirmation_required` an agent or CI run
+    // prints) show. A plain interactive deploy lists resources, not
+    // properties, so it does not pay for state it would not print.
+    const detail = dryRun || preview || output || (!force && detectCliMode() !== 'interactive') ? 'full' : 'changes'
 
     let plan: ProjectPreviewResponse | undefined
     // Set when the API has no preview endpoint, which also means it rejects the
@@ -447,6 +449,7 @@ export default class Deploy extends AuthCommand {
         project,
         verbose,
         pruneRelations,
+        plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
       ))
       if (plan !== undefined) {
         this.log(`Plan token: ${plan.planToken}`)
@@ -517,7 +520,15 @@ export default class Deploy extends AuthCommand {
       }
       this.style.actionSuccess()
       if (output) {
-        this.log(this.formatPreview(data, project, verbose, pruneRelations))
+        // The deploy response names every resource with its id; the plan the
+        // deploy was confirmed against is where each one's deployed state is.
+        this.log(this.formatPreview(
+          data,
+          project,
+          verbose,
+          pruneRelations,
+          plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
+        ))
       }
       await setTimeout(500)
       this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
@@ -589,6 +600,12 @@ export default class Deploy extends AuthCommand {
     verbose = false,
     /** Whether this deploy deletes the relations it does not manage. */
     pruneRelations = false,
+    /**
+     * The preview plan with each changed resource's deployed state, and the
+     * local payload it was computed for: with these, every updated resource
+     * prints the diff of its construct as deployed against as in code.
+     */
+    rendering?: { plan: DiffEntry[], local: ResourceSync[] },
   ): string {
     // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
     // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
@@ -745,13 +762,35 @@ export default class Deploy extends AuthCommand {
     }
     if (sortedUpdating.length) {
       output.push(chalk.bold.magenta('Update:'))
-      for (const { logicalId, physicalId, construct } of sortedUpdating) {
+      const ids = rendering !== undefined ? physicalIdsFromPlan(rendering.plan, rendering.local) : undefined
+      for (const { resourceType, logicalId, physicalId, construct } of sortedUpdating) {
         output.push(`    ${construct.constructor.name}: ${logicalId}`)
         if (verbose && (construct as any).name) {
           output.push(`      name: ${(construct as any).name}`)
         }
         if (verbose && physicalId) {
           output.push(`      id: ${physicalId}`)
+        }
+        if (rendering === undefined || ids === undefined) {
+          continue
+        }
+        // The entry to render is the plan's, whether this listing is the plan
+        // itself or the deploy that carried it out.
+        const planned = rendering.plan.find(entry => entry.type === resourceType && entry.logicalId === logicalId)
+        if (planned === undefined || planned.before === undefined) {
+          continue
+        }
+        const lines = renderResourceDiff({
+          entry: planned,
+          local: rendering.local.find(resource => resource.type === resourceType && resource.logicalId === logicalId),
+          localResources: rendering.local,
+          diff: rendering.plan,
+          project,
+          ids,
+          pruneRelations,
+        })
+        for (const line of lines) {
+          output.push(`      ${line}`)
         }
       }
       output.push('')

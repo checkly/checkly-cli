@@ -576,15 +576,37 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(createCommandContext({ force: true }) as any)
     expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'changes' })
 
+    // --output and --preview print the rendered construct diff of every
+    // updated resource, which needs each one's deployed state.
     vi.mocked(api.projects.preview).mockClear()
     await Deploy.prototype.run.call(createCommandContext({ force: true, output: true }) as any)
-    expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'changes' })
+    expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'full' })
+
+    vi.mocked(api.projects.preview).mockClear()
+    await Deploy.prototype.run.call(createCommandContext({ preview: true }) as any)
+    expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'full' })
 
     // --dry-run prints the envelope, which carries the changed properties.
     vi.mocked(api.projects.preview).mockClear()
     await expect(Deploy.prototype.run.call(createCommandContext({ 'dry-run': true }) as any))
       .rejects.toThrow('EXIT_0')
     expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'full' })
+  })
+
+  it('prints the construct diff under an updated resource of the preview', async () => {
+    planResolves([{ ...CHANGED, redactions: [] }])
+
+    const context = createCommandContext({ preview: true })
+    await Deploy.prototype.run.call(context as any)
+    const output = context.logged.join('\n')
+    expect(output).toContain('Update:')
+    expect(output).toContain('--- deployed')
+    expect(output).toContain('-  address: \'old@example.com\'')
+    expect(output).toContain('+  address: \'ops@example.com\'')
+    // The variable is named after the logical id on both sides, so the
+    // address it would otherwise be named after is not a second change.
+    expect(output).toContain(' export const opsAlert = new EmailAlertChannel(\'ops\', {')
+    expect(output).not.toContain('-export const')
   })
 
   it('does not advise --prune-relations to a run that passed it', async () => {
