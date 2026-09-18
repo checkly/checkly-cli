@@ -151,7 +151,9 @@ function reduceChange (change: DiffChange): DiffChange {
 export function reducePlanForAgent (diff: DiffEntry[]): DiffEntry[] {
   return diff.map(entry => {
     const reduced: DiffEntry = { ...entry }
+    // The rule table is applied to `before`; without the state, it is dead weight.
     delete reduced.before
+    delete reduced.redactions
     if (entry.changes !== undefined) {
       reduced.changes = entry.changes.map(reduceChange)
     }
