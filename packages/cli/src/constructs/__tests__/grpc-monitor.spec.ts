@@ -195,6 +195,31 @@ describe('GrpcMonitor', () => {
       ]))
     })
 
+    it('rejects FlatBuffers encoding in HEALTH mode without requesting bfbsContent', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          grpcConfig: {
+            mode: 'HEALTH',
+            encoding: 'FLATBUFFERS',
+          },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          property: 'request.grpcConfig.encoding',
+          message: expect.stringContaining('gRPC health checks use Protobuf'),
+        }),
+      ]))
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('"bfbsContent" is required') }),
+      ]))
+    })
+
     it.each([
       ['serviceDefinition', { serviceDefinition: 'REFLECTION' as const }],
       ['protoContent', { protoContent: 'syntax = "proto3";' }],
