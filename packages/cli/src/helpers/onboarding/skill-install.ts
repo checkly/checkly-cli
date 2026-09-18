@@ -3,7 +3,7 @@ import chalk from 'chalk'
 import prompts from 'prompts'
 
 import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName, promptForPlatformTarget } from '../../services/skills.js'
-import { detectCliMode, detectOperator, OPERATOR_TO_PLATFORM } from '../cli-mode.js'
+import { detectCliMode, detectOperator, platformForOperator } from '../cli-mode.js'
 import { makeOnCancel } from './prompts-helpers.js'
 
 export interface SkillInstallResult {
@@ -32,7 +32,7 @@ async function runAgentInstall (
   log: (msg: string) => void,
 ): Promise<SkillInstallResult> {
   const operator = detectOperator()
-  const platform = OPERATOR_TO_PLATFORM[operator]
+  const platform = platformForOperator(operator)
 
   if (!platform) {
     return { installed: false, platform: null, targetPath: null }
