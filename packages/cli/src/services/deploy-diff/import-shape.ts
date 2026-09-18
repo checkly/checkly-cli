@@ -127,6 +127,15 @@ const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
 /** Keys only a deploy reads; the import format has no counterpart and the codegen would ignore them. */
 const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 'v'] as const
 
+/**
+ * Keys of a deployed row that neither side renders: a setup or teardown
+ * snippet reference. The codegen resolves one through snippet files an
+ * import registers and a preview has not, a deploy clears it either way, and
+ * it is a bookkeeping column the plan never reports — so left in `before`,
+ * `fillUnchangedFromBefore` would copy it onto the local side.
+ */
+export const UNRENDERED_KEYS = ['setupSnippetId', 'tearDownSnippetId'] as const
+
 /** Keys of a deployed row that are not properties of the local payload: its id, and the relation rows it carries. */
 const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
 

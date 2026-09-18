@@ -137,21 +137,63 @@ describe('renderResourceDiff', () => {
   })
 
   it('names a CLI upgrade rather than diffing two spellings of the same thing', () => {
-    const { local } = scenario()
+    // A pre-4.0.9 project sent `doubleCheck: true`, which the API stored as
+    // a retry strategy beside it; the upgraded CLI sends the strategy itself
+    // and no `doubleCheck`, so the flag is the only reported change and the
+    // two constructs render alike.
+    const options = { baseBackoffSeconds: 60, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
+    const retryStrategy = { type: 'LINEAR', ...options }
+    const { local } = scenario({ retryStrategy: RetryStrategyBuilder.linearStrategy(options) })
     expect(render(
       {
         type: 'check',
         logicalId: 'api',
         action: 'UPDATE',
-        changes: [
-          { path: '/doubleCheck', origin: 'code', before: true },
-          { path: '/retryStrategy', origin: 'code', after: { type: 'LINEAR' } },
-        ],
-        before: deployed(),
+        changes: [{ path: '/doubleCheck', origin: 'code', before: true }],
+        before: deployed({ doubleCheck: true, retryStrategy }),
         redactions: [],
       },
       local,
     )).toEqual(['payload format changed (CLI upgrade)'])
+  })
+
+  it('leaves a deployed snippet reference out of both sides', () => {
+    const { local } = scenario({ request: { url: 'https://example.com/v2/health', method: 'GET' } })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/request/url', origin: 'code', before: 'https://example.com/health', after: 'https://example.com/v2/health' }],
+        // A setup snippet attached in the web app: the codegen would resolve
+        // it through a file no preview registers, and a deploy clears it.
+        before: deployed({ setupSnippetId: 42, tearDownSnippetId: 43 }),
+        redactions: [],
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).not.toContain('could not render')
+    expect(text).not.toContain('snippet')
+    expect(text).toContain('+    url: \'https://example.com/v2/health\'')
+    // A group's codegen resolves a snippet reference the same way.
+    const { local: withGroup } = scenario()
+    const group = withGroup.find(resource => resource.type === 'check-group') as ResourceSync
+    group.payload = { ...group.payload, name: 'Website Group v2' }
+    const groupLines = render(
+      {
+        type: 'check-group',
+        logicalId: 'grp',
+        physicalId: 42,
+        action: 'UPDATE',
+        changes: [{ path: '/name', origin: 'code', before: 'Website Group', after: 'Website Group v2' }],
+        before: { id: 42, name: 'Website Group', setupSnippetId: 42, alertChannelSubscriptions: [], privateLocationAssignments: [] },
+        redactions: [],
+      },
+      withGroup,
+    )
+    expect(groupLines.join('\n')).not.toContain('could not render')
+    expect(groupLines.join('\n')).toContain('+  name: \'Website Group v2\'')
   })
 
   it('shows a script change as a text diff of its own, beside the construct diff when there is one', () => {
