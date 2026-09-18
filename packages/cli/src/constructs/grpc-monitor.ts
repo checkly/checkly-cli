@@ -101,7 +101,12 @@ export class GrpcMonitor extends Monitor {
     }
 
     const config = this.request.grpcConfig
-    if (config.encoding === 'FLATBUFFERS') {
+    if (config.mode === 'HEALTH' && config.encoding === 'FLATBUFFERS') {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'request.grpcConfig.encoding',
+        new Error('"FLATBUFFERS" encoding cannot be used in "HEALTH" mode because gRPC health checks use Protobuf.'),
+      ))
+    } else if (config.encoding === 'FLATBUFFERS') {
       if (!config.bfbsContent) {
         diagnostics.add(new RequiredPropertyDiagnostic(
           'request.grpcConfig.bfbsContent',
