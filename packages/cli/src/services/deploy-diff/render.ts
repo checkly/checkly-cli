@@ -8,6 +8,7 @@ import {
   fillUnchangedFromBefore,
   type PhysicalIds,
   pointerSegments,
+  UNRENDERED_KEYS,
   registerProject,
   registerUnderLogicalId,
   relationResourcesForAfter,
@@ -220,19 +221,19 @@ function renderShown (
     return listing(shown)
   }
   const { type, logicalId } = entry
-  // The deployed side is the import format already, straight from the API —
-  // less a setup or teardown snippet reference, which the codegen resolves
-  // through files an import registers and a preview has not; a deploy clears
-  // the reference either way.
+  // The deployed side is the import format already, straight from the API,
+  // less what neither side renders — dropped before the local side is filled
+  // from it, so the fill cannot copy it across.
   const before = { ...entry.before }
-  delete before.setupSnippetId
-  delete before.tearDownSnippetId
+  for (const key of UNRENDERED_KEYS) {
+    delete before[key]
+  }
   const deployed: Resource = { type: type as ResourceType, logicalId, payload: before }
   // Shaped first, then filled with what the deploy leaves as it is, blanked
   // last: the rules are spelled in the import format's vocabulary, which is
   // what the shaped payload is in.
   const shaped = toImportResource(deployed.type, logicalId, local.payload, ids)
-  fillUnchangedFromBefore(shaped.payload as Record<string, unknown>, entry.before, entry.changes ?? [])
+  fillUnchangedFromBefore(shaped.payload as Record<string, unknown>, before, entry.changes ?? [])
   const after: Resource = { ...shaped, payload: blankRedacted(shaped.payload, entry.redactions) }
   const afterRelations = relationResourcesForAfter({ ids, local: localResources, entry, diff, pruneRelations })
   const beforeText = renderSide(deployed, relationResourcesFromBefore(type, entry.before), project, ids)
