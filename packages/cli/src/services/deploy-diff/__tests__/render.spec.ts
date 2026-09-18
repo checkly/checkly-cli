@@ -322,8 +322,107 @@ describe('renderResourceDiff', () => {
       },
       local,
     )
+    expect(lines).toEqual(['secret changed: /environmentVariables'])
+  })
+
+  it('still shows a plain edit folded into a secret list change, with the secret blank on both sides', () => {
+    // The API reports the list that holds a moved locked value as one secret
+    // change, plain siblings included; the construct diff is where the
+    // sibling's edit shows.
+    const { local } = scenario({
+      environmentVariables: [
+        { key: 'TOKEN', value: 'rotated-plaintext', locked: true },
+        { key: 'REGION', value: 'us', locked: false },
+      ],
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/environmentVariables', origin: 'code', secret: true }],
+        before: deployed({
+          environmentVariables: [
+            { key: 'TOKEN', value: '', locked: true, secret: false },
+            { key: 'REGION', value: 'eu', locked: false, secret: false },
+          ],
+        }),
+        redactions: [{ path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' }],
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).toContain('-      value: \'eu\'')
+    expect(text).toContain('+      value: \'us\'')
+    expect(text).not.toContain('rotated-plaintext')
+    expect(lines.filter(line => /^[-+](?![-+]{2} )/.test(line))).toHaveLength(2)
     expect(lines.at(-1)).toBe('secret changed: /environmentVariables')
-    expect(lines.join('\n')).not.toContain('plaintext-token')
+  })
+
+  it('does not let a cause beside a secret change stand in for the construct diff', () => {
+    const { local } = scenario({
+      environmentVariables: [
+        { key: 'TOKEN', value: 'rotated-plaintext', locked: true },
+        { key: 'REGION', value: 'us', locked: false },
+      ],
+    })
+    const withBundle = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [
+          { path: '/codeBundle', origin: 'code', cause: 'code bundle' },
+          { path: '/environmentVariables', origin: 'code', secret: true },
+        ],
+        before: deployed({
+          environmentVariables: [
+            { key: 'TOKEN', value: '', locked: true, secret: false },
+            { key: 'REGION', value: 'eu', locked: false, secret: false },
+          ],
+        }),
+        redactions: [{ path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' }],
+      },
+      local,
+    )
+    expect(withBundle.join('\n')).toContain('+      value: \'us\'')
+    expect(withBundle.join('\n')).not.toContain('rotated-plaintext')
+    expect(withBundle).toContain('/codeBundle: changed (code bundle)')
+    expect(withBundle.at(-1)).toBe('secret changed: /environmentVariables')
+  })
+
+  it('does not render a secret change that no reported redaction rule reaches', () => {
+    const { local } = scenario({
+      environmentVariables: [
+        { key: 'TOKEN', value: 'rotated-plaintext', locked: true },
+        { key: 'REGION', value: 'us', locked: false },
+      ],
+    })
+    const entry: DiffEntry = {
+      type: 'check',
+      logicalId: 'api',
+      action: 'UPDATE',
+      changes: [
+        { path: '/request/url', origin: 'code', before: 'https://example.com/health', after: 'https://example.com/v2/health' },
+        { path: '/environmentVariables', origin: 'code', secret: true },
+      ],
+      before: deployed({
+        environmentVariables: [
+          { key: 'TOKEN', value: '', locked: true, secret: false },
+          { key: 'REGION', value: 'eu', locked: false, secret: false },
+        ],
+      }),
+      redactions: [{ path: '/request/basicAuth/password', kind: 'value' }],
+    }
+    const lines = render(entry, local)
+    expect(lines.join('\n')).not.toContain('rotated-plaintext')
+    expect(lines).toEqual([
+      '/request/url: "https://example.com/health" -> "https://example.com/v2/health"',
+      'secret changed: /environmentVariables',
+    ])
+    // A rule above the path reaches it as well as one below.
+    const above = render({ ...entry, redactions: [{ path: '/environmentVariables', kind: 'object' }] }, local)
+    expect(above.join('\n')).toContain('--- deployed')
   })
 
   it('shows a content change as a text diff of the two texts when the constructs render alike', () => {
