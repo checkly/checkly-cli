@@ -1,7 +1,7 @@
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
 import type { Context } from '../../constructs/internal/codegen/index.js'
 import type { Project } from '../../constructs/project.js'
-import type { DiffEntry, DiffRedaction, ResourceSync } from '../../rest/projects.js'
+import type { DiffChange, DiffEntry, DiffRedaction, ResourceSync } from '../../rest/projects.js'
 import type { Program } from '../../sourcegen/index.js'
 
 /**
@@ -125,7 +125,61 @@ const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
 }
 
 /** Keys only a deploy reads; the import format has no counterpart and the codegen would ignore them. */
-const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations'] as const
+const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 'v'] as const
+
+/** Keys of a deployed row that are not properties of the local payload: its id, and the relation rows it carries. */
+const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
+
+/** A deployed key whose change the plan reports under the deploy payload's own spelling. */
+const REPORTED_AS: Readonly<Record<string, string>> = { '/agenticCheckData': '/agentRuntime' }
+
+const escapeSegment = (segment: string) => segment.replace(/~/g, '~0').replace(/\//g, '~1')
+
+const isPlainObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+
+/**
+ * Fills into the shaped local payload every property the deployed row holds
+ * that the payload leaves out and the plan does not report as changed. Those
+ * are the defaults the deploy's validation fills into an absent property
+ * (`activated: true`, a check type's response-time limits, an empty header
+ * list), which the row then always carries and the codegen prints: the plan
+ * compared the validated payload against the row, so a property absent here
+ * and unreported there is one the deploy leaves as it is. Taking it from
+ * `before` makes the two renderings agree on it without this CLI keeping a
+ * copy of any default — and cannot hide a change, since a value copied to
+ * both sides prints alike on both.
+ *
+ * A key is left alone when a reported change path is it, lies under it, or
+ * lies above it; an explicit `null` is a value, not an absence; and only
+ * object keys are filled, never the elements of a list.
+ */
+export function fillUnchangedFromBefore (
+  local: Record<string, unknown>,
+  before: Record<string, unknown>,
+  changes: readonly DiffChange[],
+): void {
+  const reported = changes.map(change => change.path)
+  const touched = (pointer: string) =>
+    reported.some(path => path === pointer || path.startsWith(`${pointer}/`) || pointer.startsWith(`${path}/`))
+  const fill = (target: Record<string, unknown>, source: Record<string, unknown>, prefix: string) => {
+    for (const [key, value] of Object.entries(source)) {
+      if (prefix === '' && NOT_FILLED.has(key)) {
+        continue
+      }
+      const pointer = `${prefix}/${escapeSegment(key)}`
+      const current = target[key]
+      if (current === undefined) {
+        if (!touched(REPORTED_AS[pointer] ?? pointer)) {
+          target[key] = structuredClone(value)
+        }
+      } else if (isPlainObject(current) && isPlainObject(value)) {
+        fill(current, value, pointer)
+      }
+    }
+  }
+  fill(local, before, '')
+}
 
 function isRef (value: unknown): value is { ref: string } {
   return (
@@ -233,7 +287,9 @@ function groupConstraints (intent: unknown): unknown {
  * reference a physical id, deploy-only keys dropped, the intent's constraints
  * grouped as stored, and the agentic runtime under the name the codegen reads
  * (`agenticCheckData`, which is how the backend stores what the deploy
- * payload calls `agentRuntime`).
+ * payload calls `agentRuntime`). No canonicalization of nulls, defaults or
+ * ordering: the payload has none, and the defaults the deploy would fill
+ * are taken from the deployed row by `fillUnchangedFromBefore`.
  *
  * @throws UnshapeableError for a payload the codegen could not render.
  */
@@ -503,6 +559,37 @@ const REGISTRARS: ReadonlyArray<{ type: keyof Project['data'], register: Registr
   { type: 'status-page-service', register: (context, id, name, file) => context.registerStatusPageService(id as string, name, file) },
   { type: 'status-page-component', register: (context, id, name, file) => context.registerStatusPageComponent(id as string, name, file) },
 ]
+
+type Lookup = (context: Context, id: string | number) => { file: ReturnType<Program['generatedConstructFile']> }
+
+const LOOKUPS: Readonly<Record<string, Lookup>> = {
+  'check-group': (context, id) => context.lookupCheckGroup(id as number),
+  'alert-channel': (context, id) => context.lookupAlertChannel(id as number),
+  'private-location': (context, id) => context.lookupPrivateLocation(id as string),
+  'status-page': (context, id) => context.lookupStatusPage(id as string),
+  'status-page-service': (context, id) => context.lookupStatusPageService(id as string),
+  'status-page-component': (context, id) => context.lookupStatusPageComponent(id as string),
+}
+
+/**
+ * Re-register the construct a codegen has just prepared under its logical
+ * id, in the construct file the codegen chose. A codegen names the variable
+ * it exports after the resource's content (an alert channel after its
+ * address, a group after its name), so a change to that content would show
+ * as a renamed variable beside the change itself; the logical id is the
+ * same on both sides. A type whose codegen registers no variable is left
+ * alone.
+ */
+export function registerUnderLogicalId (context: Context, resource: Resource): void {
+  const lookup = LOOKUPS[resource.type]
+  const registrar = REGISTRARS.find(entry => entry.type === resource.type)
+  if (lookup === undefined || registrar === undefined) {
+    return
+  }
+  const id = (resource.payload as { id: string | number }).id
+  const { file } = lookup(context, id)
+  registrar.register(context, id, resource.logicalId, file)
+}
 
 /**
  * Register every referenceable construct of the local project on a fresh
