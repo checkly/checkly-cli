@@ -6,6 +6,7 @@ import { validateGrpcAssertion } from './grpc-assertion-validation.js'
 import { GrpcRequest } from './grpc-request.js'
 import { responseTimeLimits } from './internal/account-features.js'
 import { CheckIntent, CheckIntentProps } from './check.js'
+import { InvalidPropertyValueDiagnostic, RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 
 export interface GrpcMonitorProps extends MonitorProps, CheckIntentProps {
   /**
@@ -97,6 +98,38 @@ export class GrpcMonitor extends Monitor {
 
     for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
       validateGrpcAssertion(diagnostics, assertion, index)
+    }
+
+    const config = this.request.grpcConfig
+    if (config.mode === 'HEALTH' && config.encoding === 'FLATBUFFERS') {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'request.grpcConfig.encoding',
+        new Error('"FLATBUFFERS" encoding cannot be used in "HEALTH" mode because gRPC health checks use Protobuf.'),
+      ))
+    } else if (config.encoding === 'FLATBUFFERS') {
+      if (!config.bfbsContent) {
+        diagnostics.add(new RequiredPropertyDiagnostic(
+          'request.grpcConfig.bfbsContent',
+          new Error('A value for "bfbsContent" is required when "encoding" is "FLATBUFFERS".'),
+        ))
+      }
+      if (config.serviceDefinition !== undefined) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.grpcConfig.serviceDefinition',
+          new Error('"serviceDefinition" cannot be used when "encoding" is "FLATBUFFERS".'),
+        ))
+      }
+      if (config.protoContent !== undefined) {
+        diagnostics.add(new InvalidPropertyValueDiagnostic(
+          'request.grpcConfig.protoContent',
+          new Error('"protoContent" cannot be used when "encoding" is "FLATBUFFERS".'),
+        ))
+      }
+    } else if (config.bfbsContent !== undefined) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'request.grpcConfig.bfbsContent',
+        new Error('"bfbsContent" can only be used when "encoding" is "FLATBUFFERS".'),
+      ))
     }
   }
 
