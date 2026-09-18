@@ -63,6 +63,24 @@ function isOutsideConstruct (type: string, path: string): boolean {
   return OUTSIDE_CONSTRUCT[type]?.has(path) ?? false
 }
 
+/**
+ * Whether a redaction rule reaches the path a secret change names: the two
+ * agree segment for segment as far as the shorter goes, a rule's `*` standing
+ * for any one segment. A rule under the path blanks inside the list the
+ * change reports whole; a rule above it blanks the object that holds it.
+ */
+function ruleReaches (rulePath: string, changePath: string): boolean {
+  const rule = pointerSegments(rulePath)
+  const change = pointerSegments(changePath)
+  const shared = Math.min(rule.length, change.length)
+  for (let index = 0; index < shared; index += 1) {
+    if (rule[index] !== '*' && rule[index] !== change[index]) {
+      return false
+    }
+  }
+  return true
+}
+
 function isHash (value: unknown): boolean {
   return typeof value === 'object' && value !== null && !Array.isArray(value) && '$hash' in value
 }
@@ -179,6 +197,10 @@ export function renderResourceDiff (input: RenderResourceInput): string[] {
     lines.push(`file: ${entry.sourceFile}`)
   }
   const changes = entry.changes ?? []
+  // A secret change is named after the block, never valued; but the block is
+  // still rendered, because the API folds a plain edit into the list that
+  // holds a moved secret (one `secret: true` change for the whole list), and
+  // the construct diff — both sides blanked — is what shows that edit.
   const shown = changes.filter(change => change.secret !== true)
   try {
     lines.push(...renderShown(shown, entry, local, localResources, diff, project, ids, pruneRelations, maxLines))
@@ -190,7 +212,9 @@ export function renderResourceDiff (input: RenderResourceInput): string[] {
     const reason = cause instanceof UnshapeableError
       ? cause.message
       : `could not render this resource: ${cause instanceof Error ? cause.message : cause}`
-    lines.push(...listing(shown, reason))
+    if (shown.length > 0) {
+      lines.push(...listing(shown, reason))
+    }
   }
   for (const change of changes) {
     if (change.secret === true) {
@@ -211,11 +235,23 @@ function renderShown (
   pruneRelations: boolean,
   maxLines: number | undefined,
 ): string[] {
-  if (shown.length === 0) {
+  // A secret change withholds the list it is in whole, plain siblings' edits
+  // included, so the construct diff — both sides blanked — is the only place
+  // such an edit shows: an entry with a secret change is rendered even when
+  // nothing else is reported, and a cause alone does not stand in for it.
+  // Rendered only when a reported rule reaches every secret's path, though:
+  // the local side's blanks come from that table, and a gap in it must not
+  // print what the API withheld.
+  const secrets = (entry.changes ?? []).filter(change => change.secret === true)
+  const withSecrets = secrets.length > 0
+  if (shown.length === 0 && !withSecrets) {
     return []
   }
-  if (shown.every(change => change.cause !== undefined)) {
+  if (!withSecrets && shown.every(change => change.cause !== undefined)) {
     return [`changed: ${[...new Set(shown.map(change => change.cause))].join(', ')}`]
+  }
+  if (!secrets.every(secret => (entry.redactions ?? []).some(rule => ruleReaches(rule.path, secret.path)))) {
+    return listing(shown)
   }
   if (entry.before === undefined || local === undefined || local.payload === null || local.payload === undefined) {
     return listing(shown)
@@ -240,7 +276,7 @@ function renderShown (
   const afterText = renderSide(after, afterRelations, project, ids)
   const rendered = unifiedDiff(beforeText, afterText, { beforeLabel: 'deployed', afterLabel: 'local', maxLines })
   if (rendered === undefined) {
-    return listing(shown, 'the construct diff is too large to show')
+    return shown.length > 0 ? listing(shown, 'the construct diff is too large to show') : []
   }
   if (rendered.length > 0) {
     // The constructs differ. What they cannot show follows: a property kept
@@ -260,7 +296,7 @@ function renderShown (
   // the CLI upgrade spelling the same construct differently; the paths alone
   // cannot tell an upgrade from a user editing the same property, so a real
   // edit shows up as construct lines above and never gets here.
-  if (shown.every(change => change.origin === 'code' && isShapeChangePath(change.path))) {
+  if (shown.length > 0 && shown.every(change => change.origin === 'code' && isShapeChangePath(change.path))) {
     return ['payload format changed (CLI upgrade)']
   }
   // Otherwise what changed lives outside the construct (a script in its own
