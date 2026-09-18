@@ -35,6 +35,10 @@ export function valueForGrpcRequest (
         builder.boolean('tls', config.tls)
       }
 
+      if (config.encoding) {
+        builder.string('encoding', config.encoding)
+      }
+
       if (config.serviceDefinition) {
         builder.string('serviceDefinition', config.serviceDefinition)
       }
@@ -45,6 +49,10 @@ export function valueForGrpcRequest (
 
       if (config.protoContent) {
         builder.string('protoContent', config.protoContent)
+      }
+
+      if (config.bfbsContent) {
+        builder.string('bfbsContent', config.bfbsContent)
       }
 
       if (config.message) {

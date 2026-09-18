@@ -109,6 +109,25 @@ describe('GrpcMonitorCodegen', () => {
     expect(source).toContain('responseTime()')
   })
 
+  it('emits FlatBuffers encoding and schema content', async () => {
+    const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({
+      request: {
+        ...resource().request,
+        grpcConfig: {
+          mode: 'BEHAVIOR',
+          tls: true,
+          encoding: 'FLATBUFFERS',
+          bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ==',
+          method: 'example.Greeter/Greet',
+        },
+      },
+    }))
+    expect(source).toContain(`encoding: 'FLATBUFFERS'`)
+    expect(source).toContain(`bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ=='`)
+    expect(source).not.toContain('serviceDefinition:')
+    expect(source).not.toContain('protoContent:')
+  })
+
   it('emits complete structured intent in stable property order', async () => {
     const source = await renderResource(env, p => new GrpcMonitorCodegen(p), resource({
       intent: {
