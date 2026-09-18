@@ -97,7 +97,7 @@ export interface GrpcConfig {
    * A base64-encoded binary FlatBuffers schema (`.bfbs`). Required when
    * `encoding` is `FLATBUFFERS` and forbidden for Protobuf requests.
    *
-   * Generate the schema with `flatc -b --schema schema.fbs`, then load it in
+   * Generate the schema with `flatc -b --schema --bfbs-builtins schema.fbs`, then load it in
    * your construct without manually encoding it:
    *
    * @example
