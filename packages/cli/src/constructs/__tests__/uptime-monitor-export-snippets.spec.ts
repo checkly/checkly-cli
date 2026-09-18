@@ -52,6 +52,33 @@ describe('backend-style export snippets', () => {
     })
   })
 
+  it('FlatBuffers GrpcMonitor snippet compiles and preserves its schema', () => {
+    const monitor = new GrpcMonitor('flatbuffers-grpc-check', {
+      name: 'FlatBuffers gRPC monitor',
+      request: {
+        url: 'grpc.example.com',
+        port: 50051,
+        grpcConfig: {
+          mode: 'BEHAVIOR',
+          encoding: 'FLATBUFFERS',
+          bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ==',
+          method: 'example.Greeter/Greet',
+          message: '{"name":"Checkly"}',
+        },
+      },
+    })
+
+    expect(monitor.synthesize()).toMatchObject({
+      checkType: 'GRPC',
+      request: {
+        grpcConfig: {
+          encoding: 'FLATBUFFERS',
+          bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ==',
+        },
+      },
+    })
+  })
+
   it('SslMonitor snippet compiles and synthesizes an SSL payload', () => {
     const monitor = new SslMonitor('p5-parity-ssl-check', {
       name: 'p5-parity-ssl',
