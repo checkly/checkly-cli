@@ -6,7 +6,7 @@
 - The `request` object must include a `url` (hostname only, no scheme), `port`, and a `grpcConfig` object.
 - Use `grpcConfig.mode` to choose between `'BEHAVIOR'` (invoke a unary method) and `'HEALTH'` (standard health-check service).
 - In `BEHAVIOR` mode, set `grpcConfig.method` (e.g. `'package.Service/Method'`). Use `grpcConfig.serviceDefinition` (`'REFLECTION'` or `'PROTO_FILE'`) to resolve the service definition.
-- For a FlatBuffers service, compile the source schema locally with `flatc -b --schema schema.fbs`. This produces `schema.bfbs`; `.fbs` is the source file and `.bfbs` is the compiled binary schema Checkly consumes.
+- For a FlatBuffers service, compile the source schema locally with `flatc -b --schema --bfbs-builtins schema.fbs`. This produces `schema.bfbs`; `.fbs` is the source file and `.bfbs` is the compiled binary schema Checkly consumes. `--bfbs-builtins` preserves attributes used for streaming and nested FlatBuffers fields.
 - Set `grpcConfig.encoding` to `'FLATBUFFERS'` and load the compiled schema with `bfbsContent: readFileSync('schema.bfbs').toString('base64')`. Do not set `serviceDefinition` or `protoContent` for FlatBuffers because FlatBuffers does not provide server reflection.
 - A complete FlatBuffers request looks like:
 
