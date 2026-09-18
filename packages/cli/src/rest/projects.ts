@@ -27,11 +27,13 @@ export interface Change {
  * `origin` says which side moved since the last deploy: `code` for a local
  * edit, `remote` for one made outside the CLI (the web app, the API), `both`
  * when the property moved on both sides — in which case `remote` carries the
- * movement the deploy is about to overwrite. A value too large to inline, or
- * one Checkly stores encrypted, is reported as a `{ $hash }` object rather
- * than in the clear; `detail: 'full'` resolves the large ones, never the
- * secrets. `cause` names the reason for a change with no user-facing property
- * behind it, such as a new code bundle.
+ * movement the deploy is about to overwrite. A value too large to inline is
+ * reported as a `{ $hash }` object rather than in the clear; under
+ * `detail: 'full'` the deployed text is in the entry's `before`, at the path
+ * the import format gives it (the same one for a script or a request body).
+ * A secret is reported by presence alone (`secret: true`), with no values.
+ * `cause` names the reason for a change with no user-facing property behind
+ * it, such as a new code bundle.
  */
 export interface DiffChange {
   path: string
@@ -45,6 +47,22 @@ export interface DiffChange {
   after?: unknown
   remote?: { before?: unknown, after?: unknown }
   cause?: string
+  /** Set when a sensitive value moved: no values, no hashes, only the fact. */
+  secret?: true
+}
+
+/**
+ * One rule of the redaction table the API applies to an entry's `before`, as
+ * a JSON Pointer pattern (`*` for every list position) and the flag test on
+ * the holding element that decides it. The API reports the resource type's
+ * whole table, whatever the deployed row held, so the local side blanks by
+ * the same rules — a credential the code adds included.
+ */
+export interface DiffRedaction {
+  path: string
+  /** What the rule blanks to: a `value` becomes the empty string, an `object` becomes null. */
+  kind: 'value' | 'object'
+  when?: 'locked' | 'lockedOrSecret'
 }
 
 /**
@@ -56,8 +74,16 @@ export interface DiffEntry extends Change {
   origin?: 'code' | 'remote' | 'unmanaged'
   /** Absent under `detail: 'summary'`. */
   changes?: DiffChange[]
-  /** The resource's current state, in payload shape. Only under `detail: 'full'`. */
+  /**
+   * The resource as currently deployed, in the import format: the payload the
+   * import plan returns for it, references as physical ids, a check's or
+   * group's subscription and assignment rows on it, credential values blanked.
+   * Only under `detail: 'full'`, and only for a retained resource with a
+   * change to show.
+   */
   before?: Record<string, unknown>
+  /** With `before`: the type's redaction rule table, applied to it. */
+  redactions?: DiffRedaction[]
   /**
    * Set on a relation (an alert channel subscription, a private location
    * assignment) whose change is reported as part of the check or group it
