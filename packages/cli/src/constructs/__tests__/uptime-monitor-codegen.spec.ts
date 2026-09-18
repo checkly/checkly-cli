@@ -118,6 +118,10 @@ describe('GrpcMonitorCodegen', () => {
           tls: true,
           encoding: 'FLATBUFFERS',
           bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ==',
+          // Production API responses can expose these persisted/default values
+          // even though they do not apply to FlatBuffers.
+          serviceDefinition: 'REFLECTION',
+          protoContent: 'stale proto content',
           method: 'example.Greeter/Greet',
         },
       },

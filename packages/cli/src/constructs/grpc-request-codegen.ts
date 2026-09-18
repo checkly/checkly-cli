@@ -39,7 +39,10 @@ export function valueForGrpcRequest (
         builder.string('encoding', config.encoding)
       }
 
-      if (config.serviceDefinition) {
+      // API responses can contain persisted/default Protobuf-only fields on a
+      // FlatBuffers check. Do not generate a construct that immediately rejects
+      // itself just because the server returned that stale compatibility data.
+      if (config.encoding !== 'FLATBUFFERS' && config.serviceDefinition) {
         builder.string('serviceDefinition', config.serviceDefinition)
       }
 
@@ -47,11 +50,11 @@ export function valueForGrpcRequest (
         builder.string('method', config.method)
       }
 
-      if (config.protoContent) {
+      if (config.encoding !== 'FLATBUFFERS' && config.protoContent) {
         builder.string('protoContent', config.protoContent)
       }
 
-      if (config.bfbsContent) {
+      if (config.encoding === 'FLATBUFFERS' && config.bfbsContent) {
         builder.string('bfbsContent', config.bfbsContent)
       }
 
