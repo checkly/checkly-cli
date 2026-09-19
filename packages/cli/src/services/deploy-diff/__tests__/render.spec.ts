@@ -307,32 +307,25 @@ describe('renderResourceDiff', () => {
     expect(text).toContain('maxRetries: 3')
   })
 
-  it('reports a secret by its path, after the diff, and blanks it on the local side', () => {
-    const { local } = scenario({
-      environmentVariables: [{ key: 'TOKEN', value: 'plaintext-token', locked: true }],
+  const CHANGED = { $masked: 'changed' }
+  const SAME = { $masked: 'same' }
+  const RULES = [
+    { path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' },
+    { path: '/request/basicAuth/password', kind: 'value' },
+  ]
+  const deployedVars = () =>
+    deployed({
+      environmentVariables: [
+        { key: 'TOKEN', value: '', locked: true, secret: false },
+        { key: 'REGION', value: 'eu', locked: false, secret: false },
+      ],
     })
-    const lines = render(
-      {
-        type: 'check',
-        logicalId: 'api',
-        action: 'UPDATE',
-        changes: [{ path: '/environmentVariables', origin: 'code', secret: true }],
-        before: deployed({ environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }] }),
-        redactions: [{ path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' }],
-      },
-      local,
-    )
-    expect(lines).toEqual(['secret changed: /environmentVariables'])
-  })
 
-  it('still shows a plain edit folded into a secret list change, with the secret blank on both sides', () => {
-    // The API reports the list that holds a moved locked value as one secret
-    // change, plain siblings included; the construct diff is where the
-    // sibling's edit shows.
+  it('shows a rotated secret inline, masked and marked beside its key, never valued', () => {
     const { local } = scenario({
       environmentVariables: [
         { key: 'TOKEN', value: 'rotated-plaintext', locked: true },
-        { key: 'REGION', value: 'us', locked: false },
+        { key: 'REGION', value: 'eu', locked: false },
       ],
     })
     const lines = render(
@@ -340,55 +333,200 @@ describe('renderResourceDiff', () => {
         type: 'check',
         logicalId: 'api',
         action: 'UPDATE',
-        changes: [{ path: '/environmentVariables', origin: 'code', secret: true }],
-        before: deployed({
-          environmentVariables: [
-            { key: 'TOKEN', value: '', locked: true, secret: false },
-            { key: 'REGION', value: 'eu', locked: false, secret: false },
-          ],
-        }),
-        redactions: [{ path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' }],
+        changes: [{
+          path: '/environmentVariables',
+          origin: 'code',
+          secret: true,
+          before: [{ key: 'TOKEN', value: CHANGED, locked: true, secret: false }, { key: 'REGION', value: 'eu', locked: false }],
+          after: [{ key: 'TOKEN', value: CHANGED, locked: true }, { key: 'REGION', value: 'eu', locked: false }],
+        }],
+        before: deployedVars(),
+        redactions: RULES,
       },
       local,
     )
     const text = lines.join('\n')
-    expect(text).toContain('-      value: \'eu\'')
-    expect(text).toContain('+      value: \'us\'')
     expect(text).not.toContain('rotated-plaintext')
+    expect(text).not.toContain('\'\'')
+    expect(text).toContain('-      value: \'********\',')
+    expect(text).toContain('+      value: \'******** (changed)\',')
     expect(lines.filter(line => /^[-+](?![-+]{2} )/.test(line))).toHaveLength(2)
-    expect(lines.at(-1)).toBe('secret changed: /environmentVariables')
+    expect(text).not.toContain('secret changed')
+    expect(text).not.toContain('#')
   })
 
-  it('does not let a cause beside a secret change stand in for the construct diff', () => {
+  it('never writes a mark or a mask into the plan or the deploy payload', () => {
+    const { local } = scenario({
+      environmentVariables: [{ key: 'TOKEN', value: 'rotated-plaintext', locked: true }],
+    })
+    const entry: DiffEntry = {
+      type: 'check',
+      logicalId: 'api',
+      action: 'UPDATE',
+      changes: [{
+        path: '/environmentVariables',
+        origin: 'code',
+        secret: true,
+        before: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+        after: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+      }],
+      before: deployed({ environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }] }),
+      redactions: RULES,
+    }
+    const entrySnapshot = JSON.stringify(entry)
+    const localSnapshot = JSON.stringify(local)
+    render(entry, local)
+    expect(JSON.stringify(entry)).toBe(entrySnapshot)
+    expect(JSON.stringify(local)).toBe(localSnapshot)
+  })
+
+  it('shows a plain edit folded into a secret change beside the marked secret', () => {
     const { local } = scenario({
       environmentVariables: [
         { key: 'TOKEN', value: 'rotated-plaintext', locked: true },
         { key: 'REGION', value: 'us', locked: false },
       ],
     })
-    const withBundle = render(
+    const lines = render(
       {
         type: 'check',
         logicalId: 'api',
         action: 'UPDATE',
         changes: [
           { path: '/codeBundle', origin: 'code', cause: 'code bundle' },
-          { path: '/environmentVariables', origin: 'code', secret: true },
+          {
+            path: '/environmentVariables',
+            origin: 'code',
+            secret: true,
+            before: [{ key: 'TOKEN', value: CHANGED, locked: true }, { key: 'REGION', value: 'eu', locked: false }],
+            after: [{ key: 'TOKEN', value: CHANGED, locked: true }, { key: 'REGION', value: 'us', locked: false }],
+          },
         ],
-        before: deployed({
-          environmentVariables: [
-            { key: 'TOKEN', value: '', locked: true, secret: false },
-            { key: 'REGION', value: 'eu', locked: false, secret: false },
-          ],
-        }),
-        redactions: [{ path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' }],
+        before: deployedVars(),
+        redactions: RULES,
       },
       local,
     )
-    expect(withBundle.join('\n')).toContain('+      value: \'us\'')
-    expect(withBundle.join('\n')).not.toContain('rotated-plaintext')
-    expect(withBundle).toContain('/codeBundle: changed (code bundle)')
-    expect(withBundle.at(-1)).toBe('secret changed: /environmentVariables')
+    const text = lines.join('\n')
+    expect(text).toContain('+      value: \'******** (changed)\',')
+    expect(text).toContain('-      value: \'eu\',')
+    expect(text).toContain('+      value: \'us\',')
+    expect(text).not.toContain('rotated-plaintext')
+    expect(lines).toContain('/codeBundle: changed (code bundle)')
+    expect(text).not.toContain('secret changed')
+  })
+
+  it('marks a secret rotated in Checkly on the deployed side, by key, whatever the row\'s order', () => {
+    const { local } = scenario({
+      environmentVariables: [
+        { key: 'API_KEY', value: 'k', secret: true },
+        { key: 'REGION', value: 'eu', locked: false },
+      ],
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{
+          path: '/environmentVariables',
+          origin: 'remote',
+          secret: true,
+          before: [{ key: 'REGION', value: 'eu' }, { key: 'API_KEY', value: CHANGED, secret: true }],
+          after: [{ key: 'REGION', value: 'eu' }, { key: 'API_KEY', value: CHANGED, secret: true }],
+        }],
+        before: deployed({
+          environmentVariables: [
+            { key: 'API_KEY', value: '', locked: false, secret: true },
+            { key: 'REGION', value: 'eu', locked: false, secret: false },
+          ],
+        }),
+        redactions: RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).toContain('-      value: \'******** (changed in Checkly)\',')
+    expect(text).toContain('+      value: \'********\',')
+    // A `secret: true` variable prints its masked value beside the flag.
+    expect(text).toContain('secret: true')
+    expect(text).not.toContain('secret changed')
+    // The deploy overwrites it, which the inline mark alone does not say.
+    expect(lines.at(-1)).toBe('/environmentVariables: (changed in Checkly, overwritten by this deploy)')
+  })
+
+  it('marks a rotated scalar secret at its own path', () => {
+    const { local } = scenario({
+      request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: 'svc', password: 'rotated' } },
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/request/basicAuth/password', origin: 'code', secret: true, before: CHANGED, after: CHANGED }],
+        before: deployed({
+          request: {
+            url: 'https://example.com/health',
+            method: 'GET',
+            headers: [],
+            queryParameters: [],
+            assertions: [],
+            basicAuth: { username: 'svc', password: '' },
+          },
+        }),
+        redactions: RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).not.toContain('rotated')
+    expect(text).toContain('+      password: \'******** (changed)\',')
+    expect(text).not.toContain('secret changed')
+  })
+
+  it('names a secret change after the block when no mark could be placed', () => {
+    const { local } = scenario({
+      environmentVariables: [{ key: 'NEW', value: 'rotated-plaintext', locked: true }],
+    })
+    // Renamed: the report matches nothing, the list shows the swap, masked.
+    const renamed = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{
+          path: '/environmentVariables',
+          origin: 'code',
+          secret: true,
+          before: [{ key: 'OLD', value: SAME, locked: true }],
+          after: [{ key: 'NEW', value: SAME, locked: true }],
+        }],
+        before: deployed({ environmentVariables: [{ key: 'OLD', value: '', locked: true, secret: false }] }),
+        redactions: RULES,
+      },
+      local,
+    )
+    const text = renamed.join('\n')
+    expect(text).not.toContain('rotated-plaintext')
+    expect(text).toContain('-      key: \'OLD\',')
+    expect(text).toContain('+      key: \'NEW\',')
+    expect(text).not.toContain('\'\'')
+    expect(renamed.at(-1)).toBe('secret changed: /environmentVariables')
+    // An API that reports no markers at all: masked both sides, named after.
+    const { local: same } = scenario({ environmentVariables: [{ key: 'TOKEN', value: 'plaintext-token', locked: true }] })
+    const unmarked = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/environmentVariables', origin: 'code', secret: true }],
+        before: deployed({ environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }] }),
+        redactions: RULES,
+      },
+      same,
+    )
+    expect(unmarked).toEqual(['secret changed: /environmentVariables'])
   })
 
   it('does not render a secret change that no reported redaction rule reaches', () => {
@@ -404,14 +542,15 @@ describe('renderResourceDiff', () => {
       action: 'UPDATE',
       changes: [
         { path: '/request/url', origin: 'code', before: 'https://example.com/health', after: 'https://example.com/v2/health' },
-        { path: '/environmentVariables', origin: 'code', secret: true },
+        {
+          path: '/environmentVariables',
+          origin: 'code',
+          secret: true,
+          before: [{ key: 'TOKEN', value: CHANGED, locked: true }, { key: 'REGION', value: 'eu' }],
+          after: [{ key: 'TOKEN', value: CHANGED, locked: true }, { key: 'REGION', value: 'us' }],
+        },
       ],
-      before: deployed({
-        environmentVariables: [
-          { key: 'TOKEN', value: '', locked: true, secret: false },
-          { key: 'REGION', value: 'eu', locked: false, secret: false },
-        ],
-      }),
+      before: deployedVars(),
       redactions: [{ path: '/request/basicAuth/password', kind: 'value' }],
     }
     const lines = render(entry, local)
@@ -420,9 +559,186 @@ describe('renderResourceDiff', () => {
       '/request/url: "https://example.com/health" -> "https://example.com/v2/health"',
       'secret changed: /environmentVariables',
     ])
-    // A rule above the path reaches it as well as one below.
-    const above = render({ ...entry, redactions: [{ path: '/environmentVariables', kind: 'object' }] }, local)
+    // A reorder carries markers without the flag, and is guarded the same way.
+    const reorder = render(
+      {
+        ...entry,
+        changes: [{
+          path: '/environmentVariables',
+          origin: 'code',
+          before: [{ key: 'TOKEN', value: SAME, locked: true }, { key: 'REGION', value: 'eu' }],
+          after: [{ key: 'REGION', value: 'eu' }, { key: 'TOKEN', value: SAME, locked: true }],
+        }],
+      },
+      local,
+    )
+    expect(reorder.join('\n')).not.toContain('rotated-plaintext')
+    expect(reorder[0]).toContain('/environmentVariables: ')
+    expect(reorder[0]).toContain('"********"')
+    expect(reorder[0]).not.toContain('$masked')
+    // A rule above the path reaches it as well as one below: an object rule
+    // over basicAuth blanks the whole block on both sides, so the password's
+    // mark has nowhere to land and the line carries it, but the entry renders.
+    const { local: withAuth } = scenario({
+      request: { url: 'https://example.com/v2/health', method: 'GET', basicAuth: { username: 'svc', password: 'rotated' } },
+    })
+    const above = render(
+      {
+        ...entry,
+        changes: [
+          entry.changes![0],
+          { path: '/request/basicAuth/password', origin: 'code', secret: true, before: CHANGED, after: CHANGED },
+        ],
+        before: deployed({
+          request: {
+            url: 'https://example.com/health',
+            method: 'GET',
+            headers: [],
+            queryParameters: [],
+            assertions: [],
+            basicAuth: { username: 'svc', password: '' },
+          },
+        }),
+        redactions: [{ path: '/request/basicAuth', kind: 'object' }],
+      },
+      withAuth,
+    )
     expect(above.join('\n')).toContain('--- deployed')
+    expect(above.join('\n')).not.toContain('rotated')
+    expect(above.at(-1)).toBe('secret changed: /request/basicAuth/password')
+  })
+
+  it('shows a variable flipped to locked as its plain value becoming a marked mask', () => {
+    const { local } = scenario({
+      environmentVariables: [{ key: 'REGION', value: 'now-locked', locked: true }],
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{
+          path: '/environmentVariables',
+          origin: 'code',
+          secret: true,
+          before: [{ key: 'REGION', value: CHANGED, locked: false }],
+          after: [{ key: 'REGION', value: CHANGED, locked: true }],
+        }],
+        before: deployed({ environmentVariables: [{ key: 'REGION', value: 'eu', locked: false, secret: false }] }),
+        redactions: RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).not.toContain('now-locked')
+    expect(text).toContain('-      value: \'eu\',')
+    expect(text).toContain('+      value: \'******** (changed)\',')
+    expect(text).not.toContain('secret changed')
+  })
+
+  it('names a secret change after the block when its mark sits where nothing renders', () => {
+    // A basicAuth block with no username is not printed at all, so a placed
+    // mark never reaches the reader and the line carries the movement.
+    const { local } = scenario({
+      request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: '', password: 'rotated' } },
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/request/basicAuth/password', origin: 'code', secret: true, before: CHANGED, after: CHANGED }],
+        before: deployed({
+          request: {
+            url: 'https://example.com/health',
+            method: 'GET',
+            headers: [],
+            queryParameters: [],
+            assertions: [],
+            basicAuth: { username: '', password: '' },
+          },
+        }),
+        redactions: RULES,
+      },
+      local,
+    )
+    expect(lines.join('\n')).not.toContain('rotated')
+    expect(lines).toEqual(['secret changed: /request/basicAuth/password'])
+  })
+
+  it('names only the secret change whose mark did not reach the reader, when another did', () => {
+    const { local } = scenario({
+      environmentVariables: [{ key: 'TOKEN', value: 'rotated-plaintext', locked: true }],
+      request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: '', password: 'rotated' } },
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [
+          {
+            path: '/environmentVariables',
+            origin: 'code',
+            secret: true,
+            before: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+            after: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+          },
+          { path: '/request/basicAuth/password', origin: 'code', secret: true, before: CHANGED, after: CHANGED },
+        ],
+        before: deployed({
+          environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }],
+          request: {
+            url: 'https://example.com/health',
+            method: 'GET',
+            headers: [],
+            queryParameters: [],
+            assertions: [],
+            basicAuth: { username: '', password: '' },
+          },
+        }),
+        redactions: RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).toContain('+      value: \'******** (changed)\',')
+    expect(text).not.toContain('#')
+    expect(lines.filter(line => line.startsWith('secret changed'))).toEqual(['secret changed: /request/basicAuth/password'])
+  })
+
+  it('prints a secret: true header or query parameter only as its mask under the preview', () => {
+    // Neither is covered by the API's rule table; the codegen itself never
+    // prints such a value under the preview's flag.
+    const { local } = scenario({
+      request: {
+        url: 'https://example.com/v2/health',
+        method: 'GET',
+        headers: [{ key: 'Authorization', value: '********-raw-header-secret', secret: true }],
+        queryParameters: [{ key: 'token', value: 'raw-query-secret', secret: true }],
+      },
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{
+          path: '/request/url',
+          origin: 'code',
+          before: 'https://example.com/health',
+          after: 'https://example.com/v2/health',
+        }],
+        before: deployed(),
+        redactions: RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    // A plaintext that merely looks masked is not one the preview wrote.
+    expect(text).not.toContain('raw-header-secret')
+    expect(text).not.toContain('raw-query-secret')
+    expect(text).toContain('value: \'********\'')
   })
 
   it('shows a content change as a text diff of the two texts when the constructs render alike', () => {

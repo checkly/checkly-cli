@@ -1,7 +1,7 @@
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
-import type { Context } from '../../constructs/internal/codegen/index.js'
+import { type Context, MASKED_VALUE } from '../../constructs/internal/codegen/index.js'
 import type { Project } from '../../constructs/project.js'
-import type { DiffChange, DiffEntry, DiffRedaction, ResourceSync } from '../../rest/projects.js'
+import type { DiffChange, DiffEntry, DiffMaskedMarker, DiffRedaction, ResourceSync } from '../../rest/projects.js'
 import type { Program } from '../../sourcegen/index.js'
 
 /**
@@ -478,7 +478,10 @@ const CONDITIONS: Record<NonNullable<DiffRedaction['when']>, (element: Record<st
   lockedOrSecret: element => element.locked === true || element.secret === true,
 }
 
-const placeholderOf = (rule: DiffRedaction) => (rule.kind === 'object' ? null : '')
+/** What a redacted value renders as, on both sides: never an empty string, which could pass for a value. */
+export const MASK = MASKED_VALUE
+
+const placeholderOf = (rule: DiffRedaction) => (rule.kind === 'object' ? null : MASK)
 
 /**
  * Whether a conditional rule applies to the element holding the value. A
@@ -537,11 +540,12 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
 }
 
 /**
- * The local payload with the API's redaction rules applied — the type's
- * whole table, whatever the deployed row held — so a credential is blank on
- * both sides and never a phantom change, nor printed. A rule that matches
- * nothing locally is simply ignored. No table at all is refused: an API
- * that reports a `before` without one predates the rules, and the one
+ * A payload with the API's redaction rules applied — the type's whole table,
+ * whatever the deployed row held — so a credential is masked on both sides
+ * (the deployed side arrives blanked and is masked the same way, since a
+ * blank could pass for a value) and never a phantom change, nor printed. A
+ * rule that matches nothing is simply ignored. No table at all is refused:
+ * an API that reports a `before` without one predates the rules, and the one
  * direction this module must never take is printing a credential.
  *
  * @throws UnshapeableError when the API reported no rule table.
@@ -555,6 +559,122 @@ export function blankRedacted<T> (payload: T, redactions: readonly DiffRedaction
     result = blank(result, pointerSegments(rule.path), rule)
   }
   return result as T
+}
+
+export function isMaskedMarker (value: unknown): value is DiffMaskedMarker {
+  return (
+    typeof value === 'object' && value !== null && !Array.isArray(value)
+    && ((value as DiffMaskedMarker).$masked === 'same' || (value as DiffMaskedMarker).$masked === 'changed')
+  )
+}
+
+/** Every marker inside a reported value, with its segment path and whether it says `changed`. */
+interface MarkerPosition {
+  segments: string[]
+  changed: boolean
+}
+
+function markerPositions (value: unknown, segments: readonly string[] = []): MarkerPosition[] {
+  if (isMaskedMarker(value)) {
+    return [{ segments: [...segments], changed: value.$masked === 'changed' }]
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((element, index) => markerPositions(element, [...segments, String(index)]))
+  }
+  if (value !== null && typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>)
+      .flatMap(([key, member]) => markerPositions(member, [...segments, key]))
+  }
+  return []
+}
+
+/** Whether a reported value holds a marker anywhere inside it. */
+export const carriesMarker = (value: unknown): boolean => markerPositions(value).length > 0
+
+const changedPositions = (value: unknown): string[][] =>
+  markerPositions(value).filter(position => position.changed).map(position => position.segments)
+
+/** The value at `segments` inside `root`, or undefined where the path does not resolve. */
+export function nodeAt (root: unknown, segments: readonly string[]): unknown {
+  let node = root
+  for (const segment of segments) {
+    if (Array.isArray(node)) {
+      node = node[Number(segment)]
+    } else if (node !== null && typeof node === 'object') {
+      node = (node as Record<string, unknown>)[segment]
+    } else {
+      return undefined
+    }
+  }
+  return node
+}
+
+/**
+ * Overwrite the masked value at `segments` with `label`. Only a masked string
+ * is overwritten: a position the rules blank to `null` (a Playwright config
+ * subtree) has nothing to print, and one that is not masked at all is not
+ * this CLI's to touch.
+ */
+function label (root: unknown, segments: readonly string[], text: string): boolean {
+  const parent = nodeAt(root, segments.slice(0, -1))
+  const last = segments[segments.length - 1]
+  if (last === undefined || parent === null || typeof parent !== 'object') {
+    return false
+  }
+  const container = parent as Record<string, unknown>
+  if (container[last] !== MASK) {
+    return false
+  }
+  container[last] = text
+  return true
+}
+
+const keyOf = (element: unknown): string | undefined => {
+  const key = (element as { key?: unknown } | null)?.key
+  return typeof key === 'string' ? key : undefined
+}
+
+/**
+ * Write `text` over the masked value of every element the report marks
+ * `changed`, in the payload's list at `path`. A reported element is matched
+ * to the payload's by `key` when that key is unique in both, else by index
+ * when the key at that index is the same and the lists are equal in length,
+ * else not at all — the deployed row's list can be ordered differently from
+ * the report, so an index alone is never trusted, and a name is never
+ * wrong. A scalar marker names its own path. Returns whether any mark was
+ * placed.
+ */
+export function markChanged (payload: unknown, path: string, reported: unknown, text: string): boolean {
+  const segments = pointerSegments(path)
+  const root = nodeAt(payload, segments)
+  let placed = false
+  if (Array.isArray(reported) && Array.isArray(root)) {
+    const count = (list: unknown[], key: string) => list.filter(element => keyOf(element) === key).length
+    reported.forEach((element, index) => {
+      const positions = changedPositions(element)
+      if (positions.length === 0) {
+        return
+      }
+      const key = keyOf(element)
+      let target: number | undefined
+      if (key !== undefined && count(reported, key) === 1 && count(root, key) === 1) {
+        target = root.findIndex(candidate => keyOf(candidate) === key)
+      } else if (reported.length === root.length && keyOf(root[index]) === key) {
+        target = index
+      }
+      if (target === undefined) {
+        return
+      }
+      for (const position of positions) {
+        placed = label(payload, [...segments, String(target), ...position], text) || placed
+      }
+    })
+    return placed
+  }
+  for (const position of changedPositions(reported)) {
+    placed = label(payload, [...segments, ...position], text) || placed
+  }
+  return placed
 }
 
 type Registrar = (context: Context, id: string | number, name: string, file: ReturnType<Program['generatedSupportFile']>) => void

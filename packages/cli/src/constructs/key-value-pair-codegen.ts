@@ -1,5 +1,5 @@
 import { decl, expr, GeneratedFile, ident, object, Program, Value } from '../sourcegen/index.js'
-import { Context } from './internal/codegen/index.js'
+import { Context, MASKED_VALUE } from './internal/codegen/index.js'
 import KeyValuePair from './key-value-pair.js'
 
 export function valueForKeyValuePair (
@@ -13,13 +13,20 @@ export function valueForKeyValuePair (
 
     if (kv.secret !== true) {
       builder.string('value', kv.value)
+    } else if (context.maskedValues !== undefined) {
+      // A preview prints a secret only as a value it masked itself; anything
+      // else, whatever it looks like, prints as the plain mask.
+      const value: unknown = kv.value
+      builder.string('value', typeof value === 'string' && context.maskedValues.has(value) ? value : MASKED_VALUE)
     }
 
     if (kv.locked === true) {
       builder.boolean('locked', kv.locked)
     }
 
-    if (kv.secret === true) {
+    if (kv.secret === true && context.maskedValues !== undefined) {
+      builder.boolean('secret', true)
+    } else if (kv.secret === true) {
       const secretVariable = ident(kv.key, {
         format: 'SCREAMING_SNAKE_CASE',
       })

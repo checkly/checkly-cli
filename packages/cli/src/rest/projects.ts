@@ -21,6 +21,11 @@ export interface Change {
   action: string
 }
 
+/** The API's stand-in for a sensitive value in a reported change. */
+export interface DiffMaskedMarker {
+  $masked: 'same' | 'changed'
+}
+
 /**
  * One property of one resource that a deploy would change, or has changed.
  *
@@ -31,7 +36,10 @@ export interface Change {
  * reported as a `{ $hash }` object rather than in the clear; under
  * `detail: 'full'` the deployed text is in the entry's `before`, at the path
  * the import format gives it (the same one for a script or a request body).
- * A secret is reported by presence alone (`secret: true`), with no values.
+ * A secret change (`secret: true`) carries its values with every sensitive
+ * position replaced by a `DiffMaskedMarker`, `changed` on the element whose
+ * secret moved on that side; never a value or a hash. A list holding an
+ * unmoved secret carries `same` markers without the flag.
  * `cause` names the reason for a change with no user-facing property behind
  * it, such as a new code bundle.
  */
@@ -47,7 +55,7 @@ export interface DiffChange {
   after?: unknown
   remote?: { before?: unknown, after?: unknown }
   cause?: string
-  /** Set when a sensitive value moved: no values, no hashes, only the fact. */
+  /** Set when a sensitive value moved or a sensitive list element could not be matched; see `DiffMaskedMarker`. */
   secret?: true
 }
 
