@@ -20,7 +20,10 @@ import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
 import { Program } from '../../../sourcegen/index.js'
 import {
   blankRedacted,
+  carriesMarker,
   fillUnchangedFromBefore,
+  markChanged,
+  MASK,
   idKey,
   physicalIdsFromPlan,
   registerProject,
@@ -460,10 +463,10 @@ describe('blankRedacted', () => {
     expect(blanked).toEqual({
       environmentVariables: [
         { key: 'PUBLIC', value: 'v', locked: false, secret: false },
-        { key: 'TOKEN', value: '', locked: true, secret: false },
-        { key: 'SIGN', value: '', locked: false, secret: true },
+        { key: 'TOKEN', value: MASK, locked: true, secret: false },
+        { key: 'SIGN', value: MASK, locked: false, secret: true },
       ],
-      request: { basicAuth: { username: 'u', password: '' }, headers: [{ key: 'A', value: 'a', locked: true }] },
+      request: { basicAuth: { username: 'u', password: MASK }, headers: [{ key: 'A', value: 'a', locked: true }] },
       // An object is blanked to null, as the API blanks it.
       playwrightConfig: { use: { extraHTTPHeaders: null, baseURL: 'https://e.com' } },
     })
@@ -476,7 +479,7 @@ describe('blankRedacted', () => {
       { request: { headers: [{ key: 'A', value: 'a', locked: true }, { key: 'B', value: 'b', locked: false }] } },
       [{ path: '/request/headers/*/value', kind: 'value', when: 'locked' }],
     )
-    expect(blanked.request.headers).toEqual([{ key: 'A', value: '', locked: true }, { key: 'B', value: 'b', locked: false }])
+    expect(blanked.request.headers).toEqual([{ key: 'A', value: MASK, locked: true }, { key: 'B', value: 'b', locked: false }])
   })
 
   it('blanks regardless under a condition this CLI does not know, rather than printing a credential', () => {
@@ -484,7 +487,7 @@ describe('blankRedacted', () => {
       { environmentVariables: [{ key: 'A', value: 'a', locked: false, secret: false }] },
       [{ path: '/environmentVariables/*/value', kind: 'value', when: 'someday' as 'locked' }],
     )
-    expect(blanked.environmentVariables[0].value).toBe('')
+    expect(blanked.environmentVariables[0].value).toBe(MASK)
   })
 
   it('blanks to the placeholder the rule names, not to what the local value looks like', () => {
@@ -503,7 +506,7 @@ describe('blankRedacted', () => {
       { environmentVariables: [{ key: 'A', value: 'a', locked: false, secret: false }] },
       [{ path: '/environmentVariables/*/value', kind: 'value', when: 'constructor' as 'locked' }],
     )
-    expect(blanked.environmentVariables[0].value).toBe('')
+    expect(blanked.environmentVariables[0].value).toBe(MASK)
   })
 
   it('ignores a rule that matches nothing locally', () => {
@@ -523,13 +526,25 @@ describe('blankRedacted', () => {
       { headers: { Authorization: 'x', Accept: 'json' }, tokens: ['a', 'b'] },
       [{ path: '/headers/*', kind: 'value' }, { path: '/tokens/*', kind: 'value' }],
     )
-    expect(blanked).toEqual({ headers: { Authorization: '', Accept: '' }, tokens: ['', ''] })
+    expect(blanked).toEqual({ headers: { Authorization: MASK, Accept: MASK }, tokens: [MASK, MASK] })
     // A trailing wildcard honours the condition like any other terminal.
     const conditional = blankRedacted(
       { vars: [{ key: 'A', locked: false }, { key: 'B', locked: true }] },
       [{ path: '/vars/*', kind: 'object', when: 'locked' }],
     )
     expect(conditional).toEqual({ vars: [{ key: 'A', locked: false }, null] })
+  })
+
+  it('masks the deployed side the same way, so a blank never passes for a value', () => {
+    const masked = blankRedacted(
+      { environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }], request: { basicAuth: { username: 'u', password: '' } } },
+      [
+        { path: '/environmentVariables/*/value', kind: 'value', when: 'lockedOrSecret' },
+        { path: '/request/basicAuth/password', kind: 'value' },
+      ],
+    )
+    expect(masked.environmentVariables[0].value).toBe(MASK)
+    expect(masked.request.basicAuth.password).toBe(MASK)
   })
 
   it('refuses a rule whose path is not a pointer', () => {
@@ -636,5 +651,51 @@ describe('registerProject and the render round trip', () => {
     }
     expect(failures).toEqual([])
     expect(local.length).toBeGreaterThanOrEqual(11)
+  })
+})
+
+describe('markChanged', () => {
+  const CHANGED = { $masked: 'changed' }
+  const SAME = { $masked: 'same' }
+  const list = () => ({
+    environmentVariables: [
+      { key: 'REGION', value: 'eu', locked: false },
+      { key: 'TOKEN', value: MASK, locked: true },
+      { key: 'OTHER', value: MASK, locked: true },
+    ],
+  })
+
+  it('marks the element the report names, by key, whatever its position on this side', () => {
+    const payload = list()
+    // The deployed row lists its secrets last; the report is in author order.
+    const reported = [{ key: 'TOKEN', value: CHANGED, locked: true }, { key: 'OTHER', value: SAME, locked: true }, { key: 'REGION', value: 'eu' }]
+    expect(markChanged(payload, '/environmentVariables', reported, 'X')).toBe(true)
+    expect(payload.environmentVariables.map(v => v.value)).toEqual(['eu', 'X', MASK])
+  })
+
+  it('falls back to the position only for an equal key at that index in lists of one length', () => {
+    const dup = () => ({ vars: [{ key: 'T', value: MASK }, { key: 'T', value: MASK }] })
+    const same = dup()
+    expect(markChanged(same, '/vars', [{ key: 'T', value: SAME }, { key: 'T', value: CHANGED }], 'X')).toBe(true)
+    expect(same.vars.map(v => v.value)).toEqual([MASK, 'X'])
+    const shifted = dup()
+    expect(markChanged(shifted, '/vars', [{ key: 'N', value: 'n' }, { key: 'T', value: CHANGED }, { key: 'T', value: SAME }], 'X')).toBe(false)
+    expect(shifted.vars.map(v => v.value)).toEqual([MASK, MASK])
+  })
+
+  it('marks a scalar at its own path, and never a position the rules blank to null', () => {
+    const payload = { request: { basicAuth: { username: 'u', password: MASK } }, playwrightConfig: { use: { httpCredentials: null } } }
+    expect(markChanged(payload, '/request/basicAuth/password', CHANGED, 'X')).toBe(true)
+    expect(payload.request.basicAuth.password).toBe('X')
+    expect(markChanged(payload, '/playwrightConfig/use/httpCredentials', CHANGED, 'X')).toBe(false)
+    expect(payload.playwrightConfig.use.httpCredentials).toBeNull()
+  })
+
+  it('places nothing without markers, and recognises one anywhere in a reported value', () => {
+    const payload = list()
+    expect(markChanged(payload, '/environmentVariables', undefined, 'X')).toBe(false)
+    expect(markChanged(payload, '/environmentVariables', [{ key: 'TOKEN', value: 'plain' }], 'X')).toBe(false)
+    expect(carriesMarker([{ key: 'TOKEN', value: SAME }])).toBe(true)
+    expect(carriesMarker([{ key: 'TOKEN', value: 'x' }])).toBe(false)
   })
 })
