@@ -1,11 +1,12 @@
 import { Bundle } from './construct.js'
-import { BundlePathMarker, CacheHashMarker } from '../services/check-parser/bundler.js'
+import { BundlePathMarker, CacheHashMarker, CodeBundleChecksumMarker } from '../services/check-parser/bundler.js'
 import { PlaywrightCheck } from './playwright-check.js'
 import { Ref } from './ref.js'
 
 export interface PlaywrightCheckBundleProps {
   groupId?: Ref
   codeBundlePath: BundlePathMarker
+  codeBundleSha256?: CodeBundleChecksumMarker
   browsers?: string[]
   cacheHash?: CacheHashMarker
   playwrightVersion?: string
@@ -18,6 +19,7 @@ export class PlaywrightCheckBundle implements Bundle {
   playwrightCheck: PlaywrightCheck
   groupId?: Ref
   codeBundlePath: BundlePathMarker
+  codeBundleSha256?: CodeBundleChecksumMarker
   browsers?: string[]
   cacheHash?: CacheHashMarker
   playwrightVersion?: string
@@ -29,6 +31,7 @@ export class PlaywrightCheckBundle implements Bundle {
     this.playwrightCheck = playwrightCheck
     this.groupId = props.groupId
     this.codeBundlePath = props.codeBundlePath
+    this.codeBundleSha256 = props.codeBundleSha256
     this.browsers = props.browsers
     this.cacheHash = props.cacheHash
     this.playwrightVersion = props.playwrightVersion
@@ -42,6 +45,7 @@ export class PlaywrightCheckBundle implements Bundle {
       ...this.playwrightCheck.synthesize(),
       groupId: this.groupId,
       codeBundlePath: this.codeBundlePath,
+      codeBundleSha256: this.codeBundleSha256,
       browsers: this.browsers,
       cacheHash: this.cacheHash,
       playwrightVersion: this.playwrightVersion,
