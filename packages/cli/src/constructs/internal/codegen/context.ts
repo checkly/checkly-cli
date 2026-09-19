@@ -119,7 +119,32 @@ function formatVariable (base: string, name: string): string {
   return prefix + suffix
 }
 
+/**
+ * What a masked value prints as: never an empty string, which could pass for
+ * a value. Only a string the preview itself wrote (`ContextOptions.maskedValues`)
+ * is ever printed back for a secret; a value that merely looks masked is not.
+ */
+export const MASKED_VALUE = '********'
+
+export interface ContextOptions {
+  /**
+   * Set by the deploy preview's renderer, never by an import: the exact
+   * strings the preview wrote over masked values. A `secret: true` variable
+   * then prints such a value as a string literal beside `secret: true`,
+   * instead of a generated `secret()` reference, so the two sides of a
+   * preview can differ where the secret moved. Any other value prints as the
+   * plain mask, never as itself.
+   */
+  maskedValues?: ReadonlySet<string>
+}
+
 export class Context {
+  readonly maskedValues: ReadonlySet<string> | undefined
+
+  constructor (options: ContextOptions = {}) {
+    this.maskedValues = options.maskedValues
+  }
+
   #alertChannelVariablesByPhysicalId = new Map<number, GeneratedVariableLocator>()
   #alertChannelFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 

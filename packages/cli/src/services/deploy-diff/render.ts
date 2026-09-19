@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { ConstructCodegen } from '../../constructs/construct-codegen.js'
 import { Context, renderConstruct } from '../../constructs/internal/codegen/index.js'
 import type { Project } from '../../constructs/project.js'
@@ -5,7 +6,12 @@ import type { DiffChange, DiffEntry, ResourceSync } from '../../rest/projects.js
 import { Program } from '../../sourcegen/index.js'
 import {
   blankRedacted,
+  carriesMarker,
   fillUnchangedFromBefore,
+  isMaskedMarker,
+  markChanged,
+  MASK,
+  nodeAt,
   type PhysicalIds,
   pointerSegments,
   UNRENDERED_KEYS,
@@ -85,6 +91,10 @@ function isHash (value: unknown): boolean {
   return typeof value === 'object' && value !== null && !Array.isArray(value) && '$hash' in value
 }
 
+/** A marker spelled the way the construct prints it. */
+const spellMarker = (_key: string, member: unknown): unknown =>
+  (isMaskedMarker(member) ? (member.$masked === 'changed' ? `${MASK} (changed)` : MASK) : member)
+
 function inline (value: unknown): string {
   if (value === undefined) {
     return '(absent)'
@@ -92,30 +102,12 @@ function inline (value: unknown): string {
   if (isHash(value)) {
     return '(content)'
   }
-  const text = JSON.stringify(value)
+  const text = JSON.stringify(value, spellMarker)
   return text.length > INLINE_VALUE_CAP ? `${text.slice(0, INLINE_VALUE_CAP)}…` : text
 }
 
 /** The value at an RFC 6901 pointer, or undefined when the path does not resolve. */
-function valueAt (root: unknown, pointer: string): unknown {
-  if (pointer === '') {
-    return root
-  }
-  let node: unknown = root
-  for (const segment of pointerSegments(pointer)) {
-    if (Array.isArray(node)) {
-      node = node[Number(segment)]
-    } else if (node !== null && typeof node === 'object') {
-      node = (node as Record<string, unknown>)[segment]
-    } else {
-      return undefined
-    }
-    if (node === undefined) {
-      return undefined
-    }
-  }
-  return node
-}
+const valueAt = (root: unknown, pointer: string): unknown => nodeAt(root, pointerSegments(pointer))
 
 function originNote (change: DiffChange): string {
   switch (change.origin) {
@@ -155,14 +147,20 @@ class SideCodegen extends ConstructCodegen {
 }
 
 /** A side of the comparison rendered to source text, with its relations registered first. */
-function renderSide (resource: Resource, relations: readonly Resource[], project: Project, ids: PhysicalIds): string {
+function renderSide (
+  resource: Resource,
+  relations: readonly Resource[],
+  project: Project,
+  ids: PhysicalIds,
+  maskedValues: ReadonlySet<string>,
+): string {
   const program = new Program({
     rootDirectory: '.',
     constructFileSuffix: '.check',
     specFileSuffix: '.spec',
     language: 'typescript',
   })
-  const context = new Context()
+  const context = new Context({ maskedValues })
   const codegen = new SideCodegen(program)
   registerProject(context, program, project, ids)
   for (const relation of relations) {
@@ -197,13 +195,19 @@ export function renderResourceDiff (input: RenderResourceInput): string[] {
     lines.push(`file: ${entry.sourceFile}`)
   }
   const changes = entry.changes ?? []
-  // A secret change is named after the block, never valued; but the block is
-  // still rendered, because the API folds a plain edit into the list that
-  // holds a moved secret (one `secret: true` change for the whole list), and
-  // the construct diff — both sides blanked — is what shows that edit.
+  // A secret is shown inline, masked, with `(changed)` on the element the
+  // report marks; a secret change whose mark could not be placed (no
+  // markers reported, an element the payload does not hold, a position the
+  // rules blank to null) is named after the block instead, so a secret's
+  // movement is visible exactly once. The block is rendered for a secret
+  // change even when nothing else is reported, since the API reports the
+  // list holding a moved secret whole, plain siblings' edits included.
   const shown = changes.filter(change => change.secret !== true)
+  const marked = new Set<DiffChange>()
   try {
-    lines.push(...renderShown(shown, entry, local, localResources, diff, project, ids, pruneRelations, maxLines))
+    lines.push(
+      ...renderShown(shown, marked, entry, local, localResources, diff, project, ids, pruneRelations, maxLines),
+    )
   } catch (cause) {
     // A payload this CLI cannot shape like an import resource, a codegen that
     // does not cover the type (a Playwright check suite), a script it cannot
@@ -217,15 +221,30 @@ export function renderResourceDiff (input: RenderResourceInput): string[] {
     }
   }
   for (const change of changes) {
-    if (change.secret === true) {
+    if (change.secret !== true) {
+      continue
+    }
+    if (!marked.has(change)) {
       lines.push(`secret changed: ${change.path}${originNote(change)}`)
+    } else if (originNote(change) !== '') {
+      // The inline mark says which secret moved; the note says the deploy overwrites it.
+      lines.push(`${change.path}:${originNote(change)}`)
     }
   }
   return lines
 }
 
+/** The reported side a mark is read from: the local side follows the code's movement, the deployed side the backend's. */
+function reportedFor (change: DiffChange, side: 'local' | 'deployed'): unknown {
+  if (side === 'local') {
+    return change.origin === 'code' || change.origin === 'both' ? change.after : undefined
+  }
+  return change.origin === 'both' ? change.remote?.after : change.origin === 'remote' ? change.after : undefined
+}
+
 function renderShown (
   shown: readonly DiffChange[],
+  marked: Set<DiffChange>,
   entry: DiffEntry,
   local: ResourceSync | undefined,
   localResources: readonly ResourceSync[],
@@ -250,7 +269,13 @@ function renderShown (
   if (!withSecrets && shown.every(change => change.cause !== undefined)) {
     return [`changed: ${[...new Set(shown.map(change => change.cause))].join(', ')}`]
   }
-  if (!secrets.every(secret => (entry.redactions ?? []).some(rule => ruleReaches(rule.path, secret.path)))) {
+  // A change that is secret or carries a marker (a reorder of a list holding
+  // one) is rendered only when a reported rule reaches its path.
+  const guarded = (entry.changes ?? []).filter(
+    change => change.secret === true
+      || carriesMarker(change.before) || carriesMarker(change.after) || carriesMarker(change.remote),
+  )
+  if (!guarded.every(change => (entry.redactions ?? []).some(rule => ruleReaches(rule.path, change.path)))) {
     return listing(shown)
   }
   if (entry.before === undefined || local === undefined || local.payload === null || local.payload === undefined) {
@@ -264,16 +289,50 @@ function renderShown (
   for (const key of UNRENDERED_KEYS) {
     delete before[key]
   }
-  const deployed: Resource = { type: type as ResourceType, logicalId, payload: before }
-  // Shaped first, then filled with what the deploy leaves as it is, blanked
+  // Both sides masked by the same rules; the deployed side arrives blanked.
+  // A copy, since the marks are written in place and `entry.before` is
+  // read again for relations and text diffs.
+  const deployed: Resource = {
+    type: type as ResourceType,
+    logicalId,
+    payload: blankRedacted(structuredClone(before), entry.redactions),
+  }
+  // Shaped first, then filled with what the deploy leaves as it is, masked
   // last: the rules are spelled in the import format's vocabulary, which is
   // what the shaped payload is in.
   const shaped = toImportResource(deployed.type, logicalId, local.payload, ids)
   fillUnchangedFromBefore(shaped.payload as Record<string, unknown>, before, entry.changes ?? [])
   const after: Resource = { ...shaped, payload: blankRedacted(shaped.payload, entry.redactions) }
+  // Then the marks: the element whose secret moved reads `(changed)` on the
+  // side that moved it, so the diff names the secret beside its key. Each
+  // change writes its own sentinel, unguessable by any value the account or
+  // the code could hold, so only a change whose sentinel reached the returned
+  // lines counts as marked; the sentinels read `(changed)` in the output.
+  // The codegen prints a secret only as one of these strings.
+  const nonce = randomUUID()
+  const sentinels = new Map<DiffChange, { local: string, deployed: string }>()
+  secrets.forEach((change, index) => {
+    const localLabel = `${MASK} (changed#${nonce}-${index})`
+    const deployedLabel = `${MASK} (changed in Checkly#${nonce}-${index})`
+    const onLocal = markChanged(after.payload, change.path, reportedFor(change, 'local'), localLabel)
+    const onDeployed = markChanged(deployed.payload, change.path, reportedFor(change, 'deployed'), deployedLabel)
+    if (onLocal || onDeployed) {
+      sentinels.set(change, { local: localLabel, deployed: deployedLabel })
+    }
+  })
+  const maskedValues = new Set([MASK, ...[...sentinels.values()].flatMap(pair => [pair.local, pair.deployed])])
+  const showing = (lines: string[]): string[] => {
+    for (const [change, pair] of sentinels) {
+      if (lines.some(line => line.includes(pair.local) || line.includes(pair.deployed))) {
+        marked.add(change)
+      }
+    }
+    const sentinel = new RegExp(` \\(changed( in Checkly)?#${nonce}-\\d+\\)`, 'g')
+    return lines.map(line => line.replace(sentinel, ' (changed$1)'))
+  }
   const afterRelations = relationResourcesForAfter({ ids, local: localResources, entry, diff, pruneRelations })
-  const beforeText = renderSide(deployed, relationResourcesFromBefore(type, entry.before), project, ids)
-  const afterText = renderSide(after, afterRelations, project, ids)
+  const beforeText = renderSide(deployed, relationResourcesFromBefore(type, entry.before), project, ids, maskedValues)
+  const afterText = renderSide(after, afterRelations, project, ids, maskedValues)
   const rendered = unifiedDiff(beforeText, afterText, { beforeLabel: 'deployed', afterLabel: 'local', maxLines })
   if (rendered === undefined) {
     return shown.length > 0 ? listing(shown, 'the construct diff is too large to show') : []
@@ -290,7 +349,7 @@ function renderShown (
         lines.push(listChange(change))
       }
     }
-    return lines
+    return showing(lines)
   }
   // The renderings agree. When every change is a known shape change, that is
   // the CLI upgrade spelling the same construct differently; the paths alone
