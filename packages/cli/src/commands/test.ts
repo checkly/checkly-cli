@@ -10,7 +10,7 @@ import {
 } from '../services/abstract-check-runner.js'
 import TestRunner from '../services/test-runner.js'
 import { loadChecklyConfig, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
-import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../services/test-filters.js'
+import { filterByCheckFiles, filterByCheckNamePattern, filterByTags } from '../services/test-filters.js'
 import { AuthCommand } from './authCommand.js'
 import { BrowserCheck, Check, HeartbeatMonitor, MultiStepCheck, Project, RetryStrategyBuilder, RuntimeCheck, Session } from '../constructs/index.js'
 import type { Region } from '../index.js'
@@ -214,22 +214,18 @@ export default class Test extends AuthCommand {
           return false
         }
 
-        let entrypointMatch = false
-        if (check instanceof BrowserCheck || check instanceof MultiStepCheck) {
-          // For historical reasons the path used for filtering has always
-          // been relative to the project base path.
-          const relativeEntrypoint = isEntrypoint(check.code)
-            ? Session.relativePosixPath(check.code.entrypoint)
-            : undefined
-
-          if (relativeEntrypoint) {
-            if (filterByFileNamePattern(filePatterns, relativeEntrypoint)) {
-              entrypointMatch = true
-            }
-          }
-        }
-
-        if (!entrypointMatch && !filterByFileNamePattern(filePatterns, check.getSourceFile())) {
+        // For historical reasons the entrypoint used for filtering has
+        // always been relative to the project base path.
+        const scripted = check instanceof BrowserCheck || check instanceof MultiStepCheck
+        const entrypoint = scripted && isEntrypoint(check.code)
+          ? Session.relativePosixPath(check.code.entrypoint)
+          : undefined
+        const fileMatch = filterByCheckFiles(filePatterns, {
+          sourceFile: check.getSourceFile(),
+          loadedFrom: Session.relativeCheckFilePath(check.loadingFileAbsolutePath),
+          entrypoint,
+        })
+        if (!fileMatch) {
           return false
         }
 

@@ -1,6 +1,33 @@
 import { describe, expect, test } from 'vitest'
 
-import { filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../test-filters.js'
+import { filterByCheckFiles, filterByFileNamePattern, filterByCheckNamePattern, filterByTags } from '../test-filters.js'
+
+describe('filterByCheckFiles()', () => {
+  // A check declared in src/lib/factory.ts on behalf of src/checks/a.check.ts.
+  const files = { sourceFile: 'src/lib/factory.ts', loadedFrom: 'src/checks/a.check.ts' }
+
+  test('selects a check by the file that declares it', () => {
+    expect(filterByCheckFiles(['lib/factory'], files)).toBe(true)
+  })
+
+  test('selects a check by the check file that loaded it', () => {
+    expect(filterByCheckFiles(['a.check'], files)).toBe(true)
+  })
+
+  test('selects a browser check by its script', () => {
+    expect(filterByCheckFiles(['home.spec'], { ...files, entrypoint: 'src/checks/home.spec.ts' })).toBe(true)
+  })
+
+  test('leaves out a check none of the files name', () => {
+    expect(filterByCheckFiles(['b.check'], { ...files, entrypoint: 'src/checks/home.spec.ts' })).toBe(false)
+    expect(filterByCheckFiles(['a.check'], {})).toBe(false)
+  })
+
+  test('never matches a file it does not know', () => {
+    expect(filterByCheckFiles(['undefined'], files)).toBe(false)
+    expect(filterByCheckFiles(['def'], {})).toBe(false)
+  })
+})
 
 describe('filterByCheckNamePattern()', () => {
   type TestTuple = [string, string, boolean]

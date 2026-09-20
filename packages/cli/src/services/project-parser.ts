@@ -1,3 +1,4 @@
+import fs from 'node:fs/promises'
 import * as path from 'path'
 import Debug from 'debug'
 import {
@@ -127,7 +128,7 @@ async function findBasePath (
 
 export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   const {
-    directory,
+    directory: givenDirectory,
     checkMatch = '**/*.check.{js,ts}',
     checkFilter,
     includeTestOnlyChecks = false,
@@ -151,6 +152,14 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     warnOnWebServerConfig,
     enableWorkspaces = true,
   } = opts
+
+  // Constructs learn their declaring file from the call stack, and module
+  // loaders report files at their physical location, with symlinks resolved.
+  // Every path derived from the directory below (the base path, the glob
+  // results, the check-file paths) must be physical too, or a check file
+  // reached through a symlink would compare unequal to the same file seen
+  // from a construct.
+  const directory = await fs.realpath(givenDirectory)
 
   const project = new Project(projectLogicalId, {
     name: projectName,
@@ -178,6 +187,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   Session.project = project
   Session.basePath = basePath
   Session.contextPath = contextPath
+  Session.checkFilesDirectory = directory
   Session.checkDefaults = Object.assign({}, BASE_CHECK_DEFAULTS, checkDefaults)
   Session.checkFilter = checkFilter
   Session.browserCheckDefaults = browserCheckDefaults
@@ -198,8 +208,9 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
 
   if (!loadPlaywrightChecksOnly) {
     await loadAllCheckFiles(directory, checkMatch, ignoreDirectories)
-    // Load sequentially because otherwise Session.checkFileAbsolutePath and
-    // Session.checkFilePath are going to be subject to race conditions.
+    // Load sequentially: Session.checkFileAbsolutePath names the file being
+    // loaded, which constructs without a user frame on the call stack fall
+    // back to.
     await loadAllBrowserChecks(directory, browserCheckMatch, ignoreDirectories, project)
     await loadAllMultiStepChecks(directory, multiStepCheckMatch, ignoreDirectories, project)
   }
@@ -211,17 +222,17 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   return project
 }
 
-function setCheckFilePaths (checkFile: string, directory: string): string {
-  const relPath = pathToPosix(path.relative(directory, checkFile))
-
+/**
+ * Marks `checkFile` as the file being loaded and returns its path relative
+ * to the parse directory, with posix separators.
+ */
+function setCheckFilePaths (checkFile: string): string {
   Session.checkFileAbsolutePath = checkFile
-  Session.checkFilePath = relPath
 
-  return relPath
+  return Session.relativeCheckFilePath(checkFile)!
 }
 
 function resetCheckFilePaths () {
-  Session.checkFilePath = undefined
   Session.checkFileAbsolutePath = undefined
 }
 
@@ -236,7 +247,7 @@ async function loadPlaywrightChecks (
     try {
       for (const playwrightCheckProps of playwrightChecks) {
         const configPath = getPlaywrightConfigPath(playwrightCheckProps, playwrightConfigPath, directory)
-        setCheckFilePaths(configPath, directory)
+        setCheckFilePaths(configPath)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const playwrightCheck = new PlaywrightCheck(playwrightCheckProps.logicalId, {
           ...playwrightCheckProps,
@@ -252,7 +263,7 @@ async function loadPlaywrightChecks (
       if (!playwrightConfigPath) {
         return
       }
-      setCheckFilePaths(playwrightConfigPath, directory)
+      setCheckFilePaths(playwrightConfigPath)
       const resolvedPlaywrightConfigPath = path.resolve(directory, playwrightConfigPath)
       const basePath = path.basename(resolvedPlaywrightConfigPath)
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -275,7 +286,7 @@ async function loadAllCheckFiles (
   const checkFiles = await findFilesWithPattern(directory, checkFilePattern, ignorePattern)
   for (const checkFile of checkFiles) {
     try {
-      setCheckFilePaths(checkFile, directory)
+      setCheckFilePaths(checkFile)
       await Session.loadFile(checkFile)
     } finally {
       resetCheckFilePaths()
@@ -319,7 +330,7 @@ async function loadAllBrowserChecks (
 
   for (const checkFile of checkFiles) {
     try {
-      const relPath = setCheckFilePaths(checkFile, directory)
+      const relPath = setCheckFilePaths(checkFile)
       // Don't create an additional check if the checkFile was already added
       // to a check in loadAllCheckFiles.
       if (preexistingCheckFiles.has(relPath)) {
@@ -353,7 +364,7 @@ async function loadAllMultiStepChecks (
 
   for (const checkFile of checkFiles) {
     try {
-      const relPath = setCheckFilePaths(checkFile, directory)
+      const relPath = setCheckFilePaths(checkFile)
       // Don't create an additional check if the checkFile was already added
       // to a check in loadAllCheckFiles.
       if (preexistingCheckFiles.has(relPath)) {
