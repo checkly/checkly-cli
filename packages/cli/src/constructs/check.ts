@@ -370,7 +370,12 @@ export abstract class Check extends Construct {
   useGlobalAlertSettings?: boolean
   runParallel?: boolean
   triggerIncident?: IncidentTrigger
-  __checkFilePath?: string // internal variable to filter by check file name from the CLI
+  /**
+   * The declaring file relative to the directory the project is parsed
+   * from; `checkly test <file>` filters on it and reporters group by it.
+   * Internal.
+   */
+  __checkFilePath?: string
   #intent?: CheckIntent | null
   #aiAutoRepairEnabled?: boolean | null
 
@@ -408,7 +413,7 @@ export abstract class Check extends Construct {
     this.useGlobalAlertSettings = !this.alertSettings
     this.runParallel = config.runParallel ?? false
     this.triggerIncident = config.triggerIncident
-    this.__checkFilePath = Session.checkFilePath
+    this.__checkFilePath = Session.relativeCheckFilePath(this.checkFileAbsolutePath)
   }
 
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {

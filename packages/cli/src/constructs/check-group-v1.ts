@@ -2,6 +2,8 @@ import path from 'node:path'
 
 import { glob } from 'glob'
 
+import { pathToPosix } from '../services/util.js'
+
 import { AlertChannel, AlertChannelRef } from './alert-channel.js'
 import { EnvironmentVariable } from './environment-variable.js'
 import { PrivateLocation, PrivateLocationRef } from './private-location.js'
@@ -41,14 +43,20 @@ const defaultApiCheckDefaults: ApiCheckDefaultConfig = {
 
 type BrowserCheckConfig = CheckConfigDefaults & {
   /**
-   * Glob pattern to include multiple files, i.e. all `.spec.ts` files
+   * Glob pattern to include multiple files, i.e. all `.spec.ts` files,
+   * relative to the check file being loaded when the group is created.
+   * When nothing matches there and the group is declared in another file
+   * (a shared module, a helper), that file's directory is searched.
    */
   testMatch: string | string[]
 }
 
 type MultiStepCheckConfig = CheckConfigDefaults & {
   /**
-   * Glob pattern to include multiple files, i.e. all `.spec.ts` files
+   * Glob pattern to include multiple files, i.e. all `.spec.ts` files,
+   * relative to the check file being loaded when the group is created.
+   * When nothing matches there and the group is declared in another file
+   * (a shared module, a helper), that file's directory is searched.
    */
   testMatch: string | string[]
 }
@@ -344,13 +352,12 @@ export class CheckGroupV1 extends Construct {
     this.runParallel = props.runParallel
     // `browserChecks` is not a CheckGroup resource property. Not present in synthesize()
     this.browserChecks = props.browserChecks
-    const fileAbsolutePath = Session.checkFileAbsolutePath!
     if (props.browserChecks?.testMatch) {
-      this.__addChecks(fileAbsolutePath, props.browserChecks.testMatch, CheckTypes.BROWSER)
+      this.__addChecks(props.browserChecks.testMatch, CheckTypes.BROWSER)
     }
     this.multiStepChecks = props.multiStepChecks
     if (props.multiStepChecks?.testMatch) {
-      this.__addChecks(fileAbsolutePath, props.multiStepChecks.testMatch, CheckTypes.MULTI_STEP)
+      this.__addChecks(props.multiStepChecks.testMatch, CheckTypes.MULTI_STEP)
     }
     Session.registerConstruct(this)
     this.__addSubscriptions()
@@ -423,13 +430,28 @@ export class CheckGroupV1 extends Construct {
     return new CheckGroupRef(`check-group-${id}`, id)
   }
 
+  /**
+   * Creates a check for every file `testMatch` finds next to the check
+   * file that was being loaded when the group was created (as it always
+   * did) or, when nothing matches there, next to the file that declares
+   * the group.
+   */
   private __addChecks (
-    fileAbsolutePath: string,
     testMatch: string | string[],
     checkType: typeof CheckTypes.BROWSER | typeof CheckTypes.MULTI_STEP,
   ) {
-    const parent = path.dirname(fileAbsolutePath)
-    const matched = glob.sync(testMatch, { nodir: true, cwd: parent })
+    const roots = [...new Set([this.loadingFileAbsolutePath, this.checkFileAbsolutePath])]
+      .filter((file): file is string => file !== undefined)
+      .map(file => path.dirname(file))
+    let parent = roots[0]
+    let matched: string[] = []
+    for (const root of roots) {
+      matched = glob.sync(testMatch, { nodir: true, cwd: root })
+      if (matched.length > 0) {
+        parent = root
+        break
+      }
+    }
     for (const match of matched) {
       const filepath = path.join(parent, match)
       const props = {
@@ -440,7 +462,12 @@ export class CheckGroupV1 extends Construct {
         },
         // the browserChecks props inherited from the group are applied in BrowserCheck.constructor()
       }
-      const checkLogicalId = Session.relativePosixPath(filepath)
+      // Before a project is parsed (a group declared in the Checkly config
+      // file) there is no base path; the check constructor rejects the
+      // construct anyway, with a message naming the config file.
+      const checkLogicalId = Session.basePath
+        ? Session.relativePosixPath(filepath)
+        : pathToPosix(match)
       if (checkType === CheckTypes.BROWSER) {
         new BrowserCheck(checkLogicalId, props)
       } else {

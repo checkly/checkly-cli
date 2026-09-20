@@ -7,7 +7,7 @@ import {
   Diagnostics,
   Session,
 } from '../../constructs/index.js'
-import { splitConfigFilePath } from '../../services/util.js'
+import { getGitRepoRoot, splitConfigFilePath } from '../../services/util.js'
 import commonMessages from '../../messages/common-messages.js'
 import { loadSnapshot, Runtime } from '../../runtimes/index.js'
 import { Bundler } from '../../services/check-parser/bundler.js'
@@ -37,6 +37,9 @@ export type ParseProjectOutput = {
       type: string
       member: boolean
       payload: unknown
+      // Present when the project lives in a git repository: the declaring
+      // file relative to the repository root, as a deploy sends it.
+      sourceFile?: string
     }[]
   } | null
 }
@@ -223,7 +226,9 @@ export default class ParseProjectCommand extends Command {
         bundleMs = performance.now() - bundleStartedAt
 
         const synthesizeStartedAt = performance.now()
-        const synthesized = bundle.synthesize()
+        // Same envelope as `checkly deploy` sends, including the per-resource
+        // `sourceFile` relative to the git repository root.
+        const synthesized = bundle.synthesize({ repoRoot: getGitRepoRoot() })
         synthesizeMs = performance.now() - synthesizeStartedAt
         return synthesized
       })()
