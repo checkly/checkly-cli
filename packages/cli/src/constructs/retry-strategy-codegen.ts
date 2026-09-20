@@ -1,35 +1,23 @@
 import { Value, expr, ident, ObjectValueBuilder, GeneratedFile } from '../sourcegen/index.js'
 import { RetryStrategy, RetryStrategyOptions, RetryStrategyType } from './retry-strategy.js'
+import { RETRY_STRATEGY_DEFAULTS } from './internal/retry-strategy-defaults.js'
 
 export type RetryStrategyResource = RetryStrategy
 
 export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryStrategyResource | null): Value {
   genfile.namedImport('RetryStrategyBuilder', 'checkly/constructs')
 
-  function buildBaseBackoffSecondsOption (
+  // An option is left out only when it equals the value the builder fills
+  // in for it; zero is a value (a zero backoff or duration is stored as such)
+  // and must not be mistaken for an unset option.
+  function buildNumberOption (
     options: RetryStrategyOptions,
     builder: ObjectValueBuilder,
+    key: 'baseBackoffSeconds' | 'maxRetries' | 'maxDurationSeconds',
   ): void {
-    if (options.baseBackoffSeconds) {
-      builder.number('baseBackoffSeconds', options.baseBackoffSeconds)
-    }
-  }
-
-  function buildMaxRetriesOption (
-    options: RetryStrategyOptions,
-    builder: ObjectValueBuilder,
-  ): void {
-    if (options.maxRetries) {
-      builder.number('maxRetries', options.maxRetries)
-    }
-  }
-
-  function buildMaxDurationSecondsOption (
-    options: RetryStrategyOptions,
-    builder: ObjectValueBuilder,
-  ): void {
-    if (options.maxDurationSeconds) {
-      builder.number('maxDurationSeconds', options.maxDurationSeconds)
+    const value = options[key]
+    if (value !== undefined && value !== null && value !== RETRY_STRATEGY_DEFAULTS[key]) {
+      builder.number(key, value)
     }
   }
 
@@ -37,8 +25,9 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     options: RetryStrategyOptions,
     builder: ObjectValueBuilder,
   ): void {
-    if (options.sameRegion !== undefined) {
-      builder.boolean('sameRegion', options.sameRegion)
+    const value = options.sameRegion
+    if (value !== undefined && value !== null && value !== RETRY_STRATEGY_DEFAULTS.sameRegion) {
+      builder.boolean('sameRegion', value)
     }
   }
 
@@ -64,9 +53,9 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     options: RetryStrategyOptions,
     builder: ObjectValueBuilder,
   ): void {
-    buildBaseBackoffSecondsOption(options, builder)
-    buildMaxRetriesOption(options, builder)
-    buildMaxDurationSecondsOption(options, builder)
+    buildNumberOption(options, builder, 'baseBackoffSeconds')
+    buildNumberOption(options, builder, 'maxRetries')
+    buildNumberOption(options, builder, 'maxDurationSeconds')
     buildSameRegionOption(options, builder)
     buildOnlyOnOption(options, builder)
   }
@@ -113,7 +102,7 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
         builder.member(ident('singleRetry'))
         builder.call(builder => {
           builder.object(builder => {
-            buildBaseBackoffSecondsOption(strategy, builder)
+            buildNumberOption(strategy, builder, 'baseBackoffSeconds')
             buildSameRegionOption(strategy, builder)
             buildOnlyOnOption(strategy, builder)
           })

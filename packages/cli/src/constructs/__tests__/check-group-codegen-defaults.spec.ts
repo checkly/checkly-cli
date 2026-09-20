@@ -90,4 +90,17 @@ describe('CheckGroupCodegen defaults', () => {
       expect(source).not.toContain('alertEscalationPolicy')
     })
   })
+
+  it('generates concurrency whenever the row carries it', async () => {
+    expect(await renderResource(env, baseResource({ concurrency: 3 }))).toContain('concurrency: 3')
+    expect(await renderResource(env, baseResource({ concurrency: 1 }))).toContain('concurrency: 1')
+    expect(await renderResource(env, baseResource())).not.toContain('concurrency')
+  })
+
+  it('keeps an API check default basic auth credential with one empty field', async () => {
+    const withUser = await renderResource(env, baseResource({ apiCheckDefaults: { basicAuth: { username: 'svc', password: '' } } }))
+    expect(withUser).toContain('username: \'svc\'')
+    const empty = await renderResource(env, baseResource({ apiCheckDefaults: { basicAuth: { username: '', password: '' } } }))
+    expect(empty).not.toContain('basicAuth')
+  })
 })

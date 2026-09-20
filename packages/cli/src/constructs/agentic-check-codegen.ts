@@ -1,6 +1,7 @@
 import { Codegen, Context } from './internal/codegen/index.js'
 import { expr, ident, ObjectValueBuilder } from '../sourcegen/index.js'
 import { buildCheckProps, CheckResource } from './check-codegen.js'
+import { AGENTIC_CHECK_OMITTED_PROPS, DEFAULT_AGENTIC_CHECK_LOCATION } from './internal/agentic-check-defaults.js'
 
 /**
  * Shape of `agenticCheckData` as stored on the backend and returned to the
@@ -51,8 +52,9 @@ export class AgenticCheckCodegen extends Codegen<AgenticCheckResource> {
           }
 
           buildCheckProps(this.program, file, builder, resource, context, {
-            skipRetryStrategy: true,
             skipIntent: true,
+            omit: AGENTIC_CHECK_OMITTED_PROPS,
+            fallbackLocations: [DEFAULT_AGENTIC_CHECK_LOCATION],
           })
         })
       })

@@ -639,9 +639,66 @@ describe('renderResourceDiff', () => {
     expect(text).not.toContain('secret changed')
   })
 
+  // An object-kind rule blanks the Playwright credentials to null on both
+  // sides, so no mark can be placed there and the line carries the movement.
+  const CREDENTIALS_RULES = [...RULES, { path: '/playwrightConfig/use/httpCredentials', kind: 'object' }]
+  const CREDENTIALS_CHANGE = {
+    path: '/playwrightConfig/use/httpCredentials', origin: 'code', secret: true, before: CHANGED, after: CHANGED,
+  } as const
+
   it('names a secret change after the block when its mark sits where nothing renders', () => {
-    // A basicAuth block with no username is not printed at all, so a placed
-    // mark never reaches the reader and the line carries the movement.
+    const { local } = scenario()
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [CREDENTIALS_CHANGE],
+        before: deployed({ playwrightConfig: { use: { httpCredentials: { username: 'u', password: 'rotated' } } } }),
+        redactions: CREDENTIALS_RULES,
+      },
+      local,
+    )
+    expect(lines.join('\n')).not.toContain('rotated')
+    expect(lines).toEqual(['secret changed: /playwrightConfig/use/httpCredentials'])
+  })
+
+  it('names only the secret change whose mark did not reach the reader, when another did', () => {
+    const { local } = scenario({
+      environmentVariables: [{ key: 'TOKEN', value: 'rotated-plaintext', locked: true }],
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [
+          {
+            path: '/environmentVariables',
+            origin: 'code',
+            secret: true,
+            before: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+            after: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+          },
+          CREDENTIALS_CHANGE,
+        ],
+        before: deployed({
+          environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }],
+          playwrightConfig: { use: { httpCredentials: { username: 'u', password: 'rotated' } } },
+        }),
+        redactions: CREDENTIALS_RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).toContain('+      value: \'******** (changed)\',')
+    expect(text).not.toContain('#')
+    expect(lines.filter(line => line.startsWith('secret changed'))).toEqual(['secret changed: /playwrightConfig/use/httpCredentials'])
+  })
+
+  // A basic auth credential with an empty username used to vanish from both
+  // sides; it now renders, so a rotated password is marked in place.
+  it('marks a rotated basic auth password whose username is empty', () => {
     const { local } = scenario({
       request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: '', password: 'rotated' } },
     })
@@ -665,49 +722,10 @@ describe('renderResourceDiff', () => {
       },
       local,
     )
-    expect(lines.join('\n')).not.toContain('rotated')
-    expect(lines).toEqual(['secret changed: /request/basicAuth/password'])
-  })
-
-  it('names only the secret change whose mark did not reach the reader, when another did', () => {
-    const { local } = scenario({
-      environmentVariables: [{ key: 'TOKEN', value: 'rotated-plaintext', locked: true }],
-      request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: '', password: 'rotated' } },
-    })
-    const lines = render(
-      {
-        type: 'check',
-        logicalId: 'api',
-        action: 'UPDATE',
-        changes: [
-          {
-            path: '/environmentVariables',
-            origin: 'code',
-            secret: true,
-            before: [{ key: 'TOKEN', value: CHANGED, locked: true }],
-            after: [{ key: 'TOKEN', value: CHANGED, locked: true }],
-          },
-          { path: '/request/basicAuth/password', origin: 'code', secret: true, before: CHANGED, after: CHANGED },
-        ],
-        before: deployed({
-          environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }],
-          request: {
-            url: 'https://example.com/health',
-            method: 'GET',
-            headers: [],
-            queryParameters: [],
-            assertions: [],
-            basicAuth: { username: '', password: '' },
-          },
-        }),
-        redactions: RULES,
-      },
-      local,
-    )
     const text = lines.join('\n')
-    expect(text).toContain('+      value: \'******** (changed)\',')
-    expect(text).not.toContain('#')
-    expect(lines.filter(line => line.startsWith('secret changed'))).toEqual(['secret changed: /request/basicAuth/password'])
+    expect(text).not.toContain('rotated')
+    expect(text).toContain('+      password: \'******** (changed)\',')
+    expect(text).not.toContain('secret changed')
   })
 
   it('prints a secret: true header or query parameter only as its mask under the preview', () => {
