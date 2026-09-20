@@ -1,6 +1,6 @@
 /**
- * A line-oriented unified diff, used to show what a deploy would change about
- * a resource: the construct as Checkly currently has it against the construct
+ * A line-oriented diff, used to show what a deploy would change about a
+ * resource: the construct as Checkly currently has it against the construct
  * the local code would produce.
  *
  * Deliberately implemented here rather than taken from a package. The output
@@ -32,21 +32,16 @@ const DEFAULT_MAX_LINES = 1500
  */
 const MAX_CELLS = 4_000_000
 
-export interface UnifiedDiffOptions {
+export interface DiffLinesOptions {
   /** Lines of context around each change. Defaults to 3. */
   context?: number
-  /** Name of the left-hand side, shown in the `---` header. */
-  beforeLabel?: string
-  /** Name of the right-hand side, shown in the `+++` header. */
-  afterLabel?: string
   /** Lines per side above which no diff is produced. Defaults to 1500. */
   maxLines?: number
 }
 
-type Op = ' ' | '-' | '+'
-
+/** One line of the edit script: kept on both sides, or on one side only. */
 interface Edit {
-  op: Op
+  kind: 'context' | 'remove' | 'add'
   line: string
 }
 
@@ -113,48 +108,44 @@ function editScript (before: string[], after: string[]): Edit[] | undefined {
 
   const edits: Edit[] = []
   for (const line of before.slice(0, head)) {
-    edits.push({ op: ' ', line })
+    edits.push({ kind: 'context', line })
   }
 
   let i = 0
   let j = 0
   while (i < n && j < m) {
     if (a[i] === b[j]) {
-      edits.push({ op: ' ', line: a[i] })
+      edits.push({ kind: 'context', line: a[i] })
       i += 1
       j += 1
     } else if (lengths[(i + 1) * width + j] >= lengths[i * width + j + 1]) {
       // Dropping a[i] keeps at least as much of the common subsequence as
       // dropping b[j] would; ties go to the deletion so a replaced line reads
       // as `-old` then `+new`.
-      edits.push({ op: '-', line: a[i] })
+      edits.push({ kind: 'remove', line: a[i] })
       i += 1
     } else {
-      edits.push({ op: '+', line: b[j] })
+      edits.push({ kind: 'add', line: b[j] })
       j += 1
     }
   }
   while (i < n) {
-    edits.push({ op: '-', line: a[i] })
+    edits.push({ kind: 'remove', line: a[i] })
     i += 1
   }
   while (j < m) {
-    edits.push({ op: '+', line: b[j] })
+    edits.push({ kind: 'add', line: b[j] })
     j += 1
   }
 
   for (const line of before.slice(before.length - tail)) {
-    edits.push({ op: ' ', line })
+    edits.push({ kind: 'context', line })
   }
 
   return edits
 }
 
 interface Hunk {
-  beforeStart: number
-  beforeCount: number
-  afterStart: number
-  afterCount: number
   edits: Edit[]
 }
 
@@ -167,7 +158,7 @@ interface Hunk {
 function toHunks (edits: Edit[], context: number): Hunk[] {
   const ranges: Array<[number, number]> = []
   edits.forEach((edit, index) => {
-    if (edit.op === ' ') {
+    if (edit.kind === 'context') {
       return
     }
     const from = Math.max(0, index - context)
@@ -179,81 +170,38 @@ function toHunks (edits: Edit[], context: number): Hunk[] {
       ranges.push([from, to])
     }
   })
-  if (ranges.length === 0) {
-    return []
-  }
+  return ranges.map(([from, to]) => ({ edits: edits.slice(from, to + 1) }))
+}
 
-  // Line numbers are 1-based and counted per side, so both counters advance
-  // only over the lines that side actually has.
-  const beforeLineAt: number[] = []
-  const afterLineAt: number[] = []
-  let beforeLine = 1
-  let afterLine = 1
-  for (const edit of edits) {
-    beforeLineAt.push(beforeLine)
-    afterLineAt.push(afterLine)
-    if (edit.op !== '+') {
-      beforeLine += 1
-    }
-    if (edit.op !== '-') {
-      afterLine += 1
-    }
-  }
-
-  return ranges.map(([from, to]) => {
-    const slice = edits.slice(from, to + 1)
-    const beforeCount = slice.filter(edit => edit.op !== '+').length
-    const afterCount = slice.filter(edit => edit.op !== '-').length
-    return {
-      // A range holding none of its side's lines is numbered by the lines that
-      // precede it, so an insertion before the first line reads `-0,0`. (BSD
-      // diff spells that one case `-1,0`; see the note on the export.)
-      beforeStart: beforeCount === 0 ? beforeLineAt[from] - 1 : beforeLineAt[from],
-      beforeCount,
-      afterStart: afterCount === 0 ? afterLineAt[from] - 1 : afterLineAt[from],
-      afterCount,
-      edits: slice,
-    }
-  })
+/** One line of a diff: a hunk boundary (with no text of its own), or a line of either side. */
+export interface DiffLine {
+  kind: 'context' | 'add' | 'remove' | 'hunk'
+  text: string
 }
 
 /**
- * A hunk header's range for one side. `diff -u` omits the count when the side
- * spans exactly one line, so `-1,1` is spelled `-1`.
+ * The diff of two texts as typed lines, without colour — the caller decides
+ * how to present them.
+ *
+ * Hunk grouping follows `git diff` and GNU `diff -u`, which is the shape a
+ * reader recognises. When two sides can be aligned in more than one minimal
+ * way, which edit script you get is a matter of heuristics, and this one's is
+ * not git's: the result is always a valid, minimal diff of the same two texts,
+ * but it may group its hunks differently from the diff the same input would
+ * get from git.
+ *
+ * @returns An empty array when the two sides are identical (or differ only by
+ * a trailing newline), `undefined` when they are too large to compare (see
+ * {@link DEFAULT_MAX_LINES} and {@link MAX_CELLS}), and otherwise one `hunk`
+ * line per changed region followed by that region's lines.
  */
-function range (start: number, count: number): string {
-  return count === 1 ? `${start}` : `${start},${count}`
-}
-
-/**
- * A unified diff of two texts, as lines without a trailing newline and without
- * colour — the caller decides how to present them.
- *
- * Headers and hunk numbering follow `git diff` and GNU `diff -u`, which is the
- * spelling a reader recognises and the one their CI prints. Two places where
- * that is worth knowing:
- *
- * - BSD (and therefore macOS) `diff` numbers an empty range at the very start
- *   of a non-empty side `1,0` where git and GNU say `0,0`. This follows git.
- * - When two sides can be aligned in more than one minimal way, which edit
- *   script you get is a matter of heuristics, and this one's is not git's. The
- *   result is always a valid, minimal diff of the same two texts; it may group
- *   its hunks differently from the diff the same input would get from git.
- *
- * @returns An empty array when the two sides are identical, `undefined` when
- * they are too large to compare (see {@link DEFAULT_MAX_LINES} and
- * {@link MAX_CELLS}), and otherwise the `---`/`+++` headers followed by one
- * `@@` hunk per changed region.
- */
-export function unifiedDiff (
+export function diffLines (
   before: string,
   after: string,
-  options: UnifiedDiffOptions = {},
-): string[] | undefined {
+  options: DiffLinesOptions = {},
+): DiffLine[] | undefined {
   const {
     context = DEFAULT_CONTEXT,
-    beforeLabel = 'deployed',
-    afterLabel = 'local',
     maxLines = DEFAULT_MAX_LINES,
   } = options
 
@@ -274,17 +222,15 @@ export function unifiedDiff (
 
   const hunks = toHunks(edits, context)
   if (hunks.length === 0) {
-    // The texts differ only in trailing whitespace that `toLines` dropped.
+    // The texts differ only by the trailing newline that `toLines` dropped.
     return []
   }
 
-  const lines = [`--- ${beforeLabel}`, `+++ ${afterLabel}`]
+  const lines: DiffLine[] = []
   for (const hunk of hunks) {
-    lines.push(
-      `@@ -${range(hunk.beforeStart, hunk.beforeCount)} +${range(hunk.afterStart, hunk.afterCount)} @@`,
-    )
+    lines.push({ kind: 'hunk', text: '' })
     for (const edit of hunk.edits) {
-      lines.push(`${edit.op}${edit.line}`)
+      lines.push({ kind: edit.kind, text: edit.line })
     }
   }
   return lines

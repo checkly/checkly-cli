@@ -59,7 +59,7 @@ Create these three files (skip assertion + request if the construct has no asser
 
 - [ ] `e2e/__tests__/fixtures/deploy-project/{name}.check.ts` — Minimal construct instantiation with `activated: false`.
 
-- [ ] `e2e/__tests__/deploy.spec.ts` — Add the new construct's logical ID to expected `Create:` output in deploy test assertions.
+- [ ] `e2e/__tests__/deploy.spec.ts` — Add the new construct's type and logical ID to the `tableRows([...])` rows the deploy preview assertions expect.
 
 ## Phase 7: Examples (new files, paths relative to repo root)
 

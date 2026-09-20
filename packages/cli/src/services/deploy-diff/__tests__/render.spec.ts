@@ -11,7 +11,7 @@ import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
 import { physicalIdsFromPlan } from '../import-shape.js'
-import { renderResourceDiff } from '../render.js'
+import { renderResourceDiff, type RenderedLine } from '../render.js'
 
 /**
  * The lines printed under an updated resource (`render.ts`): which of the
@@ -79,9 +79,26 @@ const plan = (entry: DiffEntry, ...rest: DiffEntry[]): DiffEntry[] => [
   ...rest,
 ]
 
+/**
+ * The rendered lines as text with the marker a unified diff gives each one,
+ * so the assertions below read like the diff they check.
+ */
+function plain (lines: RenderedLine[]): string[] {
+  return lines.map(line => {
+    switch (line.kind) {
+      case 'add': return `+${line.text}`
+      case 'remove': return `-${line.text}`
+      case 'context': return ` ${line.text}`
+      case 'nested': return `  ${plain([line.line])[0]}`
+      case 'hunk': return '@@'
+      default: return line.text
+    }
+  })
+}
+
 function render (entry: DiffEntry, local: ResourceSync[], extra: DiffEntry[] = [], pruneRelations = false) {
   const diff = plan(entry, ...extra)
-  return renderResourceDiff({
+  return plain(renderResourceDiff({
     entry,
     local: local.find(resource => resource.logicalId === entry.logicalId && resource.type === entry.type),
     localResources: local,
@@ -89,7 +106,7 @@ function render (entry: DiffEntry, local: ResourceSync[], extra: DiffEntry[] = [
     project,
     ids: physicalIdsFromPlan(diff, local),
     pruneRelations,
-  })
+  }))
 }
 
 describe('renderResourceDiff', () => {
@@ -108,7 +125,8 @@ describe('renderResourceDiff', () => {
       },
       local,
     )
-    expect(lines[0]).toBe('file: src/api.check.ts')
+    // The source file is the resource header's business, not the diff's.
+    expect(lines[0]).toBe('@@')
     const text = lines.join('\n')
     expect(text).toContain('-    url: \'https://example.com/health\'')
     expect(text).toContain('+    url: \'https://example.com/v2/health\'')
@@ -606,7 +624,7 @@ describe('renderResourceDiff', () => {
       },
       withAuth,
     )
-    expect(above.join('\n')).toContain('--- deployed')
+    expect(above[0]).toBe('@@')
     expect(above.join('\n')).not.toContain('rotated')
     expect(above.at(-1)).toBe('secret changed: /request/basicAuth/password')
   })
@@ -897,7 +915,7 @@ describe('renderResourceDiff', () => {
     const common = {
       sendRecovery: true, sendFailure: true, sendDegraded: false, sslExpiry: false, sslExpiryThreshold: 30,
     }
-    const channelPlan = (entry: DiffEntry, local: ResourceSync[]) => renderResourceDiff({
+    const channelPlan = (entry: DiffEntry, local: ResourceSync[]) => plain(renderResourceDiff({
       entry,
       local: local[0],
       localResources: local,
@@ -905,7 +923,7 @@ describe('renderResourceDiff', () => {
       project,
       ids: physicalIdsFromPlan([entry], local),
       pruneRelations: false,
-    })
+    }))
 
     it('renders a rotated incident.io API key as the masked key, marked', () => {
       const channel = new IncidentioAlertChannel('incidents', { name: 'Incidents', apiKey: 'rotated-key' })
