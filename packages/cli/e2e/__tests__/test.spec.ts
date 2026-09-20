@@ -316,4 +316,50 @@ describe('test', { timeout: 45000 }, () => {
       }
     }, 120_000)
   })
+
+  describe('shared-constructs-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        // The parser's sandbox spec covers the same fixture; it lives with the
+        // parser fixtures so there is one copy.
+        source: path.join(
+          __dirname, '..', '..', 'src', 'services', '__tests__', 'project-parser-fixtures', 'shared-constructs-project',
+        ),
+        template: 'playwright',
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    it('Should list a check under the module that declares it, not under the check file importing it', async () => {
+      const result = await runTest(fixt, ['--list', 'shared/checks'])
+      expect(result.stdout).toContain('src/shared/checks.ts')
+      expect(result.stdout).toContain('Shared API')
+      expect(result.stdout).not.toContain('src/b.check.ts')
+    })
+
+    it('Should select a check made by a helper when naming the check file that called it', async () => {
+      const result = await runTest(fixt, ['--list', 'factory.check'])
+      expect(result.stdout).toContain('src/lib/factory.ts')
+      expect(result.stdout).toContain('factory-browser')
+    })
+
+    it('Should select the checks a check file loads from imported modules, listed under their own files', async () => {
+      const result = await runTest(fixt, ['--list', 'b.check'])
+      expect(result.stdout).toContain('src/b.check.ts')
+      expect(result.stdout).toContain('src/shared/checks.ts')
+      expect(result.stdout).toContain('Shared API')
+    })
+
+    it('Should not select checks from modules the named check file does not load', async () => {
+      const result = await runTest(fixt, ['--list', 'a.check'])
+      expect(result.stdout).toContain('src/a.check.ts')
+      expect(result.stdout).not.toContain('Shared API')
+      expect(result.stdout).not.toContain('Shared browser')
+    })
+  })
 })
