@@ -20,7 +20,9 @@ const CLI_FRAMES = [
   ctor(`${ownRoot}/constructs/api-check.js`),
 ]
 
-const options = { ownRoot, constructorChainLength: CLI_FRAMES.length }
+// Posix fixtures are parsed with posix rules on every platform; the win32
+// case below pins its own.
+const options = { ownRoot, constructorChainLength: CLI_FRAMES.length, platformPath: path.posix }
 
 describe('declaringFileFromFrames', () => {
   it('returns the first frame outside the CLI', () => {
@@ -170,7 +172,10 @@ describe('captureDeclaringFile', () => {
   })
 
   it('names the file whose code ran, not the file that imported it', async () => {
-    const real = (name: string) => fs.realpathSync.native(path.join(dir, name))
+    // The JS realpath, like the loader and the parser use: it resolves the
+    // macOS temp-dir symlink but, unlike the native one, does not expand
+    // Windows 8.3 short names such as RUNNER~1.
+    const real = (name: string) => fs.realpathSync(path.join(dir, name))
     const loaded = await Session.loadFile<Record<string, string | undefined>>(path.join(dir, 'entry.ts'))
     // Top-level code in the imported module, at its physical path.
     expect(loaded.declaringFile).toBe(real('base.ts'))
