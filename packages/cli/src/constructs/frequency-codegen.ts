@@ -1,4 +1,4 @@
-import { expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
+import { expr, GeneratedFile, ident, NumberValue, Value } from '../sourcegen/index.js'
 import { Frequency } from './frequency.js'
 
 interface FrequencyLike {
@@ -14,8 +14,6 @@ export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyR
       frequency,
     })
   }
-
-  genfile.namedImport('Frequency', 'checkly/constructs')
 
   const predefined = {
     EVERY_10S: Frequency.EVERY_10S,
@@ -48,11 +46,21 @@ export function valueForFrequency (genfile: GeneratedFile, frequency: FrequencyR
       }
     }
 
+    genfile.namedImport('Frequency', 'checkly/constructs')
     return expr(ident('Frequency'), builder => {
       builder.member(ident(shortcut))
     })
   }
 
+  // A minute-level frequency no constant spells prints as the plain number
+  // the props accept. Its offset is a scheduling jitter the backend assigns,
+  // never a user's value, and is dropped as it is for the constants above.
+  if (frequency.frequency > 0) {
+    return new NumberValue(frequency.frequency)
+  }
+
+  // A sub-minute frequency is only meaningful with its offset.
+  genfile.namedImport('Frequency', 'checkly/constructs')
   return expr(ident('Frequency'), builder => {
     builder.new(builder => {
       builder.number(frequency.frequency)

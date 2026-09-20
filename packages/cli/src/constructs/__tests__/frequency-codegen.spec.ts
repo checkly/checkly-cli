@@ -66,10 +66,14 @@ describe('Frequency Codegen', () => {
     }
   })
 
-  it('should generate constructor call for non-predefined values', () => {
+  // A minute-level schedule no constant spells is the plain number the props
+  // accept (its offset is backend jitter, dropped like the constants do); a
+  // sub-minute one keeps its offset through the constructor.
+  it('should generate a number for non-predefined minute values and a constructor call below a minute', () => {
     const predefined = [
-      { input: { frequency: 123 }, expected: 'new Frequency(123)\n' },
-      { input: { frequency: 123, frequencyOffset: 456 }, expected: 'new Frequency(123, 456)\n' },
+      { input: { frequency: 123 }, expected: '123\n' },
+      { input: { frequency: 123, frequencyOffset: 456 }, expected: '123\n' },
+      { input: { frequency: 0, frequencyOffset: 15 }, expected: 'new Frequency(0, 15)\n' },
     ]
 
     for (const test of predefined) {
