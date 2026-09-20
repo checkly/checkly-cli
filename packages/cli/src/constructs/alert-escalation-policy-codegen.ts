@@ -3,6 +3,18 @@ import { AlertEscalation } from './alert-escalation-policy.js'
 
 export type AlertEscalationResource = AlertEscalation
 
+/**
+ * Whether stored alert settings describe a policy at all. The `alertSettings`
+ * column defaults to an empty object, so a check or group that never set a
+ * policy of its own (every one deployed on the global policy) carries `{}`,
+ * which has nothing to generate and is not an escalation type to refuse.
+ */
+export function hasEscalationPolicy (settings: unknown): settings is AlertEscalationResource {
+  return typeof settings === 'object'
+    && settings !== null
+    && typeof (settings as AlertEscalationResource).escalationType === 'string'
+}
+
 export function valueForAlertEscalation (genfile: GeneratedFile, escalation: AlertEscalationResource): Value {
   genfile.namedImport('AlertEscalationBuilder', 'checkly/constructs')
 
