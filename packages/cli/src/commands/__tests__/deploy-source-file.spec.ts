@@ -108,7 +108,6 @@ function createCommandContext () {
     },
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     validateProject: (AuthCommand.prototype as any).validateProject,
-    formatPreview: (Deploy.prototype as any).formatPreview,
     constructor: Deploy,
     account: { name: 'Test Account', runtimeId: 'runtime-default' },
   }

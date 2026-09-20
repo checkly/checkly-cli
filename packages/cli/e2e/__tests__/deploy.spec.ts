@@ -172,6 +172,18 @@ async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOpt
   return result
 }
 
+/**
+ * A regex for consecutive rows of the plan's overview table, one per
+ * `[marker, type, logicalId]`, whatever the column padding. A row ends with
+ * the note given, or with the source file column when the run has one (a
+ * project inside a git repository) and nothing when it has not.
+ */
+function tableRows (rows: Array<[string, string, string]>, note?: string): RegExp {
+  const escape = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const tail = note === undefined ? '(?: +\\S+)?' : ` +${escape(note)}`
+  return new RegExp(rows.map(([marker, type, id]) => `^ {2}${escape(marker)} ${escape(type)} +${escape(id)}${tail}$`).join('\n'), 'm')
+}
+
 describe('deploy', { timeout: 45_000 }, () => {
   // Create a unique ID suffix to support parallel test executions
   let projectLogicalId: string
@@ -268,54 +280,52 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
         timeout: 10000,
       })
-      expect(resultOne.stdout).toContain(
-        `Create:
-    ApiCheck: api-check
-    ApiCheck: api-check-high-freq
-    ApiCheck: api-check-incident-trigger
-    ApiCheck: api-check-retry-only-on-network-error
-    DnsMonitor: dns-nonexistent-all-assertion-types
-    DnsMonitor: dns-welcome-a
-    DnsMonitor: dns-welcome-aaaa
-    GrpcMonitor: grpc-monitor
-    HeartbeatMonitor: heartbeat-monitor-1
-    BrowserCheck: homepage-browser-check
-    IcmpMonitor: icmp-welcome
-    SslMonitor: ssl-monitor
-    TcpMonitor: tcp-monitor
-    TracerouteMonitor: traceroute-monitor
-    CheckGroupV2: my-group-1
-    CheckGroupV1: my-group-2-v1
-    Dashboard: dashboard-1
-    MaintenanceWindow: maintenance-window-1
-    PrivateLocation: private-location-1
-    StatusPage: test-page-1
-    StatusPageService: bar-service
-    StatusPageService: foo-service
-`)
-      expect(resultTwo.stdout).toContain(
-        `Create:
-    ApiCheck: api-check
-    ApiCheck: api-check-high-freq
-    ApiCheck: api-check-incident-trigger
-    ApiCheck: api-check-retry-only-on-network-error
-    DnsMonitor: dns-nonexistent-all-assertion-types
-    DnsMonitor: dns-welcome-a
-    DnsMonitor: dns-welcome-aaaa
-    GrpcMonitor: grpc-monitor
-    HeartbeatMonitor: heartbeat-monitor-1
-    BrowserCheck: homepage-browser-check
-    IcmpMonitor: icmp-welcome
-    BrowserCheck: snapshot-test.test.ts
-    SslMonitor: ssl-monitor
-    TcpMonitor: tcp-monitor
-    TracerouteMonitor: traceroute-monitor
-    CheckGroupV2: my-group-1
-    CheckGroupV1: my-group-2-v1
-    Dashboard: dashboard-1
-    MaintenanceWindow: maintenance-window-1
-    PrivateLocation: private-location-1
-`)
+      expect(resultOne.stdout).toMatch(tableRows([
+        ['+', 'ApiCheck', 'api-check'],
+        ['+', 'ApiCheck', 'api-check-high-freq'],
+        ['+', 'ApiCheck', 'api-check-incident-trigger'],
+        ['+', 'ApiCheck', 'api-check-retry-only-on-network-error'],
+        ['+', 'DnsMonitor', 'dns-nonexistent-all-assertion-types'],
+        ['+', 'DnsMonitor', 'dns-welcome-a'],
+        ['+', 'DnsMonitor', 'dns-welcome-aaaa'],
+        ['+', 'GrpcMonitor', 'grpc-monitor'],
+        ['+', 'HeartbeatMonitor', 'heartbeat-monitor-1'],
+        ['+', 'BrowserCheck', 'homepage-browser-check'],
+        ['+', 'IcmpMonitor', 'icmp-welcome'],
+        ['+', 'SslMonitor', 'ssl-monitor'],
+        ['+', 'TcpMonitor', 'tcp-monitor'],
+        ['+', 'TracerouteMonitor', 'traceroute-monitor'],
+        ['+', 'CheckGroupV2', 'my-group-1'],
+        ['+', 'CheckGroupV1', 'my-group-2-v1'],
+        ['+', 'Dashboard', 'dashboard-1'],
+        ['+', 'MaintenanceWindow', 'maintenance-window-1'],
+        ['+', 'PrivateLocation', 'private-location-1'],
+        ['+', 'StatusPage', 'test-page-1'],
+        ['+', 'StatusPageService', 'bar-service'],
+        ['+', 'StatusPageService', 'foo-service'],
+      ]))
+      expect(resultTwo.stdout).toMatch(tableRows([
+        ['+', 'ApiCheck', 'api-check'],
+        ['+', 'ApiCheck', 'api-check-high-freq'],
+        ['+', 'ApiCheck', 'api-check-incident-trigger'],
+        ['+', 'ApiCheck', 'api-check-retry-only-on-network-error'],
+        ['+', 'DnsMonitor', 'dns-nonexistent-all-assertion-types'],
+        ['+', 'DnsMonitor', 'dns-welcome-a'],
+        ['+', 'DnsMonitor', 'dns-welcome-aaaa'],
+        ['+', 'GrpcMonitor', 'grpc-monitor'],
+        ['+', 'HeartbeatMonitor', 'heartbeat-monitor-1'],
+        ['+', 'BrowserCheck', 'homepage-browser-check'],
+        ['+', 'IcmpMonitor', 'icmp-welcome'],
+        ['+', 'BrowserCheck', 'snapshot-test.test.ts'],
+        ['+', 'SslMonitor', 'ssl-monitor'],
+        ['+', 'TcpMonitor', 'tcp-monitor'],
+        ['+', 'TracerouteMonitor', 'traceroute-monitor'],
+        ['+', 'CheckGroupV2', 'my-group-1'],
+        ['+', 'CheckGroupV1', 'my-group-2-v1'],
+        ['+', 'Dashboard', 'dashboard-1'],
+        ['+', 'MaintenanceWindow', 'maintenance-window-1'],
+        ['+', 'PrivateLocation', 'private-location-1'],
+      ]))
     })
   })
 
@@ -369,14 +379,11 @@ describe('deploy', { timeout: 45_000 }, () => {
           CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
-      expect(stdout).toContain(
-        `Create:
-    ApiCheck: not-testonly-default-check
-    ApiCheck: not-testonly-false-check
-
-Skip (testOnly):
-    ApiCheck: testonly-true-check
-`)
+      expect(stdout).toMatch(tableRows([
+        ['+', 'ApiCheck', 'not-testonly-default-check'],
+        ['+', 'ApiCheck', 'not-testonly-false-check'],
+      ]))
+      expect(stdout).toMatch(tableRows([['·', 'ApiCheck', 'testonly-true-check']], 'skipped (testOnly)'))
     })
 
     it('Should mark testOnly check as deleted if there is a deletion', async () => {
@@ -400,15 +407,19 @@ Skip (testOnly):
       })
       // Moving the check to testOnly causes it to be deleted.
       // The check should only be listed under "Delete" and not "Skip".
-      expect(stdout).toContain(
-        `Delete:
-    Check: testonly-true-check`)
+      expect(stdout).toMatch(tableRows([['-', 'Check', 'testonly-true-check']], 'permanently deleted, run history lost'))
+      expect(stdout).not.toContain('skipped (testOnly)')
       // The two surviving checks are unchanged between the deploys. An API that
       // reports the deploy diff says so and they are counted; an older one
       // reports every retained resource as an update and they are listed.
-      expect(stdout).toMatch(
-        /(Unchanged: 2)|(Update:\n {4}ApiCheck: not-testonly-default-check\n {4}ApiCheck: not-testonly-false-check)/,
-      )
+      expect(
+        /^ {4}2 unchanged$/m.test(stdout)
+        || tableRows([
+          ['~', 'ApiCheck', 'not-testonly-default-check'],
+          ['~', 'ApiCheck', 'not-testonly-false-check'],
+        ]).test(stdout),
+        stdout,
+      ).toBe(true)
       // --output without --verbose should not show name or id
       expect(stdout).not.toContain('name:')
       expect(stdout).not.toContain('id:')
@@ -427,13 +438,13 @@ Skip (testOnly):
       // Each test uses a fresh projectLogicalId (see beforeEach), so the
       // first deploy in this test renders as Create, not Update.
       expect(stdout).toMatch(new RegExp(
-        `Create:\n`
-        + `    ApiCheck: not-testonly-default-check\n`
+        `^ {2}\\+ ApiCheck +not-testonly-default-check(?: +\\S+)?\n`
         + `      name: TestOnly=false \\(default\\) Check\n`
         + `      id: ${uuid}\n`
-        + `    ApiCheck: not-testonly-false-check\n`
+        + ` {2}\\+ ApiCheck +not-testonly-false-check(?: +\\S+)?\n`
         + `      name: TestOnly=false Check\n`
         + `      id: ${uuid}`,
+        'm',
       ))
     })
   })

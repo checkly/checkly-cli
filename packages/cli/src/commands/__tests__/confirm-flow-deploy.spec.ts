@@ -167,7 +167,6 @@ function createCommandContext (flags: Record<string, unknown> = {}) {
     }),
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     validateProject: (AuthCommand.prototype as any).validateProject,
-    formatPreview: (Deploy.prototype as any).formatPreview,
     collectDeletions: (Deploy.prototype as any).collectDeletions,
     style: {
       outputFormat: undefined,
@@ -375,7 +374,8 @@ describe('deploy confirmation flow', () => {
 
     await Deploy.prototype.run.call(ctx as any)
 
-    expect(ctx.logged.join('\n')).toContain(`Plan token: ${PLAN_TOKEN}`)
+    expect(ctx.logged.join('\n')).toContain('Deploy preview · My Project → account Test Account')
+    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan-token ${PLAN_TOKEN}`)
     expect(api.projects.deploy).not.toHaveBeenCalled()
     expect(storeBundle).not.toHaveBeenCalled()
   })
@@ -599,14 +599,14 @@ describe('deploy confirmation flow', () => {
     const context = createCommandContext({ preview: true })
     await Deploy.prototype.run.call(context as any)
     const output = context.logged.join('\n')
-    expect(output).toContain('Update:')
-    expect(output).toContain('--- deployed')
-    expect(output).toContain('-  address: \'old@example.com\'')
-    expect(output).toContain('+  address: \'ops@example.com\'')
+    expect(output).toMatch(/^ {2}~ EmailAlertChannel {2}ops$/m)
+    expect(output).not.toContain('--- deployed')
+    expect(output).toContain('-   address: \'old@example.com\'')
+    expect(output).toContain('+   address: \'ops@example.com\'')
     // The variable is named after the logical id on both sides, so the
     // address it would otherwise be named after is not a second change.
-    expect(output).toContain(' export const opsAlert = new EmailAlertChannel(\'ops\', {')
-    expect(output).not.toContain('-export const')
+    expect(output).toContain('    export const opsAlert = new EmailAlertChannel(\'ops\', {')
+    expect(output).not.toContain('- export const')
   })
 
   it('does not advise --prune-relations to a run that passed it', async () => {
@@ -634,7 +634,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('Prune (relations not managed by this project):')
+    expect(printed).toContain('relation not managed by this project, deleted by --prune-relations')
     expect(printed).not.toContain('pass --prune-relations to delete them')
   })
 
@@ -652,7 +652,7 @@ describe('deploy confirmation flow', () => {
 
     const printed = ctx.logged.join('\n')
     expect(printed).toContain('pass --prune-relations to delete them')
-    expect(printed).not.toContain('Update:')
+    expect(printed).not.toMatch(/^ {2}~ /m)
   })
 
   it('names every relation a pruning deploy would delete', async () => {
@@ -706,6 +706,24 @@ describe('deploy confirmation flow', () => {
     expect(output.preview.diff).toHaveLength(1)
   })
 
+  it('prints what the deploy did, in the past tense, under --output', async () => {
+    planResolves()
+    vi.mocked(api.projects.deploy).mockResolvedValue({
+      data: {
+        project: {} as any,
+        diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }],
+      },
+    })
+    const ctx = createCommandContext({ force: true, output: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toMatch(/^ {2}- Check {2}gone {2}permanently deleted, run history lost$/m)
+    expect(printed).toContain('\n1 deleted, 0 unchanged\n')
+    expect(printed).not.toContain('Deploy preview')
+  })
+
   it('prints the current plan and fails when the deploy refuses a stale one', async () => {
     planResolves()
     const fresh: DiffEntry[] = [{
@@ -722,6 +740,7 @@ describe('deploy confirmation flow', () => {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
+    expect(ctx.logged.join('\n')).toContain('Current plan · My Project → account Test Account')
     expect(ctx.style.longError).toHaveBeenCalledWith(
       expect.stringContaining('changed while this deploy was being confirmed'),
       // Re-running is the way out: the refused token describes a state the
