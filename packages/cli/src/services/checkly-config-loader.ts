@@ -492,17 +492,20 @@ export async function loadChecklyConfig (
       } catch {
         continue
       }
-      // Constructs declared in the config file capture the file they come
-      // from, like constructs in check files do. Deploys report it as the
-      // construct's sourceFile, and relative paths on config-declared
-      // constructs (a check group's testMatch, a setup script entrypoint)
-      // resolve against the config file's directory instead of failing.
-      // Only the absolute path is set: Session.checkFilePath drives
-      // `checkly test --files` filtering and must stay unset here.
+      // Constructs read their declaring file off the call stack; the
+      // session's current file is the fallback for constructs created
+      // without user code on the stack, and while the config loads that is
+      // the config file itself. Deploys report it as the construct's
+      // sourceFile, and relative paths on config-declared constructs (a
+      // check group's testMatch, a setup script entrypoint) resolve against
+      // the config file's directory.
       const previousCheckFileAbsolutePath = Session.checkFileAbsolutePath
-      Session.checkFileAbsolutePath = path.resolve(filePath)
+      // Loaded by its physical path, so the path constructs read off the
+      // call stack and the fallback agree.
+      const physicalPath = await fs.realpath(filePath)
+      Session.checkFileAbsolutePath = physicalPath
       try {
-        config = await Session.loadFile<ChecklyConfig>(filePath)
+        config = await Session.loadFile<ChecklyConfig>(physicalPath)
       } finally {
         Session.checkFileAbsolutePath = previousCheckFileAbsolutePath
       }
