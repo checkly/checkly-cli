@@ -11,10 +11,15 @@ export interface IncidentioAlertChannelResource extends WebhookAlertChannelResou
   }
 }
 
-function apiKeyFromHeaders (headers: HttpHeader[]): string | undefined {
+function apiKeyFromHeaders (headers: HttpHeader[], context: Context): string | undefined {
   for (const header of headers) {
     if (header.key.toLocaleLowerCase() !== 'authorization') {
       continue
+    }
+
+    // A masked header holds no key to extract; the mask stands in for it.
+    if (context.isMasked(header.value)) {
+      return header.value
     }
 
     if (!header.value.startsWith('Bearer ')) {
@@ -28,7 +33,7 @@ function apiKeyFromHeaders (headers: HttpHeader[]): string | undefined {
 const construct = 'IncidentioAlertChannel'
 
 export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChannelResource> {
-  validateSafety (resource: IncidentioAlertChannelResource): void {
+  validateSafety (resource: IncidentioAlertChannelResource, context?: Context): void {
     const { config } = resource
 
     if (config.method !== 'POST') {
@@ -51,7 +56,9 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
       throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
     }
 
-    if (config.webhookSecret) {
+    // The preview masks this field even when it is null, so a masked value
+    // says nothing about whether a secret is set.
+    if (config.webhookSecret && !context?.isMasked(config.webhookSecret)) {
       throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
     }
   }
@@ -63,7 +70,7 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
   }
 
   prepare (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
-    this.validateSafety(resource)
+    this.validateSafety(resource, context)
 
     const { name } = resource.config
 
@@ -79,7 +86,7 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
   }
 
   gencode (logicalId: string, resource: IncidentioAlertChannelResource, context: Context): void {
-    this.validateSafety(resource)
+    this.validateSafety(resource, context)
 
     const { id, file } = context.lookupAlertChannel(resource.id)
 
@@ -96,7 +103,7 @@ export class IncidentioAlertChannelCodegen extends Codegen<IncidentioAlertChanne
             builder.string('url', config.url)
 
             if (config.headers) {
-              const apiKey = apiKeyFromHeaders(config.headers)
+              const apiKey = apiKeyFromHeaders(config.headers, context)
               if (apiKey) {
                 builder.string('apiKey', apiKey)
               } else {

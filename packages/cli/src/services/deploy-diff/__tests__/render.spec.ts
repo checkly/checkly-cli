@@ -4,6 +4,9 @@ import { ApiCheck } from '../../../constructs/api-check.js'
 import { RetryStrategyBuilder } from '../../../constructs/retry-strategy.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
 import { EmailAlertChannel } from '../../../constructs/email-alert-channel.js'
+import { IncidentioAlertChannel } from '../../../constructs/incidentio-alert-channel.js'
+import { MSTeamsAlertChannel } from '../../../constructs/msteams-alert-channel.js'
+import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel.js'
 import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
@@ -858,5 +861,137 @@ describe('renderResourceDiff', () => {
     expect(text).not.toContain('could not render')
     expect(text).toContain('+    url: \'https://example.com/v2/health\'')
     expect(text).not.toContain('alertEscalationPolicy')
+  })
+
+  // Alert channel codegens derive construct props from stored credentials
+  // (an API key inside a header or a URL), which the preview masks on both
+  // sides; the mask must land where the prop goes, with its change note.
+  describe('alert channels with masked credentials', () => {
+    const CHANGED = { $masked: 'changed' }
+    const ALERT_RULES = [
+      { path: '/config/apiKey', kind: 'value' },
+      { path: '/config/webhookSecret', kind: 'value' },
+      { path: '/config/url', kind: 'value' },
+      { path: '/config/serviceKey', kind: 'value' },
+      { path: '/config/headers/*/value', kind: 'value' },
+      { path: '/config/queryParameters/*/value', kind: 'value' },
+    ] as const
+    const common = {
+      sendRecovery: true, sendFailure: true, sendDegraded: false, sslExpiry: false, sslExpiryThreshold: 30,
+    }
+    const channelPlan = (entry: DiffEntry, local: ResourceSync[]) => renderResourceDiff({
+      entry,
+      local: local[0],
+      localResources: local,
+      diff: [entry],
+      project,
+      ids: physicalIdsFromPlan([entry], local),
+      pruneRelations: false,
+    })
+
+    it('renders a rotated incident.io API key as the masked key, marked', () => {
+      const channel = new IncidentioAlertChannel('incidents', { name: 'Incidents', apiKey: 'rotated-key' })
+      const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'incidents', member: true, payload: channel.synthesize() }]
+      const lines = channelPlan({
+        type: 'alert-channel',
+        logicalId: 'incidents',
+        physicalId: 9,
+        action: 'UPDATE',
+        changes: [{
+          path: '/config/headers',
+          origin: 'code',
+          secret: true,
+          before: [{ key: 'authorization', value: CHANGED, locked: false }],
+          after: [{ key: 'authorization', value: CHANGED, locked: false }],
+        }],
+        before: {
+          id: 9,
+          type: 'WEBHOOK',
+          config: {
+            name: 'Incidents',
+            webhookType: 'WEBHOOK_INCIDENTIO',
+            url: '',
+            template: IncidentioAlertChannel.DEFAULT_PAYLOAD,
+            method: 'POST',
+            headers: [{ key: 'authorization', value: '', locked: false }],
+            queryParameters: [],
+            webhookSecret: null,
+          },
+          ...common,
+        },
+        redactions: [...ALERT_RULES],
+      }, local)
+      const text = lines.join('\n')
+      expect(text).not.toContain('could not render')
+      expect(text).not.toContain('rotated-key')
+      expect(text).toContain('-  apiKey: \'********\',')
+      expect(text).toContain('+  apiKey: \'******** (changed)\',')
+      expect(lines.filter(line => /^[-+](?![-+]{2} )/.test(line))).toHaveLength(2)
+    })
+
+    it('renders a rotated Telegram bot token as the masked key, marked', () => {
+      const channel = new TelegramAlertChannel('tg', { name: 'Ops', apiKey: 'rotated-token', chatId: '-1' })
+      const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'tg', member: true, payload: channel.synthesize() }]
+      const lines = channelPlan({
+        type: 'alert-channel',
+        logicalId: 'tg',
+        physicalId: 10,
+        action: 'UPDATE',
+        changes: [{ path: '/config/url', origin: 'code', secret: true, before: CHANGED, after: CHANGED }],
+        before: {
+          id: 10,
+          type: 'WEBHOOK',
+          config: {
+            name: 'Ops',
+            webhookType: 'WEBHOOK_TELEGRAM',
+            url: '',
+            template: channel.synthesize().config.template,
+            method: 'POST',
+            headers: [],
+            queryParameters: [],
+            webhookSecret: null,
+          },
+          ...common,
+        },
+        redactions: [...ALERT_RULES],
+      }, local)
+      const text = lines.join('\n')
+      expect(text).not.toContain('could not render')
+      expect(text).not.toContain('rotated-token')
+      expect(text).toContain('-  apiKey: \'********\',')
+      expect(text).toContain('+  apiKey: \'******** (changed)\',')
+    })
+
+    it('renders a webhook-derived channel whose stored webhook secret is null', () => {
+      const channel = new MSTeamsAlertChannel('teams', { name: 'Teams', url: 'https://example.webhook.office.com/hook' })
+      const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'teams', member: true, payload: channel.synthesize() }]
+      const lines = channelPlan({
+        type: 'alert-channel',
+        logicalId: 'teams',
+        physicalId: 11,
+        action: 'UPDATE',
+        changes: [{ path: '/sslExpiry', origin: 'code', before: true, after: false }],
+        before: {
+          id: 11,
+          type: 'WEBHOOK',
+          config: {
+            name: 'Teams',
+            webhookType: 'WEBHOOK_MSTEAMS',
+            url: '',
+            template: MSTeamsAlertChannel.DEFAULT_PAYLOAD,
+            method: 'POST',
+            headers: [],
+            queryParameters: [],
+            webhookSecret: null,
+          },
+          ...common,
+          sslExpiry: true,
+        },
+        redactions: [...ALERT_RULES],
+      }, local)
+      const text = lines.join('\n')
+      expect(text).not.toContain('could not render')
+      expect(text).toContain('-  sslExpiry: true,')
+    })
   })
 })
