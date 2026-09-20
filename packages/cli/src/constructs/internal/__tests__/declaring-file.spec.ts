@@ -180,8 +180,9 @@ describe('captureDeclaringFile', () => {
     // Top-level code in the imported module, at its physical path.
     expect(loaded.declaringFile).toBe(real('base.ts'))
     // The subclass constructor frame is skipped; the file running `new`
-    // counts, and as the entry file it keeps the path it was loaded by.
-    expect(loaded.viaSubclass).toBe(path.join(dir, 'entry.ts'))
+    // counts, and as the entry file it keeps the path it was loaded by (not
+    // resolved; jiti only normalises the separators on Windows).
+    expect(loaded.viaSubclass?.replaceAll('/', path.sep)).toBe(path.join(dir, 'entry.ts'))
     // A helper function is not part of the chain, so its file counts.
     expect(loaded.viaFactory).toBe(real('sub.ts'))
     // Nor is a wrapper class, even though its frame is a constructor.
