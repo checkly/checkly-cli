@@ -1,7 +1,7 @@
 import { Codegen, Context } from './internal/codegen/index.js'
 import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen/index.js'
 import { AgenticCheckCodegen, AgenticCheckResource } from './agentic-check-codegen.js'
-import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
+import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen.js'
 import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codegen.js'
 import { CheckGroupCodegen, valueForCheckGroupFromId } from './check-group-codegen.js'
@@ -56,7 +56,8 @@ export interface CheckResource {
   frequency?: number | FrequencyResource
   frequencyOffset?: number
   groupId?: number
-  alertSettings?: AlertEscalationResource
+  alertSettings?: AlertEscalationResource | null
+  useGlobalAlertSettings?: boolean | null
   testOnly?: boolean
   retryStrategy?: RetryStrategyResource
   runParallel?: boolean
@@ -254,7 +255,12 @@ export function buildCheckProps (
     })
   }
 
-  if (resource.alertSettings) {
+  // The construct derives `useGlobalAlertSettings` as "no policy given", so a
+  // check on the global policy must generate none whatever its stored
+  // settings hold (the column keeps the last policy, or the empty object it
+  // defaults to). A check flagged as owning a policy that is empty has
+  // nothing to keep either, and comes back on the global policy.
+  if (resource.useGlobalAlertSettings !== true && hasEscalationPolicy(resource.alertSettings)) {
     builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
   }
 
