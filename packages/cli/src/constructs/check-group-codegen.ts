@@ -68,6 +68,14 @@ function buildCheckGroupProps (
     builder.boolean('muted', resource.muted)
   }
 
+  // Always generated when the row carries it: the value a deploy stores for
+  // a group that leaves it unset (3, the deploy schema's default) differs
+  // from the column's own default (1), so there is no single value that
+  // omitting it would reproduce.
+  if (resource.concurrency !== undefined && resource.concurrency !== null) {
+    builder.number('concurrency', resource.concurrency)
+  }
+
   if (resource.runtimeId) {
     builder.string('runtimeId', resource.runtimeId)
   }
@@ -256,7 +264,9 @@ function buildCheckGroupProps (
 
       if (config.basicAuth) {
         const basicAuth = config.basicAuth
-        if (basicAuth.username !== '' && basicAuth.password !== '') {
+        // Either field alone is a credential the construct must keep; only
+        // the empty pair is the construct's own default.
+        if (basicAuth.username !== '' || basicAuth.password !== '') {
           builder.object('basicAuth', builder => {
             builder.string('username', basicAuth.username)
             builder.string('password', basicAuth.password)

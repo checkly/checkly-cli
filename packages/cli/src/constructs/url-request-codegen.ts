@@ -12,7 +12,7 @@ export function valueForUrlRequest (
   return object(builder => {
     builder.string('url', request.url)
 
-    if (request.ipFamily) {
+    if (request.ipFamily && request.ipFamily !== 'IPv4') {
       builder.string('ipFamily', request.ipFamily)
     }
 

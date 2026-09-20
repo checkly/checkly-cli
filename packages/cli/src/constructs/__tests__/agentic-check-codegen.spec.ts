@@ -193,13 +193,15 @@ describe('AgenticCheckCodegen', () => {
 
     it('should preserve common check fields emitted by buildCheckProps', async () => {
       const source = await renderResource(env, baseResource({
-        activated: true,
+        activated: false,
         muted: true,
         tags: ['app:webshop'],
         frequency: 60,
       }))
 
-      expect(source).toContain('activated: true')
+      // A value equal to the construct's own default (`activated: true`) is
+      // left out; a differing one is kept.
+      expect(source).toContain('activated: false')
       expect(source).toContain('muted: true')
       expect(source).toContain('\'app:webshop\'')
       expect(source).toContain('frequency: ')
