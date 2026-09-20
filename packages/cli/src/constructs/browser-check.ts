@@ -186,7 +186,7 @@ export class BrowserCheck extends RepairableRuntimeCheck {
       script: parsed.entrypoint.content,
       scriptPath: Session.relativePosixPath(parsed.entrypoint.filePath),
       dependencies: deps,
-      snapshots: detectSnapshots(Session.basePath!, parsed.entrypoint.filePath),
+      snapshots: await detectSnapshots(Session.basePath!, parsed.entrypoint.filePath),
     }
   }
 

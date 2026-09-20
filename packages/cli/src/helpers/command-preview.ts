@@ -1,3 +1,5 @@
+import type { DiffEntry } from '../rest/projects.js'
+
 export type CommandClassification = {
   readOnly: boolean
   destructive: boolean
@@ -10,6 +12,19 @@ export type CommandClassification = {
  */
 export type FlagMetadata = Record<string, { setFromDefault?: boolean } | undefined>
 
+/**
+ * A deploy plan in machine-readable form, next to the human-readable `changes`
+ * lines that describe the same thing. Only `deploy` sets it.
+ *
+ * `planToken` is the plan's fingerprint: the `confirmCommand` passes it back so
+ * the confirming run applies the plan that was shown here and refuses if
+ * Checkly moved in between.
+ */
+export type CommandPlanPreview = {
+  planToken: string
+  diff: DiffEntry[]
+}
+
 export type CommandPreview = {
   command: string
   description: string
@@ -18,6 +33,7 @@ export type CommandPreview = {
   flagMetadata?: FlagMetadata
   args?: Record<string, unknown>
   classification: CommandClassification
+  preview?: CommandPlanPreview
 }
 
 export type AgentPreviewResponse = {
@@ -27,9 +43,22 @@ export type AgentPreviewResponse = {
   classification: CommandClassification
   changes: string[]
   confirmCommand: string
+  /** Present for commands that compute a structured plan; `deploy` does. */
+  preview?: CommandPlanPreview
 }
 
 const OMITTED_FLAGS: ReadonlySet<string> = new Set(['output', 'force', 'dry-run'])
+
+/**
+ * A flag value as it can appear inside the double quotes of the command this
+ * returns. The command is meant to be run in a shell, and a value can come from
+ * anywhere — a path the user typed, or a token the API returned — so a quote or
+ * a backslash in one must not end the quoting and let the rest be read as shell
+ * syntax.
+ */
+function quote (value: unknown): string {
+  return String(value).replace(/([\\"$`])/g, '\\$1')
+}
 
 export function buildConfirmCommand (
   command: string,
@@ -54,12 +83,12 @@ export function buildConfirmCommand (
 
     if (Array.isArray(value)) {
       for (const item of value) {
-        parts.push(`--${key}="${item}"`)
+        parts.push(`--${key}="${quote(item)}"`)
       }
     } else if (typeof value === 'boolean') {
       parts.push(value ? `--${key}` : `--no-${key}`)
     } else {
-      parts.push(`--${key}="${value}"`)
+      parts.push(`--${key}="${quote(value)}"`)
     }
   }
 
@@ -78,6 +107,7 @@ export function formatPreviewForAgent (
     classification: preview.classification,
     changes: preview.changes,
     confirmCommand: buildConfirmCommand(preview.command, preview.flags, preview.args, preview.flagMetadata),
+    ...preview.preview ? { preview: preview.preview } : {},
   }
 }
 
