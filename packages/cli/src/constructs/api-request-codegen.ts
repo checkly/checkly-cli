@@ -58,7 +58,8 @@ export function valueForRequest (
 
     if (request.basicAuth) {
       const basicAuth = request.basicAuth
-      if (basicAuth.username !== '' && basicAuth.password !== '') {
+      // Either field alone is a credential the construct must keep.
+      if (basicAuth.username !== '' || basicAuth.password !== '') {
         builder.object('basicAuth', builder => {
           builder.string('username', basicAuth.username)
           builder.string('password', basicAuth.password)

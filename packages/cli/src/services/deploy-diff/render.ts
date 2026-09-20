@@ -308,7 +308,11 @@ function renderShown (
   // change writes its own sentinel, unguessable by any value the account or
   // the code could hold, so only a change whose sentinel reached the returned
   // lines counts as marked; the sentinels read `(changed)` in the output.
-  // The codegen prints a secret only as one of these strings.
+  // The codegen prints a secret only as one of these strings. The two labels
+  // end alike (`#<nonce>-<index>)`): a codegen that names a file or variable
+  // after the tail of a credential (an unnamed Slack or PagerDuty channel
+  // takes the last four characters of its URL or key) then derives the same
+  // name on both sides, and the diff stays free of a spurious rename.
   const nonce = randomUUID()
   const sentinels = new Map<DiffChange, { local: string, deployed: string }>()
   secrets.forEach((change, index) => {

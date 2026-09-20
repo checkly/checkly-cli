@@ -57,12 +57,17 @@ export class Frequency {
 
   /**
    * Creates a new frequency instance.
-   * Use the static constants instead of creating instances directly.
+   * Prefer the static constants; the constructor is for a schedule none of
+   * them spell and for code generated from an existing check that holds
+   * one. The platform accepts sub-minute offsets of 10, 20 and 30 seconds,
+   * which the constants cover; any other value is refused on deploy.
    *
    * @param frequency The frequency in minutes, or 0 for second-based frequencies
-   * @param frequencyOffset The frequency offset in seconds (for sub-minute frequencies)
+   * @param frequencyOffset The frequency offset in seconds, honoured only for
+   * sub-minute frequencies (frequency 0); for a minute-level frequency the
+   * backend assigns a scheduling offset of its own and this one is ignored
    */
-  private constructor (frequency: number, frequencyOffset?: number) {
+  constructor (frequency: number, frequencyOffset?: number) {
     this.frequency = frequency
     this.frequencyOffset = frequencyOffset
   }

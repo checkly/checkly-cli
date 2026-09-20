@@ -1,7 +1,7 @@
 import { Codegen, Context } from './internal/codegen/index.js'
 import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen/index.js'
 import { AgenticCheckCodegen, AgenticCheckResource } from './agentic-check-codegen.js'
-import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
+import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen.js'
 import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codegen.js'
 import { CheckGroupCodegen, valueForCheckGroupFromId } from './check-group-codegen.js'
@@ -20,6 +20,9 @@ import { IcmpMonitorCodegen, IcmpMonitorResource } from './icmp-monitor-codegen.
 import { GrpcMonitorCodegen, GrpcMonitorResource } from './grpc-monitor-codegen.js'
 import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen.js'
+import { Session } from './session.js'
+import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 
 /**
  * Intent shape returned by the checks resource API.
@@ -56,7 +59,8 @@ export interface CheckResource {
   frequency?: number | FrequencyResource
   frequencyOffset?: number
   groupId?: number
-  alertSettings?: AlertEscalationResource
+  alertSettings?: AlertEscalationResource | null
+  useGlobalAlertSettings?: boolean | null
   testOnly?: boolean
   retryStrategy?: RetryStrategyResource
   runParallel?: boolean
@@ -91,7 +95,48 @@ export interface BuildCheckPropsOptions {
    * repair. Browser and MultiStep checks are the only current consumers.
    */
   includeAutomaticCheckRepair?: boolean
+
+  /**
+   * The locations a construct of this type gives itself when neither the
+   * props nor the project config name any (an agentic check falls back to a
+   * single region). A row holding exactly these is generated without them.
+   */
+  fallbackLocations?: readonly string[]
+
+  /**
+   * Shared props the construct's own props type omits, which are never
+   * generated whatever the row or a project default holds. `retryStrategy`
+   * here means the same as `skipRetryStrategy`.
+   */
+  omit?: readonly OmittableCheckProp[]
 }
+
+export type OmittableCheckProp = 'shouldFail' | 'privateLocations' | 'runParallel' | 'retryStrategy'
+
+/**
+ * The project-level defaults a construct of the given check type falls back
+ * to for a prop it is not given, through the same getter and in the same
+ * order the constructs use (`Check`, `BrowserCheck` and `MultiStepCheck`
+ * each build theirs in `configDefaultsGetter`): the type's own
+ * `checkly.config` section first, then the shared `checks` section. A group's
+ * check defaults, which sit in the constructs' chains too, carry only
+ * `frequency`, which this lookup never asks for. Under `checkly import` the
+ * config is loaded before code is generated; a run from a debug plan file
+ * has no config and resolves to the backend defaults alone.
+ */
+export function projectDefaultsFor (checkType: string): ConfigDefaultsGetter<CheckConfigDefaults> {
+  switch (checkType) {
+    case 'BROWSER':
+      return makeConfigDefaultsGetter(Session.browserCheckDefaults, Session.checkDefaults)
+    case 'MULTI_STEP':
+      return makeConfigDefaultsGetter(Session.multiStepCheckDefaults, Session.checkDefaults)
+    default:
+      return makeConfigDefaultsGetter(Session.checkDefaults)
+  }
+}
+
+const sameList = (a: readonly string[], b: readonly string[]): boolean =>
+  a.length === b.length && a.every((value, index) => value === b[index])
 
 export function buildCheckProps (
   program: Program,
@@ -137,21 +182,42 @@ export function buildCheckProps (
     }
   }
 
-  if (resource.activated !== undefined) {
+  // For activated, muted, shouldFail, locations and tags, a prop is left out
+  // only when the construct would fill in the row's value by itself: from
+  // the project config when it names one, else the backend default. A row
+  // that differs from that is generated explicitly, even when it holds the
+  // backend default, so an import does not hand the check to a project-wide
+  // setting it never had. alertChannels, privateLocations and
+  // environmentVariables are one-directional: never left out when the row
+  // holds any (a value comparison against constructs or key/value/locked/
+  // secret objects is not attempted), and spelled out as empty when the
+  // project default would otherwise fill them. retryStrategy and frequency
+  // are always generated. A project default for alertEscalationPolicy or
+  // runtimeId still applies to a check generated without one: the construct
+  // has no way to say "the global policy" or "the account runtime".
+  const defaults = projectDefaultsFor(resource.checkType)
+  const omitted = new Set<OmittableCheckProp>(options.omit ?? [])
+
+  if (resource.activated !== undefined && resource.activated !== (defaults('activated') ?? true)) {
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted !== undefined && resource.muted !== false) {
+  if (resource.muted !== undefined && resource.muted !== (defaults('muted') ?? false)) {
     builder.boolean('muted', resource.muted)
   }
 
-  if (resource.shouldFail !== undefined && resource.shouldFail !== false) {
+  if (
+    !omitted.has('shouldFail')
+    && resource.shouldFail !== undefined
+    && resource.shouldFail !== (defaults('shouldFail') ?? false)
+  ) {
     builder.boolean('shouldFail', resource.shouldFail)
   }
 
   if (resource.locations) {
     const locations = resource.locations
-    if (locations.length > 0) {
+    const implied = defaults('locations') ?? options.fallbackLocations ?? []
+    if (!sameList(locations, implied)) {
       builder.array('locations', builder => {
         for (const location of locations) {
           builder.string(location)
@@ -168,7 +234,15 @@ export function buildCheckProps (
     }
   })()
 
-  if (privateLocationIds !== undefined) {
+  if (omitted.has('privateLocations')) {
+    // The construct does not take them.
+  } else if (privateLocationIds === undefined) {
+    // No assignment on the row; spelled out as none only when the project
+    // config would otherwise assign some.
+    if ((defaults('privateLocations') ?? []).length > 0) {
+      builder.array('privateLocations', () => {})
+    }
+  } else {
     builder.array('privateLocations', builder => {
       for (const privateLocationId of privateLocationIds) {
         try {
@@ -190,7 +264,7 @@ export function buildCheckProps (
 
   if (resource.tags) {
     const tags = resource.tags
-    if (tags.length > 0) {
+    if (!sameList(tags, defaults('tags') ?? [])) {
       builder.array('tags', builder => {
         for (const tag of tags) {
           builder.string(tag)
@@ -234,7 +308,13 @@ export function buildCheckProps (
     }
   })()
 
-  if (alertChannelIds !== undefined) {
+  if (alertChannelIds === undefined) {
+    // No subscription on the row; spelled out as none only when the project
+    // config would otherwise subscribe the check.
+    if ((defaults('alertChannels') ?? []).length > 0) {
+      builder.array('alertChannels', () => {})
+    }
+  } else {
     builder.array('alertChannels', builder => {
       for (const alertChannelId of alertChannelIds) {
         try {
@@ -254,7 +334,12 @@ export function buildCheckProps (
     })
   }
 
-  if (resource.alertSettings) {
+  // The construct derives `useGlobalAlertSettings` as "no policy given", so a
+  // check on the global policy must generate none whatever its stored
+  // settings hold (the column keeps the last policy, or the empty object it
+  // defaults to). A check flagged as owning a policy that is empty has
+  // nothing to keep either, and comes back on the global policy.
+  if (resource.useGlobalAlertSettings !== true && hasEscalationPolicy(resource.alertSettings)) {
     builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
   }
 
@@ -262,11 +347,11 @@ export function buildCheckProps (
     builder.boolean('testOnly', resource.testOnly)
   }
 
-  if (!options.skipRetryStrategy) {
+  if (!options.skipRetryStrategy && !omitted.has('retryStrategy')) {
     builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
   }
 
-  if (resource.runParallel !== undefined && resource.runParallel !== false) {
+  if (!omitted.has('runParallel') && resource.runParallel !== undefined && resource.runParallel !== false) {
     builder.boolean('runParallel', resource.runParallel)
   }
 }
@@ -292,7 +377,10 @@ export function buildRuntimeCheckProps (
 
   if (resource.environmentVariables) {
     const variables = resource.environmentVariables
-    if (variables.length > 0) {
+    // An empty list is spelled out when the project config would otherwise
+    // fill it.
+    const implied = projectDefaultsFor(resource.checkType)('environmentVariables') ?? []
+    if (variables.length > 0 || implied.length > 0) {
       builder.array('environmentVariables', builder => {
         for (const variable of variables) {
           builder.value(valueForKeyValuePair(program, genfile, context, variable))

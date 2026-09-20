@@ -4,6 +4,9 @@ import { ApiCheck } from '../../../constructs/api-check.js'
 import { RetryStrategyBuilder } from '../../../constructs/retry-strategy.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
 import { EmailAlertChannel } from '../../../constructs/email-alert-channel.js'
+import { IncidentioAlertChannel } from '../../../constructs/incidentio-alert-channel.js'
+import { MSTeamsAlertChannel } from '../../../constructs/msteams-alert-channel.js'
+import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel.js'
 import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
@@ -636,9 +639,66 @@ describe('renderResourceDiff', () => {
     expect(text).not.toContain('secret changed')
   })
 
+  // An object-kind rule blanks the Playwright credentials to null on both
+  // sides, so no mark can be placed there and the line carries the movement.
+  const CREDENTIALS_RULES = [...RULES, { path: '/playwrightConfig/use/httpCredentials', kind: 'object' }]
+  const CREDENTIALS_CHANGE = {
+    path: '/playwrightConfig/use/httpCredentials', origin: 'code', secret: true, before: CHANGED, after: CHANGED,
+  } as const
+
   it('names a secret change after the block when its mark sits where nothing renders', () => {
-    // A basicAuth block with no username is not printed at all, so a placed
-    // mark never reaches the reader and the line carries the movement.
+    const { local } = scenario()
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [CREDENTIALS_CHANGE],
+        before: deployed({ playwrightConfig: { use: { httpCredentials: { username: 'u', password: 'rotated' } } } }),
+        redactions: CREDENTIALS_RULES,
+      },
+      local,
+    )
+    expect(lines.join('\n')).not.toContain('rotated')
+    expect(lines).toEqual(['secret changed: /playwrightConfig/use/httpCredentials'])
+  })
+
+  it('names only the secret change whose mark did not reach the reader, when another did', () => {
+    const { local } = scenario({
+      environmentVariables: [{ key: 'TOKEN', value: 'rotated-plaintext', locked: true }],
+    })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [
+          {
+            path: '/environmentVariables',
+            origin: 'code',
+            secret: true,
+            before: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+            after: [{ key: 'TOKEN', value: CHANGED, locked: true }],
+          },
+          CREDENTIALS_CHANGE,
+        ],
+        before: deployed({
+          environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }],
+          playwrightConfig: { use: { httpCredentials: { username: 'u', password: 'rotated' } } },
+        }),
+        redactions: CREDENTIALS_RULES,
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).toContain('+      value: \'******** (changed)\',')
+    expect(text).not.toContain('#')
+    expect(lines.filter(line => line.startsWith('secret changed'))).toEqual(['secret changed: /playwrightConfig/use/httpCredentials'])
+  })
+
+  // A basic auth credential with an empty username used to vanish from both
+  // sides; it now renders, so a rotated password is marked in place.
+  it('marks a rotated basic auth password whose username is empty', () => {
     const { local } = scenario({
       request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: '', password: 'rotated' } },
     })
@@ -662,49 +722,10 @@ describe('renderResourceDiff', () => {
       },
       local,
     )
-    expect(lines.join('\n')).not.toContain('rotated')
-    expect(lines).toEqual(['secret changed: /request/basicAuth/password'])
-  })
-
-  it('names only the secret change whose mark did not reach the reader, when another did', () => {
-    const { local } = scenario({
-      environmentVariables: [{ key: 'TOKEN', value: 'rotated-plaintext', locked: true }],
-      request: { url: 'https://example.com/health', method: 'GET', basicAuth: { username: '', password: 'rotated' } },
-    })
-    const lines = render(
-      {
-        type: 'check',
-        logicalId: 'api',
-        action: 'UPDATE',
-        changes: [
-          {
-            path: '/environmentVariables',
-            origin: 'code',
-            secret: true,
-            before: [{ key: 'TOKEN', value: CHANGED, locked: true }],
-            after: [{ key: 'TOKEN', value: CHANGED, locked: true }],
-          },
-          { path: '/request/basicAuth/password', origin: 'code', secret: true, before: CHANGED, after: CHANGED },
-        ],
-        before: deployed({
-          environmentVariables: [{ key: 'TOKEN', value: '', locked: true, secret: false }],
-          request: {
-            url: 'https://example.com/health',
-            method: 'GET',
-            headers: [],
-            queryParameters: [],
-            assertions: [],
-            basicAuth: { username: '', password: '' },
-          },
-        }),
-        redactions: RULES,
-      },
-      local,
-    )
     const text = lines.join('\n')
-    expect(text).toContain('+      value: \'******** (changed)\',')
-    expect(text).not.toContain('#')
-    expect(lines.filter(line => line.startsWith('secret changed'))).toEqual(['secret changed: /request/basicAuth/password'])
+    expect(text).not.toContain('rotated')
+    expect(text).toContain('+      password: \'******** (changed)\',')
+    expect(text).not.toContain('secret changed')
   })
 
   it('prints a secret: true header or query parameter only as its mask under the preview', () => {
@@ -835,5 +856,160 @@ describe('renderResourceDiff', () => {
       { type: 'alert-channel-subscription', logicalId: 'unmanaged/check/api/2', physicalId: 2, action: 'DELETE', origin: 'unmanaged', foldedInto: { type: 'check', logicalId: 'api' } },
     ], true).join('\n')
     expect(pruned).toContain('-    AlertChannel.fromId(99)')
+  })
+
+  // The `alertSettings` column defaults to `{}`, which every check deployed
+  // on the global policy carries; the deployed row is rendered through the
+  // same codegen as the local one, so the block must render, not fall back.
+  it('renders a deployed row whose alert settings are the empty object', () => {
+    const { local } = scenario({ request: { url: 'https://example.com/v2/health', method: 'GET' } })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/request/url', origin: 'code', before: 'https://example.com/health', after: 'https://example.com/v2/health' }],
+        before: deployed({ alertSettings: {}, useGlobalAlertSettings: true }),
+        redactions: [],
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).not.toContain('could not render')
+    expect(text).toContain('+    url: \'https://example.com/v2/health\'')
+    expect(text).not.toContain('alertEscalationPolicy')
+  })
+
+  // Alert channel codegens derive construct props from stored credentials
+  // (an API key inside a header or a URL), which the preview masks on both
+  // sides; the mask must land where the prop goes, with its change note.
+  describe('alert channels with masked credentials', () => {
+    const CHANGED = { $masked: 'changed' }
+    const ALERT_RULES = [
+      { path: '/config/apiKey', kind: 'value' },
+      { path: '/config/webhookSecret', kind: 'value' },
+      { path: '/config/url', kind: 'value' },
+      { path: '/config/serviceKey', kind: 'value' },
+      { path: '/config/headers/*/value', kind: 'value' },
+      { path: '/config/queryParameters/*/value', kind: 'value' },
+    ] as const
+    const common = {
+      sendRecovery: true, sendFailure: true, sendDegraded: false, sslExpiry: false, sslExpiryThreshold: 30,
+    }
+    const channelPlan = (entry: DiffEntry, local: ResourceSync[]) => renderResourceDiff({
+      entry,
+      local: local[0],
+      localResources: local,
+      diff: [entry],
+      project,
+      ids: physicalIdsFromPlan([entry], local),
+      pruneRelations: false,
+    })
+
+    it('renders a rotated incident.io API key as the masked key, marked', () => {
+      const channel = new IncidentioAlertChannel('incidents', { name: 'Incidents', apiKey: 'rotated-key' })
+      const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'incidents', member: true, payload: channel.synthesize() }]
+      const lines = channelPlan({
+        type: 'alert-channel',
+        logicalId: 'incidents',
+        physicalId: 9,
+        action: 'UPDATE',
+        changes: [{
+          path: '/config/headers',
+          origin: 'code',
+          secret: true,
+          before: [{ key: 'authorization', value: CHANGED, locked: false }],
+          after: [{ key: 'authorization', value: CHANGED, locked: false }],
+        }],
+        before: {
+          id: 9,
+          type: 'WEBHOOK',
+          config: {
+            name: 'Incidents',
+            webhookType: 'WEBHOOK_INCIDENTIO',
+            url: '',
+            template: IncidentioAlertChannel.DEFAULT_PAYLOAD,
+            method: 'POST',
+            headers: [{ key: 'authorization', value: '', locked: false }],
+            queryParameters: [],
+            webhookSecret: null,
+          },
+          ...common,
+        },
+        redactions: [...ALERT_RULES],
+      }, local)
+      const text = lines.join('\n')
+      expect(text).not.toContain('could not render')
+      expect(text).not.toContain('rotated-key')
+      expect(text).toContain('-  apiKey: \'********\',')
+      expect(text).toContain('+  apiKey: \'******** (changed)\',')
+      expect(lines.filter(line => /^[-+](?![-+]{2} )/.test(line))).toHaveLength(2)
+    })
+
+    it('renders a rotated Telegram bot token as the masked key, marked', () => {
+      const channel = new TelegramAlertChannel('tg', { name: 'Ops', apiKey: 'rotated-token', chatId: '-1' })
+      const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'tg', member: true, payload: channel.synthesize() }]
+      const lines = channelPlan({
+        type: 'alert-channel',
+        logicalId: 'tg',
+        physicalId: 10,
+        action: 'UPDATE',
+        changes: [{ path: '/config/url', origin: 'code', secret: true, before: CHANGED, after: CHANGED }],
+        before: {
+          id: 10,
+          type: 'WEBHOOK',
+          config: {
+            name: 'Ops',
+            webhookType: 'WEBHOOK_TELEGRAM',
+            url: '',
+            template: channel.synthesize().config.template,
+            method: 'POST',
+            headers: [],
+            queryParameters: [],
+            webhookSecret: null,
+          },
+          ...common,
+        },
+        redactions: [...ALERT_RULES],
+      }, local)
+      const text = lines.join('\n')
+      expect(text).not.toContain('could not render')
+      expect(text).not.toContain('rotated-token')
+      expect(text).toContain('-  apiKey: \'********\',')
+      expect(text).toContain('+  apiKey: \'******** (changed)\',')
+    })
+
+    it('renders a webhook-derived channel whose stored webhook secret is null', () => {
+      const channel = new MSTeamsAlertChannel('teams', { name: 'Teams', url: 'https://example.webhook.office.com/hook' })
+      const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'teams', member: true, payload: channel.synthesize() }]
+      const lines = channelPlan({
+        type: 'alert-channel',
+        logicalId: 'teams',
+        physicalId: 11,
+        action: 'UPDATE',
+        changes: [{ path: '/sslExpiry', origin: 'code', before: true, after: false }],
+        before: {
+          id: 11,
+          type: 'WEBHOOK',
+          config: {
+            name: 'Teams',
+            webhookType: 'WEBHOOK_MSTEAMS',
+            url: '',
+            template: MSTeamsAlertChannel.DEFAULT_PAYLOAD,
+            method: 'POST',
+            headers: [],
+            queryParameters: [],
+            webhookSecret: null,
+          },
+          ...common,
+          sslExpiry: true,
+        },
+        redactions: [...ALERT_RULES],
+      }, local)
+      const text = lines.join('\n')
+      expect(text).not.toContain('could not render')
+      expect(text).toContain('-  sslExpiry: true,')
+    })
   })
 })

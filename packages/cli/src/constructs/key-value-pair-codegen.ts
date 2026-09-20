@@ -17,7 +17,7 @@ export function valueForKeyValuePair (
       // A preview prints a secret only as a value it masked itself; anything
       // else, whatever it looks like, prints as the plain mask.
       const value: unknown = kv.value
-      builder.string('value', typeof value === 'string' && context.maskedValues.has(value) ? value : MASKED_VALUE)
+      builder.string('value', context.isMasked(value) ? value as string : MASKED_VALUE)
     }
 
     if (kv.locked === true) {
