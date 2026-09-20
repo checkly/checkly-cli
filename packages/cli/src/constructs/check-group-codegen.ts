@@ -1,6 +1,6 @@
 import { Codegen, Context, ImportSafetyViolation } from './internal/codegen/index.js'
 import { decl, expr, GeneratedFile, ident, object, ObjectValueBuilder, Program, Value } from '../sourcegen/index.js'
-import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
+import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckDefaultConfig } from './api-check.js'
 import { valueForAssertion } from './api-assertion-codegen.js'
 import { EnvironmentVariable } from './environment-variable.js'
@@ -168,7 +168,11 @@ function buildCheckGroupProps (
   if (resource.useGlobalAlertSettings === true) {
     builder.string('alertEscalationPolicy', 'global')
   } else if (resource.useGlobalAlertSettings === false) {
-    if (resource.alertSettings) {
+    // The column defaults to an empty object, so a group flagged as owning a
+    // policy may hold none. Nothing is generated for it: the group then
+    // deploys without a flag, meaning its checks keep their own policies,
+    // which is all an empty group policy ever amounted to.
+    if (hasEscalationPolicy(resource.alertSettings)) {
       builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
     }
   }

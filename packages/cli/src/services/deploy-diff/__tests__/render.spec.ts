@@ -836,4 +836,27 @@ describe('renderResourceDiff', () => {
     ], true).join('\n')
     expect(pruned).toContain('-    AlertChannel.fromId(99)')
   })
+
+  // The `alertSettings` column defaults to `{}`, which every check deployed
+  // on the global policy carries; the deployed row is rendered through the
+  // same codegen as the local one, so the block must render, not fall back.
+  it('renders a deployed row whose alert settings are the empty object', () => {
+    const { local } = scenario({ request: { url: 'https://example.com/v2/health', method: 'GET' } })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/request/url', origin: 'code', before: 'https://example.com/health', after: 'https://example.com/v2/health' }],
+        before: deployed({ alertSettings: {}, useGlobalAlertSettings: true }),
+        redactions: [],
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).not.toContain('could not render')
+    expect(text).toContain('+    url: \'https://example.com/v2/health\'')
+    expect(text).not.toContain('alertEscalationPolicy')
+  })
 })
