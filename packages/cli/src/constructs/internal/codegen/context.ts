@@ -145,6 +145,19 @@ export class Context {
     this.maskedValues = options.maskedValues
   }
 
+  /**
+   * Whether a value is one of the stand-ins the preview wrote over a secret.
+   * Such a value is unknown to the codegen: it is never parsed for a
+   * credential inside it and never held against an import-safety rule.
+   * Where a codegen would derive a prop from the real value, it prints the
+   * stand-in as that prop instead, so the preview shows the mask, and its
+   * change note, in the prop's place. Under an import no value is ever
+   * masked.
+   */
+  isMasked (value: unknown): boolean {
+    return typeof value === 'string' && this.maskedValues !== undefined && this.maskedValues.has(value)
+  }
+
   #alertChannelVariablesByPhysicalId = new Map<number, GeneratedVariableLocator>()
   #alertChannelFriendVariablesByPhysicalId = new Map<number, FriendVariableLocator>()
 
