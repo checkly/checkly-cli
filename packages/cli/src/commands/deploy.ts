@@ -28,6 +28,9 @@ import {
 import { ConflictError, ValidationError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
 import { planChangeLines, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
+import { applyWriteBack, hasWritableChanges, planWriteBack } from '../services/write-back/plan.js'
+import type { CommandAlternative } from '../helpers/command-preview.js'
+import type { Project } from '../constructs/project.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { Runtime } from '../runtimes/index.js'
@@ -56,6 +59,58 @@ function rejectsPreviewEraField (err: any): boolean {
   }
   const message = String(err?.data?.message ?? err?.response?.data?.message ?? err?.message ?? '')
   return message.includes('is not allowed') && PREVIEW_ERA_FIELDS.some(field => message.includes(field))
+}
+
+/**
+ * The further choice a terminal gets when the plan shows a resource edited
+ * outside the project and the code can take the edit: write the account's
+ * current values into the code and deploy nothing, so the user reviews the
+ * diff and deploys again rather than overwriting the edit. Only literal
+ * values of checks and groups can be written; everything else is listed
+ * with its reason.
+ */
+function writeBackAlternatives (diff: DiffEntry[], project: Project, command: Deploy): CommandAlternative[] {
+  if (!hasWritableChanges(diff, project)) {
+    return []
+  }
+  return [{
+    title: 'Update my code with the changes made in Checkly (deploys nothing)',
+    run: async () => {
+      const writeBack = await planWriteBack({ diff, project, cwd: process.cwd() })
+      const oneLine = (text: string) => {
+        const first = text.split(/\r?\n/)[0]
+        return first.length === text.length ? first : `${first} …`
+      }
+      command.log()
+      if (writeBack.skipped.length > 0) {
+        command.log('Not updated (edit these by hand):')
+        for (const line of writeBack.skipped) {
+          command.log(`  ${line}`)
+        }
+      }
+      if (writeBack.applied.length === 0) {
+        command.log('Nothing in the code could be updated automatically, so nothing was changed.')
+        command.log('Nothing was deployed.')
+        return
+      }
+      try {
+        await applyWriteBack(writeBack)
+      } catch (err: any) {
+        // The error names the files already rewritten, if any.
+        command.style.longError('Could not update your code.', err.message)
+        command.log('Nothing was deployed.')
+        command.exit(1)
+      }
+      // Reported once the files hold it, not as an intention.
+      command.log(`Updated ${writeBack.files.length === 1 ? '1 file' : `${writeBack.files.length} files`}:`)
+      for (const line of writeBack.applied) {
+        const note = line.replacesLocalEdit ? ' (replacing a local edit)' : ''
+        command.log(`  ${line.file}: ${line.type} ${line.logicalId} ${line.property}: `
+          + `${line.previous === undefined ? 'not set' : oneLine(line.previous)} -> ${oneLine(line.rendered)}${note}`)
+      }
+      command.log('Nothing was deployed. Review the changes, then run `checkly deploy` again.')
+    },
+  }]
 }
 
 export default class Deploy extends AuthCommand {
@@ -510,7 +565,14 @@ export default class Deploy extends AuthCommand {
       description: 'Deploy project to Checkly',
       changes: [...optionLines, ...planLines],
       ...plan !== undefined
-        ? { terminal: { plan: renderPlan, changes: optionLines }, question: 'Apply these changes?' }
+        ? {
+            terminal: {
+              plan: renderPlan,
+              changes: optionLines,
+              alternatives: writeBackAlternatives(plan.diff, project, this),
+            },
+            question: 'Apply these changes?',
+          }
         : {},
       // The token rides along in the echoed command, so the confirming run
       // deploys the plan that was shown here and refuses a different one.

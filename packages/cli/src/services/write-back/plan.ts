@@ -374,6 +374,26 @@ interface FileWork {
   edits: (LiteralEdit & { replacesLocalEdit: boolean, group?: string })[]
 }
 
+/**
+ * Whether the plan holds at least one change the planner would try to
+ * write: a remote change on a construct of a known class, at a path the
+ * class's table covers. Cheap enough to decide whether to offer the
+ * write-back at all, without reading any file.
+ */
+export function hasWritableChanges (diff: readonly DiffEntry[], project: Project): boolean {
+  return diff.some(entry => {
+    if (entry.foldedInto !== undefined || entry.before === undefined) {
+      return false
+    }
+    const construct: Construct | undefined = project.data[entry.type as keyof ProjectData]?.[entry.logicalId]
+    const rules = construct === undefined ? undefined : RULES_BY_CLASS.get(construct.constructor as ConstructClass)
+    if (rules === undefined || construct?.checkFileAbsolutePath === undefined) {
+      return false
+    }
+    return candidates(new EntryContext(entry, []), rules).length > 0
+  })
+}
+
 export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): Promise<WriteBackPlan> {
   const skipped: string[] = []
   const byFile = new Map<string, FileWork[]>()
