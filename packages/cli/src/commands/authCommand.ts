@@ -85,18 +85,45 @@ export abstract class AuthCommand extends BaseCommand {
       this.log(formatPreviewForTerminal(preview))
       this.log()
 
-      const confirmed = options.interactiveConfirm
-        ? await options.interactiveConfirm()
-        : (await prompts({
-            name: 'confirm',
-            type: 'confirm',
-            message: preview.question ?? 'Proceed?',
-          })).confirm
-
-      if (!confirmed) {
-        return this.exit(0)
+      if (options.interactiveConfirm !== undefined) {
+        if (!await options.interactiveConfirm()) {
+          return this.exit(0)
+        }
+        return
       }
-      return
+
+      const question = preview.question ?? 'Proceed?'
+      const alternatives = preview.terminal?.alternatives ?? []
+      if (alternatives.length === 0) {
+        const { confirm } = await prompts({ name: 'confirm', type: 'confirm', message: question })
+        if (!confirm) {
+          return this.exit(0)
+        }
+        return
+      }
+
+      // With something else on offer, the yes/no question becomes a list. The
+      // cursor starts on Cancel, so Enter alone applies nothing — as the
+      // confirm's default of No did.
+      const choices = [
+        { title: 'Yes, apply these changes', value: 'apply' },
+        ...alternatives.map((alternative, index) => ({ title: alternative.title, value: `alternative:${index}` })),
+        { title: 'Cancel', value: 'cancel' },
+      ]
+      const { action } = await prompts({
+        name: 'action',
+        type: 'select',
+        message: question,
+        choices,
+        initial: choices.length - 1,
+      })
+      if (action === 'apply') {
+        return
+      }
+      if (typeof action === 'string' && action.startsWith('alternative:')) {
+        await alternatives[Number(action.slice('alternative:'.length))].run()
+      }
+      return this.exit(0)
     }
 
     // Agent or CI mode: output structured JSON and exit 2
