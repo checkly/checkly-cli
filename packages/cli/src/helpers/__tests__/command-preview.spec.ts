@@ -81,7 +81,14 @@ describe('buildConfirmCommand', () => {
       'title': 'DB outage',
       'status-page-id': 'sp-1',
     })
-    expect(result).toBe('checkly incidents create --title="DB outage" --status-page-id="sp-1" --force')
+    expect(result).toBe('npx checkly incidents create --title="DB outage" --status-page-id="sp-1" --force')
+  })
+
+  it('runs through npx so the project-local CLI executes the approved command', () => {
+    // A bare `checkly` would resolve to a global install, which cannot load
+    // the project's constructs.
+    expect(buildConfirmCommand('deploy', {})).toBe('npx checkly deploy --force')
+    expect(buildConfirmCommand('destroy', {})).toMatch(/^npx checkly destroy /)
   })
 
   it('repeats flags for array values', () => {
@@ -117,12 +124,12 @@ describe('buildConfirmCommand', () => {
     expect(result).not.toContain('--output')
     expect(result).not.toContain('--dry-run')
     // Should have exactly one --force at the end
-    expect(result).toBe('checkly incidents create --title="Test" --force')
+    expect(result).toBe('npx checkly incidents create --title="Test" --force')
   })
 
   it('includes args when provided', () => {
     const result = buildConfirmCommand('incidents update', { message: 'Fix deployed' }, { id: 'inc-123' })
-    expect(result).toBe('checkly incidents update inc-123 --message="Fix deployed" --force')
+    expect(result).toBe('npx checkly incidents update inc-123 --message="Fix deployed" --force')
   })
 
   it('omits flags oclif filled in from their default', () => {
@@ -135,11 +142,11 @@ describe('buildConfirmCommand', () => {
       'schedule-on-deploy': { setFromDefault: true },
       'preserve-resources': { setFromDefault: false },
     })
-    expect(result).toBe('checkly deploy --preserve-resources --force')
+    expect(result).toBe('npx checkly deploy --preserve-resources --force')
   })
 
   it('keeps default-valued flags when no metadata is given', () => {
     const result = buildConfirmCommand('deploy', { 'schedule-on-deploy': true })
-    expect(result).toBe('checkly deploy --schedule-on-deploy --force')
+    expect(result).toBe('npx checkly deploy --schedule-on-deploy --force')
   })
 })

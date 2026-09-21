@@ -11,4 +11,4 @@ export {
   type DepsInstallResult,
 } from './boilerplate.js'
 export { makeOnCancel, successMessage } from './prompts-helpers.js'
-export { greeting, footer, agentFooter, noSkillWarning, existingProjectFooter } from './messages.js'
+export { greeting, footer, agentFooter, noSkillWarning, existingProjectFooter, localCliNote } from './messages.js'

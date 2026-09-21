@@ -63,6 +63,20 @@ export function greeting (version: string): string {
   ].join('\n')
 }
 
+/**
+ * The project now carries its own copy of the CLI, and only that copy can
+ * load the project's constructs. A globally installed `checkly` fails with a
+ * misleading "outside a Checkly CLI project" error.
+ */
+export function localCliNote (): string {
+  return 'Run Checkly from this folder as `npx checkly <command>` so the project\'s own CLI is used. '
+    + 'A globally installed `checkly` cannot load this project.'
+}
+
+function localCliNoteBlock (): string[] {
+  return ['', chalk.dim(wrap(localCliNote(), { length: WARNING_WRAP_WIDTH, prefix: '  ' }))]
+}
+
 export function footer (hasPlaywright: boolean = false): string {
   const lines = [
     '',
@@ -82,6 +96,7 @@ export function footer (hasPlaywright: boolean = false): string {
     lines.push(...playwrightBlock())
   }
 
+  lines.push(...localCliNoteBlock())
   lines.push(...docsBlock())
   return lines.join('\n')
 }
@@ -137,6 +152,7 @@ export function agentFooter (
     chalk.dim(`  ${chalk.bold('npx checkly deploy')}`),
   )
 
+  lines.push(...localCliNoteBlock())
   lines.push(...docsBlock())
   return lines.join('\n')
 }

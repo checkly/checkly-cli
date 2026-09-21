@@ -4,6 +4,7 @@ import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
 import { detectCliMode, type CliMode } from '../helpers/cli-mode.js'
+import { wrap } from '../helpers/wrap.js'
 import {
   PLATFORM_TARGETS,
   readSkillFile,
@@ -27,6 +28,7 @@ import {
   agentFooter,
   noSkillWarning,
   existingProjectFooter,
+  localCliNote,
 } from '../helpers/onboarding/index.js'
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
@@ -305,24 +307,36 @@ export default class Init extends BaseCommand {
       return context
     }
 
-    if (cliMode !== 'interactive') {
-      this.log('No package.json found.')
-      return null
+    if (cliMode === 'interactive') {
+      const { createPkg } = await prompts({
+        type: 'confirm',
+        name: 'createPkg',
+        message: 'No package.json found. Create one?',
+        initial: true,
+      }, { onCancel: makeOnCancel(log) })
+
+      if (!createPkg) {
+        return null
+      }
     }
 
-    const { createPkg } = await prompts({
-      type: 'confirm',
-      name: 'createPkg',
-      message: 'No package.json found. Create one?',
-      initial: true,
-    }, { onCancel: makeOnCancel(log) })
-
-    if (!createPkg) {
-      return null
+    // Agents and CI cannot answer the prompt, so mirror its default and
+    // create the package.json. Agent mode must only ever print JSON.
+    if (cliMode !== 'agent') {
+      await this.createPackageJson(projectDir, log)
+      return detectProjectContext(projectDir)
     }
 
-    await this.createPackageJson(projectDir, log)
-    return detectProjectContext(projectDir)
+    try {
+      await this.createPackageJson(projectDir, () => {})
+      return detectProjectContext(projectDir)
+    } catch (error: any) {
+      this.log(JSON.stringify({
+        success: false,
+        error: `Could not create package.json: ${error.message || String(error)}`,
+      }))
+      return null
+    }
   }
 
   private async createPackageJson (
@@ -423,6 +437,7 @@ export default class Init extends BaseCommand {
         hasChecklyConfig: setupResult.context.hasChecklyConfig,
         hasChecksDir: setupResult.context.hasChecksDir,
         hint: 'Run npx checkly skills for agent guidance',
+        note: localCliNote(),
       }))
     } catch (error: any) {
       this.log(JSON.stringify({
@@ -451,5 +466,7 @@ export default class Init extends BaseCommand {
         + ' --target <agent> --force')
       log(`  Available: ${VALID_TARGETS.join(', ')}`)
     }
+
+    log(`\n${wrap(localCliNote(), { length: 80 })}`)
   }
 }
