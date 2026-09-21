@@ -1,24 +1,37 @@
 import type { TSESTree } from '@typescript-eslint/typescript-estree'
-import { type Node, type ParsedSource, type SourceToken, WriteBackSkipped, walk } from './source-file.js'
+import type { Value } from '../../sourcegen/index.js'
+import {
+  appendAfterLast,
+  type Node,
+  type ParsedSource,
+  type SourceToken,
+  type Splice,
+  tokensBetween,
+  WriteBackSkipped,
+  walk,
+} from './source-file.js'
 
 /**
- * Splices literal values into the options object of a construct call.
+ * Literal edits of the options object of a construct call: where a path
+ * (`['request', 'url']`) lands in the object, what may be replaced there,
+ * and how a plain value is rendered in the file's own style.
  *
- * Every edit names a path inside the object (`['request', 'url']`) and the
- * value that position should hold. A position that exists and holds a plain
- * literal is replaced; a key the innermost object lacks is inserted after
- * the object's last member; anything else — a `Frequency.*` constant, a
- * variable, a spread, a missing parent — is refused, because a rewrite that
- * guesses what the code means is worse than none.
+ * A position that exists and holds a plain literal may be replaced; a key
+ * the innermost object lacks is inserted after the object's last member;
+ * anything else — a variable, a spread, a missing parent — is refused,
+ * because a rewrite that guesses what the code means is worse than none.
+ * A value the construct spells with a helper (`Frequency.EVERY_5M`,
+ * `RetryStrategyBuilder.fixedStrategy({ … })`) is `helper-edit.ts`'s job;
+ * `apply-edits.ts` splices both kinds into the text, and `imports.ts` adds
+ * the helper classes to the file's import.
  *
- * The file is edited by byte range, so nothing outside the touched values
- * changes. The rendering of a new value copies what surrounds it: the quote
- * character the object already uses, its indentation unit, whether it ends
- * members with a trailing comma, and the file's line ending. Commas and
- * comments are located through the parser's tokens, so a comma or a line
- * break inside a comment cannot mislead a splice. (`src/sourcegen` renders construct source too, but it
- * orders keys and fixes the style, which is what a splice into a user's
- * file must not do.)
+ * Rendering copies what surrounds the value: the quote character the object
+ * already uses, its indentation unit, whether it ends members with a
+ * trailing comma, and the file's line ending. Commas and comments are
+ * located through the parser's tokens, so a comma or a line break inside a
+ * comment cannot mislead a splice. (`src/sourcegen` renders construct
+ * source too, but it orders keys and fixes the style, which is what a
+ * splice into a user's file must not do.)
  */
 
 export interface LiteralEdit {
@@ -26,6 +39,8 @@ export interface LiteralEdit {
   path: string[]
   /** The value to write. `null` and `undefined` are refused (see `renderValue`). */
   value: unknown
+  /** Absent on a literal edit; a `HelperEdit` (`helper-edit.ts`) sets it. */
+  helper?: undefined
 }
 
 export interface AppliedEdit extends LiteralEdit {
@@ -33,9 +48,18 @@ export interface AppliedEdit extends LiteralEdit {
   previous?: string
   /** The text written for the value. */
   rendered: string
+  /** Whether the text is a plain literal or a helper expression (see `helper-edit.ts`). */
+  form: 'literal' | 'helper'
+  /** For the literal form, the value the written text evaluates to. */
+  expected?: unknown
+  /** For the helper form, the expression the text was rendered from, and the local name of each class it references. */
+  expression?: { value: Value, locals: ReadonlyMap<string, string> }
 }
 
-export interface SkippedEdit extends LiteralEdit {
+/** An edit of either kind that was not applied, with the reason. */
+export interface SkippedEdit {
+  path: string[]
+  value: unknown
   reason: string
 }
 
@@ -43,6 +67,8 @@ export interface EditResult {
   text: string
   applied: AppliedEdit[]
   skipped: SkippedEdit[]
+  /** Helper classes added to the file's `checkly/constructs` import. */
+  imports: string[]
 }
 
 export interface SourceStyle {
@@ -54,15 +80,15 @@ export interface SourceStyle {
 type ObjectNode = TSESTree.ObjectExpression
 type PropertyNode = TSESTree.Property
 
-type Resolution =
-  | { kind: 'found', node: Node }
+export type Resolution =
+  | { kind: 'found', node: Node, parent: ObjectNode | TSESTree.ArrayExpression }
   | { kind: 'missing', parent: ObjectNode, key: string }
   | { kind: 'unsupported', reason: string }
 
 const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
 
 /** The name of a plain `key: value` member, or undefined for a spread, method, accessor or computed key. */
-function memberName (property: PropertyNode | TSESTree.SpreadElement): string | undefined {
+export function memberName (property: PropertyNode | TSESTree.SpreadElement): string | undefined {
   if (property.type !== 'Property' || property.computed || property.kind !== 'init' || property.method) {
     return undefined
   }
@@ -120,7 +146,7 @@ export function evaluateLiteral (node: Node): unknown {
   }
 }
 
-function describe (node: Node): string {
+export function describe (node: Node): string {
   switch (node.type) {
     case 'Identifier':
       return `the variable ${node.name}`
@@ -151,15 +177,31 @@ function describe (node: Node): string {
   }
 }
 
+export interface ResolveOptions {
+  /** Whether an existing node at the path may be replaced; a plain literal by default. */
+  replaceable?: (node: Node) => boolean
+  /** What a refused node should have been, for the reason. */
+  expected?: string
+  /**
+   * Whether a `null` in the code may be replaced. A literal edit never
+   * writes null (`renderValue`), so by default a null is left for the user;
+   * a helper edit writes an expression and may replace it like any literal.
+   */
+  replaceNull?: boolean
+}
+
 /**
- * Where `path` lands inside `options`: an existing plain literal, a key the
- * innermost object lacks, or a position this module must not touch.
+ * Where `path` lands inside `options`: an existing node that may be
+ * replaced, a key the innermost object lacks, or a position this module
+ * must not touch.
  */
-export function resolvePath (options: ObjectNode, path: readonly string[]): Resolution {
+export function resolvePath (options: ObjectNode, path: readonly string[], resolve: ResolveOptions = {}): Resolution {
+  const { replaceable = isPlainLiteral, expected = 'a plain literal', replaceNull = false } = resolve
   if (path.length === 0) {
     return { kind: 'unsupported', reason: 'no property named' }
   }
   let node: Node = options
+  let parent: ObjectNode | TSESTree.ArrayExpression = options
   for (let i = 0; i < path.length; i++) {
     const segment = path[i]
     const last = i === path.length - 1
@@ -190,6 +232,7 @@ export function resolvePath (options: ObjectNode, path: readonly string[]): Reso
       if (node.properties.slice(index + 1).some(property => memberName(property) === undefined)) {
         return { kind: 'unsupported', reason: `${segment} may be overridden by a later member` }
       }
+      parent = node
       node = members[0].value
     } else if (node.type === 'ArrayExpression') {
       const index = /^\d+$/.test(segment) ? Number(segment) : -1
@@ -197,18 +240,19 @@ export function resolvePath (options: ObjectNode, path: readonly string[]): Reso
       if (element === null || element === undefined) {
         return { kind: 'unsupported', reason: `${path.slice(0, i + 1).join('.')} is not set in the code` }
       }
+      parent = node
       node = element
     } else {
       return { kind: 'unsupported', reason: `${path.slice(0, i).join('.')} is ${describe(node)}, not an object literal` }
     }
   }
-  if (node.type === 'Literal' && node.value === null) {
+  if (node.type === 'Literal' && node.value === null && !replaceNull) {
     return { kind: 'unsupported', reason: `${path.join('.')} is null in the code; set a value by hand` }
   }
-  if (!isPlainLiteral(node)) {
-    return { kind: 'unsupported', reason: `${path.join('.')} is ${describe(node)}, not a plain literal` }
+  if (!replaceable(node)) {
+    return { kind: 'unsupported', reason: `${path.join('.')} is ${describe(node)}, not ${expected}` }
   }
-  return { kind: 'found', node }
+  return { kind: 'found', node, parent }
 }
 
 /**
@@ -237,7 +281,7 @@ export function detectStyle (source: ParsedSource, options: ObjectNode): SourceS
   if (quotes.single === 0 && quotes.double === 0) {
     quotes = count(source.program)
   }
-  const lineEnding = text.includes('\r\n') ? '\r\n' : '\n'
+  const lineEnding = lineEndingOf(text)
   let indentUnit = '  '
   const first = options.properties[0]
   if (first !== undefined && isMultiLine(text, options)) {
@@ -250,29 +294,32 @@ export function detectStyle (source: ParsedSource, options: ObjectNode): SourceS
   return { quote: quotes.double > quotes.single ? '"' : '\'', indentUnit, lineEnding }
 }
 
-function lineStart (text: string, offset: number): number {
+/** The line ending a file uses: CRLF when it holds one, else LF. */
+export function lineEndingOf (text: string): SourceStyle['lineEnding'] {
+  return text.includes('\r\n') ? '\r\n' : '\n'
+}
+
+export function lineStart (text: string, offset: number): number {
   const index = text.lastIndexOf('\n', offset - 1)
   return index === -1 ? 0 : index + 1
 }
 
 /** The leading whitespace of the line holding `offset`. */
-function indentationAt (text: string, offset: number): string {
+export function indentationAt (text: string, offset: number): string {
   const start = lineStart(text, offset)
   const match = /^[ \t]*/.exec(text.slice(start, offset))
   return match === null ? '' : match[0]
 }
 
-function isMultiLine (text: string, node: Node): boolean {
+export function isMultiLine (text: string, node: Node): boolean {
   return text.slice(node.range[0], node.range[1]).includes('\n')
 }
 
-/** The tokens and comments lying within `[start, end)`. */
-function tokensBetween (source: ParsedSource, start: number, end: number): SourceToken[] {
-  return source.tokens.filter(token => token.range[0] >= start && token.range[1] <= end)
-}
-
 /** The comma token that follows a list's last member, if the list has one. */
-function trailingCommaOf (source: ParsedSource, list: ObjectNode | TSESTree.ArrayExpression): SourceToken | undefined {
+export function trailingCommaOf (
+  source: ParsedSource,
+  list: ObjectNode | TSESTree.ArrayExpression,
+): SourceToken | undefined {
   const members = list.type === 'ObjectExpression' ? list.properties : list.elements
   const last = members[members.length - 1]
   if (last === null || last === undefined) {
@@ -281,7 +328,7 @@ function trailingCommaOf (source: ParsedSource, list: ObjectNode | TSESTree.Arra
   return tokensBetween(source, last.range[1], list.range[1] - 1).find(token => token.kind === 'token' && token.value === ',')
 }
 
-function quoteString (value: string, quote: SourceStyle['quote']): string {
+export function quoteString (value: string, quote: SourceStyle['quote']): string {
   // JSON.stringify encodes every control character and backslash; U+2028
   // and U+2029 it leaves in the clear, and a parser reading them as line
   // terminators would see an unterminated string. Only the quote character
@@ -293,7 +340,7 @@ function quoteString (value: string, quote: SourceStyle['quote']): string {
   return `'${json.slice(1, -1).replace(/\\"/g, '"').replace(/'/g, '\\\'')}'`
 }
 
-function renderKey (key: string, quote: SourceStyle['quote']): string {
+export function renderKey (key: string, quote: SourceStyle['quote']): string {
   // A bare `__proto__` in an object literal sets the prototype rather than
   // a property; quoted, it is a property like any other.
   return IDENTIFIER.test(key) && key !== '__proto__' ? key : quoteString(key, quote)
@@ -349,128 +396,39 @@ export function renderValue (
   const inner = layout.column + style.indentUnit
   const nested = (member: unknown, key: string) =>
     renderValue(member, style, { ...layout, column: inner, at: layout.at === undefined ? key : `${layout.at}.${key}` })
-  const block = (open: string, members: string[], close: string) =>
-    `${open}${style.lineEnding}${members.map(member => `${inner}${member}`).join(`,${style.lineEnding}`)}`
-    + `${layout.trailingComma ? ',' : ''}${style.lineEnding}${layout.column}${close}`
   if (Array.isArray(value)) {
-    if (value.length === 0) {
-      return '[]'
-    }
     const members = value.map((member, index) => nested(member, String(index)))
-    return layout.inline || value.every(isScalar) ? `[${members.join(', ')}]` : block('[', members, ']')
+    return layoutList('[', members, ']', style, { ...layout, inline: layout.inline || value.every(isScalar) })
   }
   if (isPlainObject(value)) {
-    const entries = Object.entries(value)
-    if (entries.length === 0) {
-      return '{}'
-    }
-    const members = entries.map(([key, member]) => `${renderKey(key, style.quote)}: ${nested(member, key)}`)
-    return layout.inline ? `{ ${members.join(', ')} }` : block('{', members, '}')
+    const members = Object.entries(value).map(([key, member]) => `${renderKey(key, style.quote)}: ${nested(member, key)}`)
+    return layoutList('{', members, '}', style, layout)
   }
   const kind = typeof value === 'object' ? (value.constructor?.name ?? 'object') : typeof value
   throw new WriteBackSkipped(`a ${kind} cannot be written as a literal`)
 }
 
-interface Splice {
-  start: number
-  end: number
-  text: string
-}
-
 /**
- * Applies `edits` to the text of `source` inside `options`, one of its
- * nodes. Edits are resolved against the original ranges and spliced from
- * the end of the file backwards, so no edit shifts another. Two edits that
- * touch the same bytes cannot both be right: a replacement wins over an
- * insertion into the object it replaces, and otherwise the first listed
- * wins; the loser is skipped. Replacements are reported before insertions.
- * The result is text only: to edit it again, parse it again.
+ * A list of rendered members between `open` and `close`: empty as `[]` or
+ * `{}`, on one line when `inline`, otherwise one member per line indented one
+ * unit past `column`, the last ending with a comma when `trailingComma`.
  */
-export function applyLiteralEdits (
-  source: ParsedSource,
-  options: ObjectNode,
-  edits: readonly LiteralEdit[],
-): EditResult {
-  const { text } = source
-  const style = detectStyle(source, options)
-  const applied: AppliedEdit[] = []
-  const skipped: SkippedEdit[] = []
-  const splices: Splice[] = []
-  const insertions = new Map<ObjectNode, { key: string, rendered: string, edit: LiteralEdit }[]>()
-
-  const claim = (splice: Splice): boolean => {
-    const clash = splices.some(other => splice.start < other.end && other.start < splice.end)
-    if (!clash) {
-      splices.push(splice)
-    }
-    return !clash
+export function layoutList (
+  open: string,
+  members: readonly string[],
+  close: string,
+  style: SourceStyle,
+  layout: { column: string, inline: boolean, trailingComma: boolean },
+): string {
+  if (members.length === 0) {
+    return `${open}${close}`
   }
-
-  for (const edit of edits) {
-    try {
-      const resolution = resolvePath(options, edit.path)
-      if (resolution.kind === 'unsupported') {
-        skipped.push({ ...edit, reason: resolution.reason })
-        continue
-      }
-      if (resolution.kind === 'found') {
-        const { node } = resolution
-        const rendered = renderValue(edit.value, style, {
-          at: edit.path.join('.'),
-          column: indentationAt(text, node.range[0]),
-          inline: !isMultiLine(text, node),
-          trailingComma: (node.type === 'ArrayExpression' || node.type === 'ObjectExpression')
-            && trailingCommaOf(source, node) !== undefined,
-        })
-        if (!claim({ start: node.range[0], end: node.range[1], text: rendered })) {
-          skipped.push({ ...edit, reason: 'overlaps another edit' })
-          continue
-        }
-        applied.push({ ...edit, previous: text.slice(node.range[0], node.range[1]), rendered })
-        continue
-      }
-      const { parent, key } = resolution
-      const rendered = renderValue(edit.value, style, {
-        at: edit.path.join('.'),
-        column: memberColumn(text, parent, style),
-        inline: !isMultiLine(text, parent),
-        trailingComma: trailingCommaOf(source, parent) !== undefined,
-      })
-      const pending = insertions.get(parent) ?? []
-      if (pending.some(other => other.key === key)) {
-        skipped.push({ ...edit, reason: 'overlaps another edit' })
-        continue
-      }
-      pending.push({ key, rendered, edit })
-      insertions.set(parent, pending)
-    } catch (err) {
-      if (err instanceof WriteBackSkipped) {
-        skipped.push({ ...edit, reason: err.message })
-        continue
-      }
-      throw err
-    }
+  if (layout.inline) {
+    return open === '{' ? `{ ${members.join(', ')} }` : `${open}${members.join(', ')}${close}`
   }
-
-  for (const [parent, pending] of insertions) {
-    const splice = insertionSplice(text, source, parent, pending, style)
-    if (!claim(splice)) {
-      for (const { edit } of pending) {
-        skipped.push({ ...edit, reason: 'overlaps another edit' })
-      }
-      continue
-    }
-    for (const { edit, rendered } of pending) {
-      applied.push({ ...edit, rendered })
-    }
-  }
-
-  splices.sort((a, b) => b.start - a.start)
-  let result = text
-  for (const splice of splices) {
-    result = result.slice(0, splice.start) + splice.text + result.slice(splice.end)
-  }
-  return { text: result, applied, skipped }
+  const inner = layout.column + style.indentUnit
+  return `${open}${style.lineEnding}${members.map(member => `${inner}${member}`).join(`,${style.lineEnding}`)}`
+    + `${layout.trailingComma ? ',' : ''}${style.lineEnding}${layout.column}${close}`
 }
 
 /**
@@ -478,7 +436,7 @@ export function applyLiteralEdits (
  * member's line when it starts one, otherwise one unit past the object's
  * own line (which also covers an empty object).
  */
-function memberColumn (text: string, parent: ObjectNode, style: SourceStyle): string {
+export function memberColumn (text: string, parent: ObjectNode, style: SourceStyle): string {
   const last = parent.properties[parent.properties.length - 1]
   if (last !== undefined) {
     const indentation = indentationAt(text, last.range[0])
@@ -501,7 +459,7 @@ function memberColumn (text: string, parent: ObjectNode, style: SourceStyle): st
  * `, key: value` before its closing brace, and an empty one is rewritten as
  * `{ key: value }`.
  */
-function insertionSplice (
+export function insertionSplice (
   text: string,
   source: ParsedSource,
   parent: ObjectNode,
@@ -527,26 +485,14 @@ function insertionSplice (
     const close = held ? ',' : `${style.lineEnding}${indentationAt(text, parent.range[0])}`
     return { start: at, end, text: `${lines}${close}` }
   }
-  const comma = trailingCommaOf(source, parent)
-  const afterMember = comma === undefined ? last.range[1] : comma.range[1]
   if (!isMultiLine(text, parent)) {
     // `{ a: 1 }` or `{ a: 1, }`: the new members join the line.
+    const comma = trailingCommaOf(source, parent)
     const text = `${comma === undefined ? ',' : ''} ${members.join(', ')}${comma === undefined ? '' : ','}`
-    return { start: afterMember, end: afterMember, text }
+    return { start: afterMember(last, comma), end: afterMember(last, comma), text }
   }
-  const breakAt = text.indexOf('\n', afterMember)
-  const lineEnd = breakAt === -1 || breakAt >= closing
-    ? afterMember
-    : text[breakAt - 1] === '\r' ? breakAt - 1 : breakAt
-  const straddles = tokensBetween(source, last.range[1], closing)
-    .some(token => token.range[0] < lineEnd && token.range[1] > lineEnd)
-  const at = straddles ? afterMember : lineEnd
-  const column = memberColumn(text, parent, style)
-  const lines = members.map(member => `${style.lineEnding}${column}${member}`).join(',')
-  if (comma === undefined) {
-    // The comma goes on the member; whatever sat between it and the line
-    // end (a comment) is kept, and the new lines follow.
-    return { start: last.range[1], end: at, text: `,${text.slice(last.range[1], at)}${lines}` }
-  }
-  return { start: at, end: at, text: `${lines},` }
+  return appendAfterLast(source, last, closing, members, memberColumn(text, parent, style), style.lineEnding)
 }
+
+const afterMember = (last: Node, comma: SourceToken | undefined): number =>
+  comma === undefined ? last.range[1] : comma.range[1]
