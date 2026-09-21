@@ -35,17 +35,22 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     options: RetryStrategyOptions,
     builder: ObjectValueBuilder,
   ): void {
-    if (options.onlyOn !== undefined) {
-      const onlyOn = Array.isArray(options.onlyOn) ? options.onlyOn : [options.onlyOn]
-      if (onlyOn.length === 1) {
-        builder.string('onlyOn', onlyOn[0])
-      } else {
-        builder.array('onlyOn', builder => {
-          for (const condition of onlyOn) {
-            builder.string(condition)
-          }
-        })
-      }
+    // A row stores an unset condition as null, an empty list or an empty
+    // string; only a named condition is a value.
+    const value = options.onlyOn
+    const onlyOn = (value === undefined || value === null ? [] : Array.isArray(value) ? value : [value])
+      .filter(condition => condition !== '')
+    if (onlyOn.length === 0) {
+      return
+    }
+    if (onlyOn.length === 1) {
+      builder.string('onlyOn', onlyOn[0])
+    } else {
+      builder.array('onlyOn', builder => {
+        for (const condition of onlyOn) {
+          builder.string(condition)
+        }
+      })
     }
   }
 
