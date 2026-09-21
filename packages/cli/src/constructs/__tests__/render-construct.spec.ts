@@ -161,8 +161,8 @@ describe('renderConstruct()', () => {
     expect(() => renderConstruct(codegen, 'suite', {
       type: 'check' as const,
       logicalId: 'suite',
-      payload: { id: 'suite', checkType: 'PLAYWRIGHT', name: 'Suite' },
-    })).toThrow(/unsupported check type 'PLAYWRIGHT'/)
+      payload: { id: 'suite', checkType: 'NOPE', name: 'Suite' },
+    })).toThrow(/unsupported check type 'NOPE'/)
   })
 })
 

@@ -18,6 +18,7 @@ import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../ser
 import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects.js'
 import { cased, Comment, docComment, Program } from '../../sourcegen/index.js'
 import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen.js'
+import { PREVIEW_ONLY_CHECK_TYPES } from '../../constructs/check-codegen.js'
 import { Context } from '../../constructs/internal/codegen/index.js'
 import {
   isSnippet,
@@ -1280,6 +1281,16 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           }
 
           try {
+            // A codegen that exists for the deploy preview only must not
+            // write a construct here: a suite that reaches a plan (an API
+            // without the rule that leaves them out) is reported as not
+            // importable instead.
+            const previewOnly = resource.type === 'check'
+              ? PREVIEW_ONLY_CHECK_TYPES.get(resource.payload?.checkType)
+              : undefined
+            if (previewOnly !== undefined) {
+              throw new Error(previewOnly)
+            }
             codegen.gencode(resource.logicalId, resource as any, context)
           } catch (cause) {
             if (!(cause instanceof Error)) {
