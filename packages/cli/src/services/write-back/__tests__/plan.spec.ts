@@ -646,15 +646,18 @@ new ApiCheck('other', opts)
 describe('applyWriteBack', () => {
   it('keeps the file mode and writes through a symlink to its target', async () => {
     const real = path.join(dir, 'real.ts')
-    // Group-writable: a bit the usual umask would clear on a fresh file.
+    // Group-writable: a bit the usual umask would clear on a fresh file. What
+    // the platform actually stored is what must survive; on Windows, which
+    // keeps no group bits, this only checks the mode is unchanged.
     await fs.writeFile(real, 'old')
     await fs.chmod(real, 0o664)
+    const mode = (await fs.stat(real)).mode & 0o777
     const link = path.join(dir, 'link.ts')
     await fs.symlink(real, link)
     await applyWriteBack({ files: [{ path: link, text: 'new', original: 'old' }], applied: [], skipped: [] })
     expect(await fs.readFile(real, 'utf8')).toBe('new')
     expect((await fs.lstat(link)).isSymbolicLink()).toBe(true)
-    expect((await fs.stat(real)).mode & 0o777).toBe(0o664)
+    expect((await fs.stat(real)).mode & 0o777).toBe(mode)
     expect(await fs.readdir(dir)).toEqual(['link.ts', 'real.ts'])
   })
 
@@ -676,8 +679,16 @@ describe('applyWriteBack', () => {
     const good = path.join(dir, 'good.ts')
     await fs.writeFile(good, 'old', 'utf8')
     const bad = path.join(dir, 'missing', 'bad.ts')
-    await expect(applyWriteBack({ files: [{ path: good, text: 'new', original: 'old' }, { path: bad, text: 'x', original: '' }], applied: [], skipped: [] }))
-      .rejects.toThrow(new RegExp(`Could not write ${bad}: .*Already updated: ${good}\\.`))
+    // Paths are matched as text: a Windows path has backslashes a RegExp would read as escapes.
+    const run = applyWriteBack({
+      files: [{ path: good, text: 'new', original: 'old' }, { path: bad, text: 'x', original: '' }],
+      applied: [],
+      skipped: [],
+    })
+    await expect(run).rejects.toThrow('Could not write ')
+    const failure = await run.catch((err: Error) => err.message)
+    expect(failure).toContain(`Could not write ${bad}: `)
+    expect(failure).toContain(`Already updated: ${good}.`)
     expect(await fs.readFile(good, 'utf8')).toBe('new')
     expect(await fs.readdir(dir)).toEqual(['good.ts'])
   })
