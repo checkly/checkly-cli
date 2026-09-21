@@ -239,6 +239,18 @@ describe('deploy', { timeout: 45_000 }, () => {
         .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
     })
 
+    it('deploys without a plan under --skip-plan', async () => {
+      const { stderr, stdout } = await runDeploy(fixt, ['--skip-plan', '--force'], {
+        env: {
+          PROJECT_LOGICAL_ID: projectLogicalId,
+          PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+          CHECKLY_E2E_CLI_VERSION: undefined,
+        },
+      })
+      expect(stderr).toBe('')
+      expect(stdout).toContain('Successfully deployed project')
+    })
+
     it('Simple project should deploy successfully', async () => {
       const { stderr, stdout } = await runDeploy(fixt, ['--force'], {
         env: {
