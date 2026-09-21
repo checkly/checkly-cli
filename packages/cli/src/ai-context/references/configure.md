@@ -75,7 +75,7 @@ Run `npx checkly skills manage plan` for the full reference.
 ## Deploying
 
 - Deploy checks using the `npx checkly deploy` command. Use `--output` to see the created, updated, and deleted resources. Use `--verbose` to also include each resource's name and physical ID (UUID), which is useful for programmatically referencing deployed resources (e.g. `npx checkly checks get <id>`).
-- Use `--preview` to see which resources a deploy would create, update, delete or keep, without applying it. The machine-readable forms (`--dry-run`, and the `confirmation_required` envelope) additionally carry the individual properties that would change.
+- Use `--preview` to see which resources a deploy would create, update, delete or keep, without applying it: an overview of every resource the deploy touches and a diff of each updated resource's construct as deployed against as in code. A plain interactive `checkly deploy` prints that same preview before asking the user to apply the changes or cancel. The machine-readable forms (`--dry-run`, and the `confirmation_required` envelope) additionally carry the individual properties that would change.
 - Use `--prune-relations` to also delete the alert channel subscriptions and private location assignments on this project's checks and groups that the project does not manage. Without it they are only reported.
 
 ### Deleted resources

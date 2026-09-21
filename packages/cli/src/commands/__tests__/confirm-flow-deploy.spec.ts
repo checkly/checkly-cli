@@ -63,6 +63,8 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({ confirm: true })),
 }))
 
+import prompts from 'prompts'
+
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { buildConfirmCommand } from '../../helpers/command-preview.js'
 import * as api from '../../rest/api.js'
@@ -634,7 +636,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('relation not managed by this project, deleted by --prune-relations')
+    expect(printed).toContain('relation on Check chk not managed by this project, deleted by --prune-relations')
     expect(printed).not.toContain('pass --prune-relations to delete them')
   })
 
@@ -747,6 +749,109 @@ describe('deploy confirmation flow', () => {
       // account has left behind, so it must not be sent again.
       expect.stringContaining('Re-run `checkly deploy`'),
     )
+  })
+})
+
+describe('deploy confirmation in a terminal', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    storeBundle.mockResolvedValue({ key: 'stored-bundle-key' })
+    vi.mocked(api.projects.deploy).mockResolvedValue({ data: { project: {} as any, diff: [] } })
+    declareProject()
+  })
+
+  afterEach(() => {
+    Session.reset()
+  })
+
+  it('shows the rendered plan, then asks whether to apply it', async () => {
+    // A `full` plan carries each entry's redaction rules; the construct diff
+    // renders only from such an entry.
+    planResolves([{ ...CHANGED, redactions: [] }, DELETED])
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    // The construct diff needs each changed resource's deployed state.
+    expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'full' })
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('Deploy preview')
+    expect(printed).toMatch(/^ {2}~ EmailAlertChannel {2}ops$/m)
+    expect(printed).toMatch(/^ {2}- Check +gone +permanently deleted, run history lost$/m)
+    expect(printed).toContain('-   address: \'old@example.com\'')
+    expect(printed).toContain('+   address: \'ops@example.com\'')
+    // The options follow the plan; the resources are not listed a second time,
+    // and the token is not advertised since this run pins it.
+    expect(printed).toContain('This will:\n  - Deploy project "My Project" to account "Test Account"')
+    expect(printed).not.toContain('Update AlertChannel: ops')
+    expect(printed).not.toContain('--plan-token')
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ message: 'Apply these changes?' })
+
+    // Applying uploads and deploys the plan that was shown.
+    expect(storeBundle).toHaveBeenCalledOnce()
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: PLAN_TOKEN })
+  })
+
+  it('cancels without uploading or deploying anything', async () => {
+    planResolves()
+    vi.mocked(prompts).mockResolvedValue({ confirm: false })
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    expect(ctx.logged.join('\n')).toContain('Deploy preview')
+    expect(storeBundle).not.toHaveBeenCalled()
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('prints no plan for a forced run', async () => {
+    planResolves()
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(prompts).not.toHaveBeenCalled()
+    expect(ctx.logged.join('\n')).not.toContain('Deploy preview')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('prints the plan before the prompt and what was done after, under --output', async () => {
+    planResolves()
+    vi.mocked(api.projects.deploy).mockResolvedValue({
+      data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
+    })
+    const ctx = createCommandContext({ output: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('\n1 to update, 1 to delete, 0 unchanged\n')
+    expect(printed).toContain('\n1 deleted, 0 unchanged\n')
+    expect(printed.indexOf('1 to update')).toBeLessThan(printed.indexOf('1 deleted'))
+  })
+
+  it('lists what the dry run found when there is no plan to render', async () => {
+    vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPreviewNotSupportedError())
+    vi.mocked(api.projects.deploy).mockResolvedValue({
+      data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
+    })
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).not.toContain('Deploy preview')
+    expect(printed).toContain('  - Permanently delete Check: gone, losing its run history')
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ message: 'Proceed?' })
+    // The dry run, then the deploy the user confirmed.
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    const confirmed = vi.mocked(api.projects.deploy).mock.calls[1][1]
+    expect(confirmed?.dryRun).toBeFalsy()
+    expect(confirmed?.planToken).toBeUndefined()
   })
 })
 

@@ -25,6 +25,21 @@ export type CommandPlanPreview = {
   diff: DiffEntry[]
 }
 
+/**
+ * What an interactive terminal shows instead of the flat `changes` list: a
+ * rendered plan (an overview of every resource the command touches, with a
+ * diff per updated one) followed by the lines that still need saying — the
+ * options the command runs with, which no overview row carries.
+ *
+ * `plan` is rendered on demand because only the interactive branch prints it;
+ * a forced, dry-run or agent run never pays for the rendering, and an error
+ * in it cannot break an unattended run.
+ */
+export type CommandTerminalPreview = {
+  plan: () => string
+  changes: string[]
+}
+
 export type CommandPreview = {
   command: string
   description: string
@@ -34,6 +49,9 @@ export type CommandPreview = {
   args?: Record<string, unknown>
   classification: CommandClassification
   preview?: CommandPlanPreview
+  terminal?: CommandTerminalPreview
+  /** The yes/no question an interactive terminal asks. `Proceed?` when left out. */
+  question?: string
 }
 
 export type AgentPreviewResponse = {
@@ -112,14 +130,19 @@ export function formatPreviewForAgent (
 }
 
 export function formatPreviewForTerminal (preview: CommandPreview): string {
-  if (preview.changes.length === 1) {
-    return `This will ${preview.changes[0]}`
-  }
-
+  const changes = preview.terminal?.changes ?? preview.changes
   const lines: string[] = []
-  lines.push('This will:')
-  for (const change of preview.changes) {
-    lines.push(`  - ${change}`)
+  if (preview.terminal !== undefined) {
+    // The rendered plan ends in a blank line of its own.
+    lines.push(preview.terminal.plan())
+  }
+  if (changes.length === 1) {
+    lines.push(`This will ${changes[0]}`)
+  } else {
+    lines.push('This will:')
+    for (const change of changes) {
+      lines.push(`  - ${change}`)
+    }
   }
   return lines.join('\n')
 }
