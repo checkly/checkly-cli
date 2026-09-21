@@ -516,6 +516,12 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
       expect(stdout).toMatch(tableRows([['~', 'PlaywrightCheck', 'suite']]))
+      expect(stdout).not.toContain('could not render this resource')
+      // The construct diff needs the API's preview endpoint; against an API
+      // without it the CLI prints the overview only and says so.
+      if (stdout.includes('for the deploy preview endpoint')) {
+        return
+      }
       expect(stdout).toMatch(/^\s*-\s+name: 'Suite',$/m)
       expect(stdout).toMatch(/^\s*\+\s+name: 'Renamed suite',$/m)
       // Context lines on both sides: the deployed side unfolds the config
@@ -525,7 +531,6 @@ describe('deploy', { timeout: 45_000 }, () => {
       expect(stdout).toContain('playwrightConfigPath: \'playwright.config.ts\'')
       expect(stdout).toContain('engine: Engine.node(\'22\')')
       expect(stdout.match(/^\s*[-+]\s+[A-Za-z]+: /gm)).toHaveLength(2)
-      expect(stdout).not.toContain('could not render this resource')
     }, 300_000)
   })
 
