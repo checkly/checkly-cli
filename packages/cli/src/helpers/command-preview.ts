@@ -38,6 +38,18 @@ export type CommandPlanPreview = {
 export type CommandTerminalPreview = {
   plan: () => string
   changes: string[]
+  /**
+   * Things the user can choose to do instead of applying the command, offered
+   * as further choices of the prompt. Choosing one runs it and ends the
+   * command without applying anything.
+   */
+  alternatives?: CommandAlternative[]
+}
+
+export type CommandAlternative = {
+  /** The choice as the prompt lists it. */
+  title: string
+  run: () => Promise<void>
 }
 
 export type CommandPreview = {
