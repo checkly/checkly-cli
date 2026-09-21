@@ -21,7 +21,10 @@ import { detectEngine } from '../services/engine-detector.js'
 import { resolveEngineVersion } from '../services/engine-resolver.js'
 import { Engine } from './engine.js'
 
-export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, 'retryStrategy' | 'doubleCheck'> {
+/** The check props a Playwright check does not take. */
+export type PlaywrightCheckOmittedProp = 'retryStrategy' | 'doubleCheck'
+
+export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, PlaywrightCheckOmittedProp> {
   /**
    * The JavaScript engine used to run the Playwright tests.
    * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance.
