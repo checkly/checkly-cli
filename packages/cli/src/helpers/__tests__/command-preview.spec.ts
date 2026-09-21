@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import {
   formatPreviewForAgent,
   formatPreviewForTerminal,
@@ -72,6 +72,26 @@ describe('formatPreviewForTerminal', () => {
     expect(result).toContain('Will create incident "DB outage"')
     expect(result).toContain('Affected services')
     expect(result).toContain('Will notify subscribers')
+  })
+
+  it('prints the rendered plan and its own lines instead of the changes', () => {
+    const plan = vi.fn(() => 'Deploy preview\n  ~ Check  api\n\n1 to update, 0 unchanged\n')
+    const result = formatPreviewForTerminal({
+      ...samplePreview,
+      terminal: { plan, changes: ['Deploy project "Acme" to account "Test"', 'Schedule checks after deploy'] },
+    })
+    expect(plan).toHaveBeenCalledOnce()
+    expect(result).toBe([
+      'Deploy preview',
+      '  ~ Check  api',
+      '',
+      '1 to update, 0 unchanged',
+      '',
+      'This will:',
+      '  - Deploy project "Acme" to account "Test"',
+      '  - Schedule checks after deploy',
+    ].join('\n'))
+    expect(result).not.toContain('DB outage')
   })
 })
 

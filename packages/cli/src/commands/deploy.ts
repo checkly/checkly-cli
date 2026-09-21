@@ -3,7 +3,6 @@ import * as fs from 'fs/promises'
 import * as api from '../rest/api.js'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand.js'
-import { detectCliMode } from '../helpers/cli-mode.js'
 import { parseProject } from '../services/project-parser.js'
 import { loadChecklyConfig, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
 import { Session } from '../constructs/index.js'
@@ -285,11 +284,12 @@ export default class Deploy extends AuthCommand {
     // upload: the payload describes the code bundle and every snapshot by
     // content hash.
     // `full` buys each changed resource's current state, which is what the
-    // rendered construct diff (`--preview`, `--output`) and the machine-readable
-    // envelope (`--dry-run`, the `confirmation_required` an agent or CI run
-    // prints) show. A plain interactive deploy lists resources, not
-    // properties, so it does not pay for state it would not print.
-    const detail = dryRun || preview || output || (!force && detectCliMode() !== 'interactive') ? 'full' : 'changes'
+    // rendered construct diff (`--preview`, `--output`, the plan an interactive
+    // run shows before asking) and the machine-readable envelope (`--dry-run`,
+    // the `confirmation_required` an agent or CI run prints) show. Only a
+    // forced deploy prints nothing of the kind, so only it skips paying for
+    // the state.
+    const detail = dryRun || preview || output || !force ? 'full' : 'changes'
 
     let plan: ProjectPreviewResponse | undefined
     // Set when the API has no preview endpoint, which also means it rejects the
@@ -399,16 +399,20 @@ export default class Deploy extends AuthCommand {
       }
     }
 
+    // The plan as `--preview` prints it, which is also what a terminal sees
+    // before it is asked. Without a plan, the dry run's findings are listed.
+    const renderPlan = (planToken?: string): string => formatPreview({
+      heading: { title: 'Deploy preview', projectName: project.name, accountName: account.name },
+      diff: plan?.diff ?? fallbackDiff?.diff ?? [],
+      project,
+      verbose,
+      pruneRelations,
+      rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
+      planToken,
+    })
+
     if (preview && !dryRun) {
-      this.log(formatPreview({
-        heading: { title: 'Deploy preview', projectName: project.name, accountName: account.name },
-        diff: plan?.diff ?? fallbackDiff?.diff ?? [],
-        project,
-        verbose,
-        pruneRelations,
-        rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
-        planToken: plan?.planToken,
-      }))
+      this.log(renderPlan(plan?.planToken))
       return
     }
 
@@ -423,11 +427,17 @@ export default class Deploy extends AuthCommand {
 
     // The one confirmation of the command: the plan is known by now, so the
     // prompt, the agent envelope and --dry-run all describe the deploy that is
-    // about to run rather than a deploy nobody has seen.
+    // about to run rather than a deploy nobody has seen. A terminal gets the
+    // plan rendered as `--preview` prints it, with the options under it; the
+    // plan lines are not repeated there since the overview names every
+    // resource. No plan-token footer: this run pins the token itself.
     await this.confirmOrAbort({
       command: 'deploy',
       description: 'Deploy project to Checkly',
       changes: [...optionLines, ...planLines],
+      ...plan !== undefined
+        ? { terminal: { plan: renderPlan, changes: optionLines }, question: 'Apply these changes?' }
+        : {},
       // The token rides along in the echoed command, so the confirming run
       // deploys the plan that was shown here and refuses a different one.
       flags: plan !== undefined ? { ...flags, 'plan-token': plan.planToken } : flags,
