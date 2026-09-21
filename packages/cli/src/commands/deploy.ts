@@ -3,7 +3,6 @@ import * as fs from 'fs/promises'
 import * as api from '../rest/api.js'
 import { Flags } from '@oclif/core'
 import { AuthCommand } from './authCommand.js'
-import { detectCliMode } from '../helpers/cli-mode.js'
 import { parseProject } from '../services/project-parser.js'
 import { loadChecklyConfig, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
 import { Session } from '../constructs/index.js'
@@ -26,13 +25,38 @@ import {
   ProjectPreviewResponse,
   ProjectSync,
 } from '../rest/projects.js'
-import { ConflictError } from '../rest/errors.js'
+import { ConflictError, ValidationError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
 import { planChangeLines, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
+
+/**
+ * The deploy payload fields that arrived with the preview endpoint, which a
+ * deploy schema older than it rejects by name (`"sourceFile" is not allowed`).
+ * Kept in step with `stripUnsupportedDeployFields`.
+ */
+const PREVIEW_ERA_FIELDS = ['sourceFile', 'codeBundleSha256', 'sha256']
+
+/**
+ * Whether the API refused the payload because of a field an older deploy
+ * schema does not know: a 400 whose message names the field as not allowed.
+ * Only such a refusal is worth repeating in the older form: any other 400,
+ * including a bad value for one of these very fields, describes a problem
+ * the older form would not fix, or would hide. A refusal whose body the
+ * client recognises arrives as a {@link ValidationError}; one it does not
+ * arrives as the raw HTTP error.
+ */
+function rejectsPreviewEraField (err: any): boolean {
+  const status = err instanceof ValidationError ? 400 : err?.response?.status ?? err?.data?.statusCode
+  if (status !== 400) {
+    return false
+  }
+  const message = String(err?.data?.message ?? err?.response?.data?.message ?? err?.message ?? '')
+  return message.includes('is not allowed') && PREVIEW_ERA_FIELDS.some(field => message.includes(field))
+}
 
 export default class Deploy extends AuthCommand {
   static coreCommand = true
@@ -70,6 +94,13 @@ export default class Deploy extends AuthCommand {
     'plan-token': Flags.string({
       description: 'Deploy only if the plan still matches this token from an earlier run. '
         + 'Aborts if anything changed in your Checkly account since then.',
+    }),
+    'skip-plan': Flags.boolean({
+      description: 'Deploy without asking Checkly for a plan first. Nothing is previewed and no plan token is '
+        + 'used; resources to delete are still listed before you confirm.',
+      default: false,
+      aliases: ['skip-preview'],
+      exclusive: ['preview', 'dry-run', 'plan-token', 'prune-relations'],
     }),
     'prune-relations': Flags.boolean({
       description: 'Delete the alert channel subscriptions and private location assignments on this project\'s '
@@ -109,6 +140,7 @@ export default class Deploy extends AuthCommand {
       preview,
       'dry-run': dryRun,
       'plan-token': requestedPlanToken,
+      'skip-plan': skipPlan,
       'prune-relations': pruneRelations,
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
@@ -285,78 +317,83 @@ export default class Deploy extends AuthCommand {
     // upload: the payload describes the code bundle and every snapshot by
     // content hash.
     // `full` buys each changed resource's current state, which is what the
-    // rendered construct diff (`--preview`, `--output`) and the machine-readable
-    // envelope (`--dry-run`, the `confirmation_required` an agent or CI run
-    // prints) show. A plain interactive deploy lists resources, not
-    // properties, so it does not pay for state it would not print.
-    const detail = dryRun || preview || output || (!force && detectCliMode() !== 'interactive') ? 'full' : 'changes'
+    // rendered construct diff (`--preview`, `--output`, the plan an interactive
+    // run shows before asking) and the machine-readable envelope (`--dry-run`,
+    // the `confirmation_required` an agent or CI run prints) show. Only a
+    // forced deploy prints nothing of the kind, so only it skips paying for
+    // the state.
+    const detail = dryRun || preview || output || !force ? 'full' : 'changes'
 
     let plan: ProjectPreviewResponse | undefined
     // Set when the API has no preview endpoint, which also means it rejects the
     // payload fields that arrived with it.
     let previewNotSupported = false
-    this.style.actionStart('Checking what would change')
-    try {
-      plan = await api.projects.preview(projectPayload, {
-        detail,
-        preserveResources,
-        pruneRelations,
-        onStatus: message => this.style.actionStatus(message),
-      })
-      this.style.actionSuccess()
-    } catch (err: any) {
-      this.style.actionFailure()
-      previewNotSupported = err instanceof ProjectPreviewNotSupportedError
-      const previewSupported = !previewNotSupported
+    // --skip-plan deploys whatever the account looks like when the deploy
+    // runs: no plan, no token, and nothing to render before the prompt.
+    if (!skipPlan) {
+      this.style.actionStart('Checking what would change')
+      try {
+        plan = await api.projects.preview(projectPayload, {
+          detail,
+          preserveResources,
+          pruneRelations,
+          onStatus: message => this.style.actionStatus(message),
+        })
+        this.style.actionSuccess()
+      } catch (err: any) {
+        this.style.actionFailure()
+        previewNotSupported = err instanceof ProjectPreviewNotSupportedError
+        const previewSupported = !previewNotSupported
 
-      // --prune-relations deletes data, and without a plan nothing can say
-      // what: an API that predates the preview endpoint would not prune at all,
-      // and an API that would prune cannot be asked what it is about to delete.
-      // Both are refused rather than silently downgraded.
-      if (pruneRelations) {
-        this.style.longError(
+        // --prune-relations deletes data, and without a plan nothing can say
+        // what: an API that predates the preview endpoint would not prune at all,
+        // and an API that would prune cannot be asked what it is about to delete.
+        // Both are refused rather than silently downgraded.
+        if (pruneRelations) {
+          this.style.longError(
+            previewSupported
+              ? 'Could not check which relations --prune-relations would delete, so nothing was deployed.'
+              : 'This Checkly API cannot prune relations yet.',
+            previewSupported ? 'Try again in a moment.' : 'Re-run without --prune-relations.',
+          )
+          this.exit(1)
+        }
+
+        // A deploy pinned to a plan cannot proceed without knowing the plan.
+        if (requestedPlanToken !== undefined) {
+          this.style.longError(
+            'Could not check the plan this deploy is pinned to.',
+            previewSupported
+              ? err.message
+              : 'This Checkly API does not support deploy previews; re-run without --plan-token.',
+          )
+          this.exit(1)
+        }
+
+        // Deploying without a reviewed plan beats not deploying at all: one
+        // resource Checkly cannot read, or an API that is a version behind, must
+        // not make a project undeployable. The run falls back to the coarser
+        // dry-run diff and its delete guard, and sends no plan token.
+        this.style.longWarning(
           previewSupported
-            ? 'Could not check which relations --prune-relations would delete, so nothing was deployed.'
-            : 'This Checkly API cannot prune relations yet.',
-          previewSupported ? 'Try again in a moment.' : 'Re-run without --prune-relations.',
+            // Say which failure it was: the user is about to get a coarser answer
+            // than they asked for and deserves to know why.
+            ? `Could not check what this deploy would change: ${err.message}`
+            // A 404 from this path means the endpoint is not there; whether that
+            // is an API predating it or something else in the way, the CLI cannot
+            // tell, so it says what it observed.
+            : 'This Checkly API answered 404 for the deploy preview endpoint.',
+          'Falling back to a summary of created, updated and deleted resources.',
+        )
+      }
+
+      if (plan !== undefined && requestedPlanToken !== undefined && requestedPlanToken !== plan.planToken) {
+        this.style.longError(
+          'Your Checkly account no longer matches the plan this deploy is pinned to, so nothing was deployed.',
+          'Re-run `checkly deploy --preview` to see the current plan.',
         )
         this.exit(1)
       }
-
-      // A deploy pinned to a plan cannot proceed without knowing the plan.
-      if (requestedPlanToken !== undefined) {
-        this.style.longError(
-          'Could not check the plan this deploy is pinned to.',
-          previewSupported
-            ? err.message
-            : 'This Checkly API does not support deploy previews; re-run without --plan-token.',
-        )
-        this.exit(1)
-      }
-
-      // Deploying without a reviewed plan beats not deploying at all: one
-      // resource Checkly cannot read, or an API that is a version behind, must
-      // not make a project undeployable. The run falls back to the coarser
-      // dry-run diff and its delete guard, and sends no plan token.
-      this.style.longWarning(
-        previewSupported
-          // Say which failure it was: the user is about to get a coarser answer
-          // than they asked for and deserves to know why.
-          ? `Could not check what this deploy would change: ${err.message}`
-          // A 404 from this path means the endpoint is not there; whether that
-          // is an API predating it or something else in the way, the CLI cannot
-          // tell, so it says what it observed.
-          : 'This Checkly API answered 404 for the deploy preview endpoint.',
-        'Falling back to a summary of created, updated and deleted resources.',
-      )
-    }
-
-    if (plan !== undefined && requestedPlanToken !== undefined && requestedPlanToken !== plan.planToken) {
-      this.style.longError(
-        'Your Checkly account no longer matches the plan this deploy is pinned to, so nothing was deployed.',
-        'Re-run `checkly deploy --preview` to see the current plan.',
-      )
-      this.exit(1)
     }
 
     // The payload goes out in the form the deploy route accepted before the
@@ -372,6 +409,43 @@ export default class Deploy extends AuthCommand {
     const deployPayload = (): ProjectSync =>
       previewNotSupported || !uploaded ? stripUnsupportedDeployFields(synthesize()) : synthesize()
 
+    // A planned run learns from the preview call whether the API has the
+    // endpoint, and with it whether the deploy route knows the fields that
+    // arrived with it. A run without a plan — --skip-plan, or a preview that
+    // failed for a reason other than a missing endpoint — does not, so a
+    // payload the route refuses because of one of those fields is sent once
+    // more in the older form; the rest of the run then sends that form too.
+    // If the older form is refused as well, the refusal of the payload the
+    // user asked for is the one that surfaces; any other failure of the
+    // second attempt is its own and keeps its own handling. The older form
+    // blanks the stored content hashes, which the next planned deploy reports
+    // as a change to every Playwright check suite and every check with
+    // snapshots — once, and worth a warning once a deploy has gone out that
+    // way.
+    let sentLegacyPayload = false
+    const deployOrRetryLegacy = async (
+      options: Parameters<typeof api.projects.deploy>[1],
+    ): Promise<{ data: ProjectDeployResponse }> => {
+      try {
+        return await api.projects.deploy(deployPayload(), options)
+      } catch (err: any) {
+        if (plan !== undefined || previewNotSupported || !rejectsPreviewEraField(err)) {
+          throw err
+        }
+        previewNotSupported = true
+        try {
+          const result = await api.projects.deploy(deployPayload(), options)
+          sentLegacyPayload = true
+          return result
+        } catch (retryErr: any) {
+          if (retryErr instanceof ValidationError) {
+            throw err
+          }
+          throw retryErr
+        }
+      }
+    }
+
     // Without a plan, deletions are only visible in a dry-run deploy — which
     // validates the storage keys, so the uploads have to happen first.
     let fallbackDiff: ProjectDeployResponse | undefined
@@ -385,7 +459,7 @@ export default class Deploy extends AuthCommand {
       }
       this.style.actionStart('Verifying deployed state')
       try {
-        const { data } = await api.projects.deploy(deployPayload(), {
+        const { data } = await deployOrRetryLegacy({
           dryRun: true,
           scheduleOnDeploy,
           preserveResources,
@@ -399,16 +473,20 @@ export default class Deploy extends AuthCommand {
       }
     }
 
+    // The plan as `--preview` prints it, which is also what a terminal sees
+    // before it is asked. Without a plan, the dry run's findings are listed.
+    const renderPlan = (planToken?: string): string => formatPreview({
+      heading: { title: 'Deploy preview', projectName: project.name, accountName: account.name },
+      diff: plan?.diff ?? fallbackDiff?.diff ?? [],
+      project,
+      verbose,
+      pruneRelations,
+      rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
+      planToken,
+    })
+
     if (preview && !dryRun) {
-      this.log(formatPreview({
-        heading: { title: 'Deploy preview', projectName: project.name, accountName: account.name },
-        diff: plan?.diff ?? fallbackDiff?.diff ?? [],
-        project,
-        verbose,
-        pruneRelations,
-        rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
-        planToken: plan?.planToken,
-      }))
+      this.log(renderPlan(plan?.planToken))
       return
     }
 
@@ -423,11 +501,17 @@ export default class Deploy extends AuthCommand {
 
     // The one confirmation of the command: the plan is known by now, so the
     // prompt, the agent envelope and --dry-run all describe the deploy that is
-    // about to run rather than a deploy nobody has seen.
+    // about to run rather than a deploy nobody has seen. A terminal gets the
+    // plan rendered as `--preview` prints it, with the options under it; the
+    // plan lines are not repeated there since the overview names every
+    // resource. No plan-token footer: this run pins the token itself.
     await this.confirmOrAbort({
       command: 'deploy',
       description: 'Deploy project to Checkly',
       changes: [...optionLines, ...planLines],
+      ...plan !== undefined
+        ? { terminal: { plan: renderPlan, changes: optionLines }, question: 'Apply these changes?' }
+        : {},
       // The token rides along in the echoed command, so the confirming run
       // deploys the plan that was shown here and refuses a different one.
       flags: plan !== undefined ? { ...flags, 'plan-token': plan.planToken } : flags,
@@ -440,18 +524,15 @@ export default class Deploy extends AuthCommand {
 
     await uploadArtifacts()
 
-    const runDeploy = () => api.projects.deploy(
-      deployPayload(),
-      {
-        scheduleOnDeploy,
-        preserveResources,
-        pruneRelations,
-        planToken: plan?.planToken,
-        cancelInProgress,
-        onProgress: progress => this.style.actionStatus(`${progress}% complete`),
-        onStatus: message => this.style.actionStatus(message),
-      },
-    )
+    const runDeploy = () => deployOrRetryLegacy({
+      scheduleOnDeploy,
+      preserveResources,
+      pruneRelations,
+      planToken: plan?.planToken,
+      cancelInProgress,
+      onProgress: progress => this.style.actionStatus(`${progress}% complete`),
+      onStatus: message => this.style.actionStatus(message),
+    })
 
     try {
       this.style.actionStart('Deploying project')
@@ -463,7 +544,9 @@ export default class Deploy extends AuthCommand {
         // failing a pipeline because someone touched the account while the code
         // bundle was uploading, it plans again and deploys that. A pinned run,
         // or one a person confirmed, is refused instead — see the catch below.
-        if (!(err instanceof ProjectPlanStaleError) || !force || requestedPlanToken !== undefined) {
+        // A run that skipped the plan sent no token, so it cannot be told its
+        // plan went stale; the guard keeps it out of the re-plan regardless.
+        if (!(err instanceof ProjectPlanStaleError) || !force || requestedPlanToken !== undefined || skipPlan) {
           throw err
         }
         this.style.actionStatus('Your Checkly account changed; checking again and deploying the current plan')
@@ -471,6 +554,12 @@ export default class Deploy extends AuthCommand {
         ;({ data } = await runDeploy())
       }
       this.style.actionSuccess()
+      if (sentLegacyPayload) {
+        this.style.longWarning(
+          'This Checkly API does not know the fields the preview endpoint added, so the deploy was sent without them.',
+          'The next `checkly deploy` reports every Playwright check suite and every check with snapshots as changed.',
+        )
+      }
       if (output) {
         // The deploy response names every resource with its id; the plan the
         // deploy was confirmed against is where each one's deployed state is.

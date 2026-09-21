@@ -178,9 +178,11 @@ describe('formatPreview', () => {
     }
     const pruning = uncoloured(formatPreview({ diff: [check, relation], project, pruneRelations: true }))
     expect(pruning).toContain(
-      '  - alert-channel-subscription  unmanaged:7  relation not managed by this project, deleted by --prune-relations',
+      '  - alert-channel-subscription  unmanaged:7  relation on Check api-health not managed by this project, '
+      + 'deleted by --prune-relations',
     )
-    expect(pruning).not.toContain('api-health')
+    // The check itself gets no row: its only change is the relation.
+    expect(pruning).not.toContain('! Check')
     expect(pruning).toContain('1 relation pruned, 0 unchanged')
 
     const leaving = uncoloured(formatPreview({ diff: [check], project }))
