@@ -10,6 +10,7 @@ import { AgenticCheckCodegen, AgenticCheckResource } from '../agentic-check-code
 import { ApiCheckCodegen, ApiCheckResource } from '../api-check-codegen.js'
 import { CheckGroupCodegen, CheckGroupResource } from '../check-group-codegen.js'
 import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from '../incidentio-alert-channel-codegen.js'
+import { PlaywrightCheckCodegen, PlaywrightCheckResource } from '../playwright-check-codegen.js'
 import { Context, MASKED_VALUE } from '../internal/codegen/index.js'
 import { Session } from '../session.js'
 import { Program } from '../../sourcegen/index.js'
@@ -82,6 +83,31 @@ describe('generated code compiles', () => {
       locations: [],
       shouldFail: false,
     }
+    // A Playwright suite's props are unfolded from its test command; the
+    // engine is spelled as the construct's own `Engine` for the engines it
+    // offers and as a plain object otherwise. A command that cannot be
+    // unfolded leaves the required `playwrightConfigPath` out and is not
+    // expected to compile, so it is not part of this program.
+    const suite: PlaywrightCheckResource = {
+      id: 'suite',
+      checkType: 'PLAYWRIGHT',
+      name: 'Suite',
+      testCommand: 'npx playwright test --config playwright.config.ts --project chromium --grep \'@smoke|@checkout\'',
+      installCommand: 'npm ci',
+      engine: 'node',
+      engineVersion: '22',
+      locations: ['us-east-1'],
+      tags: ['e2e'],
+      frequency: 10,
+    }
+    const suiteOnUnknownEngine: PlaywrightCheckResource = {
+      id: 'suite-deno',
+      checkType: 'PLAYWRIGHT',
+      name: 'Suite on Deno',
+      testCommand: 'deno task e2e --config playwright.config.ts',
+      engine: 'deno',
+      engineVersion: '2',
+    }
     const group: CheckGroupResource = {
       id: 7,
       name: 'Group',
@@ -116,12 +142,14 @@ describe('generated code compiles', () => {
     new ApiCheckCodegen(program).gencode('api', apiCheck, context)
     new ApiCheckCodegen(program).gencode('sub-minute', subMinute, context)
     new AgenticCheckCodegen(program).gencode('agentic', agentic, context)
+    new PlaywrightCheckCodegen(program).gencode('suite', suite, context)
+    new PlaywrightCheckCodegen(program).gencode('suite-deno', suiteOnUnknownEngine, context)
     groupCodegen.gencode('group', group, context)
     channelCodegen.gencode('incidents', channel, context)
     await program.realize()
 
     const generated = program.paths.filter(file => file.endsWith('.ts'))
-    expect(generated.length).toBeGreaterThanOrEqual(5)
+    expect(generated.length).toBeGreaterThanOrEqual(7)
     // TypeScript reports file names with forward slashes on every platform.
     const generatedNames = new Set(generated.map(file => file.replaceAll('\\', '/')))
 

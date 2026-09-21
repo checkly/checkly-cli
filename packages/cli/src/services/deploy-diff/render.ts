@@ -238,7 +238,7 @@ export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] 
     )
   } catch (cause) {
     // A payload this CLI cannot shape like an import resource, a codegen that
-    // does not cover the type (a Playwright check suite), a script it cannot
+    // does not cover the type, a script it cannot
     // parse, a construct it refuses: the listing says what changed even when
     // the rendering cannot.
     const reason = cause instanceof UnshapeableError

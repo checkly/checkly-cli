@@ -497,7 +497,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     bundler.registerFiles(...files)
 
     const testCommand = PlaywrightCheck.buildTestCommand(
-      this.testCommand ?? this.#defaultTestCommand(),
+      this.testCommand ?? PlaywrightCheck.defaultTestCommand(),
       relativePlaywrightConfigPath,
       this.pwProjects,
       this.pwTags,
@@ -516,7 +516,8 @@ export class PlaywrightCheck extends RuntimeCheck {
     })
   }
 
-  #defaultTestCommand (): string {
+  /** The test command a suite runs when none is given: the package manager's `playwright test`. */
+  static defaultTestCommand (): string {
     return Session.packageManager.execCommand(['playwright', 'test']).unsafeDisplayCommand
   }
 

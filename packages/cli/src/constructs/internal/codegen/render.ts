@@ -67,7 +67,7 @@ export interface RenderConstructOptions {
  *
  * Errors from the codegens themselves are deliberately left as they are, the
  * way `commands/import/plan.ts` takes them: a resource type they do not cover
- * (a Playwright check suite) throws a plain `Error`, and a script they cannot
+ * throws a plain `Error`, and a script they cannot
  * parse throws `UnsupportedScriptError`. **So a caller rendering for a reader
  * catches `Error`, not only `ConstructRenderError`**, and treats any of them
  * as "show the coarser listing for this resource".

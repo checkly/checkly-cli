@@ -823,14 +823,14 @@ describe('renderResourceDiff', () => {
   it('falls back to a listing when the codegen throws, and never throws itself', () => {
     const { local } = scenario()
     const check = local.find(resource => resource.logicalId === 'api') as ResourceSync
-    check.payload = { ...check.payload, checkType: 'PLAYWRIGHT' }
+    check.payload = { ...check.payload, checkType: 'NOPE' }
     const lines = render(
       {
         type: 'check',
         logicalId: 'api',
         action: 'UPDATE',
         changes: [{ path: '/name', origin: 'code', before: 'API', after: 'Suite' }],
-        before: deployed({ checkType: 'PLAYWRIGHT' }),
+        before: deployed({ checkType: 'NOPE' }),
         redactions: [],
       },
       local,
@@ -1029,5 +1029,110 @@ describe('renderResourceDiff', () => {
       expect(text).not.toContain('could not render')
       expect(text).toContain('-  sslExpiry: true,')
     })
+  })
+})
+
+describe('renderResourceDiff for a Playwright check suite', () => {
+  /** The suite's deploy payload: the construct's props folded into the test command, plus the bundle keys. */
+  const localSuite = (name: string): ResourceSync[] => [{
+    type: 'check',
+    logicalId: 'suite',
+    member: true,
+    payload: {
+      checkType: 'PLAYWRIGHT',
+      name,
+      activated: true,
+      muted: false,
+      shouldFail: false,
+      locations: ['us-east-1'],
+      tags: [],
+      frequency: 10,
+      groupId: null,
+      alertSettings: {},
+      useGlobalAlertSettings: true,
+      runParallel: false,
+      doubleCheck: false,
+      testCommand: 'npx playwright test --config playwright.config.ts --project chromium',
+      installCommand: null,
+      engine: 'node',
+      engineVersion: '22',
+      codeBundlePath: 'bundles/suite.tar.gz',
+      codeBundleSha256: 'c'.repeat(64),
+      cacheHash: 'abc123',
+      playwrightVersion: '1.59.1',
+      browsers: ['chromium'],
+      workingDir: '.',
+    },
+  }]
+  /** The suite as Checkly has it: the import format the API projects for a PLAYWRIGHT row. */
+  const deployedSuite = (name: string): Record<string, unknown> => ({
+    id: 'suite-uuid',
+    checkType: 'PLAYWRIGHT',
+    name,
+    activated: true,
+    muted: false,
+    locations: ['us-east-1'],
+    tags: [],
+    frequency: 10,
+    testCommand: 'npx playwright test --config playwright.config.ts --project chromium',
+    installCommand: null,
+    cacheHash: 'abc123',
+    playwrightVersion: '1.59.1',
+    browsers: ['chromium'],
+    workingDir: '.',
+    // Strings on both sides, as the API projects a suite's engine.
+    engine: 'node',
+    engineVersion: '22',
+    alertChannelSubscriptions: [],
+    privateLocationAssignments: [],
+  })
+  const renderSuite = (changes: DiffEntry['changes'], name = 'Suite') => {
+    const local = localSuite(name)
+    const entry: DiffEntry = {
+      type: 'check',
+      logicalId: 'suite',
+      physicalId: 'suite-uuid',
+      action: 'UPDATE',
+      changes,
+      before: deployedSuite('Suite'),
+      redactions: [],
+    }
+    return plain(renderResourceDiff({
+      entry,
+      local: local[0],
+      localResources: local,
+      diff: [entry],
+      project,
+      ids: physicalIdsFromPlan([entry], local),
+      pruneRelations: false,
+    }))
+  }
+
+  it('renders a renamed suite as a PlaywrightCheck construct diff', () => {
+    const lines = renderSuite([{ path: '/name', origin: 'code', before: 'Suite', after: 'Renamed' }], 'Renamed')
+    const text = lines.join('\n')
+    expect(text).toContain('-  name: \'Suite\'')
+    expect(text).toContain('+  name: \'Renamed\'')
+    expect(text).toContain('   playwrightConfigPath: \'playwright.config.ts\'')
+    expect(text).toContain('     \'chromium\'')
+    // The engine is a string pair on both sides and never a changed line.
+    expect(text).not.toMatch(/^[-+] +engine/m)
+    expect(text).not.toContain('retryStrategy')
+    expect(text).not.toContain('could not render')
+    expect(lines.filter(line => /^[-+](?![-+]{2} )/.test(line))).toHaveLength(2)
+  })
+
+  it('prints a new code bundle as a line when nothing else changed', () => {
+    expect(renderSuite([{ path: '/codeBundle', origin: 'code', cause: 'code bundle' }])).toEqual(['changed: code bundle'])
+  })
+
+  it('prints a new code bundle as a note beside the construct diff', () => {
+    const lines = renderSuite([
+      { path: '/name', origin: 'code', before: 'Suite', after: 'Renamed' },
+      { path: '/codeBundle', origin: 'code', cause: 'code bundle' },
+      { path: '/playwrightVersion', origin: 'code', cause: 'playwright version', before: '1.59.1', after: '1.60.0' },
+    ], 'Renamed')
+    expect(lines.join('\n')).toContain('+  name: \'Renamed\'')
+    expect(lines.slice(-2)).toEqual(['/codeBundle: changed (code bundle)', '/playwrightVersion: changed (playwright version)'])
   })
 })

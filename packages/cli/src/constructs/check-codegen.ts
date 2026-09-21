@@ -10,6 +10,7 @@ import { FrequencyResource, valueForFrequency } from './frequency-codegen.js'
 import { HeartbeatMonitorCodegen, HeartbeatMonitorResource } from './heartbeat-monitor-codegen.js'
 import { valueForKeyValuePair } from './key-value-pair-codegen.js'
 import { MultiStepCheckCodegen, MultiStepCheckResource } from './multi-step-check-codegen.js'
+import { PlaywrightCheckCodegen, PlaywrightCheckResource } from './playwright-check-codegen.js'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen.js'
 import { TcpMonitorCodegen, TcpMonitorResource } from './tcp-monitor-codegen.js'
 import { UrlMonitorCodegen, UrlMonitorResource } from './url-monitor-codegen.js'
@@ -390,6 +391,18 @@ export function buildRuntimeCheckProps (
   }
 }
 
+/**
+ * Check types whose codegen exists for the deploy preview only, with the
+ * reason `checkly import` gives when it refuses one. A check of such a type
+ * is defined by an uploaded code bundle, which an import plan cannot hand
+ * back as source, so the import refuses the resource instead of generating
+ * a construct without its files (the API leaves such checks out of import
+ * plans as well).
+ */
+export const PREVIEW_ONLY_CHECK_TYPES: ReadonlyMap<string, string> = new Map([
+  ['PLAYWRIGHT', 'Playwright check suites cannot be imported: their code bundle cannot be unpacked as source.'],
+])
+
 export class CheckCodegen extends Codegen<CheckResource> {
   agenticCheckCodegen: AgenticCheckCodegen
   apiCheckCodegen: ApiCheckCodegen
@@ -397,6 +410,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
   checkGroupCodegen: CheckGroupCodegen
   heartbeatMonitorCodegen: HeartbeatMonitorCodegen
   multiStepCheckCodegen: MultiStepCheckCodegen
+  playwrightCheckCodegen: PlaywrightCheckCodegen
   tcpMonitorCodegen: TcpMonitorCodegen
   urlMonitorCodegen: UrlMonitorCodegen
   dnsMonitorCodegen: DnsMonitorCodegen
@@ -413,6 +427,7 @@ export class CheckCodegen extends Codegen<CheckResource> {
     this.checkGroupCodegen = new CheckGroupCodegen(program)
     this.heartbeatMonitorCodegen = new HeartbeatMonitorCodegen(program)
     this.multiStepCheckCodegen = new MultiStepCheckCodegen(program)
+    this.playwrightCheckCodegen = new PlaywrightCheckCodegen(program)
     this.tcpMonitorCodegen = new TcpMonitorCodegen(program)
     this.urlMonitorCodegen = new UrlMonitorCodegen(program)
     this.dnsMonitorCodegen = new DnsMonitorCodegen(program)
@@ -436,6 +451,8 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return this.tcpMonitorCodegen.describe(resource as TcpMonitorResource)
       case 'MULTI_STEP':
         return this.multiStepCheckCodegen.describe(resource as MultiStepCheckResource)
+      case 'PLAYWRIGHT':
+        return this.playwrightCheckCodegen.describe(resource as PlaywrightCheckResource)
       case 'HEARTBEAT':
         return this.heartbeatMonitorCodegen.describe(resource as HeartbeatMonitorResource)
       case 'URL':
@@ -473,6 +490,9 @@ export class CheckCodegen extends Codegen<CheckResource> {
         return
       case 'MULTI_STEP':
         this.multiStepCheckCodegen.gencode(logicalId, resource as MultiStepCheckResource, context)
+        return
+      case 'PLAYWRIGHT':
+        this.playwrightCheckCodegen.gencode(logicalId, resource as PlaywrightCheckResource, context)
         return
       case 'HEARTBEAT':
         this.heartbeatMonitorCodegen.gencode(logicalId, resource as HeartbeatMonitorResource, context)
