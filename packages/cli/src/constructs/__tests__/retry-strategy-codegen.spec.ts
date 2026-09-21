@@ -43,6 +43,14 @@ describe('valueForRetryStrategy', () => {
     expect(source).not.toContain('sameRegion')
   })
 
+  it('treats a null condition as unset, as a stored row spells it', () => {
+    const source = render({ type: 'FIXED', baseBackoffSeconds: 30, onlyOn: null as any })
+    expect(source).toContain('baseBackoffSeconds: 30')
+    expect(source).not.toContain('onlyOn')
+    expect(render({ type: 'FIXED', onlyOn: [] as any })).not.toContain('onlyOn')
+    expect(render({ type: 'FIXED', onlyOn: '' as any })).not.toContain('onlyOn')
+  })
+
   it('renders no retries for a missing strategy', () => {
     expect(render(null)).toContain('RetryStrategyBuilder.noRetries()')
   })

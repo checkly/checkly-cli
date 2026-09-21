@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import { applyLiteralEdits, detectStyle, evaluateLiteral, isPlainLiteral, resolvePath } from '../literal-edit.js'
+import { applyEdits } from '../apply-edits.js'
+import { detectStyle, evaluateLiteral, isPlainLiteral, resolvePath } from '../literal-edit.js'
 import { findConstructOptions, parseSource, WriteBackSkipped } from '../source-file.js'
 
 /**
@@ -17,7 +18,7 @@ function options (file: string, text: string, logicalId = 'api') {
 
 function edit (file: string, text: string, edits: { path: string[], value: unknown }[], logicalId = 'api') {
   const source = parseSource(file, text)
-  return applyLiteralEdits(source, findConstructOptions(source, logicalId, NAMES), edits)
+  return applyEdits(source, findConstructOptions(source, logicalId, NAMES), edits)
 }
 
 /** Whether the edited text still parses and holds `value` at `path`, checked with the same parser. */
