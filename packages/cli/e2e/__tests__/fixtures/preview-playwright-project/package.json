@@ -1,0 +1,8 @@
+{
+  "name": "preview-playwright-project",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
