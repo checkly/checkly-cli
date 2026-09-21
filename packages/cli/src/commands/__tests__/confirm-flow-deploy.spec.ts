@@ -68,6 +68,7 @@ import prompts from 'prompts'
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { buildConfirmCommand } from '../../helpers/command-preview.js'
 import * as api from '../../rest/api.js'
+import { ConflictError, ValidationError } from '../../rest/errors.js'
 import {
   type DiffEntry,
   ProjectPlanStaleError,
@@ -118,6 +119,7 @@ const DEFAULT_FLAGS = {
   'preview': false,
   'dry-run': false,
   'plan-token': undefined,
+  'skip-plan': false,
   'prune-relations': false,
   'output': false,
   'verbose': false,
@@ -133,6 +135,7 @@ const DEFAULT_FLAGS = {
 const DEFAULT_METADATA = {
   'preview': { setFromDefault: true },
   'dry-run': { setFromDefault: true },
+  'skip-plan': { setFromDefault: true },
   'prune-relations': { setFromDefault: true },
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
@@ -855,6 +858,179 @@ describe('deploy confirmation in a terminal', () => {
   })
 })
 
+describe('deploy --skip-plan', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    storeBundle.mockResolvedValue({ key: 'stored-bundle-key' })
+    vi.mocked(api.projects.deploy).mockResolvedValue({ data: { project: {} as any, diff: [] } })
+    declareProject()
+  })
+
+  afterEach(() => {
+    Session.reset()
+  })
+
+  it('asks with the deletions the dry run found, without a plan', async () => {
+    vi.mocked(api.projects.deploy).mockResolvedValue({
+      data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
+    })
+    const ctx = createCommandContext({ 'skip-plan': true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.preview).not.toHaveBeenCalled()
+    expect(ctx.style.actionStart).not.toHaveBeenCalledWith('Checking what would change')
+    const printed = ctx.logged.join('\n')
+    expect(printed).not.toContain('Deploy preview')
+    expect(printed).toContain('  - Deploy project "My Project" to account "Test Account"')
+    expect(printed).toContain('  - Permanently delete Check: gone, losing its run history')
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ message: 'Proceed?' })
+
+    // The dry run that found the deletion, then the confirmed deploy, neither
+    // pinned to a token.
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ dryRun: true })
+    const confirmed = vi.mocked(api.projects.deploy).mock.calls[1][1]
+    expect(confirmed?.dryRun).toBeFalsy()
+    expect(confirmed?.planToken).toBeUndefined()
+  })
+
+  it('deploys straight away with --force', async () => {
+    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.preview).not.toHaveBeenCalled()
+    expect(prompts).not.toHaveBeenCalled()
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: undefined })
+  })
+
+  it('sends the older payload once when the API rejects the full one, and says so', async () => {
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValueOnce(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
+      .mockResolvedValueOnce({ data: { project: {} as any, diff: [] } })
+    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    const [first] = vi.mocked(api.projects.deploy).mock.calls[0]
+    const [second] = vi.mocked(api.projects.deploy).mock.calls[1]
+    expect(first.resources[0]).toHaveProperty('sourceFile')
+    expect(second.resources[0]).not.toHaveProperty('sourceFile')
+    expect(ctx.style.longWarning).toHaveBeenCalledWith(
+      expect.stringContaining('does not know the fields the preview endpoint added'),
+      expect.any(String),
+    )
+  })
+
+  it('treats a raw 400 naming such a field the same way, and surfaces the first refusal when both fail', async () => {
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    const first = Object.assign(
+      new Error('"resources[0].sourceFile" is not allowed'),
+      { response: { status: 400, data: { message: '"resources[0].sourceFile" is not allowed' } } },
+    )
+    const second = new ValidationError({ statusCode: 400, error: 'Bad Request', message: 'something else' })
+    vi.mocked(api.projects.deploy).mockRejectedValueOnce(first).mockRejectedValueOnce(second)
+    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    expect(vi.mocked(api.projects.deploy).mock.calls[1][0].resources[0]).not.toHaveProperty('sourceFile')
+    expect(ctx.style.longError).toHaveBeenCalledWith(expect.any(String), first)
+    expect(ctx.style.longWarning).not.toHaveBeenCalled()
+  })
+
+  it('does not retry a refusal that is not about an unknown field', async () => {
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    for (const message of ['"frequency" must be a number', '"resources[0].sourceFile" must be a string']) {
+      vi.mocked(api.projects.deploy).mockClear()
+      vi.mocked(api.projects.deploy)
+        .mockRejectedValue(new ValidationError({ statusCode: 400, error: 'Bad Request', message }))
+      const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+      expect(api.projects.deploy).toHaveBeenCalledOnce()
+    }
+  })
+
+  it('keeps a second failure that is not a refusal, and retries a plan-less run without the flag', async () => {
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    const refusal = new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' })
+    const conflict = new ConflictError({ statusCode: 409, error: 'Conflict', message: 'in progress' })
+    vi.mocked(api.projects.deploy).mockRejectedValueOnce(refusal).mockRejectedValueOnce(conflict)
+    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    expect(ctx.style.longError).toHaveBeenCalledWith(expect.stringContaining('in progress'), expect.anything())
+
+    // A preview that failed for a reason other than a missing endpoint leaves
+    // the run equally unsure of the API, so it gets the same retry.
+    vi.mocked(api.projects.deploy).mockClear()
+    vi.mocked(api.projects.preview).mockRejectedValue(new Error('gateway timeout'))
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValueOnce(refusal)
+      .mockResolvedValueOnce({ data: { project: {} as any, diff: [] } })
+    const unplanned = createCommandContext({ force: true })
+    await Deploy.prototype.run.call(unplanned as any)
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    expect(unplanned.style.longWarning).toHaveBeenCalledWith(
+      expect.stringContaining('does not know the fields the preview endpoint added'),
+      expect.any(String),
+    )
+  })
+
+  it('warns after the deploy, not before a prompt, when the dry run already fell back', async () => {
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValueOnce(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
+      .mockResolvedValue({ data: { project: {} as any, diff: [] } })
+    const ctx = createCommandContext({ 'skip-plan': true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    // Dry run, its retry, then the confirmed deploy already in the older form.
+    expect(api.projects.deploy).toHaveBeenCalledTimes(3)
+    expect(vi.mocked(api.projects.deploy).mock.calls[2][0].resources[0]).not.toHaveProperty('sourceFile')
+    expect(ctx.style.longWarning).toHaveBeenCalledOnce()
+    expect(vi.mocked(ctx.style.longWarning).mock.invocationCallOrder[0])
+      .toBeGreaterThan(vi.mocked(prompts).mock.invocationCallOrder[0])
+  })
+
+  it('does not retry a planned deploy', async () => {
+    planResolves()
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValue(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
+    const ctx = createCommandContext({ force: true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('is --skip-preview too, and cannot be combined with a plan feature', async () => {
+    const { flags } = await Parser.parse(['--skip-preview'], { flags: Deploy.flags, strict: true })
+    expect(flags['skip-plan']).toBe(true)
+
+    for (const argv of [['--skip-plan', '--preview'], ['--skip-plan', '--dry-run'], ['--skip-plan', '--plan-token', PLAN_TOKEN], ['--skip-plan', '--prune-relations']]) {
+      await expect(Parser.parse(argv, { flags: Deploy.flags, strict: true }), argv.join(' '))
+        .rejects.toThrow(/cannot also be provided/)
+    }
+  })
+})
+
 describe('deploy confirmCommand', () => {
   it('echoes only the flags the user typed', async () => {
     expect(await confirmCommandFor([])).toBe('checkly deploy --force')
@@ -874,6 +1050,7 @@ describe('deploy confirmCommand', () => {
       ['--verbose'],
       ['--prune-relations'],
       ['--plan-token', PLAN_TOKEN],
+      ['--skip-plan'],
     ]
     for (const argv of argvs) {
       const confirmCommand = await confirmCommandFor(argv)
