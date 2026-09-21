@@ -203,7 +203,12 @@ export function buildHelperValue (edit: HelperEdit): { value: Value, imports: st
         break
       }
       case 'alertEscalation':
-        // The column holds `{}` for a check that never set a policy of its own.
+        // A v2 group on the global policy spells it as the word 'global';
+        // the column holds `{}` for a check that never set a policy of its own.
+        if (edit.value === 'global') {
+          value = new StringValue('global')
+          break
+        }
         if (!hasEscalationPolicy(edit.value)) {
           throw missing()
         }

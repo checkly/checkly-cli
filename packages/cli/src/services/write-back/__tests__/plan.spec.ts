@@ -19,7 +19,11 @@ import { CheckGroupV1 } from '../../../constructs/check-group-v1.js'
 import { GrpcMonitor } from '../../../constructs/grpc-monitor.js'
 import { Monitor } from '../../../constructs/monitor.js'
 import * as literalEdit from '../literal-edit.js'
-import { applyWriteBack, type ConstructClass, planWriteBack, RULES_BY_CLASS } from '../plan.js'
+import { applyWriteBack, type ConstructClass, planWriteBack, type Rule, RULES_BY_CLASS } from '../plan.js'
+import { AGENTIC_CHECK_OMITTED_PROPS } from '../../../constructs/internal/agentic-check-defaults.js'
+import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../../constructs/playwright-check-codegen.js'
+import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
+import { PlaywrightCheck } from '../../../constructs/playwright-check.js'
 
 vi.mock('../literal-edit.js', async importOriginal => {
   const original = await importOriginal<typeof import('../literal-edit.js')>()
@@ -290,7 +294,9 @@ describe('planWriteBack', () => {
           { path: '/frequency', origin: 'remote', before: 10, after: 0 },
           { path: '/frequencyOffset', origin: 'remote', after: 30 },
           { path: '/groupId', origin: 'remote', after: 7 },
-          { path: '/retryStrategy', origin: 'remote', before: null, after: { type: 'FIXED' } },
+          // A strategy where there was none: the leaf became a subtree.
+          { path: '/retryStrategy', origin: 'remote', before: null },
+          { path: '/retryStrategy/type', origin: 'remote', after: 'FIXED' },
           { path: '/script', origin: 'remote', before: 'a', after: 'console.log(1)' },
           { path: '/environmentVariables', origin: 'remote', before: [], after: [{ key: 'TOKEN', value: { $masked: 'changed' }, locked: true }], secret: true },
           { path: '/request/headers', origin: 'remote', before: [], after: [{ key: 'auth', value: '', locked: true }] },
@@ -304,16 +310,19 @@ describe('planWriteBack', () => {
       project,
       cwd: dir,
     })
-    // The long description came back in full in `before`, so it is the one thing written.
-    expect(plan.applied.map(line => line.property)).toEqual(['description'])
+    // The long description came back in full in `before`; the sub-minute
+    // schedule and the strategy are spelled with their helpers.
+    expect(plan.applied.map(line => [line.property, line.rendered])).toEqual([
+      ['frequency', 'Frequency.EVERY_30S'],
+      ['description', `'${'x'.repeat(300)}'`],
+      ['retryStrategy', 'RetryStrategyBuilder.fixedStrategy({})'],
+    ])
+    expect(plan.imports).toEqual([{ file: 'api.check.ts', names: ['RetryStrategyBuilder'] }])
     expect(plan.skipped).toEqual([
-      'check api /frequencyOffset: a sub-minute schedule; use Frequency.EVERY_*S',
       'check api /groupId: references another resource',
-      'check api /retryStrategy: spelled by the CLI, not a construct property',
       'check api /script: not a property this tool can update',
       'check api /environmentVariables: a secret changed; Checkly does not return its value',
       'check api /codeBundle: a new code bundle: content, not a property',
-      'check api frequency: a sub-minute schedule; use Frequency.EVERY_*S',
       'check api request.headers: contains a locked or secret value that Checkly does not return',
       'check api request.basicAuth: contains a locked or secret value that Checkly does not return',
       'check api request.url: Checkly reported two different current values',
@@ -440,7 +449,7 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 4
       cwd: dir,
     })
     expect(plan.skipped).toEqual([
-      'check-group grp /runParallel: spelled by the CLI, not a construct property',
+      'check-group grp /runParallel: not a property this tool can update',
       'check tcp /request/hostname: not a property this tool can update',
     ])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
@@ -551,7 +560,7 @@ new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: unit, grace:
     }
   })
 
-  it('refuses a value carrying a marker, and a property the code spells as a helper', async () => {
+  it('refuses a value carrying a marker, and rewrites a property the code spells as a helper', async () => {
     await declare('api.check.ts', API_SOURCE, () => {
       new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
       new ApiCheck('other', { name: 'Other', request: { url: 'https://example.com/other', method: 'GET' } })
@@ -571,11 +580,315 @@ new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: unit, grace:
       project,
       cwd: dir,
     })
+    expect(plan.applied).toMatchObject([
+      { logicalId: 'other', property: 'frequency', previous: 'Frequency.EVERY_5M', rendered: 'Frequency.EVERY_10M' },
+    ])
+    expect(plan.imports).toEqual([])
+    expect(plan.skipped).toEqual(['check api request.headers: contains a value Checkly does not return in full'])
+  })
+
+  it('writes helper-spelled properties the way checkly import does, and imports their helpers once per file', async () => {
+    await declare('helpers.check.ts', `import { ApiCheck, UrlMonitor } from 'checkly/constructs'
+
+new ApiCheck('api', {
+  name: 'API',
+  frequency: 10,
+  request: {
+    url: 'https://example.com',
+    method: 'GET',
+  },
+})
+
+new UrlMonitor('url', {
+  name: 'Url',
+  frequency: 10,
+  request: { url: 'https://example.com', assertions: [] },
+})
+`, () => {
+      new ApiCheck('api', { name: 'API', frequency: 10, request: { url: 'https://example.com', method: 'GET' } })
+      new UrlMonitor('url', { name: 'Url', frequency: 10, request: { url: 'https://example.com' } })
+    })
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({
+          changes: [
+            { path: '/frequency', origin: 'remote', before: 10, after: 0 },
+            { path: '/frequencyOffset', origin: 'remote', after: 30 },
+            { path: '/retryStrategy', origin: 'remote', before: null },
+            { path: '/retryStrategy/type', origin: 'remote', after: 'FIXED' },
+            { path: '/retryStrategy/maxRetries', origin: 'remote', after: 3 },
+            { path: '/alertSettings/runBasedEscalation/failedRunThreshold', origin: 'remote', before: 1, after: 3 },
+            { path: '/useGlobalAlertSettings', origin: 'remote', before: true, after: false },
+            { path: '/request/assertions/0/target', origin: 'remote', before: '200', after: '201' },
+          ],
+          before: {
+            ...apiEntry().before,
+            frequency: 0,
+            frequencyOffset: 30,
+            retryStrategy: { type: 'FIXED', maxRetries: 3, baseBackoffSeconds: 60, maxDurationSeconds: 600, sameRegion: true, onlyOn: null },
+            alertSettings: {
+              escalationType: 'RUN_BASED',
+              runBasedEscalation: { failedRunThreshold: 3 },
+              reminders: { amount: 0, interval: 5 },
+              parallelRunFailureThreshold: { enabled: false, percentage: 10 },
+            },
+            useGlobalAlertSettings: false,
+            request: {
+              ...apiEntry().before!.request as object,
+              assertions: [{ source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '201', regex: null }],
+            },
+          },
+        }),
+        {
+          type: 'check',
+          logicalId: 'url',
+          action: 'UPDATE',
+          changes: [
+            { path: '/frequency', origin: 'remote', before: 10, after: 5 },
+            { path: '/request/assertions/0/source', origin: 'remote', after: 'STATUS_CODE' },
+            { path: '/request/assertions/0/comparison', origin: 'remote', after: 'LESS_THAN' },
+            { path: '/request/assertions/0/target', origin: 'remote', after: '500' },
+          ],
+          before: {
+            checkType: 'URL',
+            name: 'Url',
+            frequency: 5,
+            frequencyOffset: 17,
+            request: { url: 'https://example.com', assertions: [{ source: 'STATUS_CODE', comparison: 'LESS_THAN', target: '500', property: '', regex: null }] },
+          },
+          redactions: [],
+        },
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
+      ['api', 'frequency', 'Frequency.EVERY_30S'],
+      ['api', 'retryStrategy', `RetryStrategyBuilder.fixedStrategy({
+    maxRetries: 3,
+  })`],
+      ['api', 'alertEscalationPolicy', `AlertEscalationBuilder.runBasedEscalation(3, {
+    amount: 0,
+    interval: 5,
+  }, {
+    enabled: false,
+    percentage: 10,
+  })`],
+      ['api', 'request.assertions', `[
+      AssertionBuilder.statusCode().equals(201),
+    ]`],
+      // A whole-minute schedule stays a number where the code spells one.
+      ['url', 'frequency', '5'],
+      ['url', 'request.assertions', '[UrlAssertionBuilder.statusCode().lessThan(500)]'],
+    ])
+    expect(plan.imports).toEqual([{
+      file: 'helpers.check.ts',
+      names: ['Frequency', 'RetryStrategyBuilder', 'AlertEscalationBuilder', 'AssertionBuilder', 'UrlAssertionBuilder'],
+    }])
+    expect(plan.files[0].text).toContain(
+      'import { ApiCheck, UrlMonitor, Frequency, RetryStrategyBuilder, AlertEscalationBuilder, AssertionBuilder, UrlAssertionBuilder } from \'checkly/constructs\'',
+    )
+  })
+
+  it('inserts a missing whole-minute frequency as a constant, and refuses an offset on a whole-minute schedule', async () => {
+    await declare('api.check.ts', `import { ApiCheck } from 'checkly/constructs'\nnew ApiCheck('api', { name: 'API' })\n`, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    const plan = await planWriteBack({
+      diff: [apiEntry({
+        changes: [
+          { path: '/frequency', origin: 'remote', before: 5, after: 10 },
+          { path: '/frequencyOffset', origin: 'remote', before: 3, after: 17 },
+        ],
+        before: { ...apiEntry().before, frequency: 10, frequencyOffset: 17 },
+      })],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual(['check api /frequencyOffset: the offset of a whole-minute schedule is assigned by Checkly'])
+    expect(plan.applied.map(line => [line.property, line.rendered])).toEqual([['frequency', 'Frequency.EVERY_10M']])
+    expect(plan.files[0].text).toBe(`import { ApiCheck, Frequency } from 'checkly/constructs'\nnew ApiCheck('api', { name: 'API', frequency: Frequency.EVERY_10M })\n`)
+  })
+
+  it('refuses a retry strategy beside doubleCheck, one the CLI respelled, and one built from a variable', async () => {
+    await declare('retries.check.ts', `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+const retries = 2
+new ApiCheck('a', { name: 'A', doubleCheck: true })
+new ApiCheck('b', { name: 'B', retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: retries }) })
+new ApiCheck('c', { name: 'C' })
+`, () => {
+      for (const id of ['a', 'b', 'c']) {
+        new ApiCheck(id, { name: id.toUpperCase(), request: { url: 'https://example.com', method: 'GET' } })
+      }
+    })
+    const strategy = { type: 'FIXED', maxRetries: 3 }
+    const changes: DiffEntry['changes'] = [{ path: '/retryStrategy/maxRetries', origin: 'remote', before: 2, after: 3 }]
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({ logicalId: 'a', changes, before: { checkType: 'API', name: 'A', retryStrategy: strategy } }),
+        apiEntry({ logicalId: 'b', changes, before: { checkType: 'API', name: 'B', retryStrategy: strategy } }),
+        apiEntry({
+          logicalId: 'c',
+          changes: [...changes, { path: '/doubleCheck', origin: 'code', before: true }],
+          before: { checkType: 'API', name: 'C', retryStrategy: strategy },
+        }),
+      ],
+      project,
+      cwd: dir,
+    })
     expect(plan.applied).toEqual([])
     expect(plan.skipped).toEqual([
-      'check api request.headers: contains a value Checkly does not return in full',
-      'check other frequency: frequency is Frequency.EVERY_5M, not a plain literal',
+      'check c retryStrategy: your code also changed it since the last deploy; merge by hand',
+      'check a retryStrategy: doubleCheck is set in the code; replace it with retryStrategy by hand',
+      'check b retryStrategy: retryStrategy is a function call, not a literal or a RetryStrategyBuilder expression',
     ])
+  })
+
+  it('writes alert policies for checks and groups, and the word global for a v2 group only', async () => {
+    await declare('alerts.check.ts', `import { ApiCheck, CheckGroupV1, CheckGroupV2, AlertEscalationBuilder } from 'checkly/constructs'
+new ApiCheck('api', { name: 'API', alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1) })
+new ApiCheck('gone', { name: 'Gone', alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1) })
+new ApiCheck('none', { name: 'None' })
+new CheckGroupV2('grp', { name: 'Group', alertEscalationPolicy: AlertEscalationBuilder.timeBasedEscalation(5) })
+new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBuilder.timeBasedEscalation(5) })
+`, () => {
+      for (const id of ['api', 'gone', 'none']) {
+        new ApiCheck(id, { name: id, request: { url: 'https://example.com', method: 'GET' } })
+      }
+      new CheckGroupV2('grp', { name: 'Group' })
+      new CheckGroupV1('own', { name: 'Own' })
+    })
+    const policy = (escalationType: string, threshold: object) => ({
+      escalationType,
+      ...threshold,
+      reminders: { amount: 2, interval: 10 },
+      parallelRunFailureThreshold: { enabled: false, percentage: 10 },
+    })
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({
+          changes: [
+            { path: '/alertSettings/escalationType', origin: 'remote', before: 'RUN_BASED', after: 'TIME_BASED' },
+            // The policy gained reminders: a null leaf became a subtree.
+            { path: '/alertSettings/reminders', origin: 'remote', before: null },
+            { path: '/alertSettings/reminders/amount', origin: 'remote', after: 2 },
+            { path: '/alertSettings/reminders/interval', origin: 'remote', after: 10 },
+          ],
+          before: { checkType: 'API', name: 'API', alertSettings: policy('TIME_BASED', { timeBasedEscalation: { minutesFailingThreshold: 15 } }), useGlobalAlertSettings: false },
+        }),
+        apiEntry({
+          logicalId: 'gone',
+          changes: [{ path: '/useGlobalAlertSettings', origin: 'remote', before: false, after: true }],
+          before: { checkType: 'API', name: 'Gone', alertSettings: {}, useGlobalAlertSettings: true },
+        }),
+        apiEntry({
+          logicalId: 'none',
+          changes: [{ path: '/useGlobalAlertSettings', origin: 'remote', before: true, after: false }],
+          before: { checkType: 'API', name: 'None', alertSettings: {}, useGlobalAlertSettings: false },
+        }),
+        {
+          type: 'check-group',
+          logicalId: 'grp',
+          physicalId: 1,
+          action: 'UPDATE',
+          changes: [{ path: '/useGlobalAlertSettings', origin: 'remote', before: false, after: true }],
+          before: { id: 1, name: 'Group', alertSettings: {}, useGlobalAlertSettings: true },
+          redactions: [],
+        },
+        {
+          type: 'check-group',
+          logicalId: 'own',
+          physicalId: 2,
+          action: 'UPDATE',
+          changes: [{ path: '/alertSettings/escalationType', origin: 'remote', before: 'TIME_BASED' }],
+          before: { id: 2, name: 'Own', alertSettings: {}, useGlobalAlertSettings: false },
+          redactions: [],
+        },
+      ],
+      project,
+      cwd: dir,
+    })
+    // A check on the global policy is refused as soon as the change is seen; the write-back is not even offered for it.
+    expect(plan.skipped).toEqual([
+      'check gone /useGlobalAlertSettings: Checkly uses the global alert policy; remove alertEscalationPolicy from the code by hand',
+      'check none alertEscalationPolicy: Checkly did not report an alert policy',
+      'check-group own alertEscalationPolicy: the group has no alert policy of its own; remove alertEscalationPolicy from the code by hand',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.rendered])).toEqual([
+      ['api', 'AlertEscalationBuilder.timeBasedEscalation(15, { amount: 2, interval: 10 }, { enabled: false, percentage: 10 })'],
+      ['grp', '\'global\''],
+    ])
+    expect(plan.imports).toEqual([])
+  })
+
+  it('refuses an assertion source this CLI cannot spell, and a list the code also changed', async () => {
+    await declare('api.check.ts', API_SOURCE, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+      new ApiCheck('other', { name: 'Other', request: { url: 'https://example.com/other', method: 'GET' } })
+    })
+    const assertion = (source: string) => ({ source, comparison: 'EQUALS', target: 'x', property: '', regex: null })
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({
+          changes: [{ path: '/request/assertions/0/source', origin: 'remote', before: 'STATUS_CODE', after: 'MOOD' }],
+          before: { ...apiEntry().before, request: { url: 'https://example.com', method: 'GET', assertions: [assertion('MOOD')] } },
+        }),
+        apiEntry({
+          logicalId: 'other',
+          changes: [
+            { path: '/request/assertions/0/target', origin: 'remote', before: 'y', after: 'x' },
+            { path: '/request/assertions/1/target', origin: 'code', after: 'z' },
+          ],
+          before: { checkType: 'API', name: 'Other', request: { url: 'https://example.com/other', method: 'GET', assertions: [assertion('TEXT_BODY')] } },
+        }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.applied).toEqual([])
+    // The list the code changed is refused while planning; the source the
+    // codegen refuses only once the file is edited.
+    expect(plan.skipped).toEqual([
+      'check other request.assertions: your code also changed it since the last deploy; merge by hand',
+      'check api request.assertions: Checkly reported a value this CLI cannot spell: Unsupported assertion source MOOD',
+    ])
+  })
+
+  it('gives each class the props its codegen does not omit, and frequency and a policy to every check', () => {
+    const has = (rules: readonly Rule[], target: string) => rules.some(rule => rule.target.join('.') === target && rule.companion === undefined)
+    for (const [cls, rules] of RULES_BY_CLASS) {
+      const isGroup = cls === CheckGroupV1 || cls === CheckGroupV2
+      const omitted: readonly string[] = cls === AgenticCheck
+        ? AGENTIC_CHECK_OMITTED_PROPS
+        : cls === PlaywrightCheck ? PLAYWRIGHT_CHECK_OMITTED_PROPS : []
+      for (const prop of omitted) {
+        expect(has(rules, prop), `${cls.name} ${prop}`).toBe(false)
+      }
+      for (const prop of ['retryStrategy', 'shouldFail']) {
+        expect(has(rules, prop), `${cls.name} ${prop}`).toBe(!omitted.includes(prop) && !(isGroup && prop === 'shouldFail'))
+      }
+      expect(has(rules, 'alertEscalationPolicy'), `${cls.name} alertEscalationPolicy`).toBe(true)
+      expect(has(rules, 'frequency'), `${cls.name} frequency`).toBe(!isGroup)
+    }
+  })
+
+  it('accepts a leaf that became a subtree, but not an object the account no longer holds', async () => {
+    await declare('api.check.ts', API_SOURCE, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    const header = { key: 'x', value: '1', locked: false }
+    const plan = await planWriteBack({
+      diff: [apiEntry({
+        // The account says the header is gone, `before` still holds it: the two disagree.
+        changes: [{ path: '/request/headers/0', origin: 'remote', before: header }],
+        before: { ...apiEntry().before, request: { url: 'https://example.com', method: 'GET', headers: [header] } },
+      })],
+      project,
+      cwd: dir,
+    })
+    expect(plan.applied).toEqual([])
+    expect(plan.skipped).toEqual(['check api request.headers: Checkly reported two different current values'])
   })
 
   it('reports nothing for a change the code already holds', async () => {
