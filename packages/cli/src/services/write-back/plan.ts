@@ -24,7 +24,7 @@ import { UrlMonitor } from '../../constructs/url-monitor.js'
 import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 import { blankRedacted, nodeAt, pointerSegments, UnshapeableError } from '../deploy-diff/import-shape.js'
 import { isShapeChangePath } from '../deploy-diff/shape-changes.js'
-import { applyLiteralEdits, evaluateLiteral, type LiteralEdit, resolvePath } from './literal-edit.js'
+import { applyEdits, readsBack, type SourceEdit } from './apply-edits.js'
 import { findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
 
 /**
@@ -371,7 +371,7 @@ interface FileWork {
   /** The names `checkly/constructs` exports for the construct's class. */
   names: ReadonlySet<string>
   context: EntryContext
-  edits: (LiteralEdit & { replacesLocalEdit: boolean, group?: string })[]
+  edits: (SourceEdit & { replacesLocalEdit: boolean, group?: string })[]
 }
 
 /**
@@ -492,7 +492,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
         // A member of a group the splicer refuses takes the rest of its group
         // with it: a period without its unit would mean something else.
         let attempt = edits
-        let result = applyLiteralEdits(source, options, attempt)
+        let result = applyEdits(source, options, attempt)
         for (;;) {
           const refused = new Set(result.skipped.map(skip => attempt.find(edit => edit.path === skip.path)?.group)
             .filter((group): group is string => group !== undefined))
@@ -505,7 +505,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
             context.skip(`written together with ${attempt.filter(e => e.group === edit.group && e !== edit).map(e => e.path.join('.')).join(', ')}`, edit.path.join('.'))
           }
           attempt = attempt.filter(edit => !dropped.includes(edit))
-          result = applyLiteralEdits(source, options, attempt)
+          result = applyEdits(source, options, attempt)
         }
         for (const skip of result.skipped) {
           context.skip(skip.reason, skip.path.join('.'))
@@ -518,8 +518,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
         // user's source is not the place to find out.
         const reparsed = findConstructOptions(parseSource(filePath, result.text), logicalId, names)
         for (const edit of result.applied) {
-          const resolution = resolvePath(reparsed, edit.path)
-          if (resolution.kind !== 'found' || !isDeepStrictEqual(evaluateLiteral(resolution.node), edit.value)) {
+          if (!readsBack(reparsed, edit)) {
             throw new WriteBackSkipped(`the edited file did not read back as expected at ${edit.path.join('.')}`)
           }
         }

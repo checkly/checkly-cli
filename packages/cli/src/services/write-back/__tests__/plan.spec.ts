@@ -578,6 +578,25 @@ new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: unit, grace:
     ])
   })
 
+  it('reports nothing for a change the code already holds', async () => {
+    // The code moved to the same value Checkly holds (origin 'both'): there
+    // is nothing to write and nothing to edit by hand.
+    await declare('api.check.ts', API_SOURCE, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    const plan = await planWriteBack({
+      diff: [apiEntry({
+        before: { ...apiEntry().before, name: 'API' },
+        changes: [{ path: '/name', origin: 'both', before: 'Old', after: 'API', remote: { before: 'Old', after: 'API' } }],
+      })],
+      project,
+      cwd: dir,
+    })
+    expect(plan.applied).toEqual([])
+    expect(plan.skipped).toEqual([])
+    expect(plan.files).toEqual([])
+  })
+
   it('edits the constructs it can find in a file and skips the one it cannot', async () => {
     await declare('api.check.ts', `import { ApiCheck } from 'checkly/constructs'
 const opts = { name: 'Other' }
