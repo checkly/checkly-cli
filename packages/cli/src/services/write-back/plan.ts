@@ -135,7 +135,7 @@ export interface Rule {
   group?: string
   /** The helper the construct spells the property with; the value is written as its expression. */
   helper?:
-    | { kind: 'frequency' | 'retryStrategy' }
+    | { kind: 'frequency' | 'retryStrategy' | 'date' }
     | { kind: 'alertEscalation', policy: AlertPolicyHolder }
     | { kind: 'assertions', builder: AssertionBuilderName }
   /** Further pointers whose `before` values the expression needs (`frequencyOffset` beside `frequency`). */
@@ -378,14 +378,21 @@ const DASHBOARD_RULES: Rule[] = [
   ...DASHBOARD_KEYS.map(key => identity(key)), ...DASHBOARD_SET_KEYS.map(set),
   refusing(['customCSS'], 'a stylesheet, not a property; edit the file or the content by hand'),
 ]
-// The repeat settings only mean something together: an interval written
-// without its unit would be a different schedule.
+// The dates are `Date` objects in the code, written as `new Date('<iso>')`
+// from the ISO string the account reports. The repeat settings only mean
+// something together: an interval written without its unit, or without
+// the date the repetition ends on, would be a different schedule.
 const MAINTENANCE_WINDOW_KEYS = ['name'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
 const MAINTENANCE_WINDOW_SET_KEYS = ['tags'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const MAINTENANCE_WINDOW_DATE_KEYS = ['startsAt', 'endsAt'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
 const REPEAT_KEYS = ['repeatInterval', 'repeatUnit'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const REPEAT_DATE_KEYS = ['repeatEndsAt'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const date = (key: string): Rule => ({ ...identity(key), helper: { kind: 'date' } })
 const MAINTENANCE_WINDOW_RULES: Rule[] = [
   ...MAINTENANCE_WINDOW_KEYS.map(key => identity(key)), ...MAINTENANCE_WINDOW_SET_KEYS.map(set),
+  ...MAINTENANCE_WINDOW_DATE_KEYS.map(date),
   ...REPEAT_KEYS.map(key => ({ ...identity(key), group: 'repeat' })),
+  ...REPEAT_DATE_KEYS.map(key => ({ ...date(key), group: 'repeat' })),
 ]
 // A v2 status page's cards hold references to its services.
 const STATUS_PAGE_KEYS = [
@@ -457,7 +464,10 @@ const MSTEAMS_WRITTEN = [...ALERT_CHANNEL_KEYS, ...MSTEAMS_KEYS, 'payload'] as c
 const TELEGRAM_WRITTEN = [...ALERT_CHANNEL_KEYS, ...TELEGRAM_KEYS] as const
 const INCIDENTIO_WRITTEN = [...ALERT_CHANNEL_KEYS, ...INCIDENTIO_KEYS, 'payload'] as const
 const DASHBOARD_WRITTEN = [...DASHBOARD_KEYS, ...DASHBOARD_SET_KEYS] as const
-const MAINTENANCE_WINDOW_WRITTEN = [...MAINTENANCE_WINDOW_KEYS, ...MAINTENANCE_WINDOW_SET_KEYS, ...REPEAT_KEYS] as const
+const MAINTENANCE_WINDOW_WRITTEN = [
+  ...MAINTENANCE_WINDOW_KEYS, ...MAINTENANCE_WINDOW_SET_KEYS, ...MAINTENANCE_WINDOW_DATE_KEYS,
+  ...REPEAT_KEYS, ...REPEAT_DATE_KEYS,
+] as const
 const STATUS_PAGE_V3_WRITTEN = [...STATUS_PAGE_V3_KEYS, 'themeColors'] as const
 const COMPONENT_WRITTEN = [...COMPONENT_KEYS, ...COMPONENT_CONFIGURATION_KEYS] as const
 const AUTOMATION_RULE_WRITTEN = [...AUTOMATION_RULE_KEYS, ...AUTOMATION_RULE_SET_KEYS, 'coolDownMinutes'] as const
@@ -491,8 +501,6 @@ type TelegramDerivedKey = 'chatId' | 'apiKey' | 'messageThreadId' | 'payload'
 type IncidentioDerivedKey = 'apiKey'
 /** A dashboard's stylesheet, a file or content the bundle sends as one string. */
 type StylesheetKey = 'customCSS'
-/** A maintenance window's dates, `Date` objects in the code. */
-type DateKey = 'startsAt' | 'endsAt' | 'repeatEndsAt'
 /** A status page prop that names other status page resources. */
 type StatusPageReferenceKey = 'cards' | 'statusPage' | 'parent' | 'components'
 
@@ -543,7 +551,7 @@ const _everyResourcePropIsListed: [
   Exact<IncidentioAlertChannelProps, typeof INCIDENTIO_WRITTEN[number], IncidentioDerivedKey>,
   Exact<PrivateLocationProps, typeof PRIVATE_LOCATION_KEYS[number], never>,
   Exact<DashboardProps, typeof DASHBOARD_WRITTEN[number], StylesheetKey>,
-  Exact<MaintenanceWindowProps, typeof MAINTENANCE_WINDOW_WRITTEN[number], DateKey>,
+  Exact<MaintenanceWindowProps, typeof MAINTENANCE_WINDOW_WRITTEN[number], never>,
   Exact<StatusPageProps, typeof STATUS_PAGE_KEYS[number], StatusPageReferenceKey>,
   Exact<StatusPageV3Props, typeof STATUS_PAGE_V3_WRITTEN[number], never>,
   Covers<StatusPageV3ThemeColors, typeof THEMES[number]>,

@@ -1386,6 +1386,7 @@ new MaintenanceWindow('mw', { name: 'MW', tags: ['a'], startsAt: new Date('2026-
 new MaintenanceWindow('mw2', { name: 'MW2', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: unit })
 new MaintenanceWindow('mw3', { name: 'MW3', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'WEEK' })
 new MaintenanceWindow('mw4', { name: 'MW4', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'DAY' })
+new MaintenanceWindow('mw5', { name: 'MW5', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'DAY', repeatEndsAt: new Date('2026-03-01T00:00:00.000Z') })
 new PrivateLocation('pl2', { name: 'PL2', slugName: 'pl2', proxyUrl: 'http://proxy' })
 `, () => {
       const dates = { startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z') }
@@ -1395,6 +1396,9 @@ new PrivateLocation('pl2', { name: 'PL2', slugName: 'pl2', proxyUrl: 'http://pro
       new MaintenanceWindow('mw2', { name: 'MW2', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY' })
       new MaintenanceWindow('mw3', { name: 'MW3', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'WEEK' })
       new MaintenanceWindow('mw4', { name: 'MW4', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY' })
+      new MaintenanceWindow('mw5', {
+        name: 'MW5', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY', repeatEndsAt: new Date('2026-03-01T00:00:00.000Z'),
+      })
       new PrivateLocation('pl2', { name: 'PL2', slugName: 'pl2', proxyUrl: 'http://proxy' })
     })
     await declare('pages.ts', `import {
@@ -1433,11 +1437,19 @@ new StatusPageV3AutomationRule('rule', {
         entry('maintenance-window', 'mw4', { repeatInterval: 2, repeatUnit: 'WEEK' }, [
           remote('/repeatInterval', 1, 2), remote('/repeatUnit', 'DAY', 'MONTH'),
         ]),
+        // An end date the account cleared is a null the writer refuses, which takes the interval with it.
+        entry('maintenance-window', 'mw5', { repeatInterval: 2, repeatEndsAt: null }, [
+          remote('/repeatInterval', 1, 2), remote('/repeatEndsAt', '2026-03-01T00:00:00.000Z', null),
+        ]),
         entry('dashboard', 'dash', { tags: ['a', 'b'], refreshRate: 300, customCSS: 'b {}' }, [
           { path: '/tags/x', origin: 'remote', after: 'b' }, remote('/refreshRate', 60, 300), remote('/customCSS', 'a {}', 'b {}'),
         ]),
-        entry('maintenance-window', 'mw', { repeatInterval: 2, repeatUnit: 'WEEK' }, [
+        entry('maintenance-window', 'mw', {
+          startsAt: '2026-02-01T00:00:00.000Z', repeatInterval: 2, repeatUnit: 'WEEK', repeatEndsAt: '2026-03-01T00:00:00.000Z',
+        }, [
+          remote('/startsAt', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z'),
           remote('/repeatInterval', 1, 2), remote('/repeatUnit', 'DAY', 'WEEK'),
+          remote('/repeatEndsAt', null, '2026-03-01T00:00:00.000Z'),
         ]),
         entry('maintenance-window', 'mw2', { repeatInterval: 2, repeatUnit: 'WEEK' }, [
           remote('/repeatInterval', 1, 2), remote('/repeatUnit', 'DAY', 'WEEK'),
@@ -1475,6 +1487,8 @@ new StatusPageV3AutomationRule('rule', {
       'status-page-component comp /statusPageId: references another resource',
       'status-page-component comp /parentId: references another resource',
       'status-page-automation-rule rule /components/x: references another resource',
+      'maintenance-window mw5 repeatInterval: written together with repeatEndsAt',
+      'maintenance-window mw5 repeatEndsAt: Checkly has no value for repeatEndsAt; edit the property by hand',
       'maintenance-window mw2 repeatInterval: written together with repeatUnit',
       'maintenance-window mw2 repeatUnit: repeatUnit is the variable unit, not a plain literal',
       'status-page v3 themeColors.dark.bodyBackgroundColor: themeColors.dark is not set in the code',
@@ -1483,8 +1497,10 @@ new StatusPageV3AutomationRule('rule', {
       ['pl', 'name', '\'PL\'', '\'PL 2\''],
       ['dash', 'tags', '[\'a\']', '[\'a\', \'b\']'],
       ['dash', 'refreshRate', '60', '300'],
+      ['mw', 'startsAt', 'new Date(\'2026-01-01T00:00:00.000Z\')', 'new Date(\'2026-02-01T00:00:00.000Z\')'],
       ['mw', 'repeatInterval', '1', '2'],
       ['mw', 'repeatUnit', '\'DAY\'', '\'WEEK\''],
+      ['mw', 'repeatEndsAt', undefined, 'new Date(\'2026-03-01T00:00:00.000Z\')'],
       ['v2', 'name', '\'V2\'', '\'V2 renamed\''],
       ['v3', 'themeColors.light.bodyBackgroundColor', '\'#fff\'', '\'#000\''],
       ['svc', 'name', '\'Svc\'', '\'Service\''],
