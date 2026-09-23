@@ -5,6 +5,7 @@ import {
   buildHelperValue,
   type HelperEdit,
   helperClass,
+  isGlobalHelper,
   isHelperEdit,
   isReplaceableByHelper,
   matchesValue,
@@ -32,7 +33,9 @@ import {
   type SourceStyle,
   trailingCommaOf,
 } from './literal-edit.js'
-import { checklyBindings, localBinding, type Node, type ParsedSource, type Splice, walk, WriteBackSkipped } from './source-file.js'
+import {
+  checklyBindings, declaresName, localBinding, type Node, type ParsedSource, type Splice, walk, WriteBackSkipped,
+} from './source-file.js'
 
 export type { HelperEdit, SourceEdit }
 
@@ -73,7 +76,14 @@ export function applyEdits (
       const helper = isHelperEdit(edit) ? edit : undefined
       // Any assertion builder spells the property; the other kinds have one class each.
       const classes = helper === undefined ? [] : helper.helper === 'assertions' ? ASSERTION_BUILDERS : [helperClass(helper)]
-      const locals = checklyBindings(program, new Set(classes))
+      // A global such as `Date` is bound in every file under its own name,
+      // unless the file binds the name to something of its own.
+      const global = helper !== undefined && isGlobalHelper(helper)
+      if (global && classes.some(name => declaresName(program, name))) {
+        skip(edit, `${classes.join(', ')} is bound to something else in this file`)
+        continue
+      }
+      const locals = global ? new Set(classes) : checklyBindings(program, new Set(classes))
       const resolution = helper === undefined
         ? resolvePath(options, edit.path)
         : resolvePath(options, edit.path, {

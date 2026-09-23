@@ -6,6 +6,7 @@ import { valueForDnsAssertion } from '../../constructs/dns-assertion-codegen.js'
 import { valueForFrequency } from '../../constructs/frequency-codegen.js'
 import { valueForGrpcAssertion } from '../../constructs/grpc-assertion-codegen.js'
 import { valueForIcmpAssertion } from '../../constructs/icmp-assertion-codegen.js'
+import { valueForDate } from '../../constructs/maintenance-window-codegen.js'
 import { valueForRetryStrategy } from '../../constructs/retry-strategy-codegen.js'
 import { valueForSslAssertion } from '../../constructs/ssl-assertion-codegen.js'
 import { valueForTcpAssertion } from '../../constructs/tcp-monitor-codegen.js'
@@ -36,7 +37,8 @@ import { type Node, WriteBackSkipped } from './source-file.js'
  * than a literal: `frequency: Frequency.EVERY_5M`,
  * `retryStrategy: RetryStrategyBuilder.fixedStrategy({ … })`,
  * `alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(…)`,
- * `assertions: [AssertionBuilder.statusCode().equals(200)]`.
+ * `assertions: [AssertionBuilder.statusCode().equals(200)]`, and a date
+ * the account reports as an ISO string: `startsAt: new Date('…')`.
  *
  * The expression is built by the same codegen `checkly import` uses for the
  * property, so the text written is the one an import would have generated;
@@ -52,7 +54,7 @@ import { type Node, WriteBackSkipped } from './source-file.js'
  * meant, and a rewrite must not throw it away.
  */
 
-export type HelperKind = 'frequency' | 'retryStrategy' | 'alertEscalation' | 'assertions'
+export type HelperKind = 'frequency' | 'retryStrategy' | 'alertEscalation' | 'assertions' | 'date'
 
 type AssertionCodegen = (genfile: GeneratedFile, assertion: any) => Value
 
@@ -91,7 +93,7 @@ interface HelperEditBase extends Omit<LiteralEdit, 'helper'> {
  * has its own builder.
  */
 export type HelperEdit = HelperEditBase & (
-  | { helper: 'frequency' | 'retryStrategy' | 'alertEscalation', builder?: undefined }
+  | { helper: 'frequency' | 'retryStrategy' | 'alertEscalation' | 'date', builder?: undefined }
   | { helper: 'assertions', builder: AssertionBuilderName }
 )
 
@@ -105,11 +107,17 @@ const HELPER_CLASSES: Readonly<Record<Exclude<HelperKind, 'assertions'>, string>
   frequency: 'Frequency',
   retryStrategy: 'RetryStrategyBuilder',
   alertEscalation: 'AlertEscalationBuilder',
+  date: 'Date',
 }
 
-/** The class the edit's expression is built on, as `checkly/constructs` exports it. */
+/** The class the edit's expression is built on, as `checkly/constructs` exports it, or the global `Date`. */
 export function helperClass (edit: HelperEdit): string {
   return edit.helper === 'assertions' ? edit.builder : HELPER_CLASSES[edit.helper]
+}
+
+/** Whether the edit's class is a global every file binds, rather than one imported from `checkly/constructs`. */
+export function isGlobalHelper (edit: HelperEdit): boolean {
+  return edit.helper === 'date'
 }
 
 /**
@@ -214,6 +222,15 @@ export function buildHelperValue (edit: HelperEdit): { value: Value, imports: st
         }
         value = valueForAlertEscalation(sink, edit.value)
         break
+      case 'date': {
+        // The account reports a timestamp as an ISO string; the construct
+        // takes a Date, which the import spells as `new Date('<iso>')`.
+        if (typeof edit.value !== 'string' || Number.isNaN(Date.parse(edit.value))) {
+          throw missing()
+        }
+        value = valueForDate(edit.value)
+        break
+      }
       case 'assertions': {
         const codegen: AssertionCodegen | undefined = ASSERTION_CODEGENS[edit.builder]
         if (codegen === undefined) {
