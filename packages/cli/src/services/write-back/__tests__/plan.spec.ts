@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiCheck } from '../../../constructs/api-check.js'
 import { BrowserCheck } from '../../../constructs/browser-check.js'
+import { MultiStepCheck } from '../../../constructs/multi-step-check.js'
 import { DnsMonitor } from '../../../constructs/dns-monitor.js'
 import { IcmpMonitor } from '../../../constructs/icmp-monitor.js'
 import { SslMonitor } from '../../../constructs/ssl-monitor.js'
@@ -24,7 +25,7 @@ import { CheckGroupV1 } from '../../../constructs/check-group-v1.js'
 import { GrpcMonitor } from '../../../constructs/grpc-monitor.js'
 import { Monitor } from '../../../constructs/monitor.js'
 import * as literalEdit from '../literal-edit.js'
-import { applyWriteBack, type ConstructClass, planWriteBack, type Rule, RULES_BY_CLASS } from '../plan.js'
+import { applyWriteBack, type ConstructClass, planWriteBack, type Rule, RULES_BY_CLASS, WRITTEN_BY_CLASS } from '../plan.js'
 import { AGENTIC_CHECK_OMITTED_PROPS } from '../../../constructs/internal/agentic-check-defaults.js'
 import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../../constructs/playwright-check-codegen.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
@@ -875,6 +876,79 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
       expect(has(rules, 'frequency'), `${cls.name} frequency`).toBe(!isGroup)
       expect(has(rules, 'runtimeId'), `${cls.name} runtimeId`).toBe(isGroup || cls.prototype instanceof RuntimeCheck)
     }
+  })
+
+  it('writes exactly the top-level keys each class declares', () => {
+    // The build-time assertion in plan.ts holds every props type to its
+    // class's written list; this holds the rule table to the same list.
+    for (const [cls, rules] of RULES_BY_CLASS) {
+      const targets = new Set(rules.filter(rule => rule.companion === undefined).map(rule => rule.target[0]))
+      expect([...targets].sort(), cls.name).toEqual([...new Set(WRITTEN_BY_CLASS.get(cls))].sort())
+    }
+    expect(WRITTEN_BY_CLASS.size).toBe(RULES_BY_CLASS.size)
+  })
+
+  it('writes the literal props of browser, multistep and agentic checks', async () => {
+    await declare('literal.check.ts', `import { AgenticCheck, BrowserCheck, MultiStepCheck } from 'checkly/constructs'
+new BrowserCheck('browser', { name: 'Browser', sslCheckDomain: 'example.com', code: { content: '' } })
+new MultiStepCheck('multi', { name: 'Multi', aiAutoRepairEnabled: false, code: { content: '' } })
+new AgenticCheck('short', { name: 'Short', prompt: 'Check the login page' })
+new AgenticCheck('long', {
+  name: 'Long',
+  prompt: \`Open the page.
+Log in.\`,
+})
+new AgenticCheck('crlf', { name: 'CRLF', prompt: \`one
+two\` })
+`, () => {
+      new BrowserCheck('browser', { name: 'Browser', sslCheckDomain: 'example.com', code: { content: '' } })
+      new MultiStepCheck('multi', { name: 'Multi', aiAutoRepairEnabled: false, code: { content: '' } })
+      new AgenticCheck('short', { name: 'Short', prompt: 'Check the login page' } as any)
+      new AgenticCheck('long', { name: 'Long', prompt: 'Open the page.\nLog in.' } as any)
+      new AgenticCheck('crlf', { name: 'CRLF', prompt: 'one\ntwo' } as any)
+    })
+    const check = (logicalId: string, checkType: string, changes: DiffEntry['changes'], before: object): DiffEntry =>
+      ({ type: 'check', logicalId, action: 'UPDATE', changes, before: { checkType, name: logicalId, ...before }, redactions: [] })
+    const plan = await planWriteBack({
+      diff: [
+        check('browser', 'BROWSER', [
+          { path: '/sslCheckDomain', origin: 'remote', before: 'example.com', after: 'www.example.com' },
+          { path: '/aiAutoRepairEnabled', origin: 'remote', before: null, after: true },
+          { path: '/playwrightConfig/use/baseURL', origin: 'remote', before: null, after: 'https://example.com' },
+          { path: '/triggerIncident', origin: 'remote', before: false, after: true },
+        ], { sslCheckDomain: 'www.example.com', aiAutoRepairEnabled: true, playwrightConfig: { use: { baseURL: 'https://example.com' } }, triggerIncident: true }),
+        check('multi', 'MULTI_STEP', [{ path: '/aiAutoRepairEnabled', origin: 'remote', before: false, after: true }],
+          { aiAutoRepairEnabled: true }),
+        check('short', 'AGENTIC', [{ path: '/prompt', origin: 'remote', before: 'Check the login page', after: 'Check the signup page' }],
+          { prompt: 'Check the signup page' }),
+        check('long', 'AGENTIC', [{ path: '/prompt', origin: 'remote', before: 'Open the page.\nLog in.', after: 'Open `the` ${page}.\nLog in \\ out.' }],
+          { prompt: 'Open `the` ${page}.\nLog in \\ out.' }),
+        check('crlf', 'AGENTIC', [{ path: '/prompt', origin: 'remote', before: 'one\ntwo', after: 'one\r\ntwo' }],
+          { prompt: 'one\r\ntwo' }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([
+      'check browser /playwrightConfig/use/baseURL: this tool does not update the Playwright config yet; '
+      + 'set it in checkly.config.ts or on the check by hand',
+      'check browser /triggerIncident: Checkly does not report the incident trigger\'s settings; edit it by hand',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
+      ['browser', 'sslCheckDomain', '\'www.example.com\''],
+      ['browser', 'aiAutoRepairEnabled', 'true'],
+      ['multi', 'aiAutoRepairEnabled', 'true'],
+      ['short', 'prompt', '\'Check the signup page\''],
+      // A multi-line prompt over a template literal stays one, escaped; a
+      // carriage return cannot survive a template, so that one is quoted.
+      ['long', 'prompt', '`Open \\`the\\` \\${page}.\nLog in \\\\ out.`'],
+      ['crlf', 'prompt', '\'one\\r\\ntwo\''],
+    ])
+    expect(plan.files[0].text).toContain(`new AgenticCheck('long', {
+  name: 'Long',
+  prompt: \`Open \\\`the\\\` \\\${page}.
+Log in \\\\ out.\`,
+})`)
   })
 
   it('maps every key of the SSL request onto the construct spelling', () => {
