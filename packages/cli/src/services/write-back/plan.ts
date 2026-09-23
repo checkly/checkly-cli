@@ -12,6 +12,33 @@ import type { CheckProps, RuntimeCheckProps } from '../../constructs/check.js'
 import { CheckGroupV1, type CheckGroupV1Props } from '../../constructs/check-group-v1.js'
 import { CheckGroupV2, type CheckGroupV2Props } from '../../constructs/check-group-v2.js'
 import type { Construct } from '../../constructs/construct.js'
+import type { AlertChannelProps } from '../../constructs/alert-channel.js'
+import { Dashboard, type DashboardProps } from '../../constructs/dashboard.js'
+import { EmailAlertChannel, type EmailAlertChannelProps } from '../../constructs/email-alert-channel.js'
+import { IncidentioAlertChannel, type IncidentioAlertChannelProps } from '../../constructs/incidentio-alert-channel.js'
+import { MaintenanceWindow, type MaintenanceWindowProps } from '../../constructs/maintenance-window.js'
+import { MSTeamsAlertChannel, type MSTeamsAlertChannelProps } from '../../constructs/msteams-alert-channel.js'
+import { OpsgenieAlertChannel, type OpsgenieAlertChannelProps } from '../../constructs/opsgenie-alert-channel.js'
+import { PagerdutyAlertChannel, type PagerdutyAlertChannelProps } from '../../constructs/pagerduty-alert-channel.js'
+import { PhoneCallAlertChannel, type PhoneCallAlertChannelProps } from '../../constructs/phone-call-alert-channel.js'
+import { PrivateLocation, type PrivateLocationProps } from '../../constructs/private-location.js'
+import { SlackAlertChannel, type SlackAlertChannelProps } from '../../constructs/slack-alert-channel.js'
+import { SlackAppAlertChannel, type SlackAppAlertChannelProps } from '../../constructs/slack-app-alert-channel.js'
+import { SmsAlertChannel, type SmsAlertChannelProps } from '../../constructs/sms-alert-channel.js'
+import { StatusPage, type StatusPageProps } from '../../constructs/status-page.js'
+import { StatusPageService, type StatusPageServiceProps } from '../../constructs/status-page-service.js'
+import {
+  StatusPageV3, type StatusPageV3Props, type StatusPageV3ThemeColorGroup, type StatusPageV3ThemeColors,
+} from '../../constructs/status-page-v3.js'
+import {
+  StatusPageV3AutomationRule, type StatusPageV3AutomationRuleProps,
+} from '../../constructs/status-page-v3-automation-rule.js'
+import {
+  StatusPageV3Component, type StatusPageV3ComponentProps, type StatusPageV3GroupComponentProps,
+  type StatusPageV3ServiceComponentProps,
+} from '../../constructs/status-page-v3-component.js'
+import { TelegramAlertChannel, type TelegramAlertChannelProps } from '../../constructs/telegram-alert-channel.js'
+import { WebhookAlertChannel, type WebhookAlertChannelProps } from '../../constructs/webhook-alert-channel.js'
 import { DnsMonitor, type DnsMonitorProps } from '../../constructs/dns-monitor.js'
 import type { DnsRequest } from '../../constructs/dns-request.js'
 import { GrpcMonitor, type GrpcMonitorProps } from '../../constructs/grpc-monitor.js'
@@ -41,7 +68,9 @@ import { findConstructOptions, parseSource, WriteBackSkipped } from './source-fi
 
 /**
  * Turns the remote changes of a deploy plan into edits of the construct
- * source files, and applies them.
+ * source files, and applies them: checks, groups, alert channels, private
+ * locations, dashboards, maintenance windows and status pages with their
+ * services, components and automation rules.
  *
  * A remote change is a property that moved in the Checkly account since the
  * last deploy (`origin: 'remote'`, or `'both'` when the code moved too). The
@@ -279,8 +308,134 @@ const GROUP_RULES: Rule[] = [
   ...RETRY_RULES,
 ]
 
-// What each class writes, at the top level of its props. `request` and
-// `apiCheckDefaults` stand for every rule under them.
+/**
+ * A rule that refuses every change at its pointer with `reason` and writes
+ * nothing: a companion with no primary, for a leaf the construct fixes or
+ * builds from other props, so the refusal names why rather than saying
+ * the property is unknown.
+ */
+const refusing = (pointer: string[], reason: string): Rule =>
+  ({ pointer, target: pointer, companion: true, refuse: () => reason })
+const FIXED = 'fixed by the construct; it cannot be changed in the code'
+
+// An alert channel's own props are flat in the code and nested under
+// `config` on the wire (`synthesize` moves them), so their rules map
+// `config/<key>` onto the top-level prop. A credential key (`url`, `apiKey`,
+// `serviceKey`, `webhookSecret`, the values of `headers` and
+// `queryParameters`) is listed like any other: the account blanks it, so
+// the redaction check refuses it by name, and a change at the leaf itself
+// arrives flagged as a secret and never reaches a rule.
+const config = (keys: readonly string[]): Rule[] => keys.map(key => ({ pointer: ['config', key], target: [key] }))
+const ALERT_CHANNEL_KEYS = [
+  'sendRecovery', 'sendFailure', 'sendDegraded', 'sslExpiry', 'sslExpiryThreshold',
+] as const satisfies readonly (keyof AlertChannelProps)[]
+const ALERT_CHANNEL_RULES: Rule[] = [
+  ...ALERT_CHANNEL_KEYS.map(key => identity(key)),
+  refusing(['type'], 'the channel type is the construct\'s class; change the class by hand'),
+]
+const EMAIL_KEYS = ['address'] as const satisfies readonly (keyof EmailAlertChannelProps)[]
+const SLACK_KEYS = ['url', 'channel'] as const satisfies readonly (keyof SlackAlertChannelProps)[]
+const SLACK_APP_KEYS = ['slackChannels'] as const satisfies readonly (keyof SlackAppAlertChannelProps)[]
+const WEBHOOK_KEYS = [
+  'name', 'webhookType', 'url', 'template', 'method', 'headers', 'queryParameters', 'webhookSecret',
+] as const satisfies readonly (keyof WebhookAlertChannelProps)[]
+const OPSGENIE_KEYS = ['name', 'apiKey', 'region', 'priority'] as const satisfies readonly (keyof OpsgenieAlertChannelProps)[]
+const PAGERDUTY_KEYS = ['account', 'serviceName', 'serviceKey'] as const satisfies readonly (keyof PagerdutyAlertChannelProps)[]
+// SMS and phone call channels spell the number as `phoneNumber`; the wire has `number`.
+const PHONE_KEYS = ['name'] as const satisfies readonly (keyof SmsAlertChannelProps & keyof PhoneCallAlertChannelProps)[]
+const PHONE_RULES: Rule[] = [...config(PHONE_KEYS), { pointer: ['config', 'number'], target: ['phoneNumber'] }]
+// The webhook-based channels fix the webhook type and method, and spell the
+// template as `payload`; Telegram packs its chat id, thread and payload
+// into the template and its API key into the URL, and incident.io sends
+// its API key as a header, none of which this module unpacks.
+const WEBHOOK_FIXED_RULES: Rule[] = [refusing(['config', 'webhookType'], FIXED), refusing(['config', 'method'], FIXED)]
+const TEMPLATE_RULE: Rule = { pointer: ['config', 'template'], target: ['payload'] }
+const MSTEAMS_KEYS = ['name', 'url'] as const satisfies readonly (keyof MSTeamsAlertChannelProps)[]
+const MSTEAMS_RULES: Rule[] = [...config(MSTEAMS_KEYS), TEMPLATE_RULE, ...WEBHOOK_FIXED_RULES]
+const TELEGRAM_KEYS = ['name'] as const satisfies readonly (keyof TelegramAlertChannelProps)[]
+const TELEGRAM_RULES: Rule[] = [
+  ...config(TELEGRAM_KEYS),
+  refusing(['config', 'template'], 'built from chatId, messageThreadId and payload; edit them by hand'),
+  ...WEBHOOK_FIXED_RULES,
+]
+const INCIDENTIO_KEYS = ['name', 'url'] as const satisfies readonly (keyof IncidentioAlertChannelProps)[]
+const INCIDENTIO_RULES: Rule[] = [
+  ...config(INCIDENTIO_KEYS), TEMPLATE_RULE,
+  refusing(['config', 'headers'], 'built from apiKey; edit it by hand'),
+  ...WEBHOOK_FIXED_RULES,
+]
+
+const PRIVATE_LOCATION_KEYS = ['name', 'slugName', 'icon', 'proxyUrl'] as const satisfies readonly (keyof PrivateLocationProps)[]
+// `customCSS` is a stylesheet the bundle sends as one string, which the
+// construct takes as a file or content; it is refused, never written.
+const DASHBOARD_KEYS = [
+  'customUrl', 'customDomain', 'logo', 'favicon', 'link', 'header', 'description', 'width', 'refreshRate', 'paginate',
+  'paginationRate', 'checksPerPage', 'useTagsAndOperator', 'hideTags', 'enableIncidents', 'expandChecks', 'showHeader',
+  'isPrivate', 'showP95', 'showP99',
+] as const satisfies readonly (keyof DashboardProps)[]
+const DASHBOARD_SET_KEYS = ['tags'] as const satisfies readonly (keyof DashboardProps)[]
+const DASHBOARD_RULES: Rule[] = [
+  ...DASHBOARD_KEYS.map(key => identity(key)), ...DASHBOARD_SET_KEYS.map(set),
+  refusing(['customCSS'], 'a stylesheet, not a property; edit the file or the content by hand'),
+]
+// The repeat settings only mean something together: an interval written
+// without its unit would be a different schedule.
+const MAINTENANCE_WINDOW_KEYS = ['name'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const MAINTENANCE_WINDOW_SET_KEYS = ['tags'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const REPEAT_KEYS = ['repeatInterval', 'repeatUnit'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const MAINTENANCE_WINDOW_RULES: Rule[] = [
+  ...MAINTENANCE_WINDOW_KEYS.map(key => identity(key)), ...MAINTENANCE_WINDOW_SET_KEYS.map(set),
+  ...REPEAT_KEYS.map(key => ({ ...identity(key), group: 'repeat' })),
+]
+// A v2 status page's cards hold references to its services.
+const STATUS_PAGE_KEYS = [
+  'name', 'url', 'customDomain', 'logo', 'redirectTo', 'favicon', 'defaultTheme',
+] as const satisfies readonly (keyof StatusPageProps)[]
+const STATUS_PAGE_RULES: Rule[] = [
+  ...STATUS_PAGE_KEYS.map(key => identity(key)),
+  refusing(['cards'], 'cards hold status page services; edit them by hand'),
+]
+const STATUS_PAGE_V3_KEYS = [
+  'name', 'url', 'customDomain', 'description', 'logo', 'logoDark', 'redirectTo', 'favicon', 'defaultTheme',
+  'privacyPolicyLink', 'termsOfServiceLink', 'supportLink', 'footerText', 'googleAnalyticsTag', 'allowIndexing',
+] as const satisfies readonly (keyof StatusPageV3Props)[]
+const THEMES = ['light', 'dark'] as const satisfies readonly (keyof StatusPageV3ThemeColors)[]
+const THEME_COLOR_KEYS = [
+  'bodyBackgroundColor', 'headerBackgroundColor', 'headerFontColor', 'titleFontColor', 'bodyFontColor',
+  'bodyFontColorMuted', 'navigationFontColor', 'linkFontColor', 'cardBackgroundColor', 'borderColor',
+  'primaryButtonBackgroundColor', 'primaryButtonFontColor',
+] as const satisfies readonly (keyof StatusPageV3ThemeColorGroup)[]
+// The account reports each colour as its own leaf; the code holds it under
+// `themeColors.light` or `.dark`, which has to exist for a colour to be added.
+const STATUS_PAGE_V3_RULES: Rule[] = [
+  ...STATUS_PAGE_V3_KEYS.map(key => identity(key)),
+  ...THEMES.flatMap(theme => under(['themeColors', theme], THEME_COLOR_KEYS)),
+  refusing(['version'], FIXED),
+]
+const STATUS_PAGE_SERVICE_KEYS = ['name'] as const satisfies readonly (keyof StatusPageServiceProps)[]
+// A component's `showHistoricalData` and `expandedByDefault` travel inside
+// `configuration`; its page and parent are references.
+const COMPONENT_KEYS = [
+  'type', 'name', 'description', 'hidden', 'displayOrder',
+] as const satisfies readonly (keyof StatusPageV3ComponentProps)[]
+const COMPONENT_CONFIGURATION_KEYS = [
+  'showHistoricalData', 'expandedByDefault',
+] as const satisfies readonly (keyof StatusPageV3ComponentProps)[]
+const COMPONENT_RULES: Rule[] = [
+  ...COMPONENT_KEYS.map(key => identity(key)),
+  ...COMPONENT_CONFIGURATION_KEYS.map(key => ({ pointer: ['configuration', key], target: [key] })),
+]
+const AUTOMATION_RULE_KEYS = [
+  'name', 'enabled', 'firstUpdate', 'lastUpdate', 'notifySubscribers',
+] as const satisfies readonly (keyof StatusPageV3AutomationRuleProps)[]
+const AUTOMATION_RULE_SET_KEYS = ['tags'] as const satisfies readonly (keyof StatusPageV3AutomationRuleProps)[]
+const AUTOMATION_RULE_RULES: Rule[] = [
+  ...AUTOMATION_RULE_KEYS.map(key => identity(key)), ...AUTOMATION_RULE_SET_KEYS.map(set),
+  { pointer: ['coolDownWindowMinutes'], target: ['coolDownMinutes'] },
+]
+
+// What each class writes, at the top level of its props. `request`,
+// `apiCheckDefaults` and `themeColors` stand for every rule under them.
 const API_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...RESPONSE_TIME_KEYS, 'request'] as const
 const BROWSER_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...BROWSER_KEYS] as const
 const MULTI_STEP_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...MULTI_STEP_KEYS] as const
@@ -291,6 +446,21 @@ const MONITOR_WRITTEN = [...CHECK_WRITTEN, ...RESPONSE_TIME_KEYS, 'request'] as 
 const ICMP_WRITTEN = [...CHECK_WRITTEN, ...PACKET_LOSS_KEYS, 'request'] as const
 const HEARTBEAT_WRITTEN = [...CHECK_WRITTEN, ...HEARTBEAT_KEYS] as const
 const GROUP_WRITTEN = [...GROUP_KEYS, ...GROUP_SET_KEYS, ...GROUP_HELPER_KEYS] as const
+const EMAIL_WRITTEN = [...ALERT_CHANNEL_KEYS, ...EMAIL_KEYS] as const
+const SLACK_WRITTEN = [...ALERT_CHANNEL_KEYS, ...SLACK_KEYS] as const
+const SLACK_APP_WRITTEN = [...ALERT_CHANNEL_KEYS, ...SLACK_APP_KEYS] as const
+const WEBHOOK_WRITTEN = [...ALERT_CHANNEL_KEYS, ...WEBHOOK_KEYS] as const
+const OPSGENIE_WRITTEN = [...ALERT_CHANNEL_KEYS, ...OPSGENIE_KEYS] as const
+const PAGERDUTY_WRITTEN = [...ALERT_CHANNEL_KEYS, ...PAGERDUTY_KEYS] as const
+const PHONE_WRITTEN = [...ALERT_CHANNEL_KEYS, ...PHONE_KEYS, 'phoneNumber'] as const
+const MSTEAMS_WRITTEN = [...ALERT_CHANNEL_KEYS, ...MSTEAMS_KEYS, 'payload'] as const
+const TELEGRAM_WRITTEN = [...ALERT_CHANNEL_KEYS, ...TELEGRAM_KEYS] as const
+const INCIDENTIO_WRITTEN = [...ALERT_CHANNEL_KEYS, ...INCIDENTIO_KEYS, 'payload'] as const
+const DASHBOARD_WRITTEN = [...DASHBOARD_KEYS, ...DASHBOARD_SET_KEYS] as const
+const MAINTENANCE_WINDOW_WRITTEN = [...MAINTENANCE_WINDOW_KEYS, ...MAINTENANCE_WINDOW_SET_KEYS, ...REPEAT_KEYS] as const
+const STATUS_PAGE_V3_WRITTEN = [...STATUS_PAGE_V3_KEYS, 'themeColors'] as const
+const COMPONENT_WRITTEN = [...COMPONENT_KEYS, ...COMPONENT_CONFIGURATION_KEYS] as const
+const AUTOMATION_RULE_WRITTEN = [...AUTOMATION_RULE_KEYS, ...AUTOMATION_RULE_SET_KEYS, 'coolDownMinutes'] as const
 
 /**
  * The props keys the write-back leaves out on purpose, by reason; each
@@ -315,6 +485,16 @@ type GroupMemberKey = 'frequency' | 'browserChecks' | 'multiStepChecks'
 // null and is usually inherited from the project config.
 /** What every check class leaves out. */
 type CheckLeftOut = ReferenceKey | LocalOnlyKey | NotWrittenKey
+/** Packed into the Telegram channel's template and URL by the construct. */
+type TelegramDerivedKey = 'chatId' | 'apiKey' | 'messageThreadId' | 'payload'
+/** Sent by the incident.io channel as an authorization header. */
+type IncidentioDerivedKey = 'apiKey'
+/** A dashboard's stylesheet, a file or content the bundle sends as one string. */
+type StylesheetKey = 'customCSS'
+/** A maintenance window's dates, `Date` objects in the code. */
+type DateKey = 'startsAt' | 'endsAt' | 'repeatEndsAt'
+/** A status page prop that names other status page resources. */
+type StatusPageReferenceKey = 'cards' | 'statusPage' | 'parent' | 'components'
 
 /** `true` when every key of `Written` is a key of `T`, `never` otherwise. */
 type Within<T, Written extends PropertyKey> = Exclude<Written, keyof T> extends never ? true : never
@@ -346,6 +526,38 @@ const _everyPropIsListed: [
   Exact<CheckGroupV2Props, typeof GROUP_WRITTEN[number], CheckLeftOut | ContentKey | GroupMemberKey>,
   Covers<ApiCheckDefaultConfig, typeof API_DEFAULT_KEYS[number] | 'assertions'>,
 ] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+// The same for the other resource types.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _everyResourcePropIsListed: [
+  Exact<AlertChannelProps, typeof ALERT_CHANNEL_KEYS[number], never>,
+  Exact<EmailAlertChannelProps, typeof EMAIL_WRITTEN[number], never>,
+  Exact<SlackAlertChannelProps, typeof SLACK_WRITTEN[number], never>,
+  Exact<SlackAppAlertChannelProps, typeof SLACK_APP_WRITTEN[number], never>,
+  Exact<WebhookAlertChannelProps, typeof WEBHOOK_WRITTEN[number], never>,
+  Exact<OpsgenieAlertChannelProps, typeof OPSGENIE_WRITTEN[number], never>,
+  Exact<PagerdutyAlertChannelProps, typeof PAGERDUTY_WRITTEN[number], never>,
+  Exact<SmsAlertChannelProps, typeof PHONE_WRITTEN[number], never>,
+  Exact<PhoneCallAlertChannelProps, typeof PHONE_WRITTEN[number], never>,
+  Exact<MSTeamsAlertChannelProps, typeof MSTEAMS_WRITTEN[number], never>,
+  Exact<TelegramAlertChannelProps, typeof TELEGRAM_WRITTEN[number], TelegramDerivedKey>,
+  Exact<IncidentioAlertChannelProps, typeof INCIDENTIO_WRITTEN[number], IncidentioDerivedKey>,
+  Exact<PrivateLocationProps, typeof PRIVATE_LOCATION_KEYS[number], never>,
+  Exact<DashboardProps, typeof DASHBOARD_WRITTEN[number], StylesheetKey>,
+  Exact<MaintenanceWindowProps, typeof MAINTENANCE_WINDOW_WRITTEN[number], DateKey>,
+  Exact<StatusPageProps, typeof STATUS_PAGE_KEYS[number], StatusPageReferenceKey>,
+  Exact<StatusPageV3Props, typeof STATUS_PAGE_V3_WRITTEN[number], never>,
+  Covers<StatusPageV3ThemeColors, typeof THEMES[number]>,
+  Covers<StatusPageV3ThemeColorGroup, typeof THEME_COLOR_KEYS[number]>,
+  Exact<StatusPageServiceProps, typeof STATUS_PAGE_SERVICE_KEYS[number], never>,
+  // The union's keys are the ones both members share; each member is held on its own.
+  Exact<StatusPageV3ComponentProps, typeof COMPONENT_WRITTEN[number], StatusPageReferenceKey>,
+  Exact<StatusPageV3ServiceComponentProps, typeof COMPONENT_WRITTEN[number], StatusPageReferenceKey>,
+  Exact<StatusPageV3GroupComponentProps, typeof COMPONENT_WRITTEN[number], StatusPageReferenceKey>,
+  Exact<StatusPageV3AutomationRuleProps, typeof AUTOMATION_RULE_WRITTEN[number], StatusPageReferenceKey>,
+] = [
+  true, true, true, true, true, true, true, true, true, true, true, true,
+  true, true, true, true, true, true, true, true, true, true, true, true,
+]
 
 /**
  * The properties this module writes, per construct class: the ones whose
@@ -353,8 +565,13 @@ const _everyPropIsListed: [
  * same shape, and the ones the construct spells with a helper this module
  * can render (`frequency`, `retryStrategy`, `alertEscalationPolicy`, the
  * `assertions` of a request), and the SSL request whose wire keys map onto
- * the construct's (`SSL_REQUEST_RULES`). Anything else — references,
- * scripts, a request key the construct does not take — is left to the user.
+ * the construct's (`SSL_REQUEST_RULES`). A rule may likewise map a wire
+ * pointer onto a prop spelled or nested differently in the construct (an
+ * alert channel's `config/<key>` onto its flat prop, a component's
+ * `configuration/<key>`, `coolDownWindowMinutes` onto `coolDownMinutes`),
+ * and a `refusing` rule names the reason for a leaf the construct fixes or
+ * derives. Anything else — references, scripts, a request key the
+ * construct does not take — is left to the user.
  *
  * Keyed by the exact class, not by `instanceof`: a class this table does not
  * name gets nothing rather than a base class's rules, so a construct that
@@ -402,6 +619,25 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
   ]],
   [CheckGroupV1, [...GROUP_RULES, ...alertRules('group')]],
   [CheckGroupV2, [...GROUP_RULES, ...alertRules('group-v2')]],
+  [EmailAlertChannel, [...ALERT_CHANNEL_RULES, ...config(EMAIL_KEYS)]],
+  [SlackAlertChannel, [...ALERT_CHANNEL_RULES, ...config(SLACK_KEYS)]],
+  [SlackAppAlertChannel, [...ALERT_CHANNEL_RULES, ...config(SLACK_APP_KEYS)]],
+  [WebhookAlertChannel, [...ALERT_CHANNEL_RULES, ...config(WEBHOOK_KEYS)]],
+  [OpsgenieAlertChannel, [...ALERT_CHANNEL_RULES, ...config(OPSGENIE_KEYS)]],
+  [PagerdutyAlertChannel, [...ALERT_CHANNEL_RULES, ...config(PAGERDUTY_KEYS)]],
+  [SmsAlertChannel, [...ALERT_CHANNEL_RULES, ...PHONE_RULES]],
+  [PhoneCallAlertChannel, [...ALERT_CHANNEL_RULES, ...PHONE_RULES]],
+  [MSTeamsAlertChannel, [...ALERT_CHANNEL_RULES, ...MSTEAMS_RULES]],
+  [TelegramAlertChannel, [...ALERT_CHANNEL_RULES, ...TELEGRAM_RULES]],
+  [IncidentioAlertChannel, [...ALERT_CHANNEL_RULES, ...INCIDENTIO_RULES]],
+  [PrivateLocation, PRIVATE_LOCATION_KEYS.map(key => identity(key))],
+  [Dashboard, DASHBOARD_RULES],
+  [MaintenanceWindow, MAINTENANCE_WINDOW_RULES],
+  [StatusPage, STATUS_PAGE_RULES],
+  [StatusPageV3, STATUS_PAGE_V3_RULES],
+  [StatusPageService, STATUS_PAGE_SERVICE_KEYS.map(key => identity(key))],
+  [StatusPageV3Component, COMPONENT_RULES],
+  [StatusPageV3AutomationRule, AUTOMATION_RULE_RULES],
 ])
 
 /** The top-level props keys each class's rules write, as the build-time assertion above knows them; the spec holds `RULES_BY_CLASS` to it. */
@@ -413,10 +649,23 @@ export const WRITTEN_BY_CLASS: ReadonlyMap<ConstructClass, readonly string[]> =
     [GrpcMonitor, MONITOR_WRITTEN], [SslMonitor, MONITOR_WRITTEN], [TracerouteMonitor, MONITOR_WRITTEN],
     [IcmpMonitor, ICMP_WRITTEN],
     [HeartbeatMonitor, HEARTBEAT_WRITTEN], [CheckGroupV1, GROUP_WRITTEN], [CheckGroupV2, GROUP_WRITTEN],
+    [EmailAlertChannel, EMAIL_WRITTEN], [SlackAlertChannel, SLACK_WRITTEN], [SlackAppAlertChannel, SLACK_APP_WRITTEN],
+    [WebhookAlertChannel, WEBHOOK_WRITTEN], [OpsgenieAlertChannel, OPSGENIE_WRITTEN],
+    [PagerdutyAlertChannel, PAGERDUTY_WRITTEN], [SmsAlertChannel, PHONE_WRITTEN],
+    [PhoneCallAlertChannel, PHONE_WRITTEN],
+    [MSTeamsAlertChannel, MSTEAMS_WRITTEN], [TelegramAlertChannel, TELEGRAM_WRITTEN],
+    [IncidentioAlertChannel, INCIDENTIO_WRITTEN],
+    [PrivateLocation, PRIVATE_LOCATION_KEYS], [Dashboard, DASHBOARD_WRITTEN],
+    [MaintenanceWindow, MAINTENANCE_WINDOW_WRITTEN], [StatusPage, STATUS_PAGE_KEYS],
+    [StatusPageV3, STATUS_PAGE_V3_WRITTEN], [StatusPageService, STATUS_PAGE_SERVICE_KEYS],
+    [StatusPageV3Component, COMPONENT_WRITTEN], [StatusPageV3AutomationRule, AUTOMATION_RULE_WRITTEN],
   ])
 
 /** Paths that name another resource or a relation rather than a value of this one. */
-const REFERENCE_PREFIXES = ['alertChannels', 'privateLocations', 'alertChannelSubscriptions', 'privateLocationAssignments', 'groupId']
+const REFERENCE_PREFIXES = [
+  'alertChannels', 'privateLocations', 'alertChannelSubscriptions', 'privateLocationAssignments', 'groupId',
+  'statusPageId', 'parentId', 'components',
+]
 
 /** Properties a remote change to is reported rather than written, with the reason. */
 const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
@@ -585,14 +834,15 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
       continue
     }
     const rule = ruleFor(segments)
+    // A refusing rule has a reason of its own and may have no primary.
+    const refused = rule?.refuse?.(context.entry.before)
+    if (refused !== undefined) {
+      context.skip(refused, change.path)
+      continue
+    }
     const primary = rule === undefined ? undefined : primaryOf(rule)
     if (rule === undefined || primary === undefined) {
       context.skip('not a property this tool can update', change.path)
-      continue
-    }
-    const refused = rule.refuse?.(context.entry.before)
-    if (refused !== undefined) {
-      context.skip(refused, change.path)
       continue
     }
     const key = primary.target.join('.')
@@ -602,15 +852,22 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
   }
   // A list is written whole from `before`, which knows nothing of an element
   // the code added and has not deployed; such an edit must not be erased.
+  // A property written together with others (`group`) is local when any of
+  // them is: an interval written next to a unit the code changed would be a
+  // schedule nobody set.
   for (const change of context.entry.changes ?? []) {
     if (change.origin !== 'code') {
       continue
     }
     const segments = segmentsOf(change)
     const rule = segments === undefined ? undefined : ruleFor(segments)
-    const candidate = rule === undefined ? undefined : byPath.get(rule.target.join('.'))
-    if (candidate !== undefined) {
-      candidate.local.push(change)
+    if (rule === undefined) {
+      continue
+    }
+    for (const candidate of byPath.values()) {
+      if (candidate.rule === primaryOf(rule) || (rule.group !== undefined && candidate.rule.group === rule.group)) {
+        candidate.local.push(change)
+      }
     }
   }
   return [...byPath.values()]
@@ -756,9 +1013,11 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
     }
     const rules = RULES_BY_CLASS.get(construct.constructor as ConstructClass)
     if (rules === undefined) {
+      // A reference to a resource of another project, or a relation, has
+      // no properties of its own; a class of the user's own is not known.
       context.skip(exportedNamesOf(construct).size === 0
         ? `${construct.constructor.name} is not a class from checkly/constructs`
-        : 'updating the code is supported for checks and check groups only')
+        : `${construct.constructor.name} has no properties this tool can update`)
       continue
     }
     if (construct.checkFileAbsolutePath === undefined) {
@@ -779,16 +1038,29 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
       }
       throw err
     }
+    const found = candidates(context, rules).map(candidate => ({
+      candidate, found: valueFor(context, candidate, entry.before, blanked),
+    }))
+    // A member of a group refused here takes the rest of its group with it,
+    // as one the splicer refuses does below.
+    const refusedGroups = new Set(found.filter(entry => entry.found === undefined)
+      .map(entry => entry.candidate.rule.group))
     const edits: FileWork['edits'] = []
-    for (const candidate of candidates(context, rules)) {
-      const found = valueFor(context, candidate, entry.before, blanked)
-      if (found !== undefined) {
-        edits.push({
-          ...editFor(candidate.rule.target, found),
-          replacesLocalEdit: candidate.changes.some(({ change }) => change.origin === 'both'),
-          group: candidate.rule.group,
-        })
+    for (const { candidate, found: value } of found) {
+      const { group, target } = candidate.rule
+      if (value === undefined) {
+        continue
       }
+      if (group !== undefined && refusedGroups.has(group)) {
+        const others = found.filter(entry => entry.candidate.rule.group === group && entry.candidate !== candidate)
+        context.skip(`written together with ${others.map(entry => entry.candidate.rule.target.join('.')).join(', ')}`, target.join('.'))
+        continue
+      }
+      edits.push({
+        ...editFor(target, value),
+        replacesLocalEdit: candidate.changes.some(({ change }) => change.origin === 'both'),
+        group,
+      })
     }
     if (edits.length === 0) {
       continue
