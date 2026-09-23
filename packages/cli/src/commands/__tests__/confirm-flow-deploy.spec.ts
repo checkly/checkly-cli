@@ -1180,12 +1180,12 @@ new ApiCheck('api', {
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })
 
-  it('does not offer the choice for a resource whose class it cannot update, or for a secret', async () => {
+  it('does not offer the choice for a change the table refuses, or for a secret', async () => {
     planResolves([
       {
         ...CHANGED,
         redactions: [],
-        changes: [{ path: '/config/address', origin: 'remote', before: 'ops@example.com', after: 'new@example.com' }],
+        changes: [{ path: '/type', origin: 'remote', before: 'EMAIL', after: 'SLACK' }],
       },
       {
         ...remoteEdit,

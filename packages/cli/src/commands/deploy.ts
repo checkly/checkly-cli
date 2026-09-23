@@ -67,9 +67,9 @@ function rejectsPreviewEraField (err: any): boolean {
  * outside the project and the code can take the edit: write the account's
  * current values into the code and deploy nothing, so the user reviews the
  * diff and deploys again rather than overwriting the edit. Only the
- * properties of checks and groups the write-back knows the spelling of (a
- * literal, or a helper such as `Frequency.EVERY_5M`) can be written;
- * everything else is listed with its reason.
+ * properties the write-back knows the construct's spelling of (a literal,
+ * or a helper such as `Frequency.EVERY_5M`) can be written; everything
+ * else is listed with its reason.
  */
 function writeBackAlternatives (diff: DiffEntry[], project: Project, command: Deploy): CommandAlternative[] {
   if (!hasWritableChanges(diff, project)) {
