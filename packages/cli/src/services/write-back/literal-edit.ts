@@ -340,6 +340,20 @@ export function quoteString (value: string, quote: SourceStyle['quote']): string
   return `'${json.slice(1, -1).replace(/\\"/g, '"').replace(/'/g, '\\\'')}'`
 }
 
+/**
+ * `value` as a template literal, for a multi-line string replacing one so
+ * the author's form is kept; undefined when it cannot read back as the same
+ * string, which a parser guarantees only for LF and TAB among the control
+ * characters (CR and CRLF are normalised to LF inside a template).
+ */
+export function templateLiteral (value: string): string | undefined {
+  // eslint-disable-next-line no-control-regex
+  if (/[\u0000-\u0008\u000b-\u001f\u007f]/.test(value)) {
+    return undefined
+  }
+  return '`' + value.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${') + '`'
+}
+
 export function renderKey (key: string, quote: SourceStyle['quote']): string {
   // A bare `__proto__` in an object literal sets the prototype rather than
   // a property; quoted, it is a property like any other.

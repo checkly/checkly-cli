@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { applyEdits } from '../apply-edits.js'
-import { detectStyle, evaluateLiteral, isPlainLiteral, resolvePath } from '../literal-edit.js'
+import { detectStyle, evaluateLiteral, isPlainLiteral, resolvePath, templateLiteral } from '../literal-edit.js'
 import { findConstructOptions, parseSource, WriteBackSkipped } from '../source-file.js'
 
 /**
@@ -460,5 +460,14 @@ new ApiCheck('api', { name: 'x', tags: [
     ])
     expect(nested.skipped).toEqual([{ path: ['request', 'body'], value: 'b', reason: 'overlaps another edit' }])
     expect(readsBack('a.ts', nested.text, ['request'], { url: 'u' })).toBe(true)
+  })
+})
+
+describe('templateLiteral', () => {
+  it('escapes what a template would read differently, and refuses what it cannot carry', () => {
+    expect(templateLiteral('a\nb')).toBe('`a\nb`')
+    expect(templateLiteral('`${x}` \\n\tend')).toBe('`\\`\\${x}\\` \\\\n\tend`')
+    expect(templateLiteral('a\r\nb')).toBeUndefined()
+    expect(templateLiteral('a\u0000b')).toBeUndefined()
   })
 })
