@@ -6,21 +6,28 @@ import { isDeepStrictEqual } from 'node:util'
 import * as constructs from '../../constructs/index.js'
 import { AgenticCheck } from '../../constructs/agentic-check.js'
 import { ApiCheck } from '../../constructs/api-check.js'
+import type { Request } from '../../constructs/api-request.js'
 import { BrowserCheck } from '../../constructs/browser-check.js'
 import { CheckGroupV1 } from '../../constructs/check-group-v1.js'
 import { CheckGroupV2 } from '../../constructs/check-group-v2.js'
 import type { Construct } from '../../constructs/construct.js'
 import { DnsMonitor } from '../../constructs/dns-monitor.js'
+import type { DnsRequest } from '../../constructs/dns-request.js'
 import { GrpcMonitor } from '../../constructs/grpc-monitor.js'
+import type { GrpcConfig, GrpcRequest } from '../../constructs/grpc-request.js'
 import { HeartbeatMonitor } from '../../constructs/heartbeat-monitor.js'
 import { IcmpMonitor } from '../../constructs/icmp-monitor.js'
+import type { IcmpRequest } from '../../constructs/icmp-request.js'
 import { MultiStepCheck } from '../../constructs/multi-step-check.js'
 import { PlaywrightCheck } from '../../constructs/playwright-check.js'
 import type { Project, ProjectData } from '../../constructs/project.js'
 import { SslMonitor } from '../../constructs/ssl-monitor.js'
-import { TcpMonitor } from '../../constructs/tcp-monitor.js'
+import type { SslConfig, SslRequest } from '../../constructs/ssl-request.js'
+import { TcpMonitor, type TcpRequest } from '../../constructs/tcp-monitor.js'
 import { TracerouteMonitor } from '../../constructs/traceroute-monitor.js'
+import type { TracerouteRequest } from '../../constructs/traceroute-request.js'
 import { UrlMonitor } from '../../constructs/url-monitor.js'
+import type { UrlRequest } from '../../constructs/url-request.js'
 import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 import { hasEscalationPolicy } from '../../constructs/alert-escalation-policy-codegen.js'
 import { AGENTIC_CHECK_OMITTED_PROPS } from '../../constructs/internal/agentic-check-defaults.js'
@@ -126,7 +133,8 @@ type AlertPolicyHolder = 'check' | 'group' | 'group-v2'
 
 const identity = (...segments: string[]): Rule => ({ pointer: segments, target: segments })
 const set = (segment: string): Rule => ({ pointer: [segment], target: [segment], set: true })
-const under = (parent: string, keys: string[]): Rule[] => keys.map(key => identity(parent, key))
+const under = (parent: string | readonly string[], keys: readonly string[]): Rule[] =>
+  keys.map(key => identity(...(typeof parent === 'string' ? [parent] : parent), key))
 const assertions = (builder: AssertionBuilderName, ...parent: string[]): Rule =>
   ({ pointer: [...parent, 'assertions'], target: [...parent, 'assertions'], helper: { kind: 'assertions', builder } })
 
@@ -169,15 +177,78 @@ const CHECK_RULES: Rule[] = [
 ]
 const omitting = (rules: readonly Rule[], props: readonly string[]): Rule[] =>
   rules.filter(rule => !props.includes(rule.target[0]))
+// Only the classes extending RuntimeCheck take a runtime and environment
+// variables; a monitor or an agentic check would drop them when synthesized.
+const RUNTIME_CHECK_RULES: Rule[] = [identity('runtimeId'), identity('environmentVariables')]
 const RESPONSE_TIME_RULES: Rule[] = [identity('degradedResponseTime'), identity('maxResponseTime')]
+
+// The keys of each request type the account reports under the same name
+// the construct uses, typed against the construct's interface so a renamed
+// property fails the build; `Covers` below fails it for a key added to the
+// interface but listed nowhere. `assertions` has its own helper rule.
 const API_REQUEST_KEYS = [
   'url', 'method', 'ipFamily', 'followRedirects', 'skipSSL', 'body', 'bodyType', 'headers', 'queryParameters', 'basicAuth',
+] as const satisfies readonly (keyof Request)[]
+const URL_REQUEST_KEYS = ['url', 'ipFamily', 'followRedirects', 'skipSSL'] as const satisfies readonly (keyof UrlRequest)[]
+const TCP_REQUEST_KEYS = ['hostname', 'port', 'data', 'ipFamily'] as const satisfies readonly (keyof TcpRequest)[]
+const DNS_REQUEST_KEYS = [
+  'recordType', 'query', 'nameServer', 'port', 'protocol',
+] as const satisfies readonly (keyof DnsRequest)[]
+const ICMP_REQUEST_KEYS = ['hostname', 'ipFamily', 'pingCount'] as const satisfies readonly (keyof IcmpRequest)[]
+const GRPC_REQUEST_KEYS = ['url', 'port', 'ipFamily', 'skipSSL', 'timeout'] as const satisfies readonly (keyof GrpcRequest)[]
+// `metadata` is never written — the account blanks every metadata value —
+// but with a rule the refusal names that reason rather than a generic one.
+const GRPC_CONFIG_KEYS = [
+  'mode', 'tls', 'metadata', 'serviceDefinition', 'method', 'protoContent', 'message', 'service',
+] as const satisfies readonly (keyof GrpcConfig)[]
+const TRACEROUTE_REQUEST_KEYS = [
+  'url', 'protocol', 'port', 'ipFamily', 'maxHops', 'maxUnknownHops', 'ptrLookup', 'timeout',
+] as const satisfies readonly (keyof TracerouteRequest)[]
+// A DNS monitor refuses a name server without a port and a port without a
+// name server, so the two are written together or not at all.
+const DNS_REQUEST_RULES: Rule[] = DNS_REQUEST_KEYS.map(key =>
+  key === 'nameServer' || key === 'port' ? { ...identity('request', key), group: 'nameServer' } : identity('request', key))
+/**
+ * The SSL request is the one the account spells differently from the
+ * construct: the wire shape nests the host, port and IP family under
+ * `sslConfig`, names the handshake timeout in milliseconds, and lifts the
+ * client certificate id to the request level.
+ */
+const SSL_NESTED_KEYS = ['hostname', 'port', 'ipFamily'] as const satisfies readonly (keyof SslRequest)[]
+const SSL_CONFIG_KEYS = [
+  'serverName', 'skipChainValidation', 'alertDaysBeforeExpiry', 'clientCertificateMode', 'securityBaseline',
+] as const satisfies readonly (keyof SslConfig)[]
+const SSL_REQUEST_RULES: Rule[] = [
+  ...SSL_NESTED_KEYS.map(key => ({ pointer: ['request', 'sslConfig', key], target: ['request', key] })),
+  ...under(['request', 'sslConfig'], SSL_CONFIG_KEYS),
+  { pointer: ['request', 'sslConfig', 'handshakeTimeoutMs'], target: ['request', 'sslConfig', 'handshakeTimeout'] },
+  { pointer: ['request', 'sslClientCertificateId'], target: ['request', 'sslConfig', 'sslClientCertificateId'] },
 ]
-const URL_REQUEST_KEYS = ['url', 'ipFamily', 'followRedirects', 'skipSSL']
+
+/**
+ * `true` when every key of `T` is in `Listed`, `never` otherwise: a key a
+ * construct's request gains has to be added to its list here, or named
+ * below as one the write-back leaves out on purpose, before the build passes.
+ */
+type Covers<T, Listed extends PropertyKey> = Exclude<keyof T, Listed> extends never ? true : never
+// A build-time assertion only; nothing reads it.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _everyRequestKeyIsListed: [
+  Covers<Request, typeof API_REQUEST_KEYS[number] | 'assertions'>,
+  Covers<UrlRequest, typeof URL_REQUEST_KEYS[number] | 'assertions'>,
+  Covers<TcpRequest, typeof TCP_REQUEST_KEYS[number] | 'assertions'>,
+  Covers<DnsRequest, typeof DNS_REQUEST_KEYS[number] | 'assertions'>,
+  Covers<IcmpRequest, typeof ICMP_REQUEST_KEYS[number] | 'assertions'>,
+  Covers<GrpcRequest, typeof GRPC_REQUEST_KEYS[number] | 'grpcConfig' | 'assertions'>,
+  Covers<GrpcConfig, typeof GRPC_CONFIG_KEYS[number]>,
+  Covers<TracerouteRequest, typeof TRACEROUTE_REQUEST_KEYS[number] | 'assertions'>,
+  Covers<SslRequest, typeof SSL_NESTED_KEYS[number] | 'sslConfig' | 'assertions'>,
+  Covers<SslConfig, typeof SSL_CONFIG_KEYS[number] | 'handshakeTimeout' | 'sslClientCertificateId'>,
+] = [true, true, true, true, true, true, true, true, true, true]
 const HEARTBEAT_KEYS = ['period', 'periodUnit', 'grace', 'graceUnit']
 const GROUP_RULES: Rule[] = [
   identity('name'), identity('activated'), identity('muted'), set('tags'), set('locations'), identity('concurrency'),
-  identity('environmentVariables'),
+  identity('environmentVariables'), identity('runtimeId'),
   ...under('apiCheckDefaults', ['url', 'headers', 'queryParameters', 'basicAuth']),
   assertions('AssertionBuilder', 'apiCheckDefaults'),
   ...RETRY_RULES,
@@ -188,9 +259,9 @@ const GROUP_RULES: Rule[] = [
  * import-format spelling and construct spelling are both literals with the
  * same shape, and the ones the construct spells with a helper this module
  * can render (`frequency`, `retryStrategy`, `alertEscalationPolicy`, the
- * `assertions` of a request). Anything else — references, scripts, the
- * TCP/DNS/ICMP request whose keys differ between the two spellings — is left
- * to the user.
+ * `assertions` of a request), and the SSL request whose wire keys map onto
+ * the construct's (`SSL_REQUEST_RULES`). Anything else — references,
+ * scripts, a request key the construct does not take — is left to the user.
  *
  * Keyed by the exact class, not by `instanceof`: a class this table does not
  * name gets nothing rather than a base class's rules, so a construct that
@@ -205,24 +276,32 @@ export type ConstructClass = abstract new (...args: any[]) => Construct
 
 export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new Map<ConstructClass, readonly Rule[]>([
   [ApiCheck, [
-    ...CHECK_RULES, identity('environmentVariables'), ...RESPONSE_TIME_RULES,
+    ...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...RESPONSE_TIME_RULES,
     ...under('request', API_REQUEST_KEYS), assertions('AssertionBuilder', 'request'),
   ]],
-  [BrowserCheck, [...CHECK_RULES, identity('environmentVariables')]],
-  [MultiStepCheck, [...CHECK_RULES, identity('environmentVariables')]],
-  [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), identity('environmentVariables')]],
+  [BrowserCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES]],
+  [MultiStepCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES]],
+  [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_RULES]],
   [AgenticCheck, omitting(CHECK_RULES, AGENTIC_CHECK_OMITTED_PROPS)],
   [UrlMonitor, [
     ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
   ]],
-  [TcpMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('TcpAssertionBuilder', 'request')]],
-  [DnsMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('DnsAssertionBuilder', 'request')]],
-  [GrpcMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('GrpcAssertionBuilder', 'request')]],
-  [SslMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('SslAssertionBuilder', 'request')]],
-  [TracerouteMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('TracerouteAssertionBuilder', 'request')]],
+  [TcpMonitor, [
+    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', TCP_REQUEST_KEYS), assertions('TcpAssertionBuilder', 'request'),
+  ]],
+  [DnsMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, ...DNS_REQUEST_RULES, assertions('DnsAssertionBuilder', 'request')]],
+  [GrpcMonitor, [
+    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', GRPC_REQUEST_KEYS),
+    ...under(['request', 'grpcConfig'], GRPC_CONFIG_KEYS), assertions('GrpcAssertionBuilder', 'request'),
+  ]],
+  [SslMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, ...SSL_REQUEST_RULES, assertions('SslAssertionBuilder', 'request')]],
+  [TracerouteMonitor, [
+    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', TRACEROUTE_REQUEST_KEYS),
+    assertions('TracerouteAssertionBuilder', 'request'),
+  ]],
   [IcmpMonitor, [
     ...CHECK_RULES, identity('degradedPacketLossThreshold'), identity('maxPacketLossThreshold'),
-    assertions('IcmpAssertionBuilder', 'request'),
+    ...under('request', ICMP_REQUEST_KEYS), assertions('IcmpAssertionBuilder', 'request'),
   ]],
   [HeartbeatMonitor, [
     ...CHECK_RULES,
@@ -315,7 +394,14 @@ function agrees (change: DiffChange, rule: Rule, remaining: readonly string[], r
     const wasLeaf = previous === null || typeof previous !== 'object'
     return held === undefined || (wasLeaf && held !== null && typeof held === 'object')
   }
-  return withheld(current.value) || isDeepStrictEqual(nodeAt(raw, remaining), current.value)
+  const held = nodeAt(raw, remaining)
+  // The import format leaves out an optional key the account cleared
+  // (`serverName`, `nameServer`, `data`, …), which the change reports as
+  // null: at the rule's own leaf that is the same absence, and the writer
+  // then refuses it as a value Checkly does not hold. Below the leaf the
+  // parent would be written without the key, so the disagreement stands.
+  const cleared = remaining.length === 0 && held === undefined && current.value === null
+  return withheld(current.value) || cleared || isDeepStrictEqual(held, current.value)
 }
 
 interface Candidate {
