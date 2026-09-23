@@ -4,29 +4,31 @@ import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
 import * as constructs from '../../constructs/index.js'
-import { AgenticCheck } from '../../constructs/agentic-check.js'
-import { ApiCheck } from '../../constructs/api-check.js'
+import { AgenticCheck, type AgenticCheckProps } from '../../constructs/agentic-check.js'
+import { ApiCheck, type ApiCheckDefaultConfig, type ApiCheckProps } from '../../constructs/api-check.js'
 import type { Request } from '../../constructs/api-request.js'
-import { BrowserCheck } from '../../constructs/browser-check.js'
-import { CheckGroupV1 } from '../../constructs/check-group-v1.js'
-import { CheckGroupV2 } from '../../constructs/check-group-v2.js'
+import { BrowserCheck, type BrowserCheckProps } from '../../constructs/browser-check.js'
+import type { CheckProps, RuntimeCheckProps } from '../../constructs/check.js'
+import { CheckGroupV1, type CheckGroupV1Props } from '../../constructs/check-group-v1.js'
+import { CheckGroupV2, type CheckGroupV2Props } from '../../constructs/check-group-v2.js'
 import type { Construct } from '../../constructs/construct.js'
-import { DnsMonitor } from '../../constructs/dns-monitor.js'
+import { DnsMonitor, type DnsMonitorProps } from '../../constructs/dns-monitor.js'
 import type { DnsRequest } from '../../constructs/dns-request.js'
-import { GrpcMonitor } from '../../constructs/grpc-monitor.js'
+import { GrpcMonitor, type GrpcMonitorProps } from '../../constructs/grpc-monitor.js'
 import type { GrpcConfig, GrpcRequest } from '../../constructs/grpc-request.js'
-import { HeartbeatMonitor } from '../../constructs/heartbeat-monitor.js'
-import { IcmpMonitor } from '../../constructs/icmp-monitor.js'
+import { HeartbeatMonitor, type HeartbeatMonitorProps } from '../../constructs/heartbeat-monitor.js'
+import { IcmpMonitor, type IcmpMonitorProps } from '../../constructs/icmp-monitor.js'
 import type { IcmpRequest } from '../../constructs/icmp-request.js'
-import { MultiStepCheck } from '../../constructs/multi-step-check.js'
-import { PlaywrightCheck } from '../../constructs/playwright-check.js'
+import type { MonitorProps } from '../../constructs/monitor.js'
+import { MultiStepCheck, type MultiStepCheckProps } from '../../constructs/multi-step-check.js'
+import { PlaywrightCheck, type PlaywrightCheckProps } from '../../constructs/playwright-check.js'
 import type { Project, ProjectData } from '../../constructs/project.js'
-import { SslMonitor } from '../../constructs/ssl-monitor.js'
+import { SslMonitor, type SslMonitorProps } from '../../constructs/ssl-monitor.js'
 import type { SslConfig, SslRequest } from '../../constructs/ssl-request.js'
-import { TcpMonitor, type TcpRequest } from '../../constructs/tcp-monitor.js'
-import { TracerouteMonitor } from '../../constructs/traceroute-monitor.js'
+import { TcpMonitor, type TcpMonitorProps, type TcpRequest } from '../../constructs/tcp-monitor.js'
+import { TracerouteMonitor, type TracerouteMonitorProps } from '../../constructs/traceroute-monitor.js'
 import type { TracerouteRequest } from '../../constructs/traceroute-request.js'
-import { UrlMonitor } from '../../constructs/url-monitor.js'
+import { UrlMonitor, type UrlMonitorProps } from '../../constructs/url-monitor.js'
 import type { UrlRequest } from '../../constructs/url-request.js'
 import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 import { hasEscalationPolicy } from '../../constructs/alert-escalation-policy-codegen.js'
@@ -169,18 +171,35 @@ const alertRules = (policy: AlertPolicyHolder): Rule[] => [
   },
 ]
 
+// The keys each class writes are `as const` lists typed against the class's
+// props, so that `_everyPropIsListed` below can hold the build to them: a
+// key added to a props type has to be written or named as left out.
+const CHECK_KEYS = ['name', 'description', 'activated', 'muted', 'shouldFail'] as const satisfies readonly (keyof CheckProps)[]
+const CHECK_SET_KEYS = ['tags', 'locations'] as const satisfies readonly (keyof CheckProps)[]
+const CHECK_HELPER_KEYS = ['frequency', 'retryStrategy', 'alertEscalationPolicy'] as const satisfies readonly (keyof CheckProps)[]
+const CHECK_WRITTEN = [...CHECK_KEYS, ...CHECK_SET_KEYS, ...CHECK_HELPER_KEYS] as const
 // Every check class takes these; a class whose props omit some (as its
 // codegen's omitted props say) gets the rest.
 const CHECK_RULES: Rule[] = [
-  identity('name'), identity('description'), identity('activated'), identity('muted'), identity('shouldFail'),
-  set('tags'), set('locations'), ...FREQUENCY_RULES, ...RETRY_RULES, ...alertRules('check'),
+  ...CHECK_KEYS.map(key => identity(key)), ...CHECK_SET_KEYS.map(set),
+  ...FREQUENCY_RULES, ...RETRY_RULES, ...alertRules('check'),
 ]
 const omitting = (rules: readonly Rule[], props: readonly string[]): Rule[] =>
   rules.filter(rule => !props.includes(rule.target[0]))
+const omit = <K extends string, O extends string>(keys: readonly K[], omitted: readonly O[]): Exclude<K, O>[] =>
+  keys.filter((key): key is Exclude<K, O> => !(omitted as readonly string[]).includes(key))
 // Only the classes extending RuntimeCheck take a runtime and environment
 // variables; a monitor or an agentic check would drop them when synthesized.
-const RUNTIME_CHECK_RULES: Rule[] = [identity('runtimeId'), identity('environmentVariables')]
-const RESPONSE_TIME_RULES: Rule[] = [identity('degradedResponseTime'), identity('maxResponseTime')]
+const RUNTIME_CHECK_KEYS = ['runtimeId', 'environmentVariables'] as const satisfies readonly (keyof RuntimeCheckProps)[]
+const RUNTIME_CHECK_RULES: Rule[] = RUNTIME_CHECK_KEYS.map(key => identity(key))
+const RESPONSE_TIME_KEYS = ['degradedResponseTime', 'maxResponseTime'] as const satisfies readonly (keyof ApiCheckProps)[]
+const RESPONSE_TIME_RULES: Rule[] = RESPONSE_TIME_KEYS.map(key => identity(key))
+const PACKET_LOSS_KEYS = [
+  'degradedPacketLossThreshold', 'maxPacketLossThreshold',
+] as const satisfies readonly (keyof IcmpMonitorProps)[]
+const BROWSER_KEYS = ['sslCheckDomain', 'aiAutoRepairEnabled'] as const satisfies readonly (keyof BrowserCheckProps)[]
+const MULTI_STEP_KEYS = ['aiAutoRepairEnabled'] as const satisfies readonly (keyof MultiStepCheckProps)[]
+const AGENTIC_KEYS = ['prompt'] as const satisfies readonly (keyof AgenticCheckProps)[]
 
 // The keys of each request type the account reports under the same name
 // the construct uses, typed against the construct's interface so a renamed
@@ -245,14 +264,88 @@ const _everyRequestKeyIsListed: [
   Covers<SslRequest, typeof SSL_NESTED_KEYS[number] | 'sslConfig' | 'assertions'>,
   Covers<SslConfig, typeof SSL_CONFIG_KEYS[number] | 'handshakeTimeout' | 'sslClientCertificateId'>,
 ] = [true, true, true, true, true, true, true, true, true, true]
-const HEARTBEAT_KEYS = ['period', 'periodUnit', 'grace', 'graceUnit']
+const HEARTBEAT_KEYS = ['period', 'periodUnit', 'grace', 'graceUnit'] as const satisfies readonly (keyof HeartbeatMonitorProps)[]
+const GROUP_KEYS = [
+  'name', 'activated', 'muted', 'concurrency', 'environmentVariables', 'runtimeId',
+] as const satisfies readonly (keyof CheckGroupV1Props)[]
+const GROUP_SET_KEYS = ['tags', 'locations'] as const satisfies readonly (keyof CheckGroupV1Props)[]
+const GROUP_HELPER_KEYS = [
+  'apiCheckDefaults', 'retryStrategy', 'alertEscalationPolicy',
+] as const satisfies readonly (keyof CheckGroupV1Props)[]
+const API_DEFAULT_KEYS = ['url', 'headers', 'queryParameters', 'basicAuth'] as const satisfies readonly (keyof ApiCheckDefaultConfig)[]
 const GROUP_RULES: Rule[] = [
-  identity('name'), identity('activated'), identity('muted'), set('tags'), set('locations'), identity('concurrency'),
-  identity('environmentVariables'), identity('runtimeId'),
-  ...under('apiCheckDefaults', ['url', 'headers', 'queryParameters', 'basicAuth']),
-  assertions('AssertionBuilder', 'apiCheckDefaults'),
+  ...GROUP_KEYS.map(key => identity(key)), ...GROUP_SET_KEYS.map(set),
+  ...under('apiCheckDefaults', API_DEFAULT_KEYS), assertions('AssertionBuilder', 'apiCheckDefaults'),
   ...RETRY_RULES,
 ]
+
+// What each class writes, at the top level of its props. `request` and
+// `apiCheckDefaults` stand for every rule under them.
+const API_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...RESPONSE_TIME_KEYS, 'request'] as const
+const BROWSER_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...BROWSER_KEYS] as const
+const MULTI_STEP_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...MULTI_STEP_KEYS] as const
+const PLAYWRIGHT_WRITTEN = [...omit(CHECK_WRITTEN, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_KEYS] as const
+const AGENTIC_WRITTEN = [...omit(CHECK_WRITTEN, AGENTIC_CHECK_OMITTED_PROPS), ...AGENTIC_KEYS] as const
+// The monitors with a request and response-time thresholds share one list.
+const MONITOR_WRITTEN = [...CHECK_WRITTEN, ...RESPONSE_TIME_KEYS, 'request'] as const
+const ICMP_WRITTEN = [...CHECK_WRITTEN, ...PACKET_LOSS_KEYS, 'request'] as const
+const HEARTBEAT_WRITTEN = [...CHECK_WRITTEN, ...HEARTBEAT_KEYS] as const
+const GROUP_WRITTEN = [...GROUP_KEYS, ...GROUP_SET_KEYS, ...GROUP_HELPER_KEYS] as const
+
+/**
+ * The props keys the write-back leaves out on purpose, by reason; each
+ * class names the reasons that apply to it. A key in none of them and in no
+ * written list fails `_everyPropIsListed`.
+ */
+/** Names another resource; refused as `references another resource`. */
+type ReferenceKey = 'alertChannels' | 'privateLocations' | 'group' | 'groupId'
+/** Script or bundle content, which the plan reports with a cause rather than a value. */
+type ContentKey = 'code' | 'setupScript' | 'tearDownScript' | 'localSetupScript' | 'localTearDownScript'
+/** Reaches the account only through the Playwright code bundle. */
+type BundleKey = 'playwrightConfigPath' | 'installCommand' | 'testCommand' | 'pwProjects' | 'pwTags' | 'include' | 'groupName'
+/** Never sent to the account. */
+type LocalOnlyKey = 'testOnly'
+/** Reported with the reason `NOT_WRITTEN` or `refusal` gives. */
+type NotWrittenKey = 'doubleCheck' | 'runParallel' | 'intent' | 'triggerIncident'
+/** A group prop applied to its member checks, never a property of the group resource. */
+type GroupMemberKey = 'frequency' | 'browserChecks' | 'multiStepChecks'
+// Named per class below, writable in principle but not yet (`NOT_WRITTEN`
+// says so): `engine` is one object sent as two leaves, `agentRuntime` holds
+// a set, `playwrightConfig` has credential sections the account blanks to
+// null and is usually inherited from the project config.
+/** What every check class leaves out. */
+type CheckLeftOut = ReferenceKey | LocalOnlyKey | NotWrittenKey
+
+/** `true` when every key of `Written` is a key of `T`, `never` otherwise. */
+type Within<T, Written extends PropertyKey> = Exclude<Written, keyof T> extends never ? true : never
+/** Both directions: every key of `T` is written or in `Left`, and every written key is one `T` has. */
+type Exact<T, Written extends PropertyKey, Left extends PropertyKey> =
+  Covers<T, Written | Left> extends true ? Within<T, Written> : never
+// A build-time assertion only; nothing reads it. When it fails, the props
+// type named at the failing position gained or lost a key: add it to the
+// class's written list and a rule, or to the reasons above.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+const _everyPropIsListed: [
+  Exact<CheckProps, typeof CHECK_WRITTEN[number], CheckLeftOut>,
+  Exact<RuntimeCheckProps, typeof CHECK_WRITTEN[number] | typeof RUNTIME_CHECK_KEYS[number], CheckLeftOut>,
+  Exact<MonitorProps, typeof CHECK_WRITTEN[number], CheckLeftOut>,
+  Exact<ApiCheckProps, typeof API_WRITTEN[number], CheckLeftOut | ContentKey>,
+  Exact<BrowserCheckProps, typeof BROWSER_WRITTEN[number], CheckLeftOut | ContentKey | 'playwrightConfig'>,
+  Exact<MultiStepCheckProps, typeof MULTI_STEP_WRITTEN[number], CheckLeftOut | ContentKey | 'playwrightConfig'>,
+  Exact<PlaywrightCheckProps, typeof PLAYWRIGHT_WRITTEN[number], CheckLeftOut | BundleKey | 'engine'>,
+  Exact<AgenticCheckProps, typeof AGENTIC_WRITTEN[number], CheckLeftOut | 'agentRuntime'>,
+  Exact<UrlMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<TcpMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<DnsMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<GrpcMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<SslMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<TracerouteMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<IcmpMonitorProps, typeof ICMP_WRITTEN[number], CheckLeftOut>,
+  Exact<HeartbeatMonitorProps, typeof HEARTBEAT_WRITTEN[number], CheckLeftOut>,
+  Exact<CheckGroupV1Props, typeof GROUP_WRITTEN[number], CheckLeftOut | ContentKey | GroupMemberKey>,
+  Exact<CheckGroupV2Props, typeof GROUP_WRITTEN[number], CheckLeftOut | ContentKey | GroupMemberKey>,
+  Covers<ApiCheckDefaultConfig, typeof API_DEFAULT_KEYS[number] | 'assertions'>,
+] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
 
 /**
  * The properties this module writes, per construct class: the ones whose
@@ -279,10 +372,10 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
     ...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...RESPONSE_TIME_RULES,
     ...under('request', API_REQUEST_KEYS), assertions('AssertionBuilder', 'request'),
   ]],
-  [BrowserCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES]],
-  [MultiStepCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES]],
+  [BrowserCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...BROWSER_KEYS.map(key => identity(key))]],
+  [MultiStepCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...MULTI_STEP_KEYS.map(key => identity(key))]],
   [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_RULES]],
-  [AgenticCheck, omitting(CHECK_RULES, AGENTIC_CHECK_OMITTED_PROPS)],
+  [AgenticCheck, [...omitting(CHECK_RULES, AGENTIC_CHECK_OMITTED_PROPS), ...AGENTIC_KEYS.map(key => identity(key))]],
   [UrlMonitor, [
     ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
   ]],
@@ -300,7 +393,7 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
     assertions('TracerouteAssertionBuilder', 'request'),
   ]],
   [IcmpMonitor, [
-    ...CHECK_RULES, identity('degradedPacketLossThreshold'), identity('maxPacketLossThreshold'),
+    ...CHECK_RULES, ...PACKET_LOSS_KEYS.map(key => identity(key)),
     ...under('request', ICMP_REQUEST_KEYS), assertions('IcmpAssertionBuilder', 'request'),
   ]],
   [HeartbeatMonitor, [
@@ -311,6 +404,17 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
   [CheckGroupV2, [...GROUP_RULES, ...alertRules('group-v2')]],
 ])
 
+/** The top-level props keys each class's rules write, as the build-time assertion above knows them; the spec holds `RULES_BY_CLASS` to it. */
+export const WRITTEN_BY_CLASS: ReadonlyMap<ConstructClass, readonly string[]> =
+  new Map<ConstructClass, readonly string[]>([
+    [ApiCheck, API_WRITTEN], [BrowserCheck, BROWSER_WRITTEN], [MultiStepCheck, MULTI_STEP_WRITTEN],
+    [PlaywrightCheck, PLAYWRIGHT_WRITTEN], [AgenticCheck, AGENTIC_WRITTEN],
+    [UrlMonitor, MONITOR_WRITTEN], [TcpMonitor, MONITOR_WRITTEN], [DnsMonitor, MONITOR_WRITTEN],
+    [GrpcMonitor, MONITOR_WRITTEN], [SslMonitor, MONITOR_WRITTEN], [TracerouteMonitor, MONITOR_WRITTEN],
+    [IcmpMonitor, ICMP_WRITTEN],
+    [HeartbeatMonitor, HEARTBEAT_WRITTEN], [CheckGroupV1, GROUP_WRITTEN], [CheckGroupV2, GROUP_WRITTEN],
+  ])
+
 /** Paths that name another resource or a relation rather than a value of this one. */
 const REFERENCE_PREFIXES = ['alertChannels', 'privateLocations', 'alertChannelSubscriptions', 'privateLocationAssignments', 'groupId']
 
@@ -318,6 +422,11 @@ const REFERENCE_PREFIXES = ['alertChannels', 'privateLocations', 'alertChannelSu
 const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
   ['doubleCheck', 'replaced by retryStrategy; set the retry strategy in the code by hand'],
   ['runParallel', 'not a property this tool can update'],
+  ['triggerIncident', 'Checkly does not report the incident trigger\'s settings; edit it by hand'],
+  ['playwrightConfig', 'this tool does not update the Playwright config yet; set it in checkly.config.ts or on the check by hand'],
+  ['engine', 'this tool does not update the engine yet; set it by hand'],
+  ['engineVersion', 'this tool does not update the engine yet; set it by hand'],
+  ['agentRuntime', 'this tool does not update agentRuntime yet; set it by hand'],
 ])
 
 /** The names `checkly/constructs` exports for a construct's class; empty for a class of the user's own. */
