@@ -4,6 +4,11 @@ import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiCheck } from '../../../constructs/api-check.js'
+import { BrowserCheck } from '../../../constructs/browser-check.js'
+import { DnsMonitor } from '../../../constructs/dns-monitor.js'
+import { IcmpMonitor } from '../../../constructs/icmp-monitor.js'
+import { SslMonitor } from '../../../constructs/ssl-monitor.js'
+import { TracerouteMonitor } from '../../../constructs/traceroute-monitor.js'
 import { CheckGroup } from '../../../constructs/check-group.js'
 import { EmailAlertChannel } from '../../../constructs/email-alert-channel.js'
 import { HeartbeatMonitor } from '../../../constructs/heartbeat-monitor.js'
@@ -448,16 +453,14 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 4
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([
-      'check-group grp /runParallel: not a property this tool can update',
-      'check tcp /request/hostname: not a property this tool can update',
-    ])
+    expect(plan.skipped).toEqual(['check-group grp /runParallel: not a property this tool can update'])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
       ['grp', 'concurrency', '5'],
       ['grp', 'apiCheckDefaults.url', '\'https://api.example.com\''],
       ['beat', 'period', '2'],
       ['url', 'request.url', '\'https://www.example.com\''],
       ['url', 'maxResponseTime', '20000'],
+      ['tcp', 'request.hostname', '\'other.example.com\''],
     ])
     expect(plan.files).toHaveLength(1)
     expect(plan.files[0].text).toBe(`import { CheckGroup, HeartbeatCheck, UrlMonitor, TcpMonitor } from 'checkly/constructs'
@@ -472,7 +475,7 @@ new HeartbeatCheck('beat', { name: 'Beat', period: 2, periodUnit: 'hours', grace
 
 new UrlMonitor('url', { name: 'Url', request: { url: 'https://www.example.com' }, maxResponseTime: 20000 })
 
-new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 443 } })
+new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'other.example.com', port: 443 } })
 `)
   })
 
@@ -870,7 +873,270 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
       }
       expect(has(rules, 'alertEscalationPolicy'), `${cls.name} alertEscalationPolicy`).toBe(true)
       expect(has(rules, 'frequency'), `${cls.name} frequency`).toBe(!isGroup)
+      expect(has(rules, 'runtimeId'), `${cls.name} runtimeId`).toBe(isGroup || cls.prototype instanceof RuntimeCheck)
     }
+  })
+
+  it('maps every key of the SSL request onto the construct spelling', () => {
+    // The one request whose wire shape differs from the construct's; the
+    // other monitors' lists are checked exhaustively at compile time.
+    const rules = RULES_BY_CLASS.get(SslMonitor) ?? []
+    const targets = rules.filter(rule => rule.target[0] === 'request').map(rule => rule.target.join('.'))
+    expect(targets.sort()).toEqual([
+      'request.assertions', 'request.hostname', 'request.ipFamily', 'request.port', 'request.sslConfig.alertDaysBeforeExpiry',
+      'request.sslConfig.clientCertificateMode', 'request.sslConfig.handshakeTimeout', 'request.sslConfig.securityBaseline',
+      'request.sslConfig.serverName', 'request.sslConfig.skipChainValidation', 'request.sslConfig.sslClientCertificateId',
+    ])
+    expect(rules.find(rule => rule.target.join('.') === 'request.sslConfig.handshakeTimeout')?.pointer)
+      .toEqual(['request', 'sslConfig', 'handshakeTimeoutMs'])
+    expect(rules.find(rule => rule.target.join('.') === 'request.sslConfig.sslClientCertificateId')?.pointer)
+      .toEqual(['request', 'sslClientCertificateId'])
+  })
+
+  it('writes the request of every monitor type', async () => {
+    await declare('monitors.check.ts', `import { TcpMonitor, DnsMonitor, IcmpMonitor, GrpcMonitor, SslMonitor, TracerouteMonitor } from 'checkly/constructs'
+
+new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 443 } })
+
+new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example.com', nameServer: 'ns1.example.com', port: 53 } })
+
+new IcmpMonitor('icmp', { name: 'Icmp', request: { hostname: 'example.com' } })
+
+new GrpcMonitor('grpc', {
+  name: 'Grpc',
+  request: { url: 'grpc.example.com', port: 443, grpcConfig: { mode: 'HEALTH', method: 'Check' } },
+})
+
+new SslMonitor('ssl', {
+  name: 'Ssl',
+  request: {
+    hostname: 'example.com',
+    sslConfig: { alertDaysBeforeExpiry: 7, securityBaseline: { enabled: true, minTLSVersion: { severity: 'fail' } } },
+  },
+})
+
+new TracerouteMonitor('trace', { name: 'Trace', request: { url: 'example.com', maxHops: 30 } })
+`, () => {
+      new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 443 } })
+      new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example.com', nameServer: 'ns1.example.com', port: 53 } })
+      new IcmpMonitor('icmp', { name: 'Icmp', request: { hostname: 'example.com' } })
+      new GrpcMonitor('grpc', {
+        name: 'Grpc',
+        request: { url: 'grpc.example.com', port: 443, grpcConfig: { mode: 'HEALTH', method: 'Check' } },
+      })
+      new SslMonitor('ssl', {
+        name: 'Ssl',
+        request: {
+          hostname: 'example.com',
+          sslConfig: { alertDaysBeforeExpiry: 7, securityBaseline: { enabled: true, minTLSVersion: { severity: 'fail' } } },
+        },
+      })
+      new TracerouteMonitor('trace', { name: 'Trace', request: { url: 'example.com', maxHops: 30 } })
+    })
+    const entry = (logicalId: string, checkType: string, changes: DiffEntry['changes'], request: unknown): DiffEntry =>
+      ({ type: 'check', logicalId, action: 'UPDATE', changes, before: { checkType, name: logicalId, request }, redactions: [] })
+    const plan = await planWriteBack({
+      diff: [
+        entry('tcp', 'TCP', [{ path: '/request/data', origin: 'remote', before: null, after: 'ping' }],
+          { hostname: 'example.com', port: 443, data: 'ping' }),
+        entry('dns', 'DNS', [
+          { path: '/request/query', origin: 'remote', before: 'example.com', after: 'www.example.com' },
+          { path: '/request/nameServer', origin: 'remote', before: 'ns1.example.com', after: 'ns2.example.com' },
+          { path: '/request/port', origin: 'remote', before: 53, after: 5353 },
+        ], { recordType: 'A', query: 'www.example.com', nameServer: 'ns2.example.com', port: 5353 }),
+        entry('icmp', 'ICMP', [{ path: '/request/pingCount', origin: 'remote', before: null, after: 5 }],
+          { hostname: 'example.com', pingCount: 5 }),
+        entry('grpc', 'GRPC', [
+          { path: '/request/grpcConfig/method', origin: 'remote', before: 'Check', after: 'Watch' },
+          { path: '/request/timeout', origin: 'remote', before: null, after: 5000 },
+        ], { url: 'grpc.example.com', port: 443, timeout: 5000, grpcConfig: { mode: 'HEALTH', method: 'Watch', metadata: [] } }),
+        entry('ssl', 'SSL', [
+          { path: '/request/sslConfig/hostname', origin: 'remote', before: 'example.com', after: 'ssl.example.com' },
+          { path: '/request/sslConfig/handshakeTimeoutMs', origin: 'remote', before: null, after: 3000 },
+          { path: '/request/sslClientCertificateId', origin: 'remote', before: null, after: 'cert-1' },
+          { path: '/request/sslConfig/securityBaseline/minTLSVersion/severity', origin: 'remote', before: 'fail', after: 'degrade' },
+        ], {
+          sslConfig: {
+            hostname: 'ssl.example.com',
+            port: 443,
+            alertDaysBeforeExpiry: 7,
+            handshakeTimeoutMs: 3000,
+            securityBaseline: { enabled: true, minTLSVersion: { severity: 'degrade' } },
+          },
+          sslClientCertificateId: 'cert-1',
+        }),
+        entry('trace', 'TRACEROUTE', [{ path: '/request/maxHops', origin: 'remote', before: 30, after: 20 }],
+          { url: 'example.com', maxHops: 20 }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
+      ['tcp', 'request.data', '\'ping\''],
+      ['dns', 'request.query', '\'www.example.com\''],
+      ['dns', 'request.nameServer', '\'ns2.example.com\''],
+      ['dns', 'request.port', '5353'],
+      ['icmp', 'request.pingCount', '5'],
+      ['grpc', 'request.grpcConfig.method', '\'Watch\''],
+      ['grpc', 'request.timeout', '5000'],
+      // Lines follow the file: a replacement precedes the properties appended after it.
+      ['ssl', 'request.hostname', '\'ssl.example.com\''],
+      ['ssl', 'request.sslConfig.securityBaseline', '{ enabled: true, minTLSVersion: { severity: \'degrade\' } }'],
+      ['ssl', 'request.sslConfig.handshakeTimeout', '3000'],
+      ['ssl', 'request.sslConfig.sslClientCertificateId', '\'cert-1\''],
+      ['trace', 'request.maxHops', '20'],
+    ])
+    expect(plan.files[0].text).toBe(`import { TcpMonitor, DnsMonitor, IcmpMonitor, GrpcMonitor, SslMonitor, TracerouteMonitor } from 'checkly/constructs'
+
+new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 443, data: 'ping' } })
+
+new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'www.example.com', nameServer: 'ns2.example.com', port: 5353 } })
+
+new IcmpMonitor('icmp', { name: 'Icmp', request: { hostname: 'example.com', pingCount: 5 } })
+
+new GrpcMonitor('grpc', {
+  name: 'Grpc',
+  request: { url: 'grpc.example.com', port: 443, grpcConfig: { mode: 'HEALTH', method: 'Watch' }, timeout: 5000 },
+})
+
+new SslMonitor('ssl', {
+  name: 'Ssl',
+  request: {
+    hostname: 'ssl.example.com',
+    sslConfig: { alertDaysBeforeExpiry: 7, securityBaseline: { enabled: true, minTLSVersion: { severity: 'degrade' } }, handshakeTimeout: 3000, sslClientCertificateId: 'cert-1' },
+  },
+})
+
+new TracerouteMonitor('trace', { name: 'Trace', request: { url: 'example.com', maxHops: 20 } })
+`)
+  })
+
+  it('refuses what the monitor request rules do not cover', async () => {
+    await declare('refused.check.ts', `import { GrpcMonitor, SslMonitor, DnsMonitor } from 'checkly/constructs'
+const dnsPort = 53
+new GrpcMonitor('grpc', { name: 'Grpc', request: { url: 'grpc.example.com', port: 443, grpcConfig: {} } })
+new GrpcMonitor('grpc2', { name: 'Grpc2', request: { url: 'grpc.example.com', port: 443, grpcConfig: {} } })
+new SslMonitor('ssl', { name: 'Ssl', request: { hostname: 'example.com', sslConfig: { securityBaseline: { enabled: true } } } })
+new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example.com', nameServer: 'ns1.example.com', port: dnsPort } })
+`, () => {
+      new GrpcMonitor('grpc', { name: 'Grpc', request: { url: 'grpc.example.com', port: 443, grpcConfig: {} } })
+      new GrpcMonitor('grpc2', { name: 'Grpc2', request: { url: 'grpc.example.com', port: 443, grpcConfig: {} } })
+      new SslMonitor('ssl', { name: 'Ssl', request: { hostname: 'example.com', sslConfig: { securityBaseline: { enabled: true } } } })
+      new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example.com', nameServer: 'ns1.example.com', port: 53 } })
+    })
+    // The account blanks every gRPC metadata value, as its redaction table says.
+    const metadataRedactions: DiffRedaction[] = [{ path: '/request/grpcConfig/metadata/*/value', kind: 'value' }]
+    const plan = await planWriteBack({
+      diff: [
+        {
+          type: 'check',
+          logicalId: 'grpc',
+          action: 'UPDATE',
+          changes: [
+            { path: '/request/grpcConfig/encoding', origin: 'remote', before: 'PROTOBUF', after: 'FLATBUFFERS' },
+            { path: '/request/grpcConfig/metadata', origin: 'remote', secret: true },
+          ],
+          before: {
+            checkType: 'GRPC',
+            name: 'Grpc',
+            request: { url: 'grpc.example.com', port: 443, grpcConfig: { encoding: 'FLATBUFFERS', metadata: [{ key: 'k', value: '' }] } },
+          },
+          redactions: metadataRedactions,
+        },
+        {
+          type: 'check',
+          logicalId: 'grpc2',
+          action: 'UPDATE',
+          changes: [{ path: '/request/grpcConfig/metadata', origin: 'remote', before: [], after: [{ key: 'k', value: '' }] }],
+          before: { checkType: 'GRPC', name: 'Grpc2', request: { url: 'grpc.example.com', port: 443, grpcConfig: { metadata: [{ key: 'k', value: '' }] } } },
+          redactions: metadataRedactions,
+        },
+        {
+          type: 'check',
+          logicalId: 'ssl',
+          action: 'UPDATE',
+          changes: [
+            { path: '/request/sslConfig/serverName', origin: 'remote', before: 'example.com', after: null },
+            { path: '/request/sslConfig/securityBaseline/minTLSVersion/severity', origin: 'remote', before: 'fail', after: null },
+          ],
+          // The import format leaves out a cleared optional key.
+          before: { checkType: 'SSL', name: 'Ssl', request: { sslConfig: { hostname: 'example.com', securityBaseline: { enabled: true } } } },
+          redactions: [],
+        },
+        {
+          type: 'check',
+          logicalId: 'dns',
+          action: 'UPDATE',
+          changes: [
+            { path: '/request/nameServer', origin: 'remote', before: 'ns1.example.com', after: 'ns2.example.com' },
+            { path: '/request/port', origin: 'remote', before: 53, after: 5353 },
+          ],
+          before: { checkType: 'DNS', name: 'Dns', request: { recordType: 'A', query: 'example.com', nameServer: 'ns2.example.com', port: 5353 } },
+          redactions: [],
+        },
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.applied).toEqual([])
+    expect(plan.skipped).toEqual([
+      'check grpc /request/grpcConfig/encoding: not a property this tool can update',
+      'check grpc /request/grpcConfig/metadata: a secret changed; Checkly does not return its value',
+      'check grpc2 request.grpcConfig.metadata: contains a locked or secret value that Checkly does not return',
+      'check ssl request.sslConfig.securityBaseline: Checkly reported two different current values',
+      'check ssl request.sslConfig.serverName: Checkly has no value for request.sslConfig.serverName; edit the property by hand',
+      'check dns request.nameServer: written together with request.port',
+      'check dns request.port: request.port is the variable dnsPort, not a plain literal',
+    ])
+  })
+
+  it('writes runtimeId on runtime checks and groups', async () => {
+    await declare('runtime.check.ts', `import { ApiCheck, BrowserCheck, CheckGroup, TcpMonitor } from 'checkly/constructs'
+new ApiCheck('api', { name: 'API', runtimeId: '2024.02', request: { url: 'https://example.com', method: 'GET' } })
+new BrowserCheck('browser', { name: 'Browser', runtimeId: '2024.02', code: { content: '' } })
+new CheckGroup('grp', { name: 'Group' })
+new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 443 } })
+`, () => {
+      new ApiCheck('api', { name: 'API', runtimeId: '2024.02', request: { url: 'https://example.com', method: 'GET' } })
+      new BrowserCheck('browser', { name: 'Browser', runtimeId: '2024.02', code: { content: '' } })
+      new CheckGroup('grp', { name: 'Group' })
+      new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 443 } })
+    })
+    const check = (logicalId: string, checkType: string, before: unknown, after: unknown): DiffEntry => ({
+      type: 'check',
+      logicalId,
+      action: 'UPDATE',
+      changes: [{ path: '/runtimeId', origin: 'remote', before, after }],
+      before: { checkType, name: logicalId, runtimeId: after },
+      redactions: [],
+    })
+    const plan = await planWriteBack({
+      diff: [
+        check('api', 'API', '2024.02', '2025.04'),
+        {
+          type: 'check-group',
+          logicalId: 'grp',
+          action: 'UPDATE',
+          changes: [{ path: '/runtimeId', origin: 'remote', before: null, after: '2025.04' }],
+          before: { name: 'Group', runtimeId: '2025.04' },
+          redactions: [],
+        },
+        // A cleared runtime is a null the import format keeps.
+        check('browser', 'BROWSER', '2024.02', null),
+        check('tcp', 'TCP', null, '2025.04'),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([
+      'check tcp /runtimeId: not a property this tool can update',
+      'check browser runtimeId: Checkly has no value for runtimeId; edit the property by hand',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.previous, line.rendered])).toEqual([
+      ['api', 'runtimeId', '\'2024.02\'', '\'2025.04\''],
+      ['grp', 'runtimeId', undefined, '\'2025.04\''],
+    ])
   })
 
   it('accepts a leaf that became a subtree, but not an object the account no longer holds', async () => {
