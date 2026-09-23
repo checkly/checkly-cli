@@ -47,6 +47,7 @@ const escalation = (value: unknown): HelperEdit =>
   ({ path: ['alertEscalationPolicy'], value, helper: 'alertEscalation' })
 const assertions = (value: unknown, builder: AssertionBuilderName = 'AssertionBuilder'): HelperEdit =>
   ({ path: ['request', 'assertions'], value, helper: 'assertions', builder })
+const date = (value: unknown): HelperEdit => ({ path: ['startsAt'], value, helper: 'date' })
 
 const STYLE = { quote: '\'' as const, indentUnit: '  ', lineEnding: '\n' as const }
 const LAYOUT = { column: '  ', inline: false, trailingComma: true, locals: new Map<string, string>() }
@@ -75,6 +76,8 @@ describe('buildHelperValue and renderExpression', () => {
     expect(render(frequency(7))).toBe('7')
     expect(render(frequency({ frequency: 0, frequencyOffset: 15 }))).toBe('new Frequency(0, 15)')
     expect(render(retry(null))).toBe('RetryStrategyBuilder.noRetries()')
+    expect(render(date('2026-01-01T00:00:00.000Z'))).toBe('new Date(\'2026-01-01T00:00:00.000Z\')')
+    expect(buildHelperValue(date('2026-01-01T00:00:00.000Z')).imports).toEqual([])
     expect(render(retry({ type: 'FIXED', baseBackoffSeconds: 60, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true })))
       .toBe('RetryStrategyBuilder.fixedStrategy({})')
     expect(render(retry({ type: 'LINEAR', baseBackoffSeconds: 10, maxRetries: 3, sameRegion: false, onlyOn: 'NETWORK_ERROR' })))
@@ -137,6 +140,8 @@ describe('buildHelperValue and renderExpression', () => {
     expect(() => buildHelperValue(assertions([null]))).toThrow('Checkly has no value for request.assertions; edit the property by hand')
     expect(() => buildHelperValue(escalation({}))).toThrow('Checkly has no value for alertEscalationPolicy; edit the property by hand')
     expect(() => buildHelperValue(retry({}))).toThrow('Checkly has no value for retryStrategy; edit the property by hand')
+    expect(() => buildHelperValue(date(null))).toThrow('Checkly has no value for startsAt; edit the property by hand')
+    expect(() => buildHelperValue(date('yesterday'))).toThrow('Checkly has no value for startsAt; edit the property by hand')
     // A number the codegen cannot compute is refused before it reaches the file.
     const nan = assertions([{ source: 'STATUS_CODE', comparison: 'EQUALS', target: 'abc', property: '', regex: null }])
     expect(() => renderExpression(buildHelperValue(nan).value, STYLE, LAYOUT)).toThrow('NaN cannot be written as a literal')
@@ -208,6 +213,8 @@ describe('isHelperExpression and matchesValue', () => {
       [assertions([{ source: 'STATUS_CODE', property: '', comparison: 'EQUALS', target: '200', regex: null }]),
         '[AssertionBuilder.statusCode().equals(-200)]', false],
       [assertions([]), '[]', true],
+      [date('2026-01-01T00:00:00.000Z'), 'new Date(\'2026-01-01T00:00:00.000Z\')', true],
+      [date('2026-01-01T00:00:00.000Z'), 'new Date(\'2026-01-01T00:00:00Z\')', false],
     ]
     const boundAs = new Map<string, string>()
     for (const [edit, code, expected] of cases) {
@@ -497,6 +504,41 @@ new ApiCheck('api', { retryStrategy: RetryStrategyBuilder.fixedStrategy({ sameRe
       expect(renderExpression(value, STYLE, { column: '', inline: false, trailingComma: true, locals: new Map() }))
         .toBe(output.finalize().trimEnd())
     }
+  })
+
+  it('writes a date over a Date expression or a string, without an import, and not over a variable', () => {
+    const text = `import { ApiCheck } from 'checkly/constructs'
+const when = new Date()
+new ApiCheck('api', {
+  startsAt: new Date('2026-01-01T00:00:00Z'),
+  endsAt: '2026-01-02T00:00:00.000Z',
+  repeatEndsAt: when,
+})
+`
+    const result = apply('a.ts', text, [
+      date('2026-01-01T00:00:00.000Z'),
+      { path: ['endsAt'], value: '2026-01-03T00:00:00.000Z', helper: 'date' },
+      { path: ['repeatEndsAt'], value: '2026-01-04T00:00:00.000Z', helper: 'date' },
+      { path: ['name'], value: '2026-01-05T00:00:00.000Z', helper: 'date' },
+    ])
+    expect(result.applied.map(edit => [edit.path.join('.'), edit.rendered])).toEqual([
+      ['startsAt', 'new Date(\'2026-01-01T00:00:00.000Z\')'],
+      ['endsAt', 'new Date(\'2026-01-03T00:00:00.000Z\')'],
+      ['name', 'new Date(\'2026-01-05T00:00:00.000Z\')'],
+    ])
+    expect(result.skipped.map(edit => [edit.path.join('.'), edit.reason])).toEqual([
+      ['repeatEndsAt', 'repeatEndsAt is the variable when, not a literal or a Date expression'],
+    ])
+    expect(result.imports).toEqual([])
+    expect(result.text).toContain('  startsAt: new Date(\'2026-01-01T00:00:00.000Z\'),\n  endsAt: new Date(\'2026-01-03T00:00:00.000Z\'),')
+    const reparsed = findConstructOptions(parseSource('a.ts', result.text), 'api', NAMES)
+    expect(result.applied.every(edit => readsBack(reparsed, edit))).toBe(true)
+    // A file that binds `Date` to something of its own does not hold the global.
+    const shadowed = apply('a.ts', text.replace('const when = new Date()', 'import { Date } from \'./dates.js\''), [
+      date('2026-01-01T00:00:00.000Z'),
+    ])
+    expect(shadowed.applied).toEqual([])
+    expect(shadowed.skipped.map(edit => edit.reason)).toEqual(['Date is bound to something else in this file'])
   })
 
   it('works through acorn for JavaScript files with a require', () => {

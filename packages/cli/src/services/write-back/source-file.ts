@@ -322,6 +322,33 @@ export function findConstructOptions (
  * yields a parent before its children, so the key or property node to
  * ignore is known by the time it comes up.
  */
+/**
+ * Whether the program binds `name` at its top level: an import, a variable,
+ * function or class declaration. A global such as `Date` that a file binds
+ * to something of its own is not the global there.
+ */
+export function declaresName (program: TSESTree.Program, name: string): boolean {
+  for (const statement of program.body) {
+    const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement
+    if (declaration === null || declaration === undefined) {
+      continue
+    }
+    if (declaration.type === 'ImportDeclaration') {
+      if (declaration.specifiers.some(specifier => specifier.local.name === name)) {
+        return true
+      }
+    } else if (declaration.type === 'VariableDeclaration') {
+      if (declaration.declarations.some(declarator => usesIdentifier(declarator.id, name))) {
+        return true
+      }
+    } else if ((declaration.type === 'FunctionDeclaration' || declaration.type === 'ClassDeclaration')
+      && declaration.id?.name === name) {
+      return true
+    }
+  }
+  return false
+}
+
 export function usesIdentifier (root: Node, name: string): boolean {
   const ignored = new Set<Node>()
   for (const node of walk(root)) {
