@@ -1,4 +1,7 @@
 import { execa } from 'execa'
+import * as os from 'node:os'
+import * as path from 'node:path'
+import { mkdtemp, rm } from 'node:fs/promises'
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest'
 
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
@@ -53,13 +56,28 @@ async function runAndKill (
 
 describe('login', () => {
   let fixt: FixtureSandbox
+  let home: string
+  // Every CLI run in this file gets an isolated home, so the `logout` below
+  // and any login that completes never touch the developer's real credentials.
+  // Node reads HOME on POSIX and USERPROFILE on Windows; the config store uses
+  // XDG_CONFIG_HOME / APPDATA.
+  const isolatedHome = () => ({
+    HOME: home,
+    USERPROFILE: home,
+    APPDATA: path.join(home, 'AppData', 'Roaming'),
+    LOCALAPPDATA: path.join(home, 'AppData', 'Local'),
+    XDG_CONFIG_HOME: path.join(home, '.config'),
+    CHECKLY_NO_BROWSER: '1',
+  })
 
   beforeAll(async () => {
     fixt = await FixtureSandbox.create({})
+    home = await mkdtemp(path.join(os.tmpdir(), 'checkly-login-e2e-'))
   }, 180_000)
 
   afterAll(async () => {
     await fixt?.destroy()
+    await rm(home, { recursive: true, force: true })
   })
 
   beforeEach(async () => {
@@ -67,6 +85,7 @@ describe('login', () => {
       await runCheckly(fixt, ['logout'], {
         promptsInjection: [true],
         timeout: 5000,
+        env: isolatedHome(),
       })
     } catch {
       // logout may fail if not logged in, that's fine
@@ -76,48 +95,38 @@ describe('login', () => {
   it('should show warning with environment variables are configured', async () => {
     const { stderr } = await runCheckly(fixt, ['login'], {
       timeout: 5000,
+      env: isolatedHome(),
     })
     expect(stderr).toContain('`CHECKLY_API_KEY`')
     expect(stderr).toContain('environment variables')
     expect(stderr).toContain('are configured (via shell or .env file)')
   }, 10000)
 
-  it('should show URL to login', async () => {
+  // With the Device Code grant enabled on the Auth0 client, login prints an
+  // activation URL and a short code and waits; there is no login/sign-up menu
+  // (the hosted page offers both) and no localhost callback.
+  it('should show the device-flow activation URL and code', async () => {
     const { stdout, stderr } = await runAndKill(fixt, ['login'], {
-      delay: 5000,
-      promptsInjection: ['login', false],
+      delay: 8000,
       env: {
+        ...isolatedHome(),
         CHECKLY_API_KEY: undefined,
         CHECKLY_ACCOUNT_ID: undefined,
       },
     })
 
-    expect(stdout).toContain('Please open the following URL in your browser:')
-    expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
-    expect(stdout).toContain('mode=&allowLogin=true&allowSignUp=false')
+    expect(stdout).toContain('Visit https://auth.checklyhq.com/activate and enter the code')
+    expect(stdout).toMatch(/[A-Z0-9]{4}-[A-Z0-9]{4}/)
+    expect(stdout).toContain('Waiting for you to finish in the browser')
+    expect(stdout).not.toContain('Do you want to log in or sign up')
     expect(stderr).toBe('')
-  }, 15000)
-
-  it('should show URL to signup', async () => {
-    const { stdout, stderr } = await runAndKill(fixt, ['login'], {
-      delay: 5000,
-      promptsInjection: ['signup', false],
-      env: {
-        CHECKLY_API_KEY: undefined,
-        CHECKLY_ACCOUNT_ID: undefined,
-      },
-    })
-
-    expect(stdout).toContain('Please open the following URL in your browser:')
-    expect(stdout).toContain('https://auth.checklyhq.com/authorize?')
-    expect(stdout).toContain('mode=signUp&allowLogin=false&allowSignUp=true')
-    expect(stderr).toBe('')
-  }, 15000)
+  }, 20000)
 
   it('in agent mode prints a machine-readable action_required line and no prompts', async () => {
     const { stdout, stderr } = await runAndKill(fixt, ['login'], {
       delay: 8000,
       env: {
+        ...isolatedHome(),
         CHECKLY_CLI_MODE: 'agent',
         CHECKLY_API_KEY: undefined,
         CHECKLY_ACCOUNT_ID: undefined,
