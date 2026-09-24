@@ -3,6 +3,10 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
+// Stored credentials exist, so init never needs the inline login flow here.
+vi.mock('../../services/config', () => ({
+  default: { hasValidCredentials: () => true },
+}))
 
 import * as api from '../../rest/api.js'
 import { BaseCommand } from '../baseCommand.js'

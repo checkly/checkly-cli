@@ -87,6 +87,18 @@ class ChecklyConfig {
     return environments[this.getEnv()]!
   }
 
+  getAuthUrl (): string {
+    const environments = {
+      // Overridable for local development and tests that stand in for Auth0,
+      // mirroring how CHECKLY_API_URL overrides the API.
+      local: process.env.CHECKLY_AUTH_URL || 'https://auth.checklyhq.com',
+      development: 'https://auth.checklyhq.com',
+      staging: 'https://auth.checklyhq.com',
+      production: 'https://auth.checklyhq.com',
+    }
+    return environments[this.getEnv()]!
+  }
+
   getMqttUrl (): string {
     const environments = {
       // Overridable for local development setups whose event stream is served
