@@ -280,13 +280,29 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.emit(Events.CHECK_INPROGRESS, check, sequenceId)
     } else if (subtopic === 'result') {
       const { result, testResultId, resultType } = message
-      await this.processCheckResult(result)
-      const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
       if (resultType === 'FINAL') {
+        // Claim the check before awaiting. The timeout timer runs outside this
+        // queue, so it could otherwise fire while we fetch logs or snapshots and
+        // report the check a second time, which also lets `allChecksFinished()`
+        // resolve while other checks are still running. See formal/check-runner.
         this.disableTimeout(sequenceId)
-        this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, testResultId, links)
+        try {
+          await this.processCheckResult(result)
+          const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
+          this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, testResultId, links)
+        } catch (err: any) {
+          this.emit(Events.CHECK_FAILED, sequenceId, check,
+            `Failed to process the check result: ${err?.message ?? err}`)
+        }
         this.emit(Events.CHECK_FINISHED, check)
       } else if (resultType === 'ATTEMPT') {
+        await this.processCheckResult(result)
+        const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
+        if (!this.timeouts.has(sequenceId)) {
+          // The check timed out (or finished) while we were fetching; it has
+          // already been reported as terminal, so don't report an attempt after it.
+          return
+        }
         this.emit(Events.CHECK_ATTEMPT_RESULT, sequenceId, check, result, links)
       }
     } else if (subtopic === 'error') {

@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import AbstractCheckRunner, { Events, SequenceId } from '../abstract-check-runner.js'
+import AbstractCheckRunner, {
+  DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
+  DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
+  Events,
+  SequenceId,
+} from '../abstract-check-runner.js'
 
 // ---------------------------------------------------------------------------
 // Module mocks — must be hoisted before any imports that pull these in
@@ -33,7 +38,8 @@ vi.mock('../socket-client.js', () => ({
 // ---------------------------------------------------------------------------
 
 import { SocketClient } from '../socket-client.js'
-import { testSessions } from '../../rest/api.js'
+import { assets, testSessions } from '../../rest/api.js'
+import { PlaywrightCheck } from '../../constructs/index.js'
 import { TestSessionSchedulingFailedError } from '../../rest/test-sessions.js'
 
 /** Minimal concrete subclass — scheduleChecks immediately returns with zero checks so the runner exits cleanly. */
@@ -373,5 +379,150 @@ describe('AbstractCheckRunner — scheduling watch', () => {
     expect(errors).toHaveLength(1)
     expect(errors[0]).toBeInstanceOf(TestSessionSchedulingFailedError)
     expect(errors[0].code).toEqual('ABANDONED')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Timeout racing an in-flight result.
+//
+// These interleavings were found by the Lean model in formal/check-runner
+// (property `finish-once`, `run-finished-sound`, `no-late-events`). The timeout
+// timer runs outside the serial message queue, so it can fire while
+// `processMessage()` is suspended in an `await` (fetching logs for a failed or
+// verbose result, pulling snapshots). Without claiming the check first, the
+// check is then reported twice and RUN_FINISHED fires early.
+// ---------------------------------------------------------------------------
+
+describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
+  /** Two checks: an API check on the default timeout and a Playwright check, which gets the longer default. */
+  class TwoCheckRunner extends AbstractCheckRunner {
+    scheduleChecks (): Promise<{
+      testSessionId?: string
+      checks: Array<{ check: any, sequenceId: SequenceId }>
+    }> {
+      const playwrightCheck = Object.create(PlaywrightCheck.prototype)
+      playwrightCheck.logicalId = 'pw'
+      return Promise.resolve({
+        testSessionId: 'ts-race',
+        checks: [
+          { check: { logicalId: 'api' }, sequenceId: 'seq-api' },
+          { check: playwrightCheck, sequenceId: 'seq-pw' },
+        ],
+      })
+    }
+  }
+
+  const flush = async () => {
+    for (let i = 0; i < 25; i++) await Promise.resolve()
+  }
+
+  const resultTopic = (sequenceId: string) =>
+    `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/result`
+
+  let messageHandler: ((topic: string, raw: string) => void) | undefined
+  let events: string[]
+
+  const record = (runner: AbstractCheckRunner) => {
+    for (const event of [
+      Events.CHECK_SUCCESSFUL, Events.CHECK_FAILED, Events.CHECK_ATTEMPT_RESULT,
+      Events.CHECK_FINISHED, Events.RUN_FINISHED,
+    ]) {
+      runner.on(event, (arg: any) => {
+        events.push(`${event}:${typeof arg === 'string' ? arg : arg?.logicalId ?? ''}`)
+      })
+    }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    events = []
+    messageHandler = undefined
+    vi.mocked(SocketClient.connect).mockResolvedValue({
+      on: vi.fn((_event: string, handler: any) => {
+        messageHandler = handler
+      }),
+      subscribeAsync: vi.fn().mockResolvedValue(undefined),
+      endAsync: vi.fn().mockResolvedValue(undefined),
+    } as any)
+    vi.spyOn(process, 'rawListeners').mockReturnValue([])
+    vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
+    vi.spyOn(process, 'on').mockReturnValue(process)
+    vi.spyOn(process, 'off').mockReturnValue(process)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('reports a check exactly once when its timeout fires while the FINAL result is fetching logs', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    let resolveLogs!: (value: unknown) => void
+    vi.mocked(assets.getLogs).mockReturnValue(new Promise(resolve => {
+      resolveLogs = resolve
+    }) as any)
+
+    const run = runner.run()
+    await flush()
+    expect(messageHandler).toBeDefined()
+
+    // FINAL result with failures -> processMessage awaits assets.getLogs()
+    messageHandler!(resultTopic('seq-api'), JSON.stringify({
+      result: { hasFailures: true, assets: { logs: 'logs.json' } },
+      testResultId: 'tr-1',
+      resultType: 'FINAL',
+    }))
+    await flush()
+    expect(assets.getLogs).toHaveBeenCalledTimes(1)
+
+    // The API check's timeout fires while the result is still in flight.
+    await vi.advanceTimersByTimeAsync(DEFAULT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    resolveLogs([])
+    await flush()
+
+    // The result that arrived wins; the check is terminal exactly once.
+    expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
+    expect(events).toContain(`${Events.CHECK_SUCCESSFUL}:seq-api`)
+    expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
+    // The Playwright check is still running, so the run must not be finished.
+    expect(events.filter(e => e.startsWith(Events.RUN_FINISHED))).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+    expect(events.filter(e => e === `${Events.CHECK_FINISHED}:pw`)).toHaveLength(1)
+    expect(events.filter(e => e.startsWith(Events.RUN_FINISHED))).toHaveLength(1)
+  })
+
+  it('does not report an ATTEMPT result after the check already timed out during the fetch', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    let resolveLogs!: (value: unknown) => void
+    vi.mocked(assets.getLogs).mockReturnValue(new Promise(resolve => {
+      resolveLogs = resolve
+    }) as any)
+
+    const run = runner.run()
+    await flush()
+
+    messageHandler!(resultTopic('seq-api'), JSON.stringify({
+      result: { hasFailures: true, assets: { logs: 'logs.json' } },
+      testResultId: 'tr-1',
+      resultType: 'ATTEMPT',
+    }))
+    await flush()
+    expect(assets.getLogs).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    expect(events).toContain(`${Events.CHECK_FAILED}:seq-api`)
+    resolveLogs([])
+    await flush()
+
+    const apiEvents = events.filter(e => e.endsWith(':seq-api') || e.endsWith(':api'))
+    expect(apiEvents.indexOf(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)).toBe(-1)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
   })
 })
