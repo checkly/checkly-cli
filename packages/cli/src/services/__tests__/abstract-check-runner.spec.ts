@@ -525,4 +525,62 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
     await run
   })
+
+  const topic = (sequenceId: string, subtopic: string) =>
+    `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/${subtopic}`
+
+  it('restarts the timeout when an ATTEMPT result arrives, so a retry sequence is not cut short', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    const run = runner.run()
+    await flush()
+
+    // 500s in, the first attempt fails and the backend has queued a retry.
+    await vi.advanceTimersByTimeAsync(500_000)
+    messageHandler!(topic('seq-api', 'result'), JSON.stringify({
+      result: { hasFailures: true },
+      resultType: 'ATTEMPT',
+    }))
+    await flush()
+    expect(events).toContain(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)
+
+    // 1000s after the start (400s past the original timeout) the check is still alive.
+    await vi.advanceTimersByTimeAsync(500_000)
+    expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
+
+    messageHandler!(topic('seq-api', 'result'), JSON.stringify({
+      result: { hasFailures: false },
+      resultType: 'FINAL',
+    }))
+    await flush()
+    expect(events).toContain(`${Events.CHECK_SUCCESSFUL}:seq-api`)
+    expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+  })
+
+  it('restarts the timeout on run-start and still times out a full window after it', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    const run = runner.run()
+    await flush()
+
+    // The check waited 500s in the scheduling queue before it started running.
+    await vi.advanceTimersByTimeAsync(500_000)
+    messageHandler!(topic('seq-api', 'run-start'), JSON.stringify({}))
+    await flush()
+
+    // 599s after run-start: no timeout yet.
+    await vi.advanceTimersByTimeAsync(599_000)
+    expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
+
+    // 600s after run-start with no result: the timeout fires exactly once.
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(events.filter(e => e === `${Events.CHECK_FAILED}:seq-api`)).toHaveLength(1)
+    expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+  })
 })

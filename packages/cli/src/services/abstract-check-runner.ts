@@ -277,6 +277,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
     const { check } = this.checks.get(sequenceId)!
     if (subtopic === 'run-start') {
+      // The check is executing now: give this attempt a full timeout.
+      this.resetTimeout(sequenceId, check)
       this.emit(Events.CHECK_INPROGRESS, check, sequenceId)
     } else if (subtopic === 'result') {
       const { result, testResultId, resultType } = message
@@ -303,6 +305,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           // already been reported as terminal, so don't report an attempt after it.
           return
         }
+        // The backend only publishes ATTEMPT when it has already queued the
+        // next run, so the check is alive: restart its timeout instead of
+        // counting the whole retry sequence against a single timeout.
+        this.resetTimeout(sequenceId, check)
         this.emit(Events.CHECK_ATTEMPT_RESULT, sequenceId, check, result, links)
       }
     } else if (subtopic === 'error') {
@@ -361,27 +367,40 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   }
 
   private setAllTimeouts () {
-    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) => {
-      const checkTimeout = (check instanceof PlaywrightCheck && this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS)
-        ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
-        : this.timeout
-      this.timeouts.set(sequenceId, setTimeout(() => {
-        this.timeouts.delete(sequenceId)
-        let errorMessage = `Reached timeout of ${checkTimeout} seconds waiting for check result.`
-        // Playwright checks can take longer.
-        // We should point the user to the --timeout flag in that case.
-        if (check instanceof PlaywrightCheck) {
-          errorMessage += ' Use a custom timeout with --timeout'
-        } else if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
-          // Checkly should always report a result within 240s.
-          // If the default timeout was used, we should point the user to the status page and support email.
-          errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
-        }
-        this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
-        this.emit(Events.CHECK_FINISHED, check)
-      }, checkTimeout * 1000),
-      )
-    })
+    Array.from(this.checks.entries()).forEach(([sequenceId, { check }]) => this.armTimeout(sequenceId, check))
+  }
+
+  /**
+   * Restart the result timeout for a check that is still running. Called when
+   * the run starts and on every retry attempt. The timeout guards against a
+   * result that never arrives, not against a long but progressing retry
+   * sequence; the backend caps retries by count and cumulative time, so the
+   * total wait stays bounded. Only call this while the check is not terminal.
+   */
+  private resetTimeout (sequenceId: SequenceId, check: any) {
+    this.disableTimeout(sequenceId)
+    this.armTimeout(sequenceId, check)
+  }
+
+  private armTimeout (sequenceId: SequenceId, check: any) {
+    const checkTimeout = (check instanceof PlaywrightCheck && this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS)
+      ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
+      : this.timeout
+    this.timeouts.set(sequenceId, setTimeout(() => {
+      this.timeouts.delete(sequenceId)
+      let errorMessage = `Reached timeout of ${checkTimeout} seconds waiting for check result.`
+      // Playwright checks can take longer.
+      // We should point the user to the --timeout flag in that case.
+      if (check instanceof PlaywrightCheck) {
+        errorMessage += ' Use a custom timeout with --timeout'
+      } else if (this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
+        // Checkly should always report a result within 240s.
+        // If the default timeout was used, we should point the user to the status page and support email.
+        errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
+      }
+      this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
+      this.emit(Events.CHECK_FINISHED, check)
+    }, checkTimeout * 1000))
   }
 
   private disableAllTimeouts () {
