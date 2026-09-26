@@ -64,10 +64,11 @@ export class GithubMdBuilder {
     }
 
     for (const [, checkMap] of this.checkFilesMap.entries()) {
-      for (const [, { result, testResultId }] of checkMap.entries()) {
+      for (const [, { result, testResultId, numRetries }] of checkMap.entries()) {
         const checkStatus = resultToCheckStatus(result)
+        const statusCell = checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
         const tableRow: Array<string> = [
-          `${checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'}`,
+          numRetries ? `${statusCell} (${numRetries} ${numRetries === 1 ? 'retry' : 'retries'})` : statusCell,
           `${result.name}`,
           // A check that failed with a run error (e.g. the CLI timing out while waiting for
           // a result) has no check type or response time, so fall back to a placeholder.

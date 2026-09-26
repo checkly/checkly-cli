@@ -103,6 +103,7 @@ export default abstract class AbstractListReporter implements Reporter {
     checkStatus.checkStatus = resultToCheckStatus(checkResult)
     checkStatus.titleString = formatCheckTitle(checkStatus.checkStatus, checkResult, {
       includeSourceFile: false,
+      retries: checkStatus.numRetries,
     })
   }
 
@@ -183,7 +184,7 @@ export default abstract class AbstractListReporter implements Reporter {
 
   _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean } = {}) {
     const counts = {
-      numFailed: 0, numPassed: 0, numDegraded: 0,
+      numFailed: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
       numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,
     }
     const status = []
@@ -193,7 +194,7 @@ export default abstract class AbstractListReporter implements Reporter {
     }
     for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
       if (includeCheckTitles && sourceFile) status.push(sourceFile)
-      for (const [, { titleString, result, checkStatus }] of checkMap.entries()) {
+      for (const [, { titleString, result, checkStatus, numRetries }] of checkMap.entries()) {
         if (checkStatus === CheckStatus.SCHEDULING) {
           counts.scheduling++
         } else if (checkStatus === CheckStatus.RETRIED) {
@@ -208,6 +209,13 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numCancelled++
         } else {
           counts.numPassed++
+        }
+        // Passed or degraded only after at least one failed attempt. Still
+        // counts as passed (that is what --retries asks for), but shown
+        // separately so flakiness does not disappear from the summary.
+        if (result && !result.hasFailures && !result.isCancelled && numRetries > 0
+          && checkStatus !== CheckStatus.RETRIED) {
+          counts.numFlaky++
         }
         if (includeCheckTitles) {
           status.push(sourceFile ? indentString(titleString, 2) : titleString)
@@ -242,6 +250,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
         counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
+        counts.numFlaky ? chalk.bold.yellow(`${counts.numFlaky} flaky`) : undefined,
         counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
