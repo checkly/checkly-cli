@@ -1,0 +1,9 @@
+name = "check_runner_spec"
+defaultTargets = ["check_runner_spec"]
+
+[[lean_lib]]
+name = "CheckRunner"
+
+[[lean_exe]]
+name = "check_runner_spec"
+root = "Main"

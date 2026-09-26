@@ -69,7 +69,7 @@ export default class PwTestCommand extends AuthCommand {
     }),
     'timeout': Flags.integer({
       default: DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
-      description: 'A timeout (in seconds) to wait for checks to complete.',
+      description: 'A timeout (in seconds) to wait for each check to make progress: start running, report a retry attempt, or report its result.',
     }),
     'verbose': Flags.boolean({
       description: 'Always show the full logs of the checks.',
