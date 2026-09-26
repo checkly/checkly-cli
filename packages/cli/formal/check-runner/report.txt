@@ -1,0 +1,126 @@
+info: check_runner_spec: no previous manifest, creating one from scratch
+info: toolchain not updated; already up-to-date
+AbstractCheckRunner model check
+
+Scenario: 2 checks, one FINAL fetches logs (failure or --verbose)
+  [current code] 248 states explored, 3 violated properties
+    ✗ finish-once
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+    ✗ run-finished-sound
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+    ✗ no-late-events
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+  [with fix    ] 224 states explored, 0 violated properties
+
+Scenario: 2 checks, no I/O anywhere (baseline)
+  [current code] 212 states explored, 0 violated properties
+  [with fix    ] 212 states explored, 0 violated properties
+
+Scenario: 2 checks, retried check with I/O attempt, other errors
+  [current code] 534 states explored, 3 violated properties
+    ✗ no-late-events
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result ATTEMPT (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result ATTEMPT (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=1 ok=0 failed=1 late=1, check1: finished=0 ok=0 failed=0 late=0; finishedCount=1 runFinished=false
+    ✗ finish-once
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result ATTEMPT (fetches logs) for check0 (queued)
+        3. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        4. queue processes run-start for check0
+        5. queue processes result ATTEMPT (fetches logs) for check0
+        6. queue task resumes after await
+        7. queue processes result FINAL (fetches logs) for check0
+        8. timeout fires for check0
+        9. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+    ✗ run-finished-sound
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result ATTEMPT (fetches logs) for check0 (queued)
+        3. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        4. queue processes run-start for check0
+        5. queue processes result ATTEMPT (fetches logs) for check0
+        6. queue task resumes after await
+        7. queue processes result FINAL (fetches logs) for check0
+        8. timeout fires for check0
+        9. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+  [with fix    ] 471 states explored, 0 violated properties
+
+Scenario: 2 checks, MQTT redelivers FINAL, run-start arrives late
+  [current code] 528 states explored, 3 violated properties
+    ✗ finish-once
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+    ✗ run-finished-sound
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+    ✗ no-late-events
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=true
+  [with fix    ] 452 states explored, 0 violated properties
+
+Scenario: 3 checks, mixed
+  [current code] 17403 states explored, 3 violated properties
+    ✗ finish-once
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0, check2: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=false
+    ✗ no-late-events
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=0 ok=0 failed=0 late=0, check2: finished=0 ok=0 failed=0 late=0; finishedCount=2 runFinished=false
+    ✗ run-finished-sound
+        1. MQTT delivers run-start for check0 (queued)
+        2. MQTT delivers result FINAL (fetches logs) for check0 (queued)
+        3. queue processes run-start for check0
+        4. queue processes result FINAL (fetches logs) for check0
+        5. timeout fires for check0
+        6. queue task resumes after await
+        7. timeout fires for check1
+        => check0: finished=2 ok=1 failed=1 late=2, check1: finished=1 ok=0 failed=1 late=0, check2: finished=0 ok=0 failed=0 late=0; finishedCount=3 runFinished=true
+  [with fix    ] 16148 states explored, 0 violated properties
