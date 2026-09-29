@@ -239,8 +239,8 @@ describe('deploy', { timeout: 45_000 }, () => {
         .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
     })
 
-    it('deploys without a plan under --skip-plan', async () => {
-      const { stderr, stdout } = await runDeploy(fixt, ['--skip-plan', '--force'], {
+    it('deploys with a plan under --plan', async () => {
+      const { stderr, stdout } = await runDeploy(fixt, ['--plan', '--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
@@ -421,17 +421,14 @@ describe('deploy', { timeout: 45_000 }, () => {
       // The check should only be listed under "Delete" and not "Skip".
       expect(stdout).toMatch(tableRows([['-', 'Check', 'testonly-true-check']], 'permanently deleted, run history lost'))
       expect(stdout).not.toContain('skipped (testOnly)')
-      // The two surviving checks are unchanged between the deploys. An API that
-      // reports the deploy diff says so and they are counted; an older one
-      // reports every retained resource as an update and they are listed.
-      expect(
-        /^ {4}2 unchanged$/m.test(stdout)
-        || tableRows([
-          ['~', 'ApiCheck', 'not-testonly-default-check'],
-          ['~', 'ApiCheck', 'not-testonly-false-check'],
-        ]).test(stdout),
-        stdout,
-      ).toBe(true)
+      // The two surviving checks are unchanged between the deploys, and a
+      // deploy without a plan writes them all the same: they are listed as
+      // updates, and nothing is counted as unchanged.
+      expect(stdout).toMatch(tableRows([
+        ['~', 'ApiCheck', 'not-testonly-default-check'],
+        ['~', 'ApiCheck', 'not-testonly-false-check'],
+      ]))
+      expect(stdout).not.toMatch(/^ {4}\d+ unchanged$/m)
       // --output without --verbose should not show name or id
       expect(stdout).not.toContain('name:')
       expect(stdout).not.toContain('id:')
@@ -520,7 +517,7 @@ describe('deploy', { timeout: 45_000 }, () => {
           CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
-      const { stdout } = await runDeploy(fixt, ['--preview'], {
+      const { stdout } = await runDeploy(fixt, ['--plan', '--preview'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           SUITE_NAME: 'Renamed suite',
@@ -529,9 +526,10 @@ describe('deploy', { timeout: 45_000 }, () => {
       })
       expect(stdout).toMatch(tableRows([['~', 'PlaywrightCheck', 'suite']]))
       expect(stdout).not.toContain('could not render this resource')
-      // The construct diff needs the API's preview endpoint; against an API
-      // without it the CLI prints the overview only and says so.
-      if (stdout.includes('for the deploy preview endpoint')) {
+      // The construct diff needs a plan; against an API without the preview
+      // endpoint, or one that has plans switched off, the CLI prints the
+      // overview only and says so.
+      if (stdout.includes('for the deploy preview endpoint') || stdout.includes('deploy plans switched off')) {
         return
       }
       expect(stdout).toMatch(/^\s*-\s+name: 'Suite',$/m)

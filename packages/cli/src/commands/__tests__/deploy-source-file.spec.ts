@@ -76,6 +76,8 @@ function createCommandContext () {
         'force': true,
         'preview': false,
         'dry-run': false,
+        // A planned run: the preview is what the source files are sent to first.
+        'plan': true,
         'plan-token': undefined,
         'prune-relations': false,
         'preserve-resources': false,

@@ -414,6 +414,25 @@ export class ProjectPreviewNotSupportedError extends Error {
   }
 }
 
+/**
+ * The account's Checkly API has deploy plans switched off at the moment. Unlike
+ * an API without the preview endpoint, it knows every payload field a planned
+ * deploy sends, so callers fall back to a deploy without a plan and leave the
+ * payload as it is.
+ */
+export class ProjectPlanDisabledError extends Error {
+  constructor (options?: ErrorOptions) {
+    super('Checkly has deploy plans switched off at the moment.', options)
+    this.name = 'ProjectPlanDisabledError'
+  }
+}
+
+/**
+ * `code` of what the API answers with while plans are switched off: the 404 of
+ * the preview endpoint, and the 400 a deploy that needs a plan is refused with.
+ */
+export const DEPLOY_PLAN_DISABLED = 'DEPLOY_PLAN_DISABLED'
+
 export class ImportPlanNotFoundError extends Error {
   constructor (options?: ErrorOptions) {
     super(`Import plan does not exist.`, options)
@@ -574,6 +593,7 @@ class Projects {
    * not the payload — so previewing, editing and deploying still works.
    *
    * @throws {ProjectPreviewNotSupportedError} If the API has no preview endpoint.
+   * @throws {ProjectPlanDisabledError} If the API has deploy plans switched off.
    * @throws {ProjectPreviewUnavailableError} If the project stayed busy.
    */
   async preview (
@@ -611,7 +631,11 @@ class Projects {
         return data
       } catch (err) {
         if (err instanceof NotFoundError) {
-          throw new ProjectPreviewNotSupportedError({ cause: err })
+          // Both are a 404: only the body tells an API that has plans switched
+          // off from one that never had the endpoint.
+          throw err.data.code === DEPLOY_PLAN_DISABLED
+            ? new ProjectPlanDisabledError({ cause: err })
+            : new ProjectPreviewNotSupportedError({ cause: err })
         }
         if (!(err instanceof ConflictError)) {
           throw err
@@ -643,6 +667,7 @@ class Projects {
       dryRun = false,
       scheduleOnDeploy = true,
       preserveResources = false,
+      plan = false,
       pruneRelations = false,
       planToken,
       cancelInProgress = false,
@@ -656,6 +681,13 @@ class Projects {
        * instead of deleting them.
        */
       preserveResources?: boolean
+      /**
+       * Apply a plan: compare every resource with what was last deployed and
+       * with its current state, and write only the ones that differ. Without
+       * it the deploy writes every resource. `pruneRelations` and `planToken`
+       * are refused by the API unless this is set.
+       */
+      plan?: boolean
       /**
        * Delete the alert channel subscriptions and private location assignments
        * on this project's checks and groups that the project does not manage.
@@ -692,6 +724,7 @@ class Projects {
           dryRun,
           scheduleOnDeploy,
           preserveResources,
+          plan,
           pruneRelations,
           planToken,
           onProgress,
@@ -727,10 +760,11 @@ class Projects {
 
   private async submitDeployment (
     resources: ProjectSync,
-    { dryRun, scheduleOnDeploy, preserveResources, pruneRelations, planToken, onProgress }: {
+    { dryRun, scheduleOnDeploy, preserveResources, plan, pruneRelations, planToken, onProgress }: {
       dryRun: boolean
       scheduleOnDeploy: boolean
       preserveResources: boolean
+      plan: boolean
       pruneRelations: boolean
       planToken?: string
       onProgress?: (progress: number) => void
@@ -739,14 +773,15 @@ class Projects {
     // Only send preserveResources when the user opted in. The endpoint rejects
     // unknown query params, and preserveResources=false is the default (delete)
     // behavior, so omitting it keeps default deploys backwards compatible.
-    // pruneRelations and planToken are omitted for the same reason: an older
-    // API knows neither.
+    // plan, pruneRelations and planToken are omitted for the same reason: an
+    // older API knows none of them.
     const preserveParam = preserveResources ? '&preserveResources=true' : ''
+    const planParam = plan ? '&plan=true' : ''
     const pruneParam = pruneRelations ? '&pruneRelations=true' : ''
     const tokenParam = planToken ? `&planToken=${encodeURIComponent(planToken)}` : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
       `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`
-      + `${preserveParam}${pruneParam}${tokenParam}`,
+      + `${preserveParam}${planParam}${pruneParam}${tokenParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )

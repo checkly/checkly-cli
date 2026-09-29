@@ -4,6 +4,7 @@ import type { AxiosInstance } from 'axios'
 import Projects, {
   ProjectPlanStaleError,
   ProjectPlanSupersededError,
+  ProjectPlanDisabledError,
   ProjectPreviewNotSupportedError,
   ProjectPreviewUnavailableError,
   type ProjectSync,
@@ -90,6 +91,19 @@ describe('Projects.preview', () => {
     await expect(projects.preview(sync)).rejects.toThrow(ProjectPreviewNotSupportedError)
   })
 
+  it('tells an API that has plans switched off from one without the endpoint', async () => {
+    vi.mocked(api.post).mockRejectedValue(
+      new NotFoundError({
+        statusCode: 404,
+        error: 'Not Found',
+        message: 'Deploy plans are switched off at the moment.',
+        code: 'DEPLOY_PLAN_DISABLED',
+      }),
+    )
+
+    await expect(projects.preview(sync)).rejects.toThrow(ProjectPlanDisabledError)
+  })
+
   it('surfaces a rejected payload as it is', async () => {
     vi.mocked(api.post).mockRejectedValue(
       new ValidationError({ statusCode: 400, error: 'Bad Request', message: 'resource "c" is malformed' }),
@@ -147,17 +161,17 @@ describe('Projects.deploy with a plan token', () => {
     projects = new Projects(api)
   })
 
-  it('sends the token and the pruning flag, and omits both when unset', async () => {
+  it('sends the plan, its token and the pruning flag, and omits all three when unset', async () => {
     const applied = { project: sync.project, diff: [] }
     vi.mocked(api.post).mockResolvedValue({ data: { id: 'd1', logicalId: 'my-project', status: 'PENDING' } })
     vi.mocked(api.get).mockResolvedValue(
       sseStream(sse('complete', { id: 'd1', status: 'SUCCEEDED', progress: 100, result: applied, error: null })),
     )
 
-    await projects.deploy(sync, { planToken: 'v1.token+slash/value', pruneRelations: true })
+    await projects.deploy(sync, { plan: true, planToken: 'v1.token+slash/value', pruneRelations: true })
 
     expect(api.post).toHaveBeenCalledWith(
-      '/v1/projects/deploy?dryRun=false&scheduleOnDeploy=true&pruneRelations=true'
+      '/v1/projects/deploy?dryRun=false&scheduleOnDeploy=true&plan=true&pruneRelations=true'
       + '&planToken=v1.token%2Bslash%2Fvalue',
       sync,
       expect.anything(),

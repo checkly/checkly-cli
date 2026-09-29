@@ -127,6 +127,12 @@ export interface ErrorData {
   errorCode?: string
   message: string
   /**
+   * What the error is, where the status alone does not say: the deploy preview
+   * endpoint answers 404 with `DEPLOY_PLAN_DISABLED` while plans are switched
+   * off, which is not the 404 of an API that has no such endpoint.
+   */
+  code?: string
+  /**
    * Set on a 409 from the async project-deploy endpoint: the id of the in-flight
    * deployment that blocked this one. Lets the client attach to or cancel it.
    */
