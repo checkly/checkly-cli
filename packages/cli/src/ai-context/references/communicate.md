@@ -31,7 +31,7 @@ The `confirmCommand` omits flags left at their default, so a bare `npx checkly d
 
 A command that picks its own target before confirming writes that target back into the `confirmCommand`. `import commit` and `import cancel` do this: run without `--plan-id` they select the only candidate plan themselves, and confirm as `npx checkly import commit --plan-id="<resolved-id>" --force` — carrying a flag you never passed. That is deliberate: the pinned ID guarantees the approved run acts on the plan whose `changes` you showed the user, not on whatever happens to be pending by then. Run the `confirmCommand` exactly as returned; do not strip the flag or fall back to the bare command.
 
-`deploy` pins the same way, with `--plan-token`: the token identifies the state of the account the plan was computed against, and the pinned run refuses to deploy — writing nothing — if anything changed in between. Re-run `checkly deploy` in that case; it computes a fresh plan to confirm. Do not carry a token over from an earlier run, and do not re-send a refused one.
+`deploy --plan` pins the same way, with `--plan-token`: the token identifies the state of the account the plan was computed against, and the pinned run refuses to deploy — writing nothing — if anything changed in between. Re-run `checkly deploy --plan` in that case; it computes a fresh plan to confirm. A `deploy` without `--plan` has no plan to pin and takes no token. Do not carry a token over from an earlier run, and do not re-send a refused one.
 
 ## Available Commands
 
