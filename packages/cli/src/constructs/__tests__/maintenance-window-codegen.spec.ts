@@ -71,9 +71,17 @@ describe('MaintenanceWindowCodegen', () => {
       silenceAllAlerts: false,
     })
 
+    expect(source).toContain(`tags: [`)
     expect(source).not.toContain('timezone')
     expect(source).not.toContain('pauseAllChecks')
     expect(source).not.toContain('silenceAlertsTags')
     expect(source).not.toContain('silenceAllAlerts')
+  })
+
+  it('omits an empty tag list', async () => {
+    const source = await generate({ ...baseResource, tags: [], pauseAllChecks: true })
+
+    expect(source).not.toContain('tags')
+    expect(source).toContain(`pauseAllChecks: true`)
   })
 })

@@ -440,3 +440,30 @@ export type KnownTimeZone = typeof KNOWN_TIME_ZONES[number]
  * tzdata releases can be used before this list is refreshed.
  */
 export type TimeZone = KnownTimeZone | (string & {})
+
+// UTC offsets are not IANA zone names and the API rejects them: "+05:00" style identifiers and the
+// fixed-offset Etc/GMT±N zones, which have no daylight-saving rules. Etc/GMT+0 and Etc/GMT-0 are
+// aliases of UTC and are accepted.
+const FIXED_OFFSET_TIME_ZONE_PATTERN = /^[+-]|^Etc\/GMT[+-]0*[1-9]\d?$/i
+
+const knownTimeZones: ReadonlySet<string> = new Set(KNOWN_TIME_ZONES)
+
+/**
+ * Whether a value is a named time zone the Checkly API accepts. UTC offsets are rejected.
+ */
+export function isValidTimeZone (timeZone: string): boolean {
+  if (FIXED_OFFSET_TIME_ZONE_PATTERN.test(timeZone)) {
+    return false
+  }
+  // Listed names skip the Intl check: older Node releases bundle older tzdata and would reject newer
+  // zones that the list offers. The API remains the final authority either way.
+  if (knownTimeZones.has(timeZone)) {
+    return true
+  }
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone })
+    return true
+  } catch {
+    return false
+  }
+}

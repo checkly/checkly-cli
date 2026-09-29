@@ -1,32 +1,8 @@
 import { Construct } from './construct.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
-import { Diagnostics } from './diagnostics.js'
+import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import { Session } from './session.js'
-import { KNOWN_TIME_ZONES, TimeZone } from './time-zone.js'
-
-// UTC offsets are not IANA zone names and the API rejects them: "+05:00" style identifiers and the
-// fixed-offset Etc/GMT±N zones, which have no daylight-saving rules. Etc/GMT+0 and Etc/GMT-0 are
-// aliases of UTC and are accepted.
-const FIXED_OFFSET_TIME_ZONE_PATTERN = /^[+-]|^Etc\/GMT[+-]0*[1-9]\d?$/i
-
-const knownTimeZones: ReadonlySet<string> = new Set(KNOWN_TIME_ZONES)
-
-function isValidTimeZone (timeZone: string): boolean {
-  if (FIXED_OFFSET_TIME_ZONE_PATTERN.test(timeZone)) {
-    return false
-  }
-  // Listed names skip the Intl check: older Node releases bundle older tzdata and would reject newer
-  // zones that the list offers. The API remains the final authority either way.
-  if (knownTimeZones.has(timeZone)) {
-    return true
-  }
-  try {
-    new Intl.DateTimeFormat('en-US', { timeZone })
-    return true
-  } catch {
-    return false
-  }
-}
+import { isValidTimeZone, TimeZone } from './time-zone.js'
 
 export type MaintenanceWindowRepeatUnit = 'DAY' | 'WEEK' | 'MONTH'
 
@@ -36,8 +12,8 @@ export interface MaintenanceWindowProps {
    */
   name: string
   /**
-   * A list of one or more tags that filter which checks are affected by the maintenance window.
-   * Not needed when `pauseAllChecks` is true.
+   * Tags that select which checks are paused during the maintenance window.
+   * A window must set at least one of `tags`, `pauseAllChecks`, `silenceAlertsTags` or `silenceAllAlerts`.
    */
   tags?: Array<string>
   /**
@@ -149,6 +125,18 @@ export class MaintenanceWindow extends Construct {
           + ` UTC offsets such as "+05:00" or "Etc/GMT+5" are not supported.`,
         ),
       ))
+    }
+
+    const pausesChecks = this.pauseAllChecks || !!this.tags?.length
+    const silencesAlerts = this.silenceAllAlerts || !!this.silenceAlertsTags?.length
+    if (!pausesChecks && !silencesAlerts) {
+      diagnostics.add(new WarningDiagnostic({
+        title: 'Maintenance window affects no checks',
+        message:
+          `Maintenance window "${this.logicalId}" neither pauses checks nor silences alerts. `
+          + `Set "tags" or "pauseAllChecks" to pause checks, or "silenceAlertsTags" or "silenceAllAlerts" `
+          + `to silence alerts.`,
+      }))
     }
   }
 

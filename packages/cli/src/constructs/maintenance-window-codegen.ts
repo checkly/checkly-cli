@@ -37,11 +37,13 @@ export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource>
         builder.object(builder => {
           builder.string('name', resource.name)
 
-          builder.array('tags', builder => {
-            for (const tag of resource.tags) {
-              builder.string(tag)
-            }
-          })
+          if (resource.tags?.length) {
+            builder.array('tags', builder => {
+              for (const tag of resource.tags) {
+                builder.string(tag)
+              }
+            })
+          }
 
           builder.expr('startsAt', ident('Date'), builder => {
             builder.new(builder => {
