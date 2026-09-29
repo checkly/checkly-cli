@@ -22,6 +22,10 @@ vi.mock('../../../services/check-parser/package-files/package-manager', () => ({
   }),
 }))
 
+vi.mock('../../../services/util', () => ({
+  getRepoUrlFromGit: vi.fn(),
+}))
+
 vi.mock('../prompts-helpers', () => ({
   makeOnCancel: vi.fn(() => vi.fn()),
   successMessage: vi.fn((msg: string) => `OK ${msg}`),
@@ -32,6 +36,7 @@ import { execSync } from 'child_process'
 import prompts from 'prompts'
 import { join } from 'path'
 import { detectPackageManager } from '../../../services/check-parser/package-files/package-manager.js'
+import { getRepoUrlFromGit } from '../../../services/util.js'
 import {
   createConfig,
   copyChecks,
@@ -44,9 +49,10 @@ const mockWriteFileSync = vi.mocked(writeFileSync)
 const mockCpSync = vi.mocked(cpSync)
 const mockExecSync = vi.mocked(execSync)
 const mockPrompts = vi.mocked(prompts)
+const mockGetRepoUrlFromGit = vi.mocked(getRepoUrlFromGit)
 
 const projectDir = '/test/project'
-const configTemplate = `projectName: '{{projectName}}', logicalId: '{{logicalId}}'`
+const configTemplate = `projectName: '{{projectName}}', logicalId: '{{logicalId}}', repoUrl: '{{repoUrl}}',`
 const packageJson = JSON.stringify({ name: 'my-cool-app', devDependencies: {} })
 
 describe('boilerplate', () => {
@@ -93,6 +99,33 @@ describe('boilerplate', () => {
       expect(content).toContain('logicalId: \'my-cool-app\'')
       expect(content).not.toContain('{{projectName}}')
       expect(content).not.toContain('{{logicalId}}')
+    })
+
+    it('writes repoUrl from the git remote of the project directory', () => {
+      mockGetRepoUrlFromGit.mockReturnValue('https://github.com/acme/app')
+
+      createConfig(projectDir, log)
+
+      expect(mockGetRepoUrlFromGit).toHaveBeenCalledWith(projectDir)
+      const writeCall = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('checkly.config.ts'),
+      )
+      const content = writeCall![1] as string
+      expect(content).toContain('repoUrl: \'https://github.com/acme/app\',')
+      expect(content).not.toContain('{{repoUrl}}')
+    })
+
+    it('writes a commented repoUrl placeholder when there is no git remote', () => {
+      mockGetRepoUrlFromGit.mockReturnValue(undefined)
+
+      createConfig(projectDir, log)
+
+      const writeCall = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('checkly.config.ts'),
+      )
+      const content = writeCall![1] as string
+      expect(content).toContain('// repoUrl: \'https://github.com/<owner>/<repo>\',')
+      expect(content).not.toContain('{{repoUrl}}')
     })
 
     it('sanitizes logicalId by replacing non-alphanumeric chars with hyphens', () => {

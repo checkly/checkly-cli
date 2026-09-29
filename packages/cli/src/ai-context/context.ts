@@ -146,6 +146,7 @@ import { Frequency } from 'checkly/constructs'
 export default defineConfig({
   projectName: "Production Monitoring Suite",
   logicalId: "prod-monitoring-2025",
+  // Must be this repo's own remote (\`git remote get-url origin\` as https). Never copy this example value.
   repoUrl: "https://github.com/acme/monitoring",
   checks: {
     activated: true,

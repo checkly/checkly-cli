@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url'
 
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
 import { makeOnCancel, successMessage } from './prompts-helpers.js'
+import { getRepoUrlFromGit } from '../../services/util.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -90,9 +91,16 @@ export function createConfig (
   }
   const projectName = getProjectName(projectDir)
   const logicalId = sanitizeLogicalId(projectName)
+  const repoUrl = getRepoUrlFromGit(projectDir)
+  // The template keeps the slot as valid TypeScript; without a remote the
+  // whole property becomes a commented placeholder.
+  const repoUrlProperty = repoUrl
+    ? `repoUrl: '${repoUrl}'`
+    : `// repoUrl: 'https://github.com/<owner>/<repo>'`
   const content = template
     .replaceAll('{{projectName}}', projectName)
     .replaceAll('{{logicalId}}', logicalId)
+    .replaceAll(`repoUrl: '{{repoUrl}}'`, repoUrlProperty)
   try {
     writeFileSync(configPath, content)
   } catch {

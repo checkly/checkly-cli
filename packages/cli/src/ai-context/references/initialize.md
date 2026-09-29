@@ -91,6 +91,14 @@ Use the output to create a `checkly.config.ts` (or `checkly.config.js` if the us
 
 Adjust the `checkMatch` property according to previous selection. Use only locations verified as available in the previous step.
 
+Set `repoUrl` to this repository's own remote:
+
+1. Run `git remote get-url origin`.
+2. Convert it to an `https://` URL (`git@github.com:owner/repo.git` → `https://github.com/owner/repo`). Drop any credentials and the trailing `.git`.
+3. Set the result as `repoUrl`. If there is no remote, leave `repoUrl` out.
+
+Never copy the `repoUrl` from the example config.
+
 Present the generated configuration to the user and ask if it looks correct. Allow the user to make changes.
 
 Congratulate the user on completing the config. Now it's time to test the configuration and turn everything into monitoring!

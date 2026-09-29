@@ -10,6 +10,8 @@ const config = defineConfig({
   * See https://www.checklyhq.com/docs/cli/constructs/ to learn more about logical IDs.
   */
   logicalId: '{{logicalId}}',
+  /* The URL of this project's git repository, used to link checks to their source code */
+  repoUrl: '{{repoUrl}}',
   /* Sets default values for Checks */
   checks: {
     /* A default for how often your Check should run in minutes */
