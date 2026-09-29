@@ -75,6 +75,24 @@ describe('MaintenanceWindow', () => {
       const diagnostics = await validate(baseProps)
       expect(diagnostics.isFatal()).toBe(false)
     })
+
+    it('warns when the window neither pauses checks nor silences alerts', async () => {
+      const diagnostics = await validate({ ...baseProps, tags: undefined })
+      expect(diagnostics.isFatal()).toBe(false)
+      expect(diagnostics.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ title: 'Maintenance window affects no checks' }),
+      ]))
+    })
+
+    it.each<Partial<MaintenanceWindowProps>>([
+      { tags: ['database'] },
+      { tags: undefined, pauseAllChecks: true },
+      { tags: undefined, silenceAlertsTags: ['api'] },
+      { tags: undefined, silenceAllAlerts: true },
+    ])('does not warn when a scope is set: %o', async scope => {
+      const diagnostics = await validate({ ...baseProps, ...scope })
+      expect(diagnostics.observations).toEqual([])
+    })
   })
 
   describe('KNOWN_TIME_ZONES', () => {
