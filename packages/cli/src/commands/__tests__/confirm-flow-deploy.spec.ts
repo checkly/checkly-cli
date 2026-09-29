@@ -79,6 +79,7 @@ import { ConflictError, ValidationError } from '../../rest/errors.js'
 import {
   type DiffEntry,
   ProjectPlanStaleError,
+  ProjectPlanDisabledError,
   ProjectPreviewNotSupportedError,
 } from '../../rest/projects.js'
 import { Ok } from '../../services/check-parser/package-files/result.js'
@@ -127,8 +128,8 @@ const DEFAULT_FLAGS = {
   'force': false,
   'preview': false,
   'dry-run': false,
+  'plan': false,
   'plan-token': undefined,
-  'skip-plan': false,
   'prune-relations': false,
   'output': false,
   'verbose': false,
@@ -144,7 +145,7 @@ const DEFAULT_FLAGS = {
 const DEFAULT_METADATA = {
   'preview': { setFromDefault: true },
   'dry-run': { setFromDefault: true },
-  'skip-plan': { setFromDefault: true },
+  'plan': { setFromDefault: true },
   'prune-relations': { setFromDefault: true },
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
@@ -156,9 +157,16 @@ const DEFAULT_METADATA = {
   'debug-bundle-output-file': { setFromDefault: true },
 }
 
-function createCommandContext (flags: Record<string, unknown> = {}) {
+/**
+ * A `checkly deploy` run with the flags given. Most of this file is about a
+ * planned deploy, so the run is one started with `--plan` unless the flags say
+ * `plan: false`, which is a run that did not type it.
+ */
+function createCommandContext (given: Record<string, unknown> = {}) {
   const logged: string[] = []
   let exitCodeValue: number | undefined
+  const { plan = true, ...rest } = given
+  const flags: Record<string, unknown> = plan === true ? { plan, ...rest } : rest
   const typed = Object.keys(flags)
   return {
     parse: vi.fn().mockResolvedValue({
@@ -320,7 +328,9 @@ describe('deploy confirmation flow', () => {
     expect(output.preview.diff).toHaveLength(2)
     expect(output.changes).toContain('Permanently delete Check: gone, losing its run history')
     expect(output.changes).toContain('Update AlertChannel: ops')
-    // Re-running as told deploys the plan that was shown, not a newer one.
+    // Re-running as told deploys the plan that was shown, not a newer one. It
+    // asks for a plan itself, without which the token would be refused.
+    expect(output.confirmCommand).toMatch(/ --plan( |$)/)
     expect(output.confirmCommand).toContain(`--plan-token="${PLAN_TOKEN}"`)
     expect(output.confirmCommand).toContain('--force')
 
@@ -377,7 +387,8 @@ describe('deploy confirmation flow', () => {
 
     expect(api.projects.preview).toHaveBeenCalledOnce()
     expect(api.projects.deploy).toHaveBeenCalledOnce()
-    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: PLAN_TOKEN })
+    // The deploy is asked to apply a plan, and which one.
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: true, planToken: PLAN_TOKEN })
     // The upload happens once the plan has been accepted, before the deploy.
     expect(storeBundle).toHaveBeenCalledOnce()
   })
@@ -389,7 +400,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     expect(ctx.logged.join('\n')).toContain('Deploy preview · My Project → account Test Account')
-    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan-token ${PLAN_TOKEN}`)
+    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan --plan-token ${PLAN_TOKEN}`)
     expect(api.projects.deploy).not.toHaveBeenCalled()
     expect(storeBundle).not.toHaveBeenCalled()
   })
@@ -455,7 +466,61 @@ describe('deploy confirmation flow', () => {
       expect.any(String),
     )
     expect(api.projects.deploy).toHaveBeenCalledOnce()
-    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: undefined })
+    // Without a plan in hand the deploy is not asked to apply one either.
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: false, planToken: undefined })
+  })
+
+  it('deploys without a plan, and the payload as it is, while Checkly has plans switched off', async () => {
+    vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPlanDisabledError())
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longWarning).toHaveBeenCalledWith(
+      'Checkly has deploy plans switched off at the moment.',
+      expect.any(String),
+    )
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    const [payload, options] = vi.mocked(api.projects.deploy).mock.calls[0]
+    expect(options).toMatchObject({ plan: false, planToken: undefined })
+    // This API knows the fields that arrived with the preview endpoint, so
+    // they are sent: stripping them would blank the content hashes it stores.
+    expect(payload.resources[0]).toHaveProperty('sourceFile', 'src/alerts.ts')
+  })
+
+  it('refuses to prune or to deploy a pinned plan while Checkly has plans switched off', async () => {
+    for (const flags of [{ 'prune-relations': true }, { 'plan-token': PLAN_TOKEN }]) {
+      vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPlanDisabledError())
+      const ctx = createCommandContext({ force: true, ...flags })
+
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+      expect(api.projects.deploy).not.toHaveBeenCalled()
+      expect(JSON.stringify(vi.mocked(ctx.style.longError).mock.calls[0])).toContain('switched off')
+    }
+  })
+
+  it('says so when plans were switched off between the plan and the deploy', async () => {
+    planResolves()
+    vi.mocked(api.projects.deploy).mockRejectedValue(new ValidationError({
+      statusCode: 400,
+      error: 'Bad Request',
+      message: 'Deploy plans are switched off at the moment, so a deploy that is pinned to a plan token cannot run.',
+      code: 'DEPLOY_PLAN_DISABLED',
+    }))
+    const ctx = createCommandContext({ force: true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    // Not the refusal as the API words it, which tells the caller to drop a
+    // token this run never asked the user for.
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      expect.stringContaining('switched deploy plans off while this deploy was being prepared'),
+      'Re-run the command. While plans are switched off it deploys without one.',
+    )
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 
   it('aborts when the user pinned a plan the API cannot check', async () => {
@@ -649,7 +714,7 @@ describe('deploy confirmation flow', () => {
 
     const printed = ctx.logged.join('\n')
     expect(printed).toContain('relation on Check chk not managed by this project, deleted by --prune-relations')
-    expect(printed).not.toContain('pass --prune-relations to delete them')
+    expect(printed).not.toContain('pass --plan --prune-relations to delete them')
   })
 
   it('reports an unmanaged relation without advising anything twice when it will not prune', async () => {
@@ -665,7 +730,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('pass --prune-relations to delete them')
+    expect(printed).toContain('pass --plan --prune-relations to delete them')
     expect(printed).not.toMatch(/^ {2}~ /m)
   })
 
@@ -759,7 +824,7 @@ describe('deploy confirmation flow', () => {
       expect.stringContaining('changed while this deploy was being confirmed'),
       // Re-running is the way out: the refused token describes a state the
       // account has left behind, so it must not be sent again.
-      expect.stringContaining('Re-run `checkly deploy`'),
+      expect.stringContaining('Re-run `checkly deploy --plan`'),
     )
   })
 })
@@ -867,7 +932,7 @@ describe('deploy confirmation in a terminal', () => {
   })
 })
 
-describe('deploy --skip-plan', () => {
+describe('deploy without --plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(detectCliMode).mockReturnValue('interactive')
@@ -885,7 +950,7 @@ describe('deploy --skip-plan', () => {
     vi.mocked(api.projects.deploy).mockResolvedValue({
       data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
     })
-    const ctx = createCommandContext({ 'skip-plan': true })
+    const ctx = createCommandContext({ plan: false })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -907,7 +972,7 @@ describe('deploy --skip-plan', () => {
   })
 
   it('deploys straight away with --force', async () => {
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -923,7 +988,7 @@ describe('deploy --skip-plan', () => {
     vi.mocked(api.projects.deploy)
       .mockRejectedValueOnce(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
       .mockResolvedValueOnce({ data: { project: {} as any, diff: [] } })
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -947,7 +1012,7 @@ describe('deploy --skip-plan', () => {
     )
     const second = new ValidationError({ statusCode: 400, error: 'Bad Request', message: 'something else' })
     vi.mocked(api.projects.deploy).mockRejectedValueOnce(first).mockRejectedValueOnce(second)
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
@@ -964,7 +1029,7 @@ describe('deploy --skip-plan', () => {
       vi.mocked(api.projects.deploy).mockClear()
       vi.mocked(api.projects.deploy)
         .mockRejectedValue(new ValidationError({ statusCode: 400, error: 'Bad Request', message }))
-      const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+      const ctx = createCommandContext({ plan: false, force: true })
 
       await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
@@ -978,7 +1043,7 @@ describe('deploy --skip-plan', () => {
     const refusal = new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' })
     const conflict = new ConflictError({ statusCode: 409, error: 'Conflict', message: 'in progress' })
     vi.mocked(api.projects.deploy).mockRejectedValueOnce(refusal).mockRejectedValueOnce(conflict)
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
     expect(api.projects.deploy).toHaveBeenCalledTimes(2)
@@ -1006,7 +1071,7 @@ describe('deploy --skip-plan', () => {
     vi.mocked(api.projects.deploy)
       .mockRejectedValueOnce(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
       .mockResolvedValue({ data: { project: {} as any, diff: [] } })
-    const ctx = createCommandContext({ 'skip-plan': true })
+    const ctx = createCommandContext({ plan: false })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -1029,13 +1094,51 @@ describe('deploy --skip-plan', () => {
     expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 
-  it('is --skip-preview too, and cannot be combined with a plan feature', async () => {
-    const { flags } = await Parser.parse(['--skip-preview'], { flags: Deploy.flags, strict: true })
-    expect(flags['skip-plan']).toBe(true)
+  it('is the default, and --no-plan says so', async () => {
+    const parse = async (argv: string[]) =>
+      (await Parser.parse(argv, { flags: Deploy.flags, strict: true })).flags.plan
 
-    for (const argv of [['--skip-plan', '--preview'], ['--skip-plan', '--dry-run'], ['--skip-plan', '--plan-token', PLAN_TOKEN], ['--skip-plan', '--prune-relations']]) {
-      await expect(Parser.parse(argv, { flags: Deploy.flags, strict: true }), argv.join(' '))
-        .rejects.toThrow(/cannot also be provided/)
+    expect(await parse([])).toBe(false)
+    expect(await parse(['--no-plan'])).toBe(false)
+    expect(await parse(['--plan'])).toBe(true)
+  })
+
+  it('echoes no plan flag in the command that confirms it', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const ctx = createCommandContext({ plan: false })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+
+    const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
+    expect(output.confirmCommand).toBe('npx checkly deploy --force')
+    expect(output).not.toHaveProperty('preview')
+  })
+
+  it('sends no plan to the deploy, which then writes every resource', async () => {
+    const ctx = createCommandContext({ plan: false, force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: false })
+  })
+
+  it('refuses what only a plan can deliver, before doing anything', async () => {
+    for (const [flags, named] of [
+      [{ 'plan-token': PLAN_TOKEN }, '--plan-token'],
+      [{ 'prune-relations': true }, '--prune-relations'],
+    ] as const) {
+      vi.mocked(parseProject).mockClear()
+      const ctx = createCommandContext({ plan: false, force: true, ...flags })
+
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+      expect(ctx.style.longError).toHaveBeenCalledWith(
+        `${named} applies to a planned deploy only.`,
+        `Re-run with --plan, or without ${named}.`,
+      )
+      expect(parseProject).not.toHaveBeenCalled()
+      expect(api.projects.preview).not.toHaveBeenCalled()
+      expect(api.projects.deploy).not.toHaveBeenCalled()
     }
   })
 })
@@ -1057,9 +1160,10 @@ describe('deploy confirmCommand', () => {
       ['--preserve-resources'],
       ['--no-schedule-on-deploy'],
       ['--verbose'],
-      ['--prune-relations'],
-      ['--plan-token', PLAN_TOKEN],
-      ['--skip-plan'],
+      ['--plan'],
+      ['--no-plan'],
+      ['--plan', '--prune-relations'],
+      ['--plan', '--plan-token', PLAN_TOKEN],
     ]
     for (const argv of argvs) {
       const confirmCommand = await confirmCommandFor(argv)
@@ -1155,7 +1259,7 @@ new ApiCheck('api', {
     // spells it, and the helper it needs is imported.
     expect(printed).toContain('  api.check.ts: check api frequency: not set -> Frequency.EVERY_5M')
     expect(printed).toContain('  api.check.ts: imported Frequency from checkly/constructs')
-    expect(printed).toContain('Nothing was deployed. Review the changes, then run `checkly deploy` again.')
+    expect(printed).toContain('Nothing was deployed. Review the changes, then run `checkly deploy --plan` again.')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })

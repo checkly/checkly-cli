@@ -98,7 +98,7 @@ describe('formatPreview', () => {
       '    2 unchanged',
       '',
       '1 to create, 1 to update, 1 to delete, 1 kept in your account, 1 skipped (testOnly), 2 unchanged',
-      'Deploy exactly this plan: checkly deploy --plan-token v1.token',
+      'Deploy exactly this plan: checkly deploy --plan --plan-token v1.token',
       '',
     ].join('\n'))
   })
@@ -188,7 +188,7 @@ describe('formatPreview', () => {
     const leaving = uncoloured(formatPreview({ diff: [check], project }))
     expect(leaving).toContain(
       '  ! Check  api-health  has alert channels or private locations this project does not manage'
-      + ' (pass --prune-relations to delete them)',
+      + ' (pass --plan --prune-relations to delete them)',
     )
     expect(leaving).toContain('\n1 with relations this project does not manage, 0 unchanged')
   })

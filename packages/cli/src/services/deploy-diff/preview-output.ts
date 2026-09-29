@@ -265,7 +265,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     )),
     ...sortedUnmanaged.map(listed => withNote(
       MARKER.warn, listed,
-      chalk.yellow('has alert channels or private locations this project does not manage (pass --prune-relations to delete them)'),
+      chalk.yellow('has alert channels or private locations this project does not manage (pass --plan --prune-relations to delete them)'),
     )),
     ...skipping.sort(compareEntries).map(listed => ({
       ...withConstruct(MARKER.skip, listed),
@@ -355,7 +355,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     chalk.dim(`${unchanged} unchanged`),
   ].join(', '))
   if (planToken !== undefined) {
-    output.push(`${chalk.dim('Deploy exactly this plan:')} checkly deploy --plan-token ${planToken}`)
+    output.push(`${chalk.dim('Deploy exactly this plan:')} checkly deploy --plan --plan-token ${planToken}`)
   }
   // A blank line closes the plan, whatever follows it.
   output.push('')
