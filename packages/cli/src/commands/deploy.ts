@@ -313,16 +313,13 @@ export default class Deploy extends AuthCommand {
       .filter((bundle): bundle is BrowserCheckBundle => bundle instanceof BrowserCheckBundle)
 
     // Uploading is what produces the storage keys a deploy needs, and it is
-    // deferred until the plan has been accepted: a preview describes the code
-    // bundle and every snapshot by content hash, so finding out what a deploy
-    // would change costs no uploads. Idempotent because the fallback path for
-    // an API without the preview endpoint has to upload earlier — its diff
-    // comes from a dry-run deploy, which requires the keys.
+    // deferred until the deploy has been confirmed: a preview describes the
+    // code bundle and every snapshot by content hash, and a dry-run deploy
+    // accepts a payload without keys, so finding out what a deploy would
+    // change costs no uploads. `uploaded` tells `deployPayload` whether the
+    // snapshots carry keys yet.
     let uploaded = false
     const uploadArtifacts = async () => {
-      if (uploaded) {
-        return
-      }
       uploaded = true
 
       // The remote code bundle is only consumed by Playwright check suites (via
@@ -542,17 +539,17 @@ export default class Deploy extends AuthCommand {
       }
     }
 
-    // Without a plan, deletions are only visible in a dry-run deploy — which
-    // validates the storage keys, so the uploads have to happen first.
+    // Without a plan, deletions are only visible in a dry-run deploy. It runs
+    // before the uploads, like the preview: a run that is about to ask for
+    // confirmation, or that only reports, must not leave a code bundle and
+    // snapshots in storage for an answer that may be no. The dry run validates
+    // the payload it is given, in which a code bundle it has not been handed a
+    // key for is described by its path on disk and snapshots without a key are
+    // left out, as it was before the preview endpoint existed. A storage key
+    // the deploy route refuses is therefore caught by the deploy itself, after
+    // the uploads, not by this dry run.
     let fallbackDiff: ProjectDeployResponse | undefined
     if (plan === undefined && (preview || dryRun || (!preserveResources && !force))) {
-      // A run that only reports needs no uploads: the dry run validates the
-      // payload it is given, and a code bundle it has not been handed a key for
-      // is described by its path on disk, as it was before the preview endpoint
-      // existed.
-      if (!preview && !dryRun) {
-        await uploadArtifacts()
-      }
       this.style.actionStart('Verifying deployed state')
       try {
         const { data } = await deployOrRetryLegacy({
