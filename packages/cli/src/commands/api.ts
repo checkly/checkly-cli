@@ -1,4 +1,5 @@
 import { Args, Flags } from '@oclif/core'
+import { isUtf8 } from 'node:buffer'
 import { execFile } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import { AuthCommand } from './authCommand.js'
@@ -14,6 +15,7 @@ export default class Api extends AuthCommand {
   static idempotent = false
   static description = 'Make an authenticated HTTP request to the Checkly API.\n'
     + 'Pass-through for any endpoint — handles auth automatically.\n'
+    + 'JSON responses are formatted; other response bodies are written unchanged.\n'
     + 'See https://www.checklyhq.com/docs/api for available endpoints.\n'
     + 'OpenAPI spec: https://api.checklyhq.com/openapi.json'
 
@@ -123,6 +125,7 @@ export default class Api extends AuthCommand {
       params,
       data,
       headers: customHeaders,
+      responseType: 'arraybuffer' as const,
       validateStatus: () => true,
     }
 
@@ -134,7 +137,7 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const response = await api.request(requestConfig)
+    const response = await api.request<Buffer>(requestConfig)
 
     if (flags.verbose) {
       this.logToStderr(`< ${response.status} ${response.statusText}`)
@@ -146,7 +149,7 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const responseData = response.data
+    const responseData = parseResponse(response.data)
 
     if (flags.include) {
       this.log(`HTTP/1.1 ${response.status} ${response.statusText}`)
@@ -165,12 +168,20 @@ export default class Api extends AuthCommand {
       return
     }
 
-    const json = typeof responseData === 'string' ? responseData : formatJson(responseData)
-
-    if (flags.jq) {
-      await this.applyJq(json, flags.jq)
+    if (Buffer.isBuffer(responseData) && !flags.jq) {
+      await new Promise<void>((resolve, reject) => {
+        process.stdout.write(responseData, error => error ? reject(error) : resolve())
+      })
     } else {
-      this.log(json)
+      const json = Buffer.isBuffer(responseData)
+        ? responseData.toString('utf-8')
+        : typeof responseData === 'string' ? responseData : formatJson(responseData)
+
+      if (flags.jq) {
+        await this.applyJq(json, flags.jq)
+      } else {
+        this.log(json)
+      }
     }
 
     if (response.status === 404) {
@@ -212,6 +223,19 @@ export default class Api extends AuthCommand {
       child.stdin?.end()
     })
   }
+}
+
+function parseResponse (data: Buffer): unknown {
+  if (data.length === 0) return ''
+
+  if (isUtf8(data)) {
+    try {
+      return JSON.parse(data.toString('utf-8').replace(/^\uFEFF/, ''))
+    } catch {
+      // Keep non-JSON bodies as bytes, including their original line endings.
+    }
+  }
+  return data
 }
 
 function formatJson (data: unknown): string {
