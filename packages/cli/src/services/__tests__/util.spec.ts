@@ -224,6 +224,10 @@ describe('util', () => {
       ['../app'],
       ['file:///srv/git/app.git'],
       ['C:\\repos\\app'],
+      ['git@github-work:acme/app.git'],
+      ['ssh://git@gitalias/acme/app.git'],
+      ['git@ssh.dev.azure.com:v3/acme/project/app'],
+      ['acme@vs-ssh.visualstudio.com:v3/acme/project/app'],
     ])('returns undefined for %s', remote => {
       expect(normalizeGitRemoteUrl(remote)).toBeUndefined()
     })

@@ -115,6 +115,18 @@ describe('boilerplate', () => {
       expect(content).not.toContain('{{repoUrl}}')
     })
 
+    it('writes a repoUrl with quotes and replacement patterns as an escaped string literal', () => {
+      mockGetRepoUrlFromGit.mockReturnValue('https://h.example/o/r\');x(\'$\'')
+
+      createConfig(projectDir, log)
+
+      const writeCall = mockWriteFileSync.mock.calls.find(
+        ([path]) => path.toString().endsWith('checkly.config.ts'),
+      )
+      const content = writeCall![1] as string
+      expect(content).toContain('repoUrl: "https://h.example/o/r\');x(\'$\'",')
+    })
+
     it('writes a commented repoUrl placeholder when there is no git remote', () => {
       mockGetRepoUrlFromGit.mockReturnValue(undefined)
 

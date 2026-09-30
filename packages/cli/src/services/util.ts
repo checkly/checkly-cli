@@ -66,7 +66,8 @@ function getGitHubActionsRepositoryUrl (): string | undefined {
 /**
  * Turns a git remote URL into a credential-free web URL, e.g.
  * `git@github.com:acme/app.git` -> `https://github.com/acme/app`.
- * Returns `undefined` for remotes that have no web URL (local paths, file://).
+ * Returns `undefined` for remotes that have no web URL (local paths, file://,
+ * SSH config aliases, SSH hosts with a different web path layout).
  */
 export function normalizeGitRemoteUrl (remote: string): string | undefined {
   const trimmed = remote.trim()
@@ -77,6 +78,7 @@ export function normalizeGitRemoteUrl (remote: string): string | undefined {
   let host: string
   let repoPath: string
   let protocol = 'https:'
+  let isSshRemote = true
 
   // scp-like syntax: [user@]host:path. A single-letter host is a Windows drive.
   const scpLike = trimmed.match(/^(?:[^@/\s]+@)?([^:/\s]{2,}):(?!\/\/)(.+)$/)
@@ -94,6 +96,7 @@ export function normalizeGitRemoteUrl (remote: string): string | undefined {
       // Keep the port: it is part of the web address. Credentials are dropped.
       protocol = url.protocol
       host = url.host
+      isSshRemote = false
     } else if (url.protocol === 'ssh:' || url.protocol === 'git+ssh:' || url.protocol === 'git:') {
       // SSH and git-daemon ports don't carry over to the web URL.
       host = url.hostname
@@ -111,7 +114,23 @@ export function normalizeGitRemoteUrl (remote: string): string | undefined {
   if (!host || !repoPath) {
     return undefined
   }
+  if (isSshRemote && !isWebHostForSshRemote(host)) {
+    return undefined
+  }
   return `${protocol}//${host}/${repoPath}`
+}
+
+// SSH hosts whose repository paths don't map onto a web URL of the same shape.
+const NON_WEB_SSH_HOSTS = new Set(['ssh.dev.azure.com', 'vs-ssh.visualstudio.com'])
+
+/**
+ * Whether the host of an SSH remote (converted to https) is also a web host.
+ * A host without a dot is an SSH config alias (e.g. `github-work`), not a
+ * resolvable web address.
+ */
+function isWebHostForSshRemote (host: string): boolean {
+  const hostname = host.toLowerCase()
+  return hostname.includes('.') && !NON_WEB_SSH_HOSTS.has(hostname)
 }
 
 /**

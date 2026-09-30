@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
 import { makeOnCancel, successMessage } from './prompts-helpers.js'
 import { getRepoUrlFromGit } from '../../services/util.js'
+import { quote } from '../../sourcegen/string.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -94,13 +95,16 @@ export function createConfig (
   const repoUrl = getRepoUrlFromGit(projectDir)
   // The template keeps the slot as valid TypeScript; without a remote the
   // whole property becomes a commented placeholder.
+  // The URL comes from local git config, so it is quoted as a string literal
+  // rather than pasted into the generated source.
   const repoUrlProperty = repoUrl
-    ? `repoUrl: '${repoUrl}'`
+    ? `repoUrl: ${quote(repoUrl)}`
     : `// repoUrl: 'https://github.com/<owner>/<repo>'`
   const content = template
     .replaceAll('{{projectName}}', projectName)
     .replaceAll('{{logicalId}}', logicalId)
-    .replaceAll(`repoUrl: '{{repoUrl}}'`, repoUrlProperty)
+    // A function replacer keeps `$'`-style patterns in the URL literal.
+    .replaceAll(`repoUrl: '{{repoUrl}}'`, () => repoUrlProperty)
   try {
     writeFileSync(configPath, content)
   } catch {
