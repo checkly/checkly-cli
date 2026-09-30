@@ -586,7 +586,7 @@ describe('deploy confirmation flow', () => {
     expect(resource.payload).not.toHaveProperty('codeBundleSha256')
   })
 
-  it('falls back to the dry-run delete guard, uploads first, and asks with what it found', async () => {
+  it('falls back to the dry-run delete guard and asks with what it found, uploading nothing', async () => {
     vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPreviewNotSupportedError())
     vi.mocked(api.projects.deploy).mockResolvedValue({
       data: {
@@ -598,11 +598,11 @@ describe('deploy confirmation flow', () => {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
-    // Without a plan the deletions are only visible in a dry-run deploy, which
-    // validates the storage keys — so the uploads have to precede it.
+    // Without a plan the deletions are only visible in a dry-run deploy. It is
+    // sent without storage keys, so an answer of no leaves nothing in storage.
     expect(api.projects.deploy).toHaveBeenCalledOnce()
     expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ dryRun: true })
-    expect(storeBundle).toHaveBeenCalled()
+    expect(storeBundle).not.toHaveBeenCalled()
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     expect(output.changes).toContain('Permanently delete Check: gone, losing its run history')
@@ -969,6 +969,23 @@ describe('deploy without --plan', () => {
     const confirmed = vi.mocked(api.projects.deploy).mock.calls[1][1]
     expect(confirmed?.dryRun).toBeFalsy()
     expect(confirmed?.planToken).toBeUndefined()
+    // The code bundle went up after the answer, not before the question.
+    expect(storeBundle).toHaveBeenCalledOnce()
+    expect(storeBundle.mock.invocationCallOrder[0]).toBeGreaterThan(vi.mocked(prompts).mock.invocationCallOrder[0])
+  })
+
+  it('uploads nothing when the answer is no', async () => {
+    vi.mocked(api.projects.deploy).mockResolvedValue({
+      data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
+    })
+    vi.mocked(prompts).mockResolvedValueOnce({ confirm: false })
+    const ctx = createCommandContext({ plan: false })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_')
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ dryRun: true })
+    expect(storeBundle).not.toHaveBeenCalled()
   })
 
   it('deploys straight away with --force', async () => {
