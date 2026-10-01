@@ -2,6 +2,7 @@ import { Args, Flags } from '@oclif/core'
 import { isUtf8 } from 'node:buffer'
 import { execFile } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
+import type { Readable } from 'node:stream'
 import { AuthCommand } from './authCommand.js'
 import { api } from '../rest/api.js'
 import { parseFields } from '../helpers/api-fields.js'
@@ -15,7 +16,7 @@ export default class Api extends AuthCommand {
   static idempotent = false
   static description = 'Make an authenticated HTTP request to the Checkly API.\n'
     + 'Pass-through for any endpoint — handles auth automatically.\n'
-    + 'JSON responses are formatted; other response bodies are written unchanged.\n'
+    + 'JSON responses are formatted; attachments and other bodies are streamed unchanged.\n'
     + 'See https://www.checklyhq.com/docs/api for available endpoints.\n'
     + 'OpenAPI spec: https://api.checklyhq.com/openapi.json'
 
@@ -125,7 +126,7 @@ export default class Api extends AuthCommand {
       params,
       data,
       headers: customHeaders,
-      responseType: 'arraybuffer' as const,
+      responseType: 'stream' as const,
       validateStatus: () => true,
     }
 
@@ -137,7 +138,7 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const response = await api.request<Buffer>(requestConfig)
+    const response = await api.request<Readable>(requestConfig)
 
     if (flags.verbose) {
       this.logToStderr(`< ${response.status} ${response.statusText}`)
@@ -149,8 +150,6 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const responseData = parseResponse(response.data)
-
     if (flags.include) {
       this.log(`HTTP/1.1 ${response.status} ${response.statusText}`)
       for (const [k, v] of Object.entries(response.headers)) {
@@ -161,26 +160,33 @@ export default class Api extends AuthCommand {
       this.log()
     }
 
-    if (responseData === undefined || responseData === null || responseData === '') {
-      if (response.status >= 400) {
-        this.exit(1)
+    const contentType = String(response.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase()
+    const isJson = contentType === 'application/json' || contentType.endsWith('+json')
+    const isAttachment = /^\s*attachment(?:;|$)/i.test(String(response.headers['content-disposition'] ?? ''))
+
+    if (!flags.jq && (!isJson || isAttachment)) {
+      for await (const chunk of response.data) {
+        await writeBody(chunk)
       }
-      return
-    }
-
-    if (Buffer.isBuffer(responseData) && !flags.jq) {
-      await new Promise<void>((resolve, reject) => {
-        process.stdout.write(responseData, error => error ? reject(error) : resolve())
-      })
     } else {
-      const json = Buffer.isBuffer(responseData)
-        ? responseData.toString('utf-8')
-        : typeof responseData === 'string' ? responseData : formatJson(responseData)
+      const chunks: Buffer[] = []
+      for await (const chunk of response.data) {
+        chunks.push(chunk as Buffer)
+      }
+      const responseData = parseResponse(Buffer.concat(chunks))
 
-      if (flags.jq) {
-        await this.applyJq(json, flags.jq)
-      } else {
-        this.log(json)
+      if (Buffer.isBuffer(responseData)) {
+        if (flags.jq) {
+          this.error('Response is not JSON; --jq cannot be applied.', { exit: 1 })
+        }
+        await writeBody(responseData)
+      } else if (responseData !== undefined && responseData !== null && responseData !== '') {
+        const json = typeof responseData === 'string' ? responseData : formatJson(responseData)
+        if (flags.jq) {
+          await this.applyJq(json, flags.jq)
+        } else {
+          this.log(json)
+        }
       }
     }
 
@@ -223,6 +229,12 @@ export default class Api extends AuthCommand {
       child.stdin?.end()
     })
   }
+}
+
+function writeBody (data: Buffer): Promise<void> {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(data, error => error ? reject(error) : resolve())
+  })
 }
 
 function parseResponse (data: Buffer): unknown {

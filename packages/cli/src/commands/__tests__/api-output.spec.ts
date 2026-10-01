@@ -1,11 +1,13 @@
-import { execFile } from 'node:child_process'
+import { execFile, spawnSync } from 'node:child_process'
 import { createServer } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { promisify } from 'node:util'
+import { once } from 'node:events'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
 
 const execFileAsync = promisify(execFile)
+const hasJq = spawnSync('jq', ['--version']).status === 0
 
 // A ZIP containing report.bin with NUL and invalid UTF-8 bytes.
 const archive = Buffer.from(
@@ -13,6 +15,7 @@ const archive = Buffer.from(
   + 'AAAACgAAAAAAAAAAAAAAgAEAAAAAcmVwb3J0LmJpblBLBQYAAAAAAQABADgAAAAvAAAAAAA=',
   'base64',
 )
+const jsonFile = '{\n  "count": 1e3, "id": 9007199254740993\n}\n'
 
 describe('checkly api response bytes', () => {
   let sandbox: FixtureSandbox
@@ -34,6 +37,29 @@ describe('checkly api response bytes', () => {
       case '/json-bom':
         response.writeHead(200, { 'content-type': 'application/json' }).end('\uFEFF{"name":"Café"}')
         break
+      case '/json-file':
+        response.writeHead(200, { 'content-type': 'application/octet-stream' }).end(jsonFile)
+        break
+      case '/json-attachment':
+        response.writeHead(200, {
+          'content-type': 'application/json',
+          'content-disposition': 'attachment; filename="report.json"',
+        }).end(jsonFile)
+        break
+      case '/json-suffix':
+        response.writeHead(200, { 'content-type': 'Application/Problem+JSON; charset=utf-8' }).end('{ "ok": true }')
+        break
+      case '/invalid-json':
+        response.writeHead(200, { 'content-type': 'application/json' }).end('{invalid}\n')
+        break
+      case '/stream': {
+        response.writeHead(200, { 'content-type': 'application/octet-stream' })
+        response.write(archive.subarray(0, 32))
+        const finish = () => response.end(archive.subarray(32))
+        server.once('first-chunk', finish)
+        response.on('close', () => server.removeListener('first-chunk', finish))
+        break
+      }
       case '/text':
         response.writeHead(200, { 'content-type': 'text/plain' }).end('Café\n')
         break
@@ -78,6 +104,8 @@ describe('checkly api response bytes', () => {
     ['/binary', archive],
     ['/redirect', archive],
     ['/binary-json', Buffer.from([0x22, 0xff, 0x22])],
+    ['/json-file', Buffer.from(jsonFile)],
+    ['/json-attachment', Buffer.from(jsonFile)],
   ])('preserves binary response bytes from %s', async (endpoint, expected) => {
     const { stdout } = await run(endpoint)
     expect(stdout).toEqual(expected)
@@ -99,12 +127,47 @@ describe('checkly api response bytes', () => {
   it.each([
     ['/json', '{"name":"Café"}\n'],
     ['/json-bom', '{"name":"Café"}\n'],
+    ['/json-suffix', '{"ok":true}\n'],
+    ['/invalid-json', '{invalid}\n'],
     ['/text', 'Café\n'],
     ['/empty', ''],
   ])('writes the expected response from %s', async (endpoint, expected) => {
     const { stdout } = await run(endpoint)
     expect(stdout).toEqual(Buffer.from(expected))
   })
+
+  it.each(['/binary', '/text', '/invalid-json'])('rejects --jq on non-JSON response from %s', async endpoint => {
+    const result = await run(endpoint, '--jq', '.').catch(error => error)
+    expect(result).toMatchObject({ code: 1, stdout: Buffer.alloc(0) })
+    expect(result.stderr.toString()).toContain('Response is not JSON; --jq cannot be applied')
+  })
+
+  it.skipIf(!hasJq).each(['/json', '/json-file', '/json-attachment'])(
+    'allows --jq to parse JSON from %s', async endpoint => {
+      const { stdout } = await run(endpoint, '--jq', 'keys')
+      expect(JSON.parse(stdout.toString())).toEqual(endpoint === '/json' ? ['name'] : ['count', 'id'])
+    },
+  )
+
+  it('writes the first download chunk before the response finishes', async () => {
+    const download = run('/stream')
+    const output = once(download.child.stdout!, 'data')
+    try {
+      await Promise.race([
+        output,
+        new Promise((_, reject) => {
+          const timer = setTimeout(() => reject(new Error('No output before the response finished')), 10000)
+          output.finally(() => clearTimeout(timer))
+        }),
+      ])
+      server.emit('first-chunk')
+      const { stdout } = await download
+      expect(stdout).toEqual(archive)
+    } finally {
+      server.emit('first-chunk')
+      await download.catch(() => {})
+    }
+  }, 15000)
 
   it('prints the JSON error body and HTTP hint before exiting with code 1', async () => {
     const result = await run('/missing').catch(error => error)
