@@ -769,6 +769,57 @@ new UrlMonitor('url', {
     expect(plan.files[0].text).toBe(`import { ApiCheck, Frequency } from 'checkly/constructs'\nnew ApiCheck('api', { name: 'API', frequency: Frequency.EVERY_10M })\n`)
   })
 
+  it('keeps a retry option the code spells out, even when Checkly holds the builder default for it', async () => {
+    const spelled = `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+
+new ApiCheck('api', {
+  name: 'API',
+  retryStrategy: RetryStrategyBuilder.linearStrategy({
+    baseBackoffSeconds: 12,
+    maxRetries: 3,
+    maxDurationSeconds: 30,
+  }),
+})
+
+new ApiCheck('other', {
+  name: 'Other',
+  retryStrategy: RetryStrategyBuilder.linearStrategy({ maxRetries: 3, maxDurationSeconds: 30 }),
+})
+`
+    await declare('retries.check.ts', spelled, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+      new ApiCheck('other', { name: 'Other', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    // 60 seconds is what the builder fills in for an unset backoff.
+    const strategy = { type: 'LINEAR', baseBackoffSeconds: 60, maxRetries: 3, maxDurationSeconds: 200, sameRegion: true, onlyOn: null }
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({
+          changes: [
+            { path: '/retryStrategy/baseBackoffSeconds', origin: 'remote', before: 12, after: 60 },
+            { path: '/retryStrategy/maxDurationSeconds', origin: 'remote', before: 30, after: 200 },
+          ],
+          before: { checkType: 'API', name: 'API', retryStrategy: strategy },
+        }),
+        apiEntry({
+          logicalId: 'other',
+          changes: [{ path: '/retryStrategy/maxDurationSeconds', origin: 'remote', before: 30, after: 200 }],
+          before: { checkType: 'API', name: 'Other', retryStrategy: strategy },
+        }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([])
+    await applyWriteBack(plan)
+    // The option its author wrote down keeps its line and gets Checkly's
+    // value; the construct that left it to the builder still does.
+    expect(await read('retries.check.ts')).toBe(spelled
+      .replace('baseBackoffSeconds: 12', 'baseBackoffSeconds: 60')
+      .replace('maxDurationSeconds: 30,\n  }),', 'maxDurationSeconds: 200,\n  }),')
+      .replace('{ maxRetries: 3, maxDurationSeconds: 30 }', '{ maxRetries: 3, maxDurationSeconds: 200 }'))
+  })
+
   it('refuses a retry strategy beside doubleCheck, one the CLI respelled, and one built from a variable', async () => {
     await declare('retries.check.ts', `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
 const retries = 2
