@@ -131,6 +131,45 @@ describe('confirmOrAbort', () => {
     expect(ctx.exit).not.toHaveBeenCalled()
   })
 
+  it('asks the terminal question under the rendered plan, and renders it only there', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    const plan = vi.fn(() => 'Deploy preview\n')
+    const preview: CommandPreview = {
+      ...basePreview,
+      terminal: { plan, changes: ['Deploy project "Acme"'] },
+      question: 'Apply these changes?',
+    }
+
+    const ctx = createMockCommand()
+    await AuthCommand.prototype.confirmOrAbort.call(
+      { ...ctx, constructor: AuthCommand } as any,
+      preview,
+      { force: false, dryRun: false },
+    )
+    expect(plan).toHaveBeenCalledOnce()
+    expect(ctx.logged[0]).toBe('Deploy preview\n\nThis will Deploy project "Acme"')
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ message: 'Apply these changes?' })
+
+    // Neither a forced run nor an agent envelope shows the plan, so neither
+    // renders it; the envelope keeps the flat changes.
+    plan.mockClear()
+    await AuthCommand.prototype.confirmOrAbort.call(
+      { ...createMockCommand(), constructor: AuthCommand } as any,
+      preview,
+      { force: true },
+    )
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const agent = createMockCommand()
+    await expect(AuthCommand.prototype.confirmOrAbort.call(
+      { ...agent, constructor: AuthCommand } as any,
+      preview,
+      { force: false },
+    )).rejects.toThrow('EXIT_2')
+    expect(plan).not.toHaveBeenCalled()
+    expect(JSON.parse(agent.logged[0]).changes).toEqual(['Will create incident "Test"'])
+  })
+
   it('exits 0 when user declines interactive confirmation', async () => {
     vi.mocked(detectCliMode).mockReturnValue('interactive')
     vi.mocked(prompts).mockResolvedValue({ confirm: false })

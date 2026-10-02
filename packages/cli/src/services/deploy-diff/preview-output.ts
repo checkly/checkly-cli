@@ -94,6 +94,8 @@ interface Listed {
   logicalId: string
   physicalId?: string | number
   construct?: any
+  /** For a pruned relation: the check or group it belongs to. */
+  owner?: string
 }
 
 const compareEntries = (a: Listed, b: Listed): number =>
@@ -129,7 +131,14 @@ export function formatPreview (input: PreviewOutputInput): string {
       // the project does NOT manage is only ever reported when --prune-relations
       // would delete it, and that is worth its own line.
       if (isPrunedRelation(change)) {
-        pruning.push({ resourceType: type, logicalId })
+        // The relation's own id says nothing to the user; the check or group
+        // it hangs off is what tells them what the prune touches.
+        const owner = change.foldedInto
+        pruning.push({
+          resourceType: type,
+          logicalId,
+          owner: owner ? `${PRETTY_RESOURCE_TYPES[owner.type] ?? owner.type} ${owner.logicalId}` : undefined,
+        })
       }
       continue
     }
@@ -147,7 +156,10 @@ export function formatPreview (input: PreviewOutputInput): string {
       }
       continue
     }
-    const construct = project.data[type as keyof ProjectData][logicalId]
+    // A type this CLI version does not know (a newer CLI deployed it) has no
+    // slot in the project. Such an entry has no construct, and a created or
+    // updated one is dropped from the overview below rather than crashing it.
+    const construct = project.data[type as keyof ProjectData]?.[logicalId]
     if (action === ResourceDeployStatus.UPDATE) {
       updating.push({ resourceType: type, logicalId, physicalId, construct })
     } else if (action === ResourceDeployStatus.UNCHANGED) {
@@ -247,7 +259,9 @@ export function formatPreview (input: PreviewOutputInput): string {
       MARKER.detach, listed, chalk.yellow('kept in your Checkly account, now managed from the Checkly web app'),
     )),
     ...sortedPruning.map(listed => withNote(
-      MARKER.prune, listed, chalk.red('relation not managed by this project, deleted by --prune-relations'),
+      MARKER.prune, listed,
+      chalk.red(`relation${listed.owner ? ` on ${listed.owner}` : ''} not managed by this project, `
+        + 'deleted by --prune-relations'),
     )),
     ...sortedUnmanaged.map(listed => withNote(
       MARKER.warn, listed,
