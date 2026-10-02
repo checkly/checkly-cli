@@ -24,6 +24,7 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 3. This applies to **every** write command, not just the first one. Incident updates and resolutions also require confirmation.
 4. Use `--dry-run` to preview what a command will do without executing or prompting.
 5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
+6. A `checkly deploy --plan` whose plan has no changes is the one write command that returns no envelope: it prints `No changes.`, records the deployment, schedules the checks unless `--no-schedule-on-deploy` is passed, and exits with code 0.
 
 The `confirmCommand` omits flags left at their default, so a bare `npx checkly deploy` confirms as `npx checkly deploy --force` rather than echoing back every boolean the parser filled in. Treat every flag you see there as deliberate.
 
@@ -31,7 +32,7 @@ The `confirmCommand` omits flags left at their default, so a bare `npx checkly d
 
 A command that picks its own target before confirming writes that target back into the `confirmCommand`. `import commit` and `import cancel` do this: run without `--plan-id` they select the only candidate plan themselves, and confirm as `npx checkly import commit --plan-id="<resolved-id>" --force` — carrying a flag you never passed. That is deliberate: the pinned ID guarantees the approved run acts on the plan whose `changes` you showed the user, not on whatever happens to be pending by then. Run the `confirmCommand` exactly as returned; do not strip the flag or fall back to the bare command.
 
-`deploy` pins the same way, with `--plan-token`: the token identifies the state of the account the plan was computed against, and the pinned run refuses to deploy — writing nothing — if anything changed in between. Re-run `checkly deploy` in that case; it computes a fresh plan to confirm. Do not carry a token over from an earlier run, and do not re-send a refused one.
+`deploy --plan` pins the same way, with `--plan-token`: the token identifies the state of the account the plan was computed against, and the pinned run refuses to deploy — writing nothing — if anything changed in between. Re-run `checkly deploy --plan` in that case; it computes a fresh plan to confirm. A `deploy` without `--plan` has no plan to pin and takes no token. Do not carry a token over from an earlier run, and do not re-send a refused one.
 
 ## Available Commands
 

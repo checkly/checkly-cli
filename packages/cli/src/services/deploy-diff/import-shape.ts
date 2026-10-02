@@ -1,5 +1,6 @@
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
 import { type Context, MASKED_VALUE } from '../../constructs/internal/codegen/index.js'
+import type { GeneratedVariableLocator, VariableName } from '../../constructs/internal/codegen/context.js'
 import type { Project } from '../../constructs/project.js'
 import type { DiffChange, DiffEntry, DiffMaskedMarker, DiffRedaction, ResourceSync } from '../../rest/projects.js'
 import type { Program } from '../../sourcegen/index.js'
@@ -677,7 +678,7 @@ export function markChanged (payload: unknown, path: string, reported: unknown, 
   return placed
 }
 
-type Registrar = (context: Context, id: string | number, name: string, file: ReturnType<Program['generatedSupportFile']>) => void
+type Registrar = (context: Context, id: string | number, name: VariableName, file: ReturnType<Program['generatedSupportFile']>) => void
 
 /** How each referenceable type registers on the codegen context. */
 const REGISTRARS: ReadonlyArray<{ type: keyof Project['data'], register: Registrar }> = [
@@ -689,7 +690,21 @@ const REGISTRARS: ReadonlyArray<{ type: keyof Project['data'], register: Registr
   { type: 'status-page-component', register: (context, id, name, file) => context.registerStatusPageComponent(id as string, name, file) },
 ]
 
-type Lookup = (context: Context, id: string | number) => { file: ReturnType<Program['generatedConstructFile']> }
+/** The types another construct refers to by variable. */
+export const REFERENCEABLE_TYPES = REGISTRARS.map(({ type }) => type)
+
+type Lookup = (context: Context, id: string | number) => GeneratedVariableLocator
+
+/** The name a construct has in the user's code (`names`, keyed by `idKey`), to use as it is, or else `fallback`. */
+function variableName (
+  names: ReadonlyMap<string, string>,
+  type: string,
+  logicalId: string,
+  fallback: string,
+): VariableName {
+  const identifier = names.get(idKey(type, logicalId))
+  return identifier !== undefined ? { identifier } : fallback
+}
 
 const LOOKUPS: Readonly<Record<string, Lookup>> = {
   'check-group': (context, id) => context.lookupCheckGroup(id as number),
@@ -701,49 +716,70 @@ const LOOKUPS: Readonly<Record<string, Lookup>> = {
 }
 
 /**
- * Re-register the construct a codegen has just prepared under its logical
+ * Re-register the construct a codegen has just prepared under the name it
+ * has in the user's code (`names`, keyed by `idKey`), or else its logical
  * id, in the construct file the codegen chose. A codegen names the variable
  * it exports after the resource's content (an alert channel after its
  * address, a group after its name), so a change to that content would show
- * as a renamed variable beside the change itself; the logical id is the
- * same on both sides. A type whose codegen registers no variable is left
- * alone.
+ * as a renamed variable beside the change itself; the code's name and the
+ * logical id are the same on both sides. The codegen's own name is given up
+ * first, so the new one can be the same (a group declared as `websiteGroup`
+ * and named "Website Group") without a counter to tell the two apart. A type
+ * whose codegen registers no variable is left alone.
  */
-export function registerUnderLogicalId (context: Context, resource: Resource): void {
+export function registerUnderCodeName (
+  context: Context,
+  resource: Resource,
+  names: ReadonlyMap<string, string> = new Map(),
+): void {
   const lookup = LOOKUPS[resource.type]
   const registrar = REGISTRARS.find(entry => entry.type === resource.type)
   if (lookup === undefined || registrar === undefined) {
     return
   }
   const id = (resource.payload as { id: string | number }).id
-  const { file } = lookup(context, id)
-  registrar.register(context, id, resource.logicalId, file)
+  const prepared = lookup(context, id)
+  const { file } = prepared
+  context.releaseVariable(prepared)
+  registrar.register(context, id, variableName(names, resource.type, resource.logicalId, resource.logicalId), file)
 }
 
 /**
  * Register every referenceable construct of the local project on a fresh
- * context, under its physical id, so a rendered reference comes out as the
- * variable name the construct would have rather than as `fromId(...)`. Both
+ * context, under its physical id, so a rendered reference comes out as a
+ * variable rather than as `fromId(...)`: the one the construct has in the
+ * user's code (`names`, keyed by `idKey`), or else one derived from its name. Both
  * sides of a comparison register the same set in the same order, which is
- * what makes their identifiers agree. One support file for all of them, so
+ * what makes their identifiers agree. The constructs the code names go
+ * first, so a name derived for another construct that happens to be the
+ * same is the one that gets a counter. One support file for all of them, so
  * the context's per-file identifier namespace tells two constructs with the
  * same name apart (`group`, `group2`); a support file, not a construct file,
  * because `renderConstruct` counts the construct files a render adds.
  */
-export function registerProject (context: Context, program: Program, project: Project, ids: PhysicalIds): void {
+export function registerProject (
+  context: Context,
+  program: Program,
+  project: Project,
+  ids: PhysicalIds,
+  names: ReadonlyMap<string, string> = new Map(),
+): void {
   const file = program.generatedSupportFile('__preview__/project')
-  for (const { type, register } of REGISTRARS) {
-    const constructs = project.data[type] as Record<string, { name?: unknown, member?: boolean }>
-    for (const logicalId of Object.keys(constructs).sort()) {
-      const id = ids.get(idKey(type, logicalId))
-      // A reference construct (`fromId(...)`) has no name of its own: left
-      // unregistered, the codegen renders the reference as the `fromId(...)`
-      // it is, on both sides.
-      if (id === undefined || constructs[logicalId].member === false) {
-        continue
+  for (const named of [true, false]) {
+    for (const { type, register } of REGISTRARS) {
+      const constructs = project.data[type] as Record<string, { name?: unknown, member?: boolean }>
+      for (const logicalId of Object.keys(constructs).sort()) {
+        const id = ids.get(idKey(type, logicalId))
+        // A reference construct (`fromId(...)`) has no name of its own: left
+        // unregistered, the codegen renders the reference as the `fromId(...)`
+        // it is, on both sides.
+        if (id === undefined || constructs[logicalId].member === false || names.has(idKey(type, logicalId)) !== named) {
+          continue
+        }
+        const name = constructs[logicalId].name
+        const derived = typeof name === 'string' && name.length > 0 ? name : logicalId
+        register(context, id, variableName(names, type, logicalId, derived), file)
       }
-      const name = constructs[logicalId].name
-      register(context, id, typeof name === 'string' && name.length > 0 ? name : logicalId, file)
     }
   }
 }

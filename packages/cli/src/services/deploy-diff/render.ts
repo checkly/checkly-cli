@@ -16,7 +16,7 @@ import {
   pointerSegments,
   UNRENDERED_KEYS,
   registerProject,
-  registerUnderLogicalId,
+  registerUnderCodeName,
   relationResourcesForAfter,
   relationResourcesFromBefore,
   toImportResource,
@@ -25,6 +25,7 @@ import {
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
 import { isShapeChangePath } from './shape-changes.js'
 import { diffLines, type DiffLine } from './diff-lines.js'
+import type { VariableNames } from './variable-names.js'
 
 /**
  * The lines printed under one updated resource of a deploy preview: the
@@ -71,6 +72,8 @@ export interface RenderResourceInput {
   project: Project
   ids: PhysicalIds
   pruneRelations: boolean
+  /** The variable each construct has in the user's code; one without an entry gets a generated name. */
+  variableNames?: VariableNames
   /** The most lines a diff may take before the listing is printed instead. */
   maxLines?: number
 }
@@ -163,11 +166,18 @@ function listing (changes: readonly DiffChange[], reason?: string): RenderedLine
   return lines
 }
 
-/** The import codegen, with the rendered construct's own variable named after its logical id on both sides. */
+/**
+ * The import codegen, with the rendered construct's own variable named as in
+ * the user's code, or else after its logical id, on both sides.
+ */
 class SideCodegen extends ConstructCodegen {
+  constructor (program: Program, private readonly variableNames: VariableNames | undefined) {
+    super(program)
+  }
+
   prepare (logicalId: string, resource: Resource, context: Context): void {
     super.prepare(logicalId, resource, context)
-    registerUnderLogicalId(context, resource)
+    registerUnderCodeName(context, resource, this.variableNames)
   }
 }
 
@@ -178,6 +188,7 @@ function renderSide (
   project: Project,
   ids: PhysicalIds,
   maskedValues: ReadonlySet<string>,
+  variableNames: VariableNames | undefined,
 ): string {
   const program = new Program({
     rootDirectory: '.',
@@ -186,8 +197,8 @@ function renderSide (
     language: 'typescript',
   })
   const context = new Context({ maskedValues })
-  const codegen = new SideCodegen(program)
-  registerProject(context, program, project, ids)
+  const codegen = new SideCodegen(program, variableNames)
+  registerProject(context, program, project, ids, variableNames)
   for (const relation of relations) {
     codegen.prepare(relation.logicalId, relation, context)
   }
@@ -220,7 +231,7 @@ function contentDiff (
 }
 
 export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] {
-  const { entry, local, localResources, diff, project, ids, pruneRelations, maxLines } = input
+  const { entry, local, localResources, diff, project, ids, pruneRelations, variableNames, maxLines } = input
   const lines: RenderedLine[] = []
   const changes = entry.changes ?? []
   // A secret is shown inline, masked, with `(changed)` on the element the
@@ -234,7 +245,9 @@ export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] 
   const marked = new Set<DiffChange>()
   try {
     lines.push(
-      ...renderShown(shown, marked, entry, local, localResources, diff, project, ids, pruneRelations, maxLines),
+      ...renderShown(
+        shown, marked, entry, local, localResources, diff, project, ids, pruneRelations, variableNames, maxLines,
+      ),
     )
   } catch (cause) {
     // A payload this CLI cannot shape like an import resource, a codegen that
@@ -280,6 +293,7 @@ function renderShown (
   project: Project,
   ids: PhysicalIds,
   pruneRelations: boolean,
+  variableNames: VariableNames | undefined,
   maxLines: number | undefined,
 ): RenderedLine[] {
   // A secret change withholds the list it is in whole, plain siblings' edits
@@ -363,8 +377,9 @@ function renderShown (
     return lines.map(line => mapText(line, text => text.replace(sentinel, ' (changed$1)')))
   }
   const afterRelations = relationResourcesForAfter({ ids, local: localResources, entry, diff, pruneRelations })
-  const beforeText = renderSide(deployed, relationResourcesFromBefore(type, entry.before), project, ids, maskedValues)
-  const afterText = renderSide(after, afterRelations, project, ids, maskedValues)
+  const beforeRelations = relationResourcesFromBefore(type, entry.before)
+  const beforeText = renderSide(deployed, beforeRelations, project, ids, maskedValues, variableNames)
+  const afterText = renderSide(after, afterRelations, project, ids, maskedValues, variableNames)
   const rendered = diffLines(beforeText, afterText, { maxLines })
   if (rendered === undefined) {
     return shown.length > 0 ? listing(shown, 'the construct diff is too large to show') : []

@@ -54,7 +54,7 @@ Run `npx checkly skills manage` for the full reference.
 
 ## Confirmation Protocol
 
-Write commands (e.g. `incidents create`, `deploy`, `destroy`) return exit code 2 with a `confirmation_required` JSON envelope instead of executing. **Always present the `changes` to the user and wait for approval before running the `confirmCommand`.** This applies to every write command individually — updates and resolutions need confirmation too, not just the initial create.
+Write commands (e.g. `incidents create`, `deploy`, `destroy`) return exit code 2 with a `confirmation_required` JSON envelope instead of executing. **Always present the `changes` to the user and wait for approval before running the `confirmCommand`.** This applies to every write command individually — updates and resolutions need confirmation too, not just the initial create. The one exception is a `checkly deploy --plan` whose plan has no changes: there is nothing to approve, so it prints `No changes.`, records the deployment, schedules the checks unless `--no-schedule-on-deploy` is passed, and exits with code 0.
 
 The `confirmCommand` is the approved command, ready to run verbatim: it starts with `npx checkly` so the project's own CLI runs, repeats the flags you passed and already ends in `--force`. Run it as-is once the user approves — don't add `--force` to a command yourself, don't drop the `npx`, and don't add flags the user didn't ask for.
 

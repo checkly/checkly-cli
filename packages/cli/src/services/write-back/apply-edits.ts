@@ -287,7 +287,17 @@ function render (
     const expected = helper.literalAlternative
     return { edit, text: renderValue(expected, style, { ...layout, at }), form: 'literal', expected, needs: [] }
   }
-  const built = buildHelperValue(helper)
+  // The options a retry strategy being replaced spells out stay spelled out,
+  // whatever value they get: an option its author wrote down must not vanish
+  // because Checkly's value for it is the builder's default. Only the retry
+  // strategy's codegen takes the list; the other helpers ignore it.
+  const options = helper.helper === 'retryStrategy' && node?.type === 'CallExpression'
+    ? node.arguments[0]
+    : undefined
+  const spelledOut = options?.type === 'ObjectExpression'
+    ? options.properties.flatMap(property => memberName(property) ?? [])
+    : []
+  const built = buildHelperValue(helper, spelledOut)
   const locals = new Map<string, string>()
   const needs: string[] = []
   for (const name of built.imports) {

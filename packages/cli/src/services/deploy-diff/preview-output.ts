@@ -9,8 +9,9 @@ import {
 import { padColumn, visWidth } from '../../formatters/render.js'
 import type { DeployResourceSync, DiffEntry } from '../../rest/projects.js'
 import { physicalIdsFromPlan } from './import-shape.js'
-import { isPrunedRelation, onlyUnmanagedChanges } from './plan-summary.js'
+import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges } from './plan-summary.js'
 import { renderResourceDiff, type RenderedLine } from './render.js'
+import { constructVariableNames } from './variable-names.js'
 
 /**
  * The text `checkly deploy` prints for a plan: what `--preview` shows, what
@@ -103,7 +104,7 @@ const compareEntries = (a: Listed, b: Listed): number =>
 
 const GAP = chalk.dim('⋯')
 
-const MARKER = {
+export const MARKER = {
   create: chalk.green('+'),
   update: chalk.yellow('~'),
   delete: chalk.red('-'),
@@ -265,7 +266,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     )),
     ...sortedUnmanaged.map(listed => withNote(
       MARKER.warn, listed,
-      chalk.yellow('has alert channels or private locations this project does not manage (pass --prune-relations to delete them)'),
+      chalk.yellow('has alert channels or private locations this project does not manage (pass --plan --prune-relations to delete them)'),
     )),
     ...skipping.sort(compareEntries).map(listed => ({
       ...withConstruct(MARKER.skip, listed),
@@ -273,8 +274,16 @@ export function formatPreview (input: PreviewOutputInput): string {
     })),
   ]
 
+  // A plan that gives the deploy nothing to write is said in one sentence
+  // rather than as an overview of nothing. The rows that inform without
+  // announcing a write (relations the project does not manage, testOnly
+  // checks) are still listed above it. Decided by the rule that decides
+  // whether the deploy asks for confirmation, so the two cannot disagree.
+  const nothingToApply = !done
+    && planHasNoChanges(diff, { prettyTypes: PRETTY_RESOURCE_TYPES, foldedTypes: NON_REPORTED_TYPES })
+
   const output: string[] = []
-  if (heading !== undefined) {
+  if (heading !== undefined && (!nothingToApply || rows.length > 0)) {
     const { title, projectName, accountName } = heading
     const account = accountName !== undefined ? ` ${chalk.dim('→')} account ${chalk.bold(accountName)}` : ''
     output.push(`${chalk.bold(title)} ${chalk.dim('·')} ${projectName}${account}`)
@@ -291,6 +300,22 @@ export function formatPreview (input: PreviewOutputInput): string {
       output.push(`      ${line}`)
     }
   }
+  if (nothingToApply) {
+    if (rows.length > 0) {
+      output.push('')
+    }
+    // A resource with relations the project does not manage matches the code
+    // in everything the project does manage.
+    const matching = unchanged + sortedUnmanaged.length
+    const where = heading?.accountName !== undefined ? ` in account "${heading.accountName}"` : ''
+    const matches = matching === 1
+      ? ` The 1 resource${where} matches your code.`
+      : matching > 1 ? ` All ${matching} resources${where} match your code.` : ''
+    output.push(`${chalk.bold('No changes.')}${matches}`)
+    // No totals and no plan token: there is no plan to pin.
+    output.push('')
+    return output.join('\n')
+  }
   if (unchanged) {
     output.push(`    ${chalk.dim(`${unchanged} unchanged`)}`)
   }
@@ -298,6 +323,8 @@ export function formatPreview (input: PreviewOutputInput): string {
 
   if (rendering !== undefined) {
     const ids = physicalIdsFromPlan(rendering.plan, rendering.local)
+    // Reading them parses source files, so only once a diff is to be rendered.
+    const variableNames = sortedUpdating.length > 0 ? constructVariableNames(project) : undefined
     for (const listed of sortedUpdating) {
       const { resourceType, logicalId } = listed
       // The entry to render is the plan's, whether this listing is the plan
@@ -314,6 +341,7 @@ export function formatPreview (input: PreviewOutputInput): string {
         project,
         ids,
         pruneRelations,
+        variableNames,
       })
       if (lines.length === 0) {
         continue
@@ -355,7 +383,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     chalk.dim(`${unchanged} unchanged`),
   ].join(', '))
   if (planToken !== undefined) {
-    output.push(`${chalk.dim('Deploy exactly this plan:')} checkly deploy --plan-token ${planToken}`)
+    output.push(`${chalk.dim('Deploy exactly this plan:')} checkly deploy --plan --plan-token ${planToken}`)
   }
   // A blank line closes the plan, whatever follows it.
   output.push('')
@@ -363,7 +391,7 @@ export function formatPreview (input: PreviewOutputInput): string {
 }
 
 /** One rendered line with its marker and colour; a nested line sits two columns further in. */
-function styled (line: RenderedLine): string {
+export function styled (line: RenderedLine): string {
   switch (line.kind) {
     case 'add':
       return chalk.green(`+ ${line.text}`)

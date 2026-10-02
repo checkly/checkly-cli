@@ -120,6 +120,17 @@ function formatVariable (base: string, name: string): string {
 }
 
 /**
+ * The name a registered construct's variable gets: a resource name to derive
+ * an identifier from, or an identifier to use as it is, such as the name the
+ * construct already has in the user's code.
+ */
+export type VariableName = string | { identifier: string }
+
+function variableFor (base: string, name: VariableName): string {
+  return typeof name === 'string' ? formatVariable(base, name) : name.identifier
+}
+
+/**
  * What a masked value prints as: never an empty string, which could pass for
  * a value. Only a string the preview itself wrote (`ContextOptions.maskedValues`)
  * is ever printed back for a secret; a value that merely looks masked is not.
@@ -333,8 +344,20 @@ export class Context {
     return reservedVariable
   }
 
-  registerCheckGroup (physicalId: number, name: string, file: GeneratedFile): GeneratedVariableLocator {
-    const preferredId = new IdentifierValue(formatVariable('group', name))
+  /**
+   * Give up the identifier reserved for a registered variable, for a caller
+   * about to register the same construct again under another name: the new
+   * name is then free to be the one the old registration held.
+   */
+  releaseVariable (locator: GeneratedVariableLocator): void {
+    const reserved = this.#reservedIdentifiersByFilePath.get(locator.file.path)
+    if (reserved?.get(locator.id.value) === locator) {
+      reserved.delete(locator.id.value)
+    }
+  }
+
+  registerCheckGroup (physicalId: number, name: VariableName, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(variableFor('group', name))
     const locator = new GeneratedVariableLocator(preferredId, file)
     locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#checkGroupVariablesByPhysicalId.set(physicalId, locator)
@@ -364,8 +387,8 @@ export class Context {
     return locator
   }
 
-  registerAlertChannel (physicalId: number, name: string, file: GeneratedFile): GeneratedVariableLocator {
-    const preferredId = new IdentifierValue(formatVariable('alert', name))
+  registerAlertChannel (physicalId: number, name: VariableName, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(variableFor('alert', name))
     const locator = new GeneratedVariableLocator(preferredId, file)
     locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#alertChannelVariablesByPhysicalId.set(physicalId, locator)
@@ -395,8 +418,8 @@ export class Context {
     return locator
   }
 
-  registerPrivateLocation (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
-    const preferredId = new IdentifierValue(formatVariable('location', name))
+  registerPrivateLocation (physicalId: string, name: VariableName, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(variableFor('location', name))
     const locator = new GeneratedVariableLocator(preferredId, file)
     locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#privateLocationVariablesByPhysicalId.set(physicalId, locator)
@@ -486,8 +509,8 @@ export class Context {
     return ids
   }
 
-  registerStatusPageService (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
-    const preferredId = new IdentifierValue(formatVariable('service', name))
+  registerStatusPageService (physicalId: string, name: VariableName, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(variableFor('service', name))
     const locator = new GeneratedVariableLocator(preferredId, file)
     locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#statusPageServiceVariablesByPhysicalId.set(physicalId, locator)
@@ -517,8 +540,8 @@ export class Context {
     return locator
   }
 
-  registerStatusPage (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
-    const preferredId = new IdentifierValue(formatVariable('page', name))
+  registerStatusPage (physicalId: string, name: VariableName, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(variableFor('page', name))
     const locator = new GeneratedVariableLocator(preferredId, file)
     locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#statusPageVariablesByPhysicalId.set(physicalId, locator)
@@ -548,8 +571,8 @@ export class Context {
     return locator
   }
 
-  registerStatusPageComponent (physicalId: string, name: string, file: GeneratedFile): GeneratedVariableLocator {
-    const preferredId = new IdentifierValue(formatVariable('component', name))
+  registerStatusPageComponent (physicalId: string, name: VariableName, file: GeneratedFile): GeneratedVariableLocator {
+    const preferredId = new IdentifierValue(variableFor('component', name))
     const locator = new GeneratedVariableLocator(preferredId, file)
     locator.id = this.#reserveIdentifierForLocator(file.path, locator)
     this.#statusPageComponentVariablesByPhysicalId.set(physicalId, locator)

@@ -25,7 +25,13 @@ import { CheckGroupV1 } from '../../../constructs/check-group-v1.js'
 import { GrpcMonitor } from '../../../constructs/grpc-monitor.js'
 import { Monitor } from '../../../constructs/monitor.js'
 import * as literalEdit from '../literal-edit.js'
-import { applyWriteBack, type ConstructClass, planWriteBack, type Rule, RULES_BY_CLASS, WRITTEN_BY_CLASS } from '../plan.js'
+import {
+  applyWriteBack, type ConstructClass, planWriteBack, type Rule, RULES_BY_CLASS, type WriteBackSkip, WRITTEN_BY_CLASS,
+} from '../plan.js'
+
+/** A skip as one line: the resource, the property if any, and the reason. */
+const describeSkip = ({ type, logicalId, property, reason }: WriteBackSkip): string =>
+  `${type} ${logicalId}${property === undefined ? '' : ` ${property}`}: ${reason}`
 import { AGENTIC_CHECK_OMITTED_PROPS } from '../../../constructs/internal/agentic-check-defaults.js'
 import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../../constructs/playwright-check-codegen.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
@@ -166,7 +172,7 @@ describe('planWriteBack', () => {
       new ApiCheck('other', { name: 'Other', request: { url: 'https://example.com/other', method: 'GET' } })
     })
     const plan = await planWriteBack({ diff: [apiEntry()], project, cwd: dir })
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
     expect(plan.applied).toEqual([{
       file: 'api.check.ts',
       type: 'check',
@@ -198,7 +204,7 @@ describe('planWriteBack', () => {
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
   })
 
   it('ignores entries with no remote change and folded relations', async () => {
@@ -215,7 +221,7 @@ describe('planWriteBack', () => {
       cwd: dir,
     })
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
     expect(plan.files).toEqual([])
   })
 
@@ -251,7 +257,7 @@ describe('planWriteBack', () => {
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
     expect(plan.applied.map(line => [line.property, line.rendered])).toEqual([
       ['tags', '[\'a\', \'b\']'],
       ['request.headers', `[
@@ -279,7 +285,7 @@ describe('planWriteBack', () => {
       cwd: dir,
     })
     expect(local.applied).toEqual([])
-    expect(local.skipped).toEqual(['check api tags: your code also changed it since the last deploy; merge by hand'])
+    expect(local.skipped.map(describeSkip)).toEqual(['check api tags: your code also changed it since the last deploy; merge by hand'])
 
     const stale = await planWriteBack({
       diff: [
@@ -290,7 +296,7 @@ describe('planWriteBack', () => {
       cwd: dir,
     })
     expect(stale.applied).toEqual([])
-    expect(stale.skipped).toEqual([
+    expect(stale.skipped.map(describeSkip)).toEqual([
       'check api tags: Checkly reported two different current values',
       'check api tags: Checkly reported two different current values',
     ])
@@ -301,14 +307,14 @@ describe('planWriteBack', () => {
       project,
       cwd: dir,
     })
-    expect(swapped.skipped).toEqual(['check api tags: Checkly reported two different current values'])
+    expect(swapped.skipped.map(describeSkip)).toEqual(['check api tags: Checkly reported two different current values'])
 
     const noRemote = await planWriteBack({
       diff: [apiEntry({ changes: [{ path: '/name', origin: 'both', before: 'API', after: 'API local' }] })],
       project,
       cwd: dir,
     })
-    expect(noRemote.skipped).toEqual(['check api name: Checkly did not report the value it holds'])
+    expect(noRemote.skipped.map(describeSkip)).toEqual(['check api name: Checkly did not report the value it holds'])
   })
 
   it('refuses what the table, the redactions and the change reports rule out', async () => {
@@ -363,7 +369,7 @@ describe('planWriteBack', () => {
       ['retryStrategy', 'RetryStrategyBuilder.fixedStrategy({})'],
     ])
     expect(plan.imports).toEqual([{ file: 'api.check.ts', names: ['RetryStrategyBuilder'] }])
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check api /groupId: references another resource',
       'check api /script: not a property this tool can update',
       'check api /environmentVariables: a secret changed; Checkly does not return its value',
@@ -417,7 +423,7 @@ describe('planWriteBack', () => {
       cwd: dir,
     })
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check api: Checkly did not report its current state',
       'check api: Checkly did not report which of its values are secret',
       'check wrapped: Wrapped is not a class from checkly/constructs',
@@ -492,7 +498,7 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 4
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual(['check-group grp /runParallel: not a property this tool can update'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check-group grp /runParallel: not a property this tool can update'])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
       ['grp', 'concurrency', '5'],
       ['grp', 'apiCheckDefaults.url', '\'https://api.example.com\''],
@@ -551,7 +557,7 @@ new GrpcMonitor('grpc', { name: 'Grpc', request: { host: 'example.com', port: 44
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual(['check agent /shouldFail: not a property this tool can update'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check agent /shouldFail: not a property this tool can update'])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
       ['agent', 'muted', 'true'],
       ['grpc', 'maxResponseTime', '9000'],
@@ -581,7 +587,7 @@ new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: unit, grace:
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check beat period: written together with periodUnit',
       'check beat periodUnit: periodUnit is the variable unit, not a plain literal',
     ])
@@ -636,7 +642,7 @@ new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: unit, grace:
       { logicalId: 'other', property: 'frequency', previous: 'Frequency.EVERY_5M', rendered: 'Frequency.EVERY_10M' },
     ])
     expect(plan.imports).toEqual([])
-    expect(plan.skipped).toEqual(['check api request.headers: contains a value Checkly does not return in full'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check api request.headers: contains a value Checkly does not return in full'])
   })
 
   it('writes helper-spelled properties the way checkly import does, and imports their helpers once per file', async () => {
@@ -714,7 +720,7 @@ new UrlMonitor('url', {
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
       ['api', 'frequency', 'Frequency.EVERY_30S'],
       ['api', 'retryStrategy', `RetryStrategyBuilder.fixedStrategy({
@@ -758,9 +764,60 @@ new UrlMonitor('url', {
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual(['check api /frequencyOffset: the offset of a whole-minute schedule is assigned by Checkly'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check api /frequencyOffset: the offset of a whole-minute schedule is assigned by Checkly'])
     expect(plan.applied.map(line => [line.property, line.rendered])).toEqual([['frequency', 'Frequency.EVERY_10M']])
     expect(plan.files[0].text).toBe(`import { ApiCheck, Frequency } from 'checkly/constructs'\nnew ApiCheck('api', { name: 'API', frequency: Frequency.EVERY_10M })\n`)
+  })
+
+  it('keeps a retry option the code spells out, even when Checkly holds the builder default for it', async () => {
+    const spelled = `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+
+new ApiCheck('api', {
+  name: 'API',
+  retryStrategy: RetryStrategyBuilder.linearStrategy({
+    baseBackoffSeconds: 12,
+    maxRetries: 3,
+    maxDurationSeconds: 30,
+  }),
+})
+
+new ApiCheck('other', {
+  name: 'Other',
+  retryStrategy: RetryStrategyBuilder.linearStrategy({ maxRetries: 3, maxDurationSeconds: 30 }),
+})
+`
+    await declare('retries.check.ts', spelled, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+      new ApiCheck('other', { name: 'Other', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    // 60 seconds is what the builder fills in for an unset backoff.
+    const strategy = { type: 'LINEAR', baseBackoffSeconds: 60, maxRetries: 3, maxDurationSeconds: 200, sameRegion: true, onlyOn: null }
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({
+          changes: [
+            { path: '/retryStrategy/baseBackoffSeconds', origin: 'remote', before: 12, after: 60 },
+            { path: '/retryStrategy/maxDurationSeconds', origin: 'remote', before: 30, after: 200 },
+          ],
+          before: { checkType: 'API', name: 'API', retryStrategy: strategy },
+        }),
+        apiEntry({
+          logicalId: 'other',
+          changes: [{ path: '/retryStrategy/maxDurationSeconds', origin: 'remote', before: 30, after: 200 }],
+          before: { checkType: 'API', name: 'Other', retryStrategy: strategy },
+        }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([])
+    await applyWriteBack(plan)
+    // The option its author wrote down keeps its line and gets Checkly's
+    // value; the construct that left it to the builder still does.
+    expect(await read('retries.check.ts')).toBe(spelled
+      .replace('baseBackoffSeconds: 12', 'baseBackoffSeconds: 60')
+      .replace('maxDurationSeconds: 30,\n  }),', 'maxDurationSeconds: 200,\n  }),')
+      .replace('{ maxRetries: 3, maxDurationSeconds: 30 }', '{ maxRetries: 3, maxDurationSeconds: 200 }'))
   })
 
   it('refuses a retry strategy beside doubleCheck, one the CLI respelled, and one built from a variable', async () => {
@@ -790,7 +847,7 @@ new ApiCheck('c', { name: 'C' })
       cwd: dir,
     })
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check c retryStrategy: your code also changed it since the last deploy; merge by hand',
       'check a retryStrategy: doubleCheck is set in the code; replace it with retryStrategy by hand',
       'check b retryStrategy: retryStrategy is a function call, not a literal or a RetryStrategyBuilder expression',
@@ -862,7 +919,7 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
       cwd: dir,
     })
     // A check on the global policy is refused as soon as the change is seen; the write-back is not even offered for it.
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check gone /useGlobalAlertSettings: Checkly uses the global alert policy; remove alertEscalationPolicy from the code by hand',
       'check none alertEscalationPolicy: Checkly did not report an alert policy',
       'check-group own alertEscalationPolicy: the group has no alert policy of its own; remove alertEscalationPolicy from the code by hand',
@@ -901,7 +958,7 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
     expect(plan.applied).toEqual([])
     // The list the code changed is refused while planning; the source the
     // codegen refuses only once the file is edited.
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check other request.assertions: your code also changed it since the last deploy; merge by hand',
       'check api request.assertions: Checkly reported a value this CLI cannot spell: Unsupported assertion source MOOD',
     ])
@@ -980,7 +1037,7 @@ two\` })
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check browser /playwrightConfig/use/baseURL: this tool does not update the Playwright config yet; '
       + 'set it in checkly.config.ts or on the check by hand',
       'check browser /triggerIncident: Checkly does not report the incident trigger\'s settings; edit it by hand',
@@ -1096,7 +1153,7 @@ new TracerouteMonitor('trace', { name: 'Trace', request: { url: 'example.com', m
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
       ['tcp', 'request.data', '\'ping\''],
       ['dns', 'request.query', '\'www.example.com\''],
@@ -1205,7 +1262,7 @@ new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example
       cwd: dir,
     })
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check grpc /request/grpcConfig/encoding: not a property this tool can update',
       'check grpc /request/grpcConfig/metadata: a secret changed; Checkly does not return its value',
       'check grpc2 request.grpcConfig.metadata: contains a locked or secret value that Checkly does not return',
@@ -1254,7 +1311,7 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 4
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check tcp /runtimeId: not a property this tool can update',
       'check browser runtimeId: Checkly has no value for runtimeId; edit the property by hand',
     ])
@@ -1342,7 +1399,7 @@ new IncidentioAlertChannel('incidentio', { name: 'Inc', url: 'https://example.co
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'alert-channel email /type: the channel type is the construct\'s class; change the class by hand',
       'alert-channel slack /config/url: a secret changed; Checkly does not return its value',
       'alert-channel webhook /config/headers: a secret changed; Checkly does not return its value',
@@ -1475,7 +1532,7 @@ new StatusPageV3AutomationRule('rule', {
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'private-location pl /proxyUrl: a secret changed; Checkly does not return its value',
       'private-location pl2 proxyUrl: contains a locked or secret value that Checkly does not return',
       'maintenance-window mw3 repeatInterval: your code also changed it since the last deploy; merge by hand',
@@ -1525,7 +1582,7 @@ new StatusPageV3AutomationRule('rule', {
       cwd: dir,
     })
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual(['check api request.headers: Checkly reported two different current values'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check api request.headers: Checkly reported two different current values'])
   })
 
   it('reports nothing for a change the code already holds', async () => {
@@ -1543,7 +1600,7 @@ new StatusPageV3AutomationRule('rule', {
       cwd: dir,
     })
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual([])
+    expect(plan.skipped.map(describeSkip)).toEqual([])
     expect(plan.files).toEqual([])
   })
 
@@ -1564,7 +1621,7 @@ new ApiCheck('other', opts)
       project,
       cwd: dir,
     })
-    expect(plan.skipped).toEqual(['check other: api.check.ts: its options are not a plain object literal'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check other: api.check.ts: its options are not a plain object literal'])
     expect(plan.applied.map(line => line.logicalId)).toEqual(['api'])
     expect(plan.files[0].text).toContain('new ApiCheck(\'api\', { name: \'API renamed\' })')
   })
@@ -1587,7 +1644,7 @@ new ApiCheck('other', opts)
     })
     expect(plan.files).toEqual([])
     expect(plan.applied).toEqual([])
-    expect(plan.skipped).toEqual([
+    expect(plan.skipped.map(describeSkip)).toEqual([
       'check api: api.check.ts: the edited file did not read back as expected at name',
       'check other: api.check.ts: the edited file did not read back as expected at name',
     ])
@@ -1599,7 +1656,7 @@ new ApiCheck('other', opts)
     })
     const plan = await planWriteBack({ diff: [apiEntry()], project, cwd: dir })
     expect(plan.files).toEqual([])
-    expect(plan.skipped).toEqual(['check api: api.check.ts: its options are not a plain object literal'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check api: api.check.ts: its options are not a plain object literal'])
   })
 
   it('reports a file it cannot read', async () => {
@@ -1608,7 +1665,8 @@ new ApiCheck('other', opts)
     })
     await fs.rm(path.join(dir, 'api.check.ts'))
     const plan = await planWriteBack({ diff: [apiEntry()], project, cwd: dir })
-    expect(plan.skipped).toEqual([expect.stringMatching(/^check api: could not read api\.check\.ts: ENOENT/)])
+    expect(plan.skipped.map(describeSkip))
+      .toEqual([expect.stringMatching(/^check api: could not read api\.check\.ts: ENOENT/)])
   })
 })
 
@@ -1660,5 +1718,112 @@ describe('applyWriteBack', () => {
     expect(failure).toContain(`Already updated: ${good}.`)
     expect(await fs.readFile(good, 'utf8')).toBe('new')
     expect(await fs.readdir(dir)).toEqual(['good.ts'])
+  })
+})
+
+describe('the source of each edited construct', () => {
+  it('is its own lines before and after, for every construct edited in a file', async () => {
+    await declare('api.check.ts', API_SOURCE, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+      new ApiCheck('other', { name: 'Other', request: { url: 'https://example.com/other', method: 'GET' } })
+    })
+    const other = entry(
+      'check', 'other',
+      { id: 'o1', checkType: 'API', name: 'Other renamed', request: { url: 'https://example.com/other', method: 'GET' } },
+      [remote('/name', 'Other', 'Other renamed')],
+      CHECK_REDACTIONS,
+    )
+    const plan = await planWriteBack({ diff: [apiEntry(), other], project, cwd: dir })
+    expect(plan.skipped).toEqual([])
+    const api = [
+      'new ApiCheck(\'api\', {',
+      '  name: \'API\',',
+      '  activated: true,',
+      '  tags: [\'a\'],',
+      '  frequency: 10,',
+      '  request: {',
+      '    url: \'https://example.com\',',
+      '    method: \'GET\',',
+      '  },',
+      '})',
+    ].join('\n')
+    const second = [
+      'new ApiCheck(\'other\', {',
+      '  name: \'Other\',',
+      '  frequency: Frequency.EVERY_5M,',
+      '  request: { url: \'https://example.com/other\', method: \'GET\' },',
+      '})',
+    ].join('\n')
+    expect(plan.constructs).toEqual([
+      { file: 'api.check.ts', type: 'check', logicalId: 'api', before: api, after: api.replace('\'API\'', '\'API renamed\'') },
+      // The second construct is read from the text the first one's edit
+      // produced, and holds nothing of it.
+      { file: 'api.check.ts', type: 'check', logicalId: 'other', before: second, after: second.replace('\'Other\'', '\'Other renamed\'') },
+    ])
+  })
+
+  it('reaches the end of a file that has no final newline', async () => {
+    const construct = 'new ApiCheck(\'api\', { name: \'API\', request: { url: \'https://example.com\', method: \'GET\' } })'
+    await declare('api.check.ts', `import { ApiCheck } from 'checkly/constructs'\n\n${construct}`, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    const plan = await planWriteBack({ diff: [apiEntry()], project, cwd: dir })
+    expect(plan.constructs).toEqual([{
+      file: 'api.check.ts',
+      type: 'check',
+      logicalId: 'api',
+      before: construct,
+      after: construct.replace('\'API\'', '\'API renamed\''),
+    }])
+  })
+
+  it('holds nothing for a file that is left alone', async () => {
+    await declare('api.check.ts', API_SOURCE.replace('name: \'API\'', 'name: title'), () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    const plan = await planWriteBack({ diff: [apiEntry()], project, cwd: dir })
+    expect(plan.files).toEqual([])
+    expect(plan.constructs).toEqual([])
+  })
+})
+
+describe('the legacy doubleCheck flag', () => {
+  const SOURCE = `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+const retries = 2
+new ApiCheck('api', { name: 'API', retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 2 }) })
+new ApiCheck('variable', { name: 'Variable', retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: retries }) })
+new ApiCheck('flag', { name: 'Flag' })
+`
+  // Saving a retry strategy in Checkly moves the flag it replaced as well.
+  const flag: DiffChange = { path: '/doubleCheck', origin: 'remote', before: true, after: false }
+  const retries: DiffChange = { path: '/retryStrategy/maxRetries', origin: 'remote', before: 2, after: 3 }
+  const strategy = { type: 'FIXED', maxRetries: 3 }
+
+  it('is not reported once the retry strategy it belongs to is written, and is otherwise', async () => {
+    await declare('retries.check.ts', SOURCE, () => {
+      for (const id of ['api', 'variable', 'flag']) {
+        new ApiCheck(id, { name: id, request: { url: 'https://example.com', method: 'GET' } })
+      }
+    })
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({ changes: [retries, flag], before: { checkType: 'API', name: 'API', retryStrategy: strategy } }),
+        apiEntry({
+          logicalId: 'variable',
+          changes: [retries, flag],
+          before: { checkType: 'API', name: 'Variable', retryStrategy: strategy },
+        }),
+        apiEntry({ logicalId: 'flag', changes: [flag], before: { checkType: 'API', name: 'Flag', retryStrategy: null } }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.applied.map(line => `${line.logicalId} ${line.property}`)).toEqual(['api retryStrategy'])
+    expect(plan.skipped.map(describeSkip)).toEqual([
+      // The strategy could not be written, so the advice to set it by hand stands.
+      'check variable /doubleCheck: replaced by retryStrategy; set the retry strategy in the code by hand',
+      'check flag /doubleCheck: replaced by retryStrategy; set the retry strategy in the code by hand',
+      'check variable retryStrategy: retryStrategy is a function call, not a literal or a RetryStrategyBuilder expression',
+    ])
   })
 })
