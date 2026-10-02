@@ -5,6 +5,7 @@ import chalk from 'chalk'
 import type { Project, ProjectData } from '../../constructs/project.js'
 import { padColumn, visWidth } from '../../formatters/render.js'
 import { diffLines } from '../deploy-diff/diff-lines.js'
+import { pathToPosix } from '../util.js'
 import { pointerSegments } from '../deploy-diff/import-shape.js'
 import { MARKER, PRETTY_RESOURCE_TYPES, styled } from '../deploy-diff/preview-output.js'
 import type { WriteBackLine, WriteBackPlan, WriteBackSkip } from './plan.js'
@@ -38,7 +39,9 @@ function header (
 ): string {
   const construct = project.data[type as keyof ProjectData]?.[logicalId]
   const name = construct?.constructor.name ?? PRETTY_RESOURCE_TYPES[type] ?? type
-  return `${marker} ${chalk.bold(name)} ${chalk.bold(logicalId)}` + (file !== undefined ? `  ${chalk.dim(file)}` : '')
+  // With forward slashes on every platform, as the plan names the file.
+  return `${marker} ${chalk.bold(name)} ${chalk.bold(logicalId)}`
+    + (file !== undefined ? `  ${chalk.dim(pathToPosix(file))}` : '')
 }
 
 /** A property's old and new source on one line, for a construct whose source cannot be shown as a diff. */

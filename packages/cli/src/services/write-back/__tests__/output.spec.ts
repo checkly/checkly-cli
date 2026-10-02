@@ -37,15 +37,18 @@ beforeEach(() => {
 
 describe('formatWriteBackUpdated', () => {
   it('prints each construct under the plan\'s header, as a diff of its source', () => {
+    // The file as the platform spells it; the header shows it with forward
+    // slashes everywhere, as the plan does.
+    const file = path.join('src', 'api.check.ts')
     const writeBack: WriteBackPlan = {
       ...empty,
       files: [{ path: path.join(cwd, 'src', 'api.check.ts'), text: '', original: '' }],
       applied: [
-        { file: 'src/api.check.ts', type: 'check', logicalId: 'api', property: 'frequency', previous: 'Frequency.EVERY_5M', rendered: 'Frequency.EVERY_2M', replacesLocalEdit: false },
-        { file: 'src/api.check.ts', type: 'check', logicalId: 'api', property: 'degradedResponseTime', previous: '5000', rendered: '3500', replacesLocalEdit: false },
+        { file, type: 'check', logicalId: 'api', property: 'frequency', previous: 'Frequency.EVERY_5M', rendered: 'Frequency.EVERY_2M', replacesLocalEdit: false },
+        { file, type: 'check', logicalId: 'api', property: 'degradedResponseTime', previous: '5000', rendered: '3500', replacesLocalEdit: false },
       ],
       constructs: [{
-        file: 'src/api.check.ts',
+        file,
         type: 'check',
         logicalId: 'api',
         before: 'new ApiCheck(\'api\', {\n  frequency: Frequency.EVERY_5M,\n  degradedResponseTime: 5000,\n})',
