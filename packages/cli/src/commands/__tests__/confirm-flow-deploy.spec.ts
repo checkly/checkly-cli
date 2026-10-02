@@ -775,9 +775,11 @@ describe('deploy confirmation flow', () => {
       action: 'UNCHANGED',
       changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
     }])
-    const ctx = createCommandContext()
+    // Such a plan has nothing to apply and nobody is asked to confirm it, so
+    // the envelope is the one --dry-run prints.
+    const ctx = createCommandContext({ 'dry-run': true })
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     expect(output.changes).not.toContain('Update Check: chk')
@@ -1380,5 +1382,196 @@ new ApiCheck('api', {
 
     expect(prompts).not.toHaveBeenCalled()
     expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+})
+
+describe('deploy of a plan with nothing to apply', () => {
+  const UNCHANGED_CHANNEL: DiffEntry = { type: 'alert-channel', logicalId: 'ops', physicalId: 42, action: 'UNCHANGED' }
+  const UNCHANGED_CHECK: DiffEntry = { type: 'check', logicalId: 'api', physicalId: 'a1', action: 'UNCHANGED' }
+
+  /** The project every other test deploys, with a check next to its alert channel. */
+  function declareProjectWithCheck () {
+    const project = declareProject()
+    new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    return project
+  }
+
+  function nothingToApply (diff: DiffEntry[] = [UNCHANGED_CHANNEL]) {
+    planResolves(diff)
+    vi.mocked(api.projects.deploy).mockResolvedValue({ data: { project: {} as any, diff } })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    storeBundle.mockResolvedValue({ key: 'stored-bundle-key' })
+    declareProject()
+    nothingToApply()
+  })
+
+  afterEach(() => {
+    Session.reset()
+  })
+
+  it('asks nobody in a terminal: says so, then records the deployment', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(prompts).not.toHaveBeenCalled()
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('No changes. The 1 resource in account "Test Account" matches your code.')
+    expect(printed).not.toContain('Deploy preview')
+    expect(printed).not.toContain('This will:')
+    expect(printed).not.toContain('--plan-token')
+
+    // The deploy is still sent, pinned to the plan that said so.
+    expect(storeBundle).toHaveBeenCalledOnce()
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: true, planToken: PLAN_TOKEN })
+    expect(ctx.style.actionStart).toHaveBeenCalledWith('Recording the deployment')
+    expect(ctx.style.actionStart).not.toHaveBeenCalledWith('Deploying project')
+    // A project without checks has nothing to schedule, so nothing is claimed.
+    expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  it('hands an agent or CI run no confirmation envelope', async () => {
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.exit).not.toHaveBeenCalled()
+    expect(ctx.logged.join('\n')).not.toContain('confirmation_required')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('says the same to a forced run', async () => {
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.logged.join('\n')).toContain('No changes.')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('says whether the checks were scheduled', async () => {
+    declareProjectWithCheck()
+    nothingToApply([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+    const scheduling = createCommandContext()
+    await Deploy.prototype.run.call(scheduling as any)
+    expect(scheduling.logged[scheduling.logged.length - 1])
+      .toBe('Project "My Project" is up to date. Checks were scheduled to run.')
+
+    declareProjectWithCheck()
+    const notScheduling = createCommandContext({ 'schedule-on-deploy': false })
+    await Deploy.prototype.run.call(notScheduling as any)
+    expect(notScheduling.logged[notScheduling.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  it('still warns about relations the project does not manage, without asking', async () => {
+    nothingToApply([{
+      type: 'check',
+      logicalId: 'chk',
+      physicalId: 1,
+      action: 'UNCHANGED',
+      changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+    }])
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toMatch(/^ {2}! Check {2}chk {2}has alert channels or private locations this project does not/m)
+    expect(printed).toContain('No changes. The 1 resource in account "Test Account" matches your code.')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('prints the sentence and no token under --preview, and deploys nothing', async () => {
+    const ctx = createCommandContext({ preview: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('No changes.')
+    expect(printed).not.toContain('--plan-token')
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+    expect(storeBundle).not.toHaveBeenCalled()
+  })
+
+  it('keeps the dry_run envelope, token included', async () => {
+    const ctx = createCommandContext({ 'dry-run': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
+    expect(output.status).toBe('dry_run')
+    expect(output.preview.planToken).toBe(PLAN_TOKEN)
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('prints no overview of nothing after the deploy under --output', async () => {
+    const ctx = createCommandContext({ output: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.logged.join('\n')).not.toContain('unchanged')
+  })
+
+  it('reports a deploy that wrote something after all as a deploy', async () => {
+    // A forced run plans again when the account moved under it, and deploys
+    // whatever the new plan holds.
+    vi.mocked(api.projects.preview)
+      .mockResolvedValueOnce({ planToken: PLAN_TOKEN, diff: [UNCHANGED_CHANNEL] })
+      .mockResolvedValueOnce({ planToken: 'v1.BBBBBBBBBBBBBBBBBBBBBB', diff: [CHANGED] })
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValueOnce(new ProjectPlanStaleError('The project changed since the preview.', []))
+      .mockResolvedValueOnce({ data: { project: {} as any, diff: [CHANGED] } })
+    const ctx = createCommandContext({ force: true, output: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('1 updated')
+    expect(ctx.logged[ctx.logged.length - 1])
+      .toBe('Successfully deployed project "My Project" to account "Test Account".')
+  })
+
+  it('refuses, in words that claim no confirmation, when the account moves before the deploy lands', async () => {
+    // Nobody confirmed this plan, but it was shown, so it is not replaced by
+    // another one behind the user's back.
+    vi.mocked(api.projects.deploy).mockRejectedValue(
+      new ProjectPlanStaleError('The project changed since the preview.', [CHANGED]),
+    )
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Your Checkly account changed after the plan found no changes, so nothing was deployed.',
+      expect.any(String),
+    )
+  })
+
+  it('claims no scheduling for a project whose only checks are never deployed', async () => {
+    declareProject()
+    new ApiCheck('smoke', { name: 'Smoke', testOnly: true, request: { url: 'https://example.com', method: 'GET' } })
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  it('still asks when the plan could not be made', async () => {
+    // Without a plan nothing says there are no changes: the fallback lists
+    // every existing resource as an update, and the confirmation stands.
+    vi.mocked(api.projects.preview).mockRejectedValue(new Error('boom'))
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
   })
 })

@@ -9,7 +9,7 @@ import {
 import { padColumn, visWidth } from '../../formatters/render.js'
 import type { DeployResourceSync, DiffEntry } from '../../rest/projects.js'
 import { physicalIdsFromPlan } from './import-shape.js'
-import { isPrunedRelation, onlyUnmanagedChanges } from './plan-summary.js'
+import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges } from './plan-summary.js'
 import { renderResourceDiff, type RenderedLine } from './render.js'
 
 /**
@@ -273,8 +273,16 @@ export function formatPreview (input: PreviewOutputInput): string {
     })),
   ]
 
+  // A plan that gives the deploy nothing to write is said in one sentence
+  // rather than as an overview of nothing. The rows that inform without
+  // announcing a write (relations the project does not manage, testOnly
+  // checks) are still listed above it. Decided by the rule that decides
+  // whether the deploy asks for confirmation, so the two cannot disagree.
+  const nothingToApply = !done
+    && planHasNoChanges(diff, { prettyTypes: PRETTY_RESOURCE_TYPES, foldedTypes: NON_REPORTED_TYPES })
+
   const output: string[] = []
-  if (heading !== undefined) {
+  if (heading !== undefined && (!nothingToApply || rows.length > 0)) {
     const { title, projectName, accountName } = heading
     const account = accountName !== undefined ? ` ${chalk.dim('→')} account ${chalk.bold(accountName)}` : ''
     output.push(`${chalk.bold(title)} ${chalk.dim('·')} ${projectName}${account}`)
@@ -290,6 +298,22 @@ export function formatPreview (input: PreviewOutputInput): string {
     for (const line of row.sub) {
       output.push(`      ${line}`)
     }
+  }
+  if (nothingToApply) {
+    if (rows.length > 0) {
+      output.push('')
+    }
+    // A resource with relations the project does not manage matches the code
+    // in everything the project does manage.
+    const matching = unchanged + sortedUnmanaged.length
+    const where = heading?.accountName !== undefined ? ` in account "${heading.accountName}"` : ''
+    const matches = matching === 1
+      ? ` The 1 resource${where} matches your code.`
+      : matching > 1 ? ` All ${matching} resources${where} match your code.` : ''
+    output.push(`${chalk.bold('No changes.')}${matches}`)
+    // No totals and no plan token: there is no plan to pin.
+    output.push('')
+    return output.join('\n')
   }
   if (unchanged) {
     output.push(`    ${chalk.dim(`${unchanged} unchanged`)}`)
