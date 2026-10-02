@@ -506,6 +506,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     return new PlaywrightCheckBundle(this, {
       groupId,
       codeBundlePath: bundler.marker,
+      codeBundleSha256: bundler.codeBundleSha256,
       browsers,
       cacheHash: bundler.cacheHash,
       playwrightVersion,
