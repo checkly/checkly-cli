@@ -1,6 +1,9 @@
 import { Args, Flags } from '@oclif/core'
+import { isUtf8 } from 'node:buffer'
 import { execFile } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
+import type { Readable } from 'node:stream'
+import { buffer } from 'node:stream/consumers'
 import { AuthCommand } from './authCommand.js'
 import { api } from '../rest/api.js'
 import { parseFields } from '../helpers/api-fields.js'
@@ -14,6 +17,7 @@ export default class Api extends AuthCommand {
   static idempotent = false
   static description = 'Make an authenticated HTTP request to the Checkly API.\n'
     + 'Pass-through for any endpoint — handles auth automatically.\n'
+    + 'JSON responses are formatted; attachments and other bodies are streamed unchanged.\n'
     + 'See https://www.checklyhq.com/docs/api for available endpoints.\n'
     + 'OpenAPI spec: https://api.checklyhq.com/openapi.json'
 
@@ -123,6 +127,7 @@ export default class Api extends AuthCommand {
       params,
       data,
       headers: customHeaders,
+      responseType: 'stream' as const,
       validateStatus: () => true,
     }
 
@@ -134,7 +139,7 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const response = await api.request(requestConfig)
+    const response = await api.request<Readable>(requestConfig)
 
     if (flags.verbose) {
       this.logToStderr(`< ${response.status} ${response.statusText}`)
@@ -146,8 +151,6 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const responseData = response.data
-
     if (flags.include) {
       this.log(`HTTP/1.1 ${response.status} ${response.statusText}`)
       for (const [k, v] of Object.entries(response.headers)) {
@@ -158,19 +161,31 @@ export default class Api extends AuthCommand {
       this.log()
     }
 
-    if (responseData === undefined || responseData === null || responseData === '') {
-      if (response.status >= 400) {
-        this.exit(1)
+    const contentType = String(response.headers['content-type'] ?? '').split(';')[0].trim().toLowerCase()
+    const isJson = contentType === 'application/json' || contentType.endsWith('+json')
+    const isAttachment = /^\s*attachment(?:;|$)/i.test(String(response.headers['content-disposition'] ?? ''))
+
+    if (!flags.jq && (!isJson || isAttachment)) {
+      for await (const chunk of response.data) {
+        await writeBody(chunk)
       }
-      return
-    }
-
-    const json = typeof responseData === 'string' ? responseData : formatJson(responseData)
-
-    if (flags.jq) {
-      await this.applyJq(json, flags.jq)
     } else {
-      this.log(json)
+      const body = await buffer(response.data)
+      const responseData = body.length > 0 ? parseJson(body) : null
+
+      if (responseData === undefined) {
+        if (flags.jq) {
+          this.error('Response is not JSON; --jq cannot be applied.', { exit: 1 })
+        }
+        await writeBody(body)
+      } else if (responseData !== null) {
+        const json = typeof responseData === 'string' ? responseData : formatJson(responseData)
+        if (flags.jq) {
+          await this.applyJq(json, flags.jq)
+        } else {
+          this.log(json)
+        }
+      }
     }
 
     if (response.status === 404) {
@@ -211,6 +226,22 @@ export default class Api extends AuthCommand {
       child.stdin?.write(json)
       child.stdin?.end()
     })
+  }
+}
+
+function writeBody (data: Buffer): Promise<void> {
+  return new Promise((resolve, reject) => {
+    process.stdout.write(data, error => error ? reject(error) : resolve())
+  })
+}
+
+// Returns undefined when the body is not valid UTF-8 JSON (JSON.parse never yields undefined).
+function parseJson (data: Buffer): unknown {
+  if (!isUtf8(data)) return undefined
+  try {
+    return JSON.parse(data.toString('utf-8').replace(/^\uFEFF/, ''))
+  } catch {
+    return undefined
   }
 }
 

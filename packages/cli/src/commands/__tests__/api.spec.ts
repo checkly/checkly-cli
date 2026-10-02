@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { Readable } from 'node:stream'
 
 vi.mock('../../rest/api', () => ({
   api: {
@@ -34,10 +35,10 @@ function createCommand (...argv: string[]) {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.request).mockResolvedValue({
-    data: [{ id: '1', name: 'Test Check' }],
+    data: Readable.from([Buffer.from('[{"id":"1","name":"Test Check"}]')]),
     status: 200,
     statusText: 'OK',
-    headers: {},
+    headers: { 'content-type': 'application/json' },
     config: {} as any,
   })
 })
@@ -135,10 +136,10 @@ describe('checkly api', () => {
   describe('error handling', () => {
     it('exits with code 1 on 4xx response', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { message: 'Not found' },
+        data: Readable.from([Buffer.from('{"message":"Not found"}')]),
         status: 404,
         statusText: 'Not Found',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
         config: {} as any,
       })
       const cmd = createCommand('/v1/nonexistent')
@@ -147,10 +148,10 @@ describe('checkly api', () => {
 
     it('shows docs hint on 404', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { message: 'Not found' },
+        data: Readable.from([Buffer.from('{"message":"Not found"}')]),
         status: 404,
         statusText: 'Not Found',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
         config: {} as any,
       })
       const cmd = createCommand('/v1/nonexistent')
@@ -162,10 +163,10 @@ describe('checkly api', () => {
 
     it('shows auth hint on 401', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { message: 'Unauthorized' },
+        data: Readable.from([Buffer.from('{"message":"Unauthorized"}')]),
         status: 401,
         statusText: 'Unauthorized',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
         config: {} as any,
       })
       const cmd = createCommand('/v1/checks')
@@ -177,10 +178,10 @@ describe('checkly api', () => {
 
     it('shows permission hint on 403', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { message: 'Forbidden' },
+        data: Readable.from([Buffer.from('{"message":"Forbidden"}')]),
         status: 403,
         statusText: 'Forbidden',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
         config: {} as any,
       })
       const cmd = createCommand('/v1/checks')
@@ -192,10 +193,10 @@ describe('checkly api', () => {
 
     it('outputs error body before exiting', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { message: 'Not found' },
+        data: Readable.from([Buffer.from('{"message":"Not found"}')]),
         status: 404,
         statusText: 'Not Found',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
         config: {} as any,
       })
       const cmd = createCommand('/v1/nonexistent')
@@ -205,21 +206,22 @@ describe('checkly api', () => {
 
     it('exits cleanly on 2xx with empty body', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: '',
+        data: Readable.from([]),
         status: 204,
         statusText: 'No Content',
-        headers: {},
+        headers: { 'content-type': 'application/json' },
         config: {} as any,
       })
-      const cmd = createCommand('/v1/checks/123', '-X', 'DELETE')
+      const cmd = createCommand('/v1/checks/123', '-X', 'DELETE', '--jq', '.')
       await cmd.run()
+      expect(execFile).not.toHaveBeenCalled()
     })
   })
 
   describe('--include', () => {
     it('outputs status line and headers', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { ok: true },
+        data: Readable.from([Buffer.from('{"ok":true}')]),
         status: 200,
         statusText: 'OK',
         headers: { 'content-type': 'application/json' },
@@ -236,7 +238,7 @@ describe('checkly api', () => {
   describe('--verbose', () => {
     it('writes request and response info to stderr', async () => {
       vi.mocked(api.request).mockResolvedValue({
-        data: { ok: true },
+        data: Readable.from([Buffer.from('{"ok":true}')]),
         status: 200,
         statusText: 'OK',
         headers: { 'content-type': 'application/json' },
@@ -252,13 +254,15 @@ describe('checkly api', () => {
 
   describe('--jq', () => {
     it('pipes output through system jq', async () => {
+      const stdin = { write: vi.fn(), end: vi.fn() }
       vi.mocked(execFile).mockImplementation((_cmd, _args, _opts, callback: any) => {
         callback(null, '"filtered"', '')
-        return {} as any
+        return { stdin } as any
       })
       const cmd = createCommand('/v1/checks', '--jq', '.[0].name')
       await cmd.run()
       expect(execFile).toHaveBeenCalledWith('jq', ['.[0].name'], expect.anything(), expect.anything())
+      expect(stdin.write).toHaveBeenCalledWith('[{"id":"1","name":"Test Check"}]')
       expect(cmd.log).toHaveBeenCalledWith('"filtered"')
     })
 
