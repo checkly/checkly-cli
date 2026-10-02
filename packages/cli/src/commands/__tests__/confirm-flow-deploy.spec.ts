@@ -1,3 +1,5 @@
+import fs from 'node:fs/promises'
+import os from 'node:os'
 import path from 'node:path'
 
 import { Parser } from '@oclif/core'
@@ -63,6 +65,11 @@ vi.mock('prompts', () => ({
   default: vi.fn(() => Promise.resolve({ confirm: true })),
 }))
 
+vi.mock('../../services/write-back/plan', async importOriginal => {
+  const original = await importOriginal<typeof import('../../services/write-back/plan.js')>()
+  return { ...original, applyWriteBack: vi.fn(original.applyWriteBack) }
+})
+
 import prompts from 'prompts'
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
@@ -77,6 +84,8 @@ import {
 import { Ok } from '../../services/check-parser/package-files/result.js'
 import { parseProject } from '../../services/project-parser.js'
 import { getGitRepoRoot } from '../../services/util.js'
+import { applyWriteBack } from '../../services/write-back/plan.js'
+import { ApiCheck } from '../../constructs/api-check.js'
 import { EmailAlertChannel } from '../../constructs/email-alert-channel.js'
 import { Project } from '../../constructs/project.js'
 import { Session } from '../../constructs/session.js'
@@ -1059,5 +1068,190 @@ describe('deploy confirmCommand', () => {
         `confirmCommand for "checkly deploy ${argv.join(' ')}" must be runnable: ${confirmCommand}`,
       ).resolves.toBeDefined()
     }
+  })
+})
+
+describe('deploy write-back from a terminal', () => {
+  const SOURCE = `import { ApiCheck } from 'checkly/constructs'
+
+new ApiCheck('api', {
+  name: 'API',
+  request: { url: 'https://example.com', method: 'GET' },
+})
+`
+  const remoteEdit: DiffEntry = {
+    type: 'check',
+    logicalId: 'api',
+    physicalId: 'a1',
+    action: 'UPDATE',
+    changes: [
+      { path: '/name', origin: 'remote', before: 'API', after: 'API renamed' },
+      { path: '/frequency', origin: 'remote', before: 10, after: 5 },
+    ],
+    before: { id: 'a1', checkType: 'API', name: 'API renamed', frequency: 5, request: { url: 'https://example.com', method: 'GET' } },
+    redactions: [],
+  }
+  let dir: string
+
+  /** The project with an API check declared in a real file, so the write-back has something to edit. */
+  async function declareProjectWithFile () {
+    Session.reset()
+    Session.workspace = Ok({} as any)
+    const project = new Project('my-project', { name: 'My Project' })
+    Session.project = project
+    const file = path.join(dir, 'api.check.ts')
+    await fs.writeFile(file, SOURCE, 'utf8')
+    Session.checkFileAbsolutePath = file
+    new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    Session.checkFileAbsolutePath = undefined
+    vi.mocked(parseProject).mockResolvedValue(project)
+  }
+
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    storeBundle.mockResolvedValue({ key: 'stored-bundle-key' })
+    vi.mocked(api.projects.deploy).mockResolvedValue({ data: { project: {} as any, diff: [] } })
+    dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'deploy-write-back-')))
+    await declareProjectWithFile()
+  })
+
+  afterEach(async () => {
+    Session.reset()
+    await fs.rm(dir, { recursive: true, force: true })
+  })
+
+  it('offers to update the code when a resource was edited in Checkly, and does so instead of deploying', async () => {
+    planResolves([remoteEdit])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    const spy = vi.spyOn(process, 'cwd').mockReturnValue(dir)
+    const ctx = createCommandContext()
+
+    try {
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+    } finally {
+      spy.mockRestore()
+    }
+
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({
+      type: 'select',
+      choices: [
+        { value: 'apply' },
+        { title: 'Update my code with the changes made in Checkly (deploys nothing)', value: 'alternative:0' },
+        { value: 'cancel' },
+      ],
+    })
+    expect(await fs.readFile(path.join(dir, 'api.check.ts'), 'utf8')).toBe(`import { ApiCheck } from 'checkly/constructs'
+
+new ApiCheck('api', {
+  name: 'API renamed',
+  request: { url: 'https://example.com', method: 'GET' },
+  frequency: 5,
+})
+`)
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('Updated 1 file:\n  api.check.ts: check api name: \'API\' -> \'API renamed\'')
+    // A property the code does not set is added; a whole-minute frequency is
+    // a plain number the construct accepts.
+    expect(printed).toContain('  api.check.ts: check api frequency: not set -> 5')
+    expect(printed).toContain('Nothing was deployed. Review the changes, then run `checkly deploy` again.')
+    expect(storeBundle).not.toHaveBeenCalled()
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('does not offer the choice when no remote change could be written', async () => {
+    planResolves([{
+      ...remoteEdit,
+      changes: [{ path: '/retryStrategy', origin: 'remote', before: null, after: { type: 'FIXED' } }],
+    }])
+    vi.mocked(prompts).mockResolvedValue({ confirm: false })
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ type: 'confirm' })
+    expect(await fs.readFile(path.join(dir, 'api.check.ts'), 'utf8')).toBe(SOURCE)
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('does not offer the choice for a resource whose class it cannot update, or for a secret', async () => {
+    planResolves([
+      {
+        ...CHANGED,
+        redactions: [],
+        changes: [{ path: '/config/address', origin: 'remote', before: 'ops@example.com', after: 'new@example.com' }],
+      },
+      {
+        ...remoteEdit,
+        changes: [{ path: '/environmentVariables', origin: 'remote', secret: true, after: [{ key: 'K', value: { $masked: 'changed' } }] }],
+      },
+    ])
+    vi.mocked(prompts).mockResolvedValue({ confirm: false })
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ type: 'confirm' })
+  })
+
+  it('lists what it could not update and changes nothing when nothing applies after all', async () => {
+    // A writable path that turns out unwritable only once the file is read.
+    await fs.writeFile(path.join(dir, 'api.check.ts'), SOURCE.replace('name: \'API\'', 'name: title'), 'utf8')
+    planResolves([{ ...remoteEdit, changes: [remoteEdit.changes![0]] }])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('Not updated (edit these by hand):\n  check api name: name is the variable title, not a plain literal')
+    expect(printed).toContain('Nothing in the code could be updated automatically, so nothing was changed.')
+    expect(applyWriteBack).not.toHaveBeenCalled()
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('reports a write that fails as an error, after listing nothing as updated', async () => {
+    planResolves([remoteEdit])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    vi.mocked(applyWriteBack).mockRejectedValueOnce(new Error('Could not write api.check.ts: EACCES. No file was changed.'))
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(ctx.style.longError).toHaveBeenCalledWith('Could not update your code.', 'Could not write api.check.ts: EACCES. No file was changed.')
+    expect(ctx.logged.join('\n')).not.toContain('Updated')
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('asks the plain yes/no question when nothing was edited in Checkly', async () => {
+    planResolves([{ ...CHANGED, redactions: [] }])
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ type: 'confirm', message: 'Apply these changes?' })
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('applies the plan when the user chooses to', async () => {
+    planResolves([remoteEdit])
+    vi.mocked(prompts).mockResolvedValue({ action: 'apply' })
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(await fs.readFile(path.join(dir, 'api.check.ts'), 'utf8')).toBe(SOURCE)
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('never prompts a forced run', async () => {
+    planResolves([remoteEdit])
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(prompts).not.toHaveBeenCalled()
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 })

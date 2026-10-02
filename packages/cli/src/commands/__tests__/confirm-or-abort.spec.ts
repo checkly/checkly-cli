@@ -285,3 +285,92 @@ describe('confirmOrAbort', () => {
     expect(output.status).toBe('confirmation_required')
   })
 })
+
+describe('confirmOrAbort with alternatives', () => {
+  const alternative = { title: 'Do the other thing', run: vi.fn(() => Promise.resolve()) }
+  const withAlternative: CommandPreview = {
+    ...basePreview,
+    question: 'Apply these changes?',
+    terminal: { plan: () => 'the plan', changes: ['deploy'], alternatives: [alternative] },
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+  })
+
+  it('asks a list with the alternative between apply and cancel, starting on cancel', async () => {
+    vi.mocked(prompts).mockResolvedValue({ action: 'apply' })
+    const ctx = createMockCommand()
+
+    await AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false })
+
+    expect(vi.mocked(prompts).mock.calls[0][0]).toEqual({
+      name: 'action',
+      type: 'select',
+      message: 'Apply these changes?',
+      choices: [
+        { title: 'Yes, apply these changes', value: 'apply' },
+        { title: 'Do the other thing', value: 'alternative:0' },
+        { title: 'Cancel', value: 'cancel' },
+      ],
+      initial: 2,
+    })
+    expect(alternative.run).not.toHaveBeenCalled()
+    expect(ctx.exit).not.toHaveBeenCalled()
+  })
+
+  it('runs the chosen alternative and then ends the command without applying', async () => {
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    const ctx = createMockCommand()
+
+    await expect(AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false }))
+      .rejects.toThrow('EXIT_0')
+
+    expect(alternative.run).toHaveBeenCalledOnce()
+  })
+
+  it('ends the command on cancel and on an aborted prompt', async () => {
+    for (const answer of [{ action: 'cancel' }, {}]) {
+      vi.mocked(prompts).mockResolvedValue(answer)
+      const ctx = createMockCommand()
+      await expect(AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false }))
+        .rejects.toThrow('EXIT_0')
+    }
+    expect(alternative.run).not.toHaveBeenCalled()
+  })
+
+  it('keeps the yes/no question when there is nothing else to offer', async () => {
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    const ctx = createMockCommand()
+    const plain: CommandPreview = { ...withAlternative, terminal: { plan: () => 'the plan', changes: ['deploy'], alternatives: [] } }
+
+    await AuthCommand.prototype.confirmOrAbort.call(ctx as any, plain, { force: false })
+
+    expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ type: 'confirm', message: 'Apply these changes?' })
+  })
+
+  it('lets a command-supplied confirm win over the alternatives', async () => {
+    const ctx = createMockCommand()
+    const interactiveConfirm = vi.fn(() => Promise.resolve(true))
+
+    await AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false, interactiveConfirm })
+
+    expect(interactiveConfirm).toHaveBeenCalledOnce()
+    expect(prompts).not.toHaveBeenCalled()
+  })
+
+  it('never offers the alternative to an agent, a forced run or a dry run', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    let ctx = createMockCommand()
+    await expect(AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false })).rejects.toThrow('EXIT_2')
+    expect(JSON.parse(ctx.logged[0])).not.toHaveProperty('terminal')
+
+    ctx = createMockCommand()
+    await AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: true })
+    ctx = createMockCommand()
+    await expect(AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false, dryRun: true })).rejects.toThrow('EXIT_0')
+    expect(prompts).not.toHaveBeenCalled()
+    expect(alternative.run).not.toHaveBeenCalled()
+  })
+})
