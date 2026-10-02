@@ -3,7 +3,6 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
-import * as constructs from '../../constructs/index.js'
 import { AgenticCheck, type AgenticCheckProps } from '../../constructs/agentic-check.js'
 import { ApiCheck, type ApiCheckDefaultConfig, type ApiCheckProps } from '../../constructs/api-check.js'
 import type { Request } from '../../constructs/api-request.js'
@@ -64,7 +63,7 @@ import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../constructs/playwright-chec
 import { blankRedacted, nodeAt, pointerSegments, UnshapeableError } from '../deploy-diff/import-shape.js'
 import { applyEdits, readsBack, type SourceEdit } from './apply-edits.js'
 import type { AssertionBuilderName } from './helper-edit.js'
-import { findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
+import { exportedNamesOf, findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
 
 /**
  * Turns the remote changes of a deploy plan into edits of the construct
@@ -719,17 +718,6 @@ const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
   ['engineVersion', 'this tool does not update the engine yet; set it by hand'],
   ['agentRuntime', 'this tool does not update agentRuntime yet; set it by hand'],
 ])
-
-/** The names `checkly/constructs` exports for a construct's class; empty for a class of the user's own. */
-function exportedNamesOf (construct: Construct): Set<string> {
-  const names = new Set<string>()
-  for (const [name, value] of Object.entries(constructs)) {
-    if (value === construct.constructor) {
-      names.add(name)
-    }
-  }
-  return names
-}
 
 /** Whether a reported value is one of the API's stand-ins (`{ $hash }`, `{ $masked }`, `{ $json }`, `{ $ref }`) or holds one. */
 function withheld (value: unknown): boolean {

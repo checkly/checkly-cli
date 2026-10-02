@@ -2,6 +2,7 @@ import type { TSESTree } from '@typescript-eslint/typescript-estree'
 import type { Value } from '../../sourcegen/index.js'
 import {
   appendAfterLast,
+  IDENTIFIER,
   type Node,
   type ParsedSource,
   type SourceToken,
@@ -84,8 +85,6 @@ export type Resolution =
   | { kind: 'found', node: Node, parent: ObjectNode | TSESTree.ArrayExpression }
   | { kind: 'missing', parent: ObjectNode, key: string }
   | { kind: 'unsupported', reason: string }
-
-const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
 
 /** The name of a plain `key: value` member, or undefined for a spread, method, accessor or computed key. */
 export function memberName (property: PropertyNode | TSESTree.SpreadElement): string | undefined {
