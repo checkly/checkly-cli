@@ -1141,19 +1141,20 @@ new ApiCheck('api', {
         { value: 'cancel' },
       ],
     })
-    expect(await fs.readFile(path.join(dir, 'api.check.ts'), 'utf8')).toBe(`import { ApiCheck } from 'checkly/constructs'
+    expect(await fs.readFile(path.join(dir, 'api.check.ts'), 'utf8')).toBe(`import { ApiCheck, Frequency } from 'checkly/constructs'
 
 new ApiCheck('api', {
   name: 'API renamed',
   request: { url: 'https://example.com', method: 'GET' },
-  frequency: 5,
+  frequency: Frequency.EVERY_5M,
 })
 `)
     const printed = ctx.logged.join('\n')
     expect(printed).toContain('Updated 1 file:\n  api.check.ts: check api name: \'API\' -> \'API renamed\'')
-    // A property the code does not set is added; a whole-minute frequency is
-    // a plain number the construct accepts.
-    expect(printed).toContain('  api.check.ts: check api frequency: not set -> 5')
+    // A property the code does not set is added the way `checkly import`
+    // spells it, and the helper it needs is imported.
+    expect(printed).toContain('  api.check.ts: check api frequency: not set -> Frequency.EVERY_5M')
+    expect(printed).toContain('  api.check.ts: imported Frequency from checkly/constructs')
     expect(printed).toContain('Nothing was deployed. Review the changes, then run `checkly deploy` again.')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
@@ -1162,7 +1163,12 @@ new ApiCheck('api', {
   it('does not offer the choice when no remote change could be written', async () => {
     planResolves([{
       ...remoteEdit,
-      changes: [{ path: '/retryStrategy', origin: 'remote', before: null, after: { type: 'FIXED' } }],
+      changes: [
+        { path: '/script', origin: 'remote', before: 'a', after: 'b' },
+        // A check moved to the global alert policy has nothing to write either.
+        { path: '/useGlobalAlertSettings', origin: 'remote', before: false, after: true },
+      ],
+      before: { ...remoteEdit.before, useGlobalAlertSettings: true },
     }])
     vi.mocked(prompts).mockResolvedValue({ confirm: false })
     const ctx = createCommandContext()

@@ -1,7 +1,13 @@
 import { Codegen, Context } from './internal/codegen/index.js'
 import { expr, GeneratedFile, ident, unknown, Value } from '../sourcegen/index.js'
-import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen.js'
-import { PlaywrightCheck } from './playwright-check.js'
+import { buildRuntimeCheckProps, type OmittableCheckProp, RuntimeCheckResource } from './check-codegen.js'
+import { PlaywrightCheck, type PlaywrightCheckOmittedProp } from './playwright-check.js'
+
+/**
+ * The check props `PlaywrightCheckProps` leaves out that the codegen could
+ * otherwise spell; `doubleCheck` it never spells for any class.
+ */
+export const PLAYWRIGHT_CHECK_OMITTED_PROPS = ['retryStrategy'] as const satisfies readonly (PlaywrightCheckOmittedProp & OmittableCheckProp)[]
 
 /**
  * Generates a `PlaywrightCheck` construct from a Playwright check suite's
@@ -262,7 +268,7 @@ export class PlaywrightCheckCodegen extends Codegen<PlaywrightCheckResource> {
           }
 
           buildRuntimeCheckProps(this.program, file, builder, resource, context, {
-            omit: ['retryStrategy'],
+            omit: PLAYWRIGHT_CHECK_OMITTED_PROPS,
           })
         })
       })

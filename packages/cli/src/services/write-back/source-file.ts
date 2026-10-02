@@ -45,7 +45,22 @@ export interface ParsedSource {
   tokens: SourceToken[]
 }
 
+/** A replacement of the bytes `[start, end)` of the parsed text. */
+export interface Splice {
+  start: number
+  end: number
+  text: string
+}
+
+/** The tokens and comments lying within `[start, end)`. */
+export function tokensBetween (source: ParsedSource, start: number, end: number): SourceToken[] {
+  return source.tokens.filter(token => token.range[0] >= start && token.range[1] <= end)
+}
+
 const CHECKLY_MODULE = /^checkly(\/.*)?$/
+
+/** The one module that exports the constructs and their helpers by name. */
+export const CONSTRUCTS_MODULE = 'checkly/constructs'
 
 let tsParser: typeof import('@typescript-eslint/typescript-estree') | undefined
 
@@ -144,7 +159,7 @@ function isNode (value: unknown): value is Node {
 }
 
 /** The string a literal argument spells, for a plain string literal or a template with no `${}` in it. */
-function stringOf (node: Node | null | undefined): string | undefined {
+export function stringOf (node: Node | null | undefined): string | undefined {
   if (node === null || node === undefined) {
     return undefined
   }
@@ -165,19 +180,22 @@ function stringOf (node: Node | null | undefined): string | undefined {
  * rename). Anything bound another way — a namespace import, a re-export from
  * the user's own module, a wrapper class — is not a construct call this
  * module can recognise, which keeps it from editing the options of a class
- * that merely shares the name. Scope is not tracked: a local that shadows
- * the import inside a function is taken for it, which the logical id and
- * the later read-back of the edit bound.
+ * that merely shares the name. A type-only import (`import type`, or a
+ * `type` specifier) binds nothing at runtime and is not a binding here.
+ * Scope is not tracked: a local that shadows the import inside a function
+ * is taken for it, which the logical id and the later read-back of the edit
+ * bound.
  */
-function checklyBindings (program: TSESTree.Program, exportedNames: ReadonlySet<string>): Set<string> {
+export function checklyBindings (program: TSESTree.Program, exportedNames: ReadonlySet<string>): Set<string> {
   const locals = new Set<string>()
   for (const statement of program.body) {
     if (statement.type === 'ImportDeclaration') {
-      if (typeof statement.source.value !== 'string' || !CHECKLY_MODULE.test(statement.source.value)) {
+      if (typeof statement.source.value !== 'string' || !CHECKLY_MODULE.test(statement.source.value)
+        || statement.importKind === 'type') {
         continue
       }
       for (const specifier of statement.specifiers) {
-        if (specifier.type !== 'ImportSpecifier') {
+        if (specifier.type !== 'ImportSpecifier' || specifier.importKind === 'type') {
           continue
         }
         const imported = specifier.imported.type === 'Identifier' ? specifier.imported.name : stringOf(specifier.imported)
@@ -205,7 +223,48 @@ function checklyBindings (program: TSESTree.Program, exportedNames: ReadonlySet<
   return locals
 }
 
-function isChecklyRequire (node: Node | null | undefined): boolean {
+/** The one local name the file binds an exported name to, if any (the first when several). */
+export function localBinding (program: TSESTree.Program, name: string): string | undefined {
+  return [...checklyBindings(program, new Set([name]))][0]
+}
+
+/**
+ * The splice that appends `members` to a multi-line list after its last
+ * member: one per line at `indentation`, after the line the last member
+ * (or its comma) ends on, so a comment on that line stays with that
+ * member — unless a comment runs on past that line end, in which case they
+ * go right after the member's comma rather than into the comment. The
+ * trailing comma is kept when the list has one, and added to the last
+ * member when it has none; `close` is the offset of the closing bracket.
+ */
+export function appendAfterLast (
+  source: ParsedSource,
+  last: Node,
+  close: number,
+  members: readonly string[],
+  indentation: string,
+  lineEnding: string,
+): Splice {
+  const { text } = source
+  const comma = tokensBetween(source, last.range[1], close).find(token => token.kind === 'token' && token.value === ',')
+  const afterMember = comma === undefined ? last.range[1] : comma.range[1]
+  const breakAt = text.indexOf('\n', afterMember)
+  const lineEnd = breakAt === -1 || breakAt >= close
+    ? afterMember
+    : text[breakAt - 1] === '\r' ? breakAt - 1 : breakAt
+  const straddles = tokensBetween(source, last.range[1], close)
+    .some(token => token.range[0] < lineEnd && token.range[1] > lineEnd)
+  const at = straddles ? afterMember : lineEnd
+  const lines = members.map(member => `${lineEnding}${indentation}${member}`).join(',')
+  if (comma === undefined) {
+    // The comma goes on the member; whatever sat between it and the line
+    // end (a comment) is kept, and the new lines follow.
+    return { start: last.range[1], end: at, text: `,${text.slice(last.range[1], at)}${lines}` }
+  }
+  return { start: at, end: at, text: `${lines},` }
+}
+
+export function isChecklyRequire (node: Node | null | undefined): boolean {
   return node !== null && node !== undefined
     && node.type === 'CallExpression'
     && node.callee.type === 'Identifier' && node.callee.name === 'require'
@@ -254,4 +313,27 @@ export function findConstructOptions (
     throw new WriteBackSkipped('its options spread another object')
   }
   return options
+}
+
+/**
+ * Whether `name` is used as an identifier anywhere in the program: a
+ * declaration, an import, a reference, a type name. Member and property
+ * names (`x.name`, `{ name: 1 }`) are not identifiers of the name. `walk`
+ * yields a parent before its children, so the key or property node to
+ * ignore is known by the time it comes up.
+ */
+export function usesIdentifier (root: Node, name: string): boolean {
+  const ignored = new Set<Node>()
+  for (const node of walk(root)) {
+    if (node.type === 'MemberExpression' && !node.computed) {
+      ignored.add(node.property)
+    }
+    if ('key' in node && 'computed' in node && node.computed === false) {
+      ignored.add(node.key as Node)
+    }
+    if (node.type === 'Identifier' && node.name === name && !ignored.has(node)) {
+      return true
+    }
+  }
+  return false
 }

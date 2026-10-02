@@ -22,9 +22,12 @@ import { TcpMonitor } from '../../constructs/tcp-monitor.js'
 import { TracerouteMonitor } from '../../constructs/traceroute-monitor.js'
 import { UrlMonitor } from '../../constructs/url-monitor.js'
 import type { DiffChange, DiffEntry } from '../../rest/projects.js'
+import { hasEscalationPolicy } from '../../constructs/alert-escalation-policy-codegen.js'
+import { AGENTIC_CHECK_OMITTED_PROPS } from '../../constructs/internal/agentic-check-defaults.js'
+import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../constructs/playwright-check-codegen.js'
 import { blankRedacted, nodeAt, pointerSegments, UnshapeableError } from '../deploy-diff/import-shape.js'
-import { isShapeChangePath } from '../deploy-diff/shape-changes.js'
-import { applyLiteralEdits, evaluateLiteral, type LiteralEdit, resolvePath } from './literal-edit.js'
+import { applyEdits, readsBack, type SourceEdit } from './apply-edits.js'
+import type { AssertionBuilderName } from './helper-edit.js'
 import { findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
 
 /**
@@ -41,8 +44,11 @@ import { findConstructOptions, parseSource, WriteBackSkipped } from './source-fi
  * names one element where the code holds the whole list.
  *
  * Only what can be written without guessing is written. A property has to
- * be one this module knows the construct spells as a literal (the table
- * below); a value Checkly withholds — a credential the redaction table
+ * be one this module knows the construct's spelling of (the table below): a
+ * literal of the same shape, or a helper expression — `Frequency.EVERY_*`,
+ * `RetryStrategyBuilder`, `AlertEscalationBuilder`, an assertion builder —
+ * that `helper-edit.ts` renders from the value the way `checkly import`
+ * would; a value Checkly withholds — a credential the redaction table
  * blanks, a masked secret, a hash — is never written; and when the change's
  * own report of the current value disagrees with `before`, neither is
  * trusted. Everything refused is listed with its reason.
@@ -75,10 +81,12 @@ export interface WriteBackPlan {
   files: { path: string, text: string, original: string }[]
   applied: WriteBackLine[]
   skipped: string[]
+  /** The helper classes added to each edited file's `checkly/constructs` import. */
+  imports: { file: string, names: string[] }[]
 }
 
 /** How an import-format path maps onto a construct property. */
-interface Rule {
+export interface Rule {
   /** Segments of the import-format pointer. */
   pointer: string[]
   /** The construct property path the pointer maps to. */
@@ -87,19 +95,81 @@ interface Rule {
   set?: boolean
   /** Properties that only mean something together are written together or not at all. */
   group?: string
+  /** The helper the construct spells the property with; the value is written as its expression. */
+  helper?:
+    | { kind: 'frequency' | 'retryStrategy' }
+    | { kind: 'alertEscalation', policy: AlertPolicyHolder }
+    | { kind: 'assertions', builder: AssertionBuilderName }
+  /** Further pointers whose `before` values the expression needs (`frequencyOffset` beside `frequency`). */
+  reads?: string[][]
+  /** Sibling keys of the property that make the edit wrong (`doubleCheck` beside `retryStrategy`). */
+  unless?: string[]
+  /**
+   * A rule that routes the changes at its pointer onto another rule's
+   * target (the one whose `target` it shares) rather than anchoring a
+   * candidate of its own: `/frequencyOffset` belongs to `frequency`,
+   * `/useGlobalAlertSettings` to `alertEscalationPolicy`, and a code-origin
+   * `/doubleCheck` marks `retryStrategy` as locally changed.
+   */
+  companion?: true
+  /** For a companion, the reason its changes are refused given the deployed resource, if they are. */
+  refuse?: (before: unknown) => string | undefined
 }
+
+/**
+ * Who holds the alert policy: a check or a v1 group spells "the global
+ * policy" by having none, which nothing is ever removed from the code for;
+ * a v2 group has the word `'global'` for it, and a group of either version
+ * can also have no policy of its own while its checks keep theirs.
+ */
+type AlertPolicyHolder = 'check' | 'group' | 'group-v2'
 
 const identity = (...segments: string[]): Rule => ({ pointer: segments, target: segments })
 const set = (segment: string): Rule => ({ pointer: [segment], target: [segment], set: true })
 const under = (parent: string, keys: string[]): Rule[] => keys.map(key => identity(parent, key))
+const assertions = (builder: AssertionBuilderName, ...parent: string[]): Rule =>
+  ({ pointer: [...parent, 'assertions'], target: [...parent, 'assertions'], helper: { kind: 'assertions', builder } })
 
+// The offset only means something for a sub-minute schedule; for any other
+// the backend assigns one of its own and never reports it as a change.
+const FREQUENCY_RULES: Rule[] = [
+  { pointer: ['frequency'], target: ['frequency'], helper: { kind: 'frequency' }, reads: [['frequencyOffset']] },
+  {
+    pointer: ['frequencyOffset'],
+    target: ['frequency'],
+    companion: true,
+    refuse: before => nodeAt(before, ['frequency']) === 0 ? undefined : 'the offset of a whole-minute schedule is assigned by Checkly',
+  },
+]
+const RETRY_RULES: Rule[] = [
+  { pointer: ['retryStrategy'], target: ['retryStrategy'], helper: { kind: 'retryStrategy' }, unless: ['doubleCheck'] },
+  { pointer: ['doubleCheck'], target: ['retryStrategy'], companion: true },
+]
+const GLOBAL_POLICY = 'Checkly uses the global alert policy; remove alertEscalationPolicy from the code by hand'
+const alertRules = (policy: AlertPolicyHolder): Rule[] => [
+  {
+    pointer: ['alertSettings'],
+    target: ['alertEscalationPolicy'],
+    helper: { kind: 'alertEscalation', policy },
+    reads: [['useGlobalAlertSettings']],
+  },
+  {
+    pointer: ['useGlobalAlertSettings'],
+    target: ['alertEscalationPolicy'],
+    companion: true,
+    refuse: before => policy !== 'group-v2' && nodeAt(before, ['useGlobalAlertSettings']) === true ? GLOBAL_POLICY : undefined,
+  },
+]
+
+// Every check class takes these; a class whose props omit some (as its
+// codegen's omitted props say) gets the rest.
 const CHECK_RULES: Rule[] = [
   identity('name'), identity('description'), identity('activated'), identity('muted'), identity('shouldFail'),
-  set('tags'), set('locations'), identity('frequency'),
+  set('tags'), set('locations'), ...FREQUENCY_RULES, ...RETRY_RULES, ...alertRules('check'),
 ]
+const omitting = (rules: readonly Rule[], props: readonly string[]): Rule[] =>
+  rules.filter(rule => !props.includes(rule.target[0]))
 const RESPONSE_TIME_RULES: Rule[] = [identity('degradedResponseTime'), identity('maxResponseTime')]
-// `assertions` is left out on purpose: the construct spells them with
-// `AssertionBuilder`, and the wire form carries keys the type does not.
 const API_REQUEST_KEYS = [
   'url', 'method', 'ipFamily', 'followRedirects', 'skipSSL', 'body', 'bodyType', 'headers', 'queryParameters', 'basicAuth',
 ]
@@ -109,48 +179,67 @@ const GROUP_RULES: Rule[] = [
   identity('name'), identity('activated'), identity('muted'), set('tags'), set('locations'), identity('concurrency'),
   identity('environmentVariables'),
   ...under('apiCheckDefaults', ['url', 'headers', 'queryParameters', 'basicAuth']),
+  assertions('AssertionBuilder', 'apiCheckDefaults'),
+  ...RETRY_RULES,
 ]
 
 /**
  * The properties this module writes, per construct class: the ones whose
  * import-format spelling and construct spelling are both literals with the
- * same shape. `frequency` is included because the construct takes a number,
- * with the sub-minute case excluded below. Anything else — references,
- * helper-built values such as retry strategies, scripts, the TCP/DNS/ICMP
- * request whose keys differ between the two spellings — is left to the user.
+ * same shape, and the ones the construct spells with a helper this module
+ * can render (`frequency`, `retryStrategy`, `alertEscalationPolicy`, the
+ * `assertions` of a request). Anything else — references, scripts, the
+ * TCP/DNS/ICMP request whose keys differ between the two spellings — is left
+ * to the user.
  *
  * Keyed by the exact class, not by `instanceof`: a class this table does not
  * name gets nothing rather than a base class's rules, so a construct that
- * omits one of them (`AgenticCheck` takes neither `shouldFail` nor
- * `frequency`) can never be handed it. The spec checks that every construct
- * class `checkly/constructs` exports is listed here or excluded on purpose.
+ * omits one of them (`AgenticCheck` takes no `shouldFail` or
+ * `retryStrategy`, `PlaywrightCheck` no `retryStrategy`, as their codegens'
+ * omitted props say) can never be handed it. The spec checks that every
+ * construct class `checkly/constructs` exports is listed here or excluded
+ * on purpose, and that the omitted props are absent.
  */
 /** A construct class, as a map key. */
 export type ConstructClass = abstract new (...args: any[]) => Construct
 
 export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new Map<ConstructClass, readonly Rule[]>([
-  [ApiCheck, [...CHECK_RULES, identity('environmentVariables'), ...RESPONSE_TIME_RULES, ...under('request', API_REQUEST_KEYS)]],
+  [ApiCheck, [
+    ...CHECK_RULES, identity('environmentVariables'), ...RESPONSE_TIME_RULES,
+    ...under('request', API_REQUEST_KEYS), assertions('AssertionBuilder', 'request'),
+  ]],
   [BrowserCheck, [...CHECK_RULES, identity('environmentVariables')]],
   [MultiStepCheck, [...CHECK_RULES, identity('environmentVariables')]],
-  [PlaywrightCheck, [...CHECK_RULES, identity('environmentVariables')]],
-  [AgenticCheck, CHECK_RULES.filter(rule => rule.pointer[0] !== 'shouldFail' && rule.pointer[0] !== 'frequency')],
-  [UrlMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS)]],
-  [TcpMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES]],
-  [DnsMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES]],
-  [GrpcMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES]],
-  [SslMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES]],
-  [TracerouteMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES]],
-  [IcmpMonitor, [...CHECK_RULES, identity('degradedPacketLossThreshold'), identity('maxPacketLossThreshold')]],
+  [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), identity('environmentVariables')]],
+  [AgenticCheck, omitting(CHECK_RULES, AGENTIC_CHECK_OMITTED_PROPS)],
+  [UrlMonitor, [
+    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
+  ]],
+  [TcpMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('TcpAssertionBuilder', 'request')]],
+  [DnsMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('DnsAssertionBuilder', 'request')]],
+  [GrpcMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('GrpcAssertionBuilder', 'request')]],
+  [SslMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('SslAssertionBuilder', 'request')]],
+  [TracerouteMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, assertions('TracerouteAssertionBuilder', 'request')]],
+  [IcmpMonitor, [
+    ...CHECK_RULES, identity('degradedPacketLossThreshold'), identity('maxPacketLossThreshold'),
+    assertions('IcmpAssertionBuilder', 'request'),
+  ]],
   [HeartbeatMonitor, [
     ...CHECK_RULES,
     ...HEARTBEAT_KEYS.map(key => ({ pointer: ['heartbeat', key], target: [key], group: key.startsWith('period') ? 'period' : 'grace' })),
   ]],
-  [CheckGroupV1, GROUP_RULES],
-  [CheckGroupV2, GROUP_RULES],
+  [CheckGroupV1, [...GROUP_RULES, ...alertRules('group')]],
+  [CheckGroupV2, [...GROUP_RULES, ...alertRules('group-v2')]],
 ])
 
 /** Paths that name another resource or a relation rather than a value of this one. */
 const REFERENCE_PREFIXES = ['alertChannels', 'privateLocations', 'alertChannelSubscriptions', 'privateLocationAssignments', 'groupId']
+
+/** Properties a remote change to is reported rather than written, with the reason. */
+const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
+  ['doubleCheck', 'replaced by retryStrategy; set the retry strategy in the code by hand'],
+  ['runParallel', 'not a property this tool can update'],
+])
 
 /** The names `checkly/constructs` exports for a construct's class; empty for a class of the user's own. */
 function exportedNamesOf (construct: Construct): Set<string> {
@@ -217,16 +306,24 @@ function agrees (change: DiffChange, rule: Rule, remaining: readonly string[], r
     return false
   }
   if (!current.present) {
-    return nodeAt(raw, remaining) === undefined
+    // A leaf the account no longer holds is either gone, or — when it was a
+    // scalar or null — became a subtree whose leaves the sibling changes
+    // report (a retry strategy where there was null, a policy that gained
+    // its reminders). An object that is gone is gone.
+    const held = nodeAt(raw, remaining)
+    const previous = reported(change, 'before').value
+    const wasLeaf = previous === null || typeof previous !== 'object'
+    return held === undefined || (wasLeaf && held !== null && typeof held === 'object')
   }
   return withheld(current.value) || isDeepStrictEqual(nodeAt(raw, remaining), current.value)
 }
 
 interface Candidate {
+  /** The rule of the target: never a companion. */
   rule: Rule
-  /** Every remote change that named this path; more than one for a set. */
-  changes: DiffChange[]
-  /** Changes the code made under the same path since the last deploy, which `before` cannot hold. */
+  /** Every remote change that named this target (more than one for a set, or through a companion), with the rule that matched it. */
+  changes: { change: DiffChange, rule: Rule }[]
+  /** Changes the code made under the same target since the last deploy, which `before` cannot hold. */
   local: DiffChange[]
 }
 
@@ -241,11 +338,9 @@ function refusal (change: DiffChange, segments: readonly string[]): string | und
   if (REFERENCE_PREFIXES.some(prefix => segments[0] === prefix)) {
     return 'references another resource'
   }
-  if (isShapeChangePath(change.path)) {
-    return 'spelled by the CLI, not a construct property'
-  }
-  if (segments[0] === 'frequencyOffset') {
-    return 'a sub-minute schedule; use Frequency.EVERY_*S'
+  const notWritten = NOT_WRITTEN.get(segments[0])
+  if (notWritten !== undefined) {
+    return notWritten
   }
   if (segments[0] === 'intent') {
     return 'the intent is ordered by the author; edit it by hand'
@@ -277,6 +372,9 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
   }
   const ruleFor = (segments: readonly string[]): Rule | undefined =>
     rules.find(rule => startsWith(segments, rule.pointer))
+  const primaryOf = (rule: Rule): Rule | undefined => rule.companion === undefined
+    ? rule
+    : rules.find(other => other.companion === undefined && isDeepStrictEqual(other.target, rule.target))
   for (const change of context.entry.changes ?? []) {
     if (change.origin !== 'remote' && change.origin !== 'both') {
       continue
@@ -292,13 +390,19 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
       continue
     }
     const rule = ruleFor(segments)
-    if (rule === undefined) {
+    const primary = rule === undefined ? undefined : primaryOf(rule)
+    if (rule === undefined || primary === undefined) {
       context.skip('not a property this tool can update', change.path)
       continue
     }
-    const key = rule.target.join('.')
-    const candidate = byPath.get(key) ?? { rule, changes: [], local: [] }
-    candidate.changes.push(change)
+    const refused = rule.refuse?.(context.entry.before)
+    if (refused !== undefined) {
+      context.skip(refused, change.path)
+      continue
+    }
+    const key = primary.target.join('.')
+    const candidate = byPath.get(key) ?? { rule: primary, changes: [], local: [] }
+    candidate.changes.push({ change, rule })
     byPath.set(key, candidate)
   }
   // A list is written whole from `before`, which knows nothing of an element
@@ -322,56 +426,99 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
  * written: the redaction table blanked something under it, the API withheld
  * it, or a change disagrees with it.
  */
+interface Found {
+  value: unknown
+  helper?: Rule['helper']
+  unless?: string[]
+  literalAlternative?: unknown
+}
+
 function valueFor (
   context: EntryContext,
   candidate: Candidate,
   before: unknown,
   blanked: unknown,
-): { value: unknown } | undefined {
+): Found | undefined {
   const { rule } = candidate
-  const segments = rule.pointer
   const property = rule.target.join('.')
   if (candidate.local.length > 0) {
     context.skip('your code also changed it since the last deploy; merge by hand', property)
     return undefined
   }
-  const raw = nodeAt(before, segments)
-  if (!isDeepStrictEqual(raw, nodeAt(blanked, segments))) {
-    context.skip('contains a locked or secret value that Checkly does not return', property)
-    return undefined
+  for (const segments of [rule.pointer, ...(rule.reads ?? [])]) {
+    const held = nodeAt(before, segments)
+    if (!isDeepStrictEqual(held, nodeAt(blanked, segments))) {
+      context.skip('contains a locked or secret value that Checkly does not return', property)
+      return undefined
+    }
+    if (withheld(held)) {
+      context.skip('contains a value Checkly does not return in full', property)
+      return undefined
+    }
   }
-  if (withheld(raw)) {
-    context.skip('contains a value Checkly does not return in full', property)
-    return undefined
-  }
-  for (const change of candidate.changes) {
+  for (const { change, rule: own } of candidate.changes) {
     if (change.origin === 'both' && change.remote === undefined) {
       context.skip('Checkly did not report the value it holds', property)
       return undefined
     }
-    const remaining = pointerSegments(change.path).slice(segments.length)
-    if (!agrees(change, rule, remaining, raw)) {
+    const remaining = pointerSegments(change.path).slice(own.pointer.length)
+    if (!agrees(change, own, remaining, nodeAt(before, own.pointer))) {
       context.skip('Checkly reported two different current values', property)
       return undefined
     }
   }
-  if (property === 'frequency') {
-    // The construct takes whole minutes as a number; anything else — zero
-    // with an offset, or the object spelling — is a helper's job.
-    const offsetReported = (context.entry.changes ?? []).some(change => change.path === '/frequencyOffset')
-    if (typeof raw !== 'number' || !Number.isInteger(raw) || raw <= 0 || offsetReported) {
-      context.skip('a sub-minute schedule; use Frequency.EVERY_*S', property)
-      return undefined
+  const raw = nodeAt(before, rule.pointer)
+  const found: Found = { value: raw, helper: rule.helper, unless: rule.unless }
+  switch (rule.helper?.kind) {
+    case 'frequency':
+      // A whole-minute schedule stays a number where the code spells it as
+      // one; the helper form is for a sub-minute schedule, or a code that
+      // uses the helper already.
+      found.value = { frequency: raw, frequencyOffset: nodeAt(before, ['frequencyOffset']) }
+      found.literalAlternative = typeof raw === 'number' && raw > 0 ? raw : undefined
+      break
+    case 'alertEscalation': {
+      const { policy } = rule.helper
+      if (nodeAt(before, ['useGlobalAlertSettings']) === true) {
+        if (policy !== 'group-v2') {
+          context.skip(GLOBAL_POLICY, property)
+          return undefined
+        }
+        found.value = 'global'
+        break
+      }
+      if (!hasEscalationPolicy(raw)) {
+        // A group can have no policy of its own while its checks keep
+        // theirs, which the construct spells by having none.
+        context.skip(policy === 'check'
+          ? 'Checkly did not report an alert policy'
+          : 'the group has no alert policy of its own; remove alertEscalationPolicy from the code by hand', property)
+        return undefined
+      }
+      break
     }
+    default:
+      break
   }
-  return { value: raw }
+  return found
+}
+
+/** The edit for a found value: a literal one, or the helper one the rule asks for. */
+function editFor (path: string[], found: Found): SourceEdit {
+  const { value, helper, unless, literalAlternative } = found
+  if (helper === undefined) {
+    return { path, value }
+  }
+  return helper.kind === 'assertions'
+    ? { path, value, helper: 'assertions', builder: helper.builder, unless, literalAlternative }
+    : { path, value, helper: helper.kind, unless, literalAlternative }
 }
 
 interface FileWork {
   /** The names `checkly/constructs` exports for the construct's class. */
   names: ReadonlySet<string>
   context: EntryContext
-  edits: (LiteralEdit & { replacesLocalEdit: boolean, group?: string })[]
+  edits: (SourceEdit & { replacesLocalEdit: boolean, group?: string })[]
 }
 
 /**
@@ -442,9 +589,8 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
       const found = valueFor(context, candidate, entry.before, blanked)
       if (found !== undefined) {
         edits.push({
-          path: candidate.rule.target,
-          value: found.value,
-          replacesLocalEdit: candidate.changes.some(change => change.origin === 'both'),
+          ...editFor(candidate.rule.target, found),
+          replacesLocalEdit: candidate.changes.some(({ change }) => change.origin === 'both'),
           group: candidate.rule.group,
         })
       }
@@ -459,6 +605,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
 
   const files: WriteBackPlan['files'] = []
   const applied: WriteBackLine[] = []
+  const imports: WriteBackPlan['imports'] = []
   for (const [filePath, work] of byFile) {
     const file = path.relative(cwd, filePath)
     let text: string
@@ -472,6 +619,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
     }
     const original = text
     const lines: WriteBackLine[] = []
+    const added = new Set<string>()
     // Constructs of one file are edited one after another, each against a
     // fresh parse of the text the previous one produced, so no range is stale.
     for (const { names, context, edits } of work) {
@@ -492,7 +640,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
         // A member of a group the splicer refuses takes the rest of its group
         // with it: a period without its unit would mean something else.
         let attempt = edits
-        let result = applyLiteralEdits(source, options, attempt)
+        let result = applyEdits(source, options, attempt)
         for (;;) {
           const refused = new Set(result.skipped.map(skip => attempt.find(edit => edit.path === skip.path)?.group)
             .filter((group): group is string => group !== undefined))
@@ -505,7 +653,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
             context.skip(`written together with ${attempt.filter(e => e.group === edit.group && e !== edit).map(e => e.path.join('.')).join(', ')}`, edit.path.join('.'))
           }
           attempt = attempt.filter(edit => !dropped.includes(edit))
-          result = applyLiteralEdits(source, options, attempt)
+          result = applyEdits(source, options, attempt)
         }
         for (const skip of result.skipped) {
           context.skip(skip.reason, skip.path.join('.'))
@@ -518,12 +666,12 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
         // user's source is not the place to find out.
         const reparsed = findConstructOptions(parseSource(filePath, result.text), logicalId, names)
         for (const edit of result.applied) {
-          const resolution = resolvePath(reparsed, edit.path)
-          if (resolution.kind !== 'found' || !isDeepStrictEqual(evaluateLiteral(resolution.node), edit.value)) {
+          if (!readsBack(reparsed, edit)) {
             throw new WriteBackSkipped(`the edited file did not read back as expected at ${edit.path.join('.')}`)
           }
         }
         text = result.text
+        result.imports.forEach(name => added.add(name))
         for (const edit of result.applied) {
           lines.push({
             file,
@@ -546,15 +694,19 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
         }
         text = original
         lines.length = 0
+        added.clear()
         break
       }
     }
     if (text !== original) {
       files.push({ path: filePath, text, original })
       applied.push(...lines)
+      if (added.size > 0) {
+        imports.push({ file, names: [...added] })
+      }
     }
   }
-  return { files, applied, skipped }
+  return { files, applied, skipped, imports }
 }
 
 /**
