@@ -26,6 +26,7 @@ import {
   memberColumn,
   memberName,
   renderValue,
+  templateLiteral,
   resolvePath,
   type SkippedEdit,
   type SourceStyle,
@@ -264,7 +265,13 @@ function render (
 ): Rendered {
   const at = edit.path.join('.')
   if (helper === undefined) {
-    return { edit, text: renderValue(edit.value, style, { ...layout, at }), form: 'literal', expected: edit.value, needs: [] }
+    // A multi-line string over a template literal stays one; anything else
+    // is quoted the way the file quotes.
+    const template = node?.type === 'TemplateLiteral' && typeof edit.value === 'string' && edit.value.includes('\n')
+      ? templateLiteral(edit.value)
+      : undefined
+    const text = template ?? renderValue(edit.value, style, { ...layout, at })
+    return { edit, text, form: 'literal', expected: edit.value, needs: [] }
   }
   if (node !== undefined && helper.literalAlternative !== undefined && isPlainLiteral(node)) {
     const expected = helper.literalAlternative
