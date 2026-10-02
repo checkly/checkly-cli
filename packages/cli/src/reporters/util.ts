@@ -35,7 +35,7 @@ export function formatDuration (ms: number): string {
 export function formatCheckTitle (
   status: CheckStatus,
   check: any,
-  opts: { includeSourceFile?: boolean, printRetryDuration?: boolean } = {},
+  opts: { includeSourceFile?: boolean, printRetryDuration?: boolean, retries?: number } = {},
 ) {
   let duration
   if ((opts.printRetryDuration || status !== CheckStatus.RETRIED) && check.startedAt && check.stoppedAt) {
@@ -70,11 +70,17 @@ export function formatCheckTitle (
     format = chalk.bold.dim
   }
 
+  // A terminal result that only came after retries: keep the flakiness visible.
+  const retries = opts.retries && status !== CheckStatus.RETRIED
+    ? chalk.dim(`(${opts.retries} ${opts.retries === 1 ? 'retry' : 'retries'})`)
+    : undefined
+
   return [
     format(statusString),
     opts.includeSourceFile ? format(`${check.sourceFile} >`) : undefined,
     format(check.name),
     duration ? `(${duration})` : undefined,
+    retries,
   ].filter(Boolean).join(' ')
 }
 
