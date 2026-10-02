@@ -1786,3 +1786,44 @@ describe('the source of each edited construct', () => {
     expect(plan.constructs).toEqual([])
   })
 })
+
+describe('the legacy doubleCheck flag', () => {
+  const SOURCE = `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+const retries = 2
+new ApiCheck('api', { name: 'API', retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 2 }) })
+new ApiCheck('variable', { name: 'Variable', retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: retries }) })
+new ApiCheck('flag', { name: 'Flag' })
+`
+  // Saving a retry strategy in Checkly moves the flag it replaced as well.
+  const flag: DiffChange = { path: '/doubleCheck', origin: 'remote', before: true, after: false }
+  const retries: DiffChange = { path: '/retryStrategy/maxRetries', origin: 'remote', before: 2, after: 3 }
+  const strategy = { type: 'FIXED', maxRetries: 3 }
+
+  it('is not reported once the retry strategy it belongs to is written, and is otherwise', async () => {
+    await declare('retries.check.ts', SOURCE, () => {
+      for (const id of ['api', 'variable', 'flag']) {
+        new ApiCheck(id, { name: id, request: { url: 'https://example.com', method: 'GET' } })
+      }
+    })
+    const plan = await planWriteBack({
+      diff: [
+        apiEntry({ changes: [retries, flag], before: { checkType: 'API', name: 'API', retryStrategy: strategy } }),
+        apiEntry({
+          logicalId: 'variable',
+          changes: [retries, flag],
+          before: { checkType: 'API', name: 'Variable', retryStrategy: strategy },
+        }),
+        apiEntry({ logicalId: 'flag', changes: [flag], before: { checkType: 'API', name: 'Flag', retryStrategy: null } }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.applied.map(line => `${line.logicalId} ${line.property}`)).toEqual(['api retryStrategy'])
+    expect(plan.skipped.map(describeSkip)).toEqual([
+      // The strategy could not be written, so the advice to set it by hand stands.
+      'check variable /doubleCheck: replaced by retryStrategy; set the retry strategy in the code by hand',
+      'check flag /doubleCheck: replaced by retryStrategy; set the retry strategy in the code by hand',
+      'check variable retryStrategy: retryStrategy is a function call, not a literal or a RetryStrategyBuilder expression',
+    ])
+  })
+})
