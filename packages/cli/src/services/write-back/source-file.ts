@@ -3,6 +3,9 @@ import { createRequire } from 'node:module'
 import * as acorn from 'acorn'
 import type { TSESTree } from '@typescript-eslint/typescript-estree'
 
+import * as constructs from '../../constructs/index.js'
+import type { Construct } from '../../constructs/construct.js'
+
 /**
  * Reads a construct's source file far enough to find the `new X('id', { … })`
  * that declared it, so `literal-edit.ts` can splice values into that options
@@ -272,6 +275,30 @@ export function isChecklyRequire (node: Node | null | undefined): boolean {
     && CHECKLY_MODULE.test(stringOf(node.arguments[0]) ?? '')
 }
 
+/** A name that can be written as an identifier: a variable, or an object key without quotes. */
+export const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
+
+/** The names `checkly/constructs` exports for a construct's class; empty for a class of the user's own. */
+export function exportedNamesOf (construct: Construct): Set<string> {
+  const names = new Set<string>()
+  for (const [name, value] of Object.entries(constructs)) {
+    if (value === construct.constructor) {
+      names.add(name)
+    }
+  }
+  return names
+}
+
+/** Whether a node is `new <Class>('<logicalId>', …)` of a class one of `locals` is bound to. */
+function isConstructCall (
+  node: Node | null | undefined,
+  locals: ReadonlySet<string>,
+  logicalId: string,
+): node is TSESTree.NewExpression {
+  return node?.type === 'NewExpression' && node.callee.type === 'Identifier' && locals.has(node.callee.name)
+    && stringOf(node.arguments[0]) === logicalId
+}
+
 /**
  * The options object literal of the one `new <Class>('<logicalId>', { … })`
  * in the file, where `<Class>` is bound to one of `exportedNames` from a
@@ -294,8 +321,7 @@ export function findConstructOptions (
   }
   const matches: TSESTree.NewExpression[] = []
   for (const node of walk(program)) {
-    if (node.type === 'NewExpression' && node.callee.type === 'Identifier' && locals.has(node.callee.name)
-      && stringOf(node.arguments[0]) === logicalId) {
+    if (isConstructCall(node, locals, logicalId)) {
       matches.push(node)
     }
   }
@@ -313,6 +339,34 @@ export function findConstructOptions (
     throw new WriteBackSkipped('its options spread another object')
   }
   return options
+}
+
+/**
+ * The name of the top-level variable the file initialises with its one
+ * `new <Class>('<logicalId>', …)`, exported or not, where `<Class>` is bound
+ * to one of `exportedNames` from a checkly package. None when the construct
+ * is not declared that way (made inside a function or a loop, passed straight
+ * to another call, destructured), or when several declarations match.
+ */
+export function findConstructVariable (
+  { program }: ParsedSource,
+  logicalId: string,
+  exportedNames: ReadonlySet<string>,
+): string | undefined {
+  const locals = checklyBindings(program, exportedNames)
+  const names: string[] = []
+  for (const statement of program.body) {
+    const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement
+    if (declaration?.type !== 'VariableDeclaration') {
+      continue
+    }
+    for (const { id, init } of declaration.declarations) {
+      if (id.type === 'Identifier' && isConstructCall(init, locals, logicalId)) {
+        names.push(id.name)
+      }
+    }
+  }
+  return names.length === 1 ? names[0] : undefined
 }
 
 /**

@@ -287,6 +287,17 @@ describe('formatPreview', () => {
     expect(vi.mocked(renderResourceDiff)).toHaveBeenCalledWith(expect.objectContaining({ entry: updateEntry }))
   })
 
+  it('renders an update with the names the project\'s constructs are exported by', () => {
+    const { local } = scenario()
+    Session.constructExports.push(
+      { type: 'alert-channel', logicalId: 'email', filePath: 'src/alerts.check.ts', exportName: 'onCall' },
+    )
+    const diff = [...unchangedEntries, updateEntry]
+    formatPreview({ diff, project, rendering: { plan: diff, local } })
+    const [{ variableNames }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
+    expect([...variableNames ?? []]).toEqual([['alert-channel:email', 'onCall']])
+  })
+
   it('prints no diff block for an update with nothing to render', () => {
     const { local } = scenario()
     const diff = [...unchangedEntries, updateEntry]
