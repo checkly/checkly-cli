@@ -1,6 +1,7 @@
 import * as path from 'path'
 import * as fs from 'fs/promises'
 import * as fsSync from 'fs'
+import { execFileSync } from 'child_process'
 import gitRepoInfo from 'git-repo-info'
 import { parse } from 'dotenv'
 
@@ -10,7 +11,8 @@ import JSON5 from 'json5'
 import { existsSync } from 'fs'
 
 export interface GitInformation {
-  commitId: string
+  /** Absent when the repository has no commits yet but a repo URL is known. */
+  commitId?: string
   repoUrl?: string | null
   branchName?: string | null
   commitOwner?: string | null
@@ -49,6 +51,105 @@ function getGitHubRepositoryUrl (): string | undefined {
 
   const serverUrl = process.env.CHECKLY_GITHUB_SERVER_URL ?? 'https://github.com'
   return `${serverUrl.replace(/\/$/, '')}/${repository}`
+}
+
+/** The repository URL from GitHub Actions' built-in env vars. */
+function getGitHubActionsRepositoryUrl (): string | undefined {
+  const serverUrl = process.env.GITHUB_SERVER_URL
+  const repository = process.env.GITHUB_REPOSITORY
+  if (!serverUrl || !repository) {
+    return undefined
+  }
+  return `${serverUrl.replace(/\/$/, '')}/${repository}`
+}
+
+/**
+ * Turns a git remote URL into a credential-free web URL, e.g.
+ * `git@github.com:acme/app.git` -> `https://github.com/acme/app`.
+ * Returns `undefined` for remotes that have no web URL (local paths, file://,
+ * SSH config aliases, SSH hosts with a different web path layout).
+ */
+export function normalizeGitRemoteUrl (remote: string): string | undefined {
+  const trimmed = remote.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  let host: string
+  let repoPath: string
+  let protocol = 'https:'
+  let isSshRemote = true
+
+  // scp-like syntax: [user@]host:path. A single-letter host is a Windows drive.
+  const scpLike = trimmed.match(/^(?:[^@/\s]+@)?([^:/\s]{2,}):(?!\/\/)(.+)$/)
+  if (scpLike) {
+    host = scpLike[1]
+    repoPath = scpLike[2]
+  } else {
+    let url: URL
+    try {
+      url = new URL(trimmed)
+    } catch {
+      return undefined
+    }
+    if (url.protocol === 'https:' || url.protocol === 'http:') {
+      // Keep the port: it is part of the web address. Credentials are dropped.
+      protocol = url.protocol
+      host = url.host
+      isSshRemote = false
+    } else if (url.protocol === 'ssh:' || url.protocol === 'git+ssh:' || url.protocol === 'git:') {
+      // SSH and git-daemon ports don't carry over to the web URL.
+      host = url.hostname
+    } else {
+      return undefined
+    }
+    repoPath = url.pathname
+  }
+
+  repoPath = repoPath
+    .replace(/^\/+/, '')
+    .replace(/\/+$/, '')
+    .replace(/\.git$/, '')
+    .replace(/\/+$/, '')
+  if (!host || !repoPath) {
+    return undefined
+  }
+  if (isSshRemote && !isWebHostForSshRemote(host)) {
+    return undefined
+  }
+  return `${protocol}//${host}/${repoPath}`
+}
+
+// SSH hosts whose repository paths don't map onto a web URL of the same shape.
+const NON_WEB_SSH_HOSTS = new Set(['ssh.dev.azure.com', 'vs-ssh.visualstudio.com'])
+
+/**
+ * Whether the host of an SSH remote (converted to https) is also a web host.
+ * A host without a dot is an SSH config alias (e.g. `github-work`), not a
+ * resolvable web address.
+ */
+function isWebHostForSshRemote (host: string): boolean {
+  const hostname = host.toLowerCase()
+  return hostname.includes('.') && !NON_WEB_SSH_HOSTS.has(hostname)
+}
+
+/**
+ * The web URL of the `origin` remote of the git repository at `cwd`, with
+ * credentials stripped. `undefined` when there is no repository, no origin,
+ * or git is not installed.
+ */
+export function getRepoUrlFromGit (cwd: string = process.cwd()): string | undefined {
+  let remote: string
+  try {
+    remote = execFileSync('git', ['config', '--get', 'remote.origin.url'], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+  } catch {
+    return undefined
+  }
+  return normalizeGitRemoteUrl(remote)
 }
 
 function isGitHubReportingEnabled (): boolean {
@@ -122,27 +223,37 @@ export function isFileSync (path: string): boolean {
 }
 /**
  * @param repoUrl default repoURL the user can set in their project config.
+ * @param cwd directory to read git information from.
  */
-export function getGitInformation (repoUrl?: string): GitInformation | null {
-  const repositoryInfo = gitRepoInfo()
+export function getGitInformation (repoUrl?: string, cwd: string = process.cwd()): GitInformation | null {
+  const repositoryInfo = gitRepoInfo(cwd)
 
-  if (
-    !process.env.CHECKLY_REPO_SHA
-    && !process.env.CHECKLY_TEST_REPO_SHA
-    && !process.env.CHECKLY_GITHUB_SHA
-    && !repositoryInfo.sha
-  ) {
+  const commitId = process.env.CHECKLY_REPO_SHA
+    ?? process.env.CHECKLY_TEST_REPO_SHA
+    ?? process.env.CHECKLY_GITHUB_SHA
+    ?? repositoryInfo.sha
+    ?? undefined
+
+  // Declared values first; the git remote is only a last resort. Callers must
+  // not copy a derived URL into project.repoUrl: the backend only lets it fill
+  // a project that has no URL yet.
+  const resolvedRepoUrl = process.env.CHECKLY_REPO_URL
+    ?? process.env.CHECKLY_TEST_REPO_URL
+    ?? repoUrl
+    ?? getGitHubRepositoryUrl()
+    ?? getGitHubActionsRepositoryUrl()
+    ?? getRepoUrlFromGit(cwd)
+
+  // A repository without commits still has a URL worth sending.
+  if (!commitId && !resolvedRepoUrl) {
     return null
   }
 
   // safe way to remove the email address
   const committer = (repositoryInfo.committer?.match(/([^<]+)/) || [])[1]?.trim()
   const gitInformation: GitInformation = {
-    commitId: process.env.CHECKLY_REPO_SHA
-      ?? process.env.CHECKLY_TEST_REPO_SHA
-      ?? process.env.CHECKLY_GITHUB_SHA
-      ?? repositoryInfo.sha,
-    repoUrl: process.env.CHECKLY_REPO_URL ?? process.env.CHECKLY_TEST_REPO_URL ?? repoUrl ?? getGitHubRepositoryUrl(),
+    ...(commitId ? { commitId } : {}),
+    repoUrl: resolvedRepoUrl,
     branchName: process.env.CHECKLY_REPO_BRANCH ?? process.env.CHECKLY_TEST_REPO_BRANCH ?? repositoryInfo.branch,
     commitOwner: process.env.CHECKLY_REPO_COMMIT_OWNER ?? process.env.CHECKLY_TEST_REPO_COMMIT_OWNER ?? committer,
     commitMessage: process.env.CHECKLY_REPO_COMMIT_MESSAGE

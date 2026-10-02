@@ -1,18 +1,25 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
+import { execFileSync } from 'node:child_process'
 import { afterEach, beforeEach, describe, it, expect } from 'vitest'
 
 import {
   getGitInformation,
   getGitRepoRoot,
+  getRepoUrlFromGit,
+  normalizeGitRemoteUrl,
   pathToPosix,
   isFileSync,
 } from '../util.js'
 
 const ENV_KEYS = [
   'CHECKLY_REPO_SHA',
+  'CHECKLY_TEST_REPO_SHA',
   'CHECKLY_REPO_URL',
+  'CHECKLY_TEST_REPO_URL',
+  'GITHUB_SERVER_URL',
+  'GITHUB_REPOSITORY',
   'CHECKLY_REPO_BRANCH',
   'CHECKLY_GITHUB_REPORT',
   'CHECKLY_GITHUB_SOURCE',
@@ -195,6 +202,100 @@ describe('util', () => {
           serverUrl: 'https://github.com',
         },
       }))
+    })
+  })
+
+  describe('normalizeGitRemoteUrl()', () => {
+    it.each([
+      ['git@github.com:acme/app.git', 'https://github.com/acme/app'],
+      ['ssh://git@github.com/acme/app.git', 'https://github.com/acme/app'],
+      ['ssh://git@gitlab.example.com:2222/group/sub/app.git', 'https://gitlab.example.com/group/sub/app'],
+      ['https://gitlab-ci-token:s3cr3t@gitlab.com/acme/app.git', 'https://gitlab.com/acme/app'],
+      ['https://x-access-token@github.com/acme/app/', 'https://github.com/acme/app'],
+      ['https://github.com/acme/app', 'https://github.com/acme/app'],
+      ['http://git.internal:8080/acme/app.git\n', 'http://git.internal:8080/acme/app'],
+    ])('normalizes %s', (remote, expected) => {
+      expect(normalizeGitRemoteUrl(remote)).toBe(expected)
+    })
+
+    it.each([
+      [''],
+      ['/srv/git/app.git'],
+      ['../app'],
+      ['file:///srv/git/app.git'],
+      ['C:\\repos\\app'],
+      ['git@github-work:acme/app.git'],
+      ['ssh://git@gitalias/acme/app.git'],
+      ['git@ssh.dev.azure.com:v3/acme/project/app'],
+      ['acme@vs-ssh.visualstudio.com:v3/acme/project/app'],
+    ])('returns undefined for %s', remote => {
+      expect(normalizeGitRemoteUrl(remote)).toBeUndefined()
+    })
+  })
+
+  describe('git remote detection', () => {
+    let tmpDir: string
+
+    const git = (...args: string[]) => execFileSync('git', args, { cwd: tmpDir, stdio: 'ignore' })
+
+    beforeEach(() => {
+      tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkly-git-remote-'))
+      git('init', '-q')
+    })
+
+    afterEach(() => {
+      fs.rmSync(tmpDir, { recursive: true, force: true })
+    })
+
+    it('reads and cleans the origin remote', () => {
+      git('remote', 'add', 'origin', 'https://ci-token:abc@github.com/acme/app.git')
+      expect(getRepoUrlFromGit(tmpDir)).toBe('https://github.com/acme/app')
+    })
+
+    it('returns undefined without an origin remote', () => {
+      expect(getRepoUrlFromGit(tmpDir)).toBeUndefined()
+    })
+
+    it('returns undefined outside a git repository', () => {
+      const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'checkly-no-git-'))
+      try {
+        expect(getRepoUrlFromGit(outside)).toBeUndefined()
+      } finally {
+        fs.rmSync(outside, { recursive: true, force: true })
+      }
+    })
+
+    it('sends the repo URL without commitId for a repository with no commits', () => {
+      git('remote', 'add', 'origin', 'git@github.com:acme/app.git')
+      const info = getGitInformation(undefined, tmpDir)
+      expect(info).toEqual(expect.objectContaining({ repoUrl: 'https://github.com/acme/app' }))
+      expect(info).not.toHaveProperty('commitId')
+    })
+
+    it('returns null for a repository with no commits and no remote', () => {
+      expect(getGitInformation(undefined, tmpDir)).toBeNull()
+    })
+
+    it('resolves the repo URL in fallback order', () => {
+      git('remote', 'add', 'origin', 'git@github.com:acme/from-git.git')
+      const resolve = (configRepoUrl?: string) => getGitInformation(configRepoUrl, tmpDir)?.repoUrl
+
+      expect(resolve()).toBe('https://github.com/acme/from-git')
+
+      process.env.GITHUB_SERVER_URL = 'https://github.com'
+      process.env.GITHUB_REPOSITORY = 'acme/from-actions'
+      expect(resolve()).toBe('https://github.com/acme/from-actions')
+
+      process.env.CHECKLY_GITHUB_REPOSITORY = 'acme/from-checkly-github'
+      expect(resolve()).toBe('https://github.com/acme/from-checkly-github')
+
+      expect(resolve('https://github.com/acme/from-config')).toBe('https://github.com/acme/from-config')
+
+      process.env.CHECKLY_TEST_REPO_URL = 'https://github.com/acme/from-test-env'
+      expect(resolve('https://github.com/acme/from-config')).toBe('https://github.com/acme/from-test-env')
+
+      process.env.CHECKLY_REPO_URL = 'https://github.com/acme/from-env'
+      expect(resolve('https://github.com/acme/from-config')).toBe('https://github.com/acme/from-env')
     })
   })
 })

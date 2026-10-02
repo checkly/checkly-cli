@@ -164,7 +164,7 @@ export default class Trigger extends AuthCommand {
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
-    const repoInfo = getGitInformation()
+    const repoInfo = getGitInformation(checklyConfig?.repoUrl)
     const ciInfo = getCiInformation()
 
     const runner = new TriggerRunner(

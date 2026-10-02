@@ -13,7 +13,7 @@ import { LOGICAL_ID_PATTERN } from '../../constants.js'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import commonMessages from '../../messages/common-messages.js'
-import { splitConfigFilePath } from '../../services/util.js'
+import { getRepoUrlFromGit, splitConfigFilePath } from '../../services/util.js'
 import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects.js'
 import { cased, Comment, docComment, Program } from '../../sourcegen/index.js'
@@ -245,7 +245,7 @@ future deployments include the imported resources.`
     const loaded = await this.#loadConfig(configDirectory, configFilenames)
     const checklyConfig = loaded?.config ?? await this.#interactiveCreateConfig(configDirectory)
 
-    await this.#initializeProject(checklyConfig)
+    await this.#initializeProject(checklyConfig, configDirectory)
 
     const constructExports = await this.#findExportedResources(
       configDirectory,
@@ -1310,12 +1310,14 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }
   }
 
-  async #initializeProject (config: ChecklyConfig): Promise<void> {
+  async #initializeProject (config: ChecklyConfig, configDirectory: string): Promise<void> {
     const {
       logicalId,
       projectName,
-      repoUrl,
     } = config
+    // The project is new, so a URL derived from the git remote can't override
+    // a declared one.
+    const repoUrl = config.repoUrl ?? getRepoUrlFromGit(configDirectory)
 
     this.style.actionStart('Checking project status')
 
