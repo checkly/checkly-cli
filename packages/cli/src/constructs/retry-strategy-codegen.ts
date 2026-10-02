@@ -4,7 +4,17 @@ import { RETRY_STRATEGY_DEFAULTS } from './internal/retry-strategy-defaults.js'
 
 export type RetryStrategyResource = RetryStrategy
 
-export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryStrategyResource | null): Value {
+/**
+ * @param spelledOut Options to write even when they hold the builder's
+ * default: the ones the code being rewritten already spells out, so that an
+ * option its author wrote down does not vanish because Checkly's value for
+ * it happens to be the default.
+ */
+export function valueForRetryStrategy (
+  genfile: GeneratedFile,
+  strategy?: RetryStrategyResource | null,
+  spelledOut: readonly string[] = [],
+): Value {
   genfile.namedImport('RetryStrategyBuilder', 'checkly/constructs')
 
   // An option is left out only when it equals the value the builder fills
@@ -16,7 +26,8 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     key: 'baseBackoffSeconds' | 'maxRetries' | 'maxDurationSeconds',
   ): void {
     const value = options[key]
-    if (value !== undefined && value !== null && value !== RETRY_STRATEGY_DEFAULTS[key]) {
+    if (value !== undefined && value !== null
+      && (value !== RETRY_STRATEGY_DEFAULTS[key] || spelledOut.includes(key))) {
       builder.number(key, value)
     }
   }
@@ -26,7 +37,8 @@ export function valueForRetryStrategy (genfile: GeneratedFile, strategy?: RetryS
     builder: ObjectValueBuilder,
   ): void {
     const value = options.sameRegion
-    if (value !== undefined && value !== null && value !== RETRY_STRATEGY_DEFAULTS.sameRegion) {
+    if (value !== undefined && value !== null
+      && (value !== RETRY_STRATEGY_DEFAULTS.sameRegion || spelledOut.includes('sameRegion'))) {
       builder.boolean('sameRegion', value)
     }
   }
