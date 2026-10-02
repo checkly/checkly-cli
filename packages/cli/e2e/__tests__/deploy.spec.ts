@@ -248,7 +248,14 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
       expect(stderr).toBe('')
-      expect(stdout).toContain('Successfully deployed project')
+      // Against an API that makes plans, a deploy of what is already deployed
+      // has nothing to write and says so; against one that does not, the
+      // deploy writes every resource as before.
+      if (stdout.includes('No changes.')) {
+        expect(stdout).toMatch(/Project ".*" is up to date\./)
+      } else {
+        expect(stdout).toContain('Successfully deployed project')
+      }
     })
 
     it('Simple project should deploy successfully', async () => {

@@ -30,7 +30,7 @@ import {
 } from '../rest/projects.js'
 import { ConflictError, ValidationError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
-import { planChangeLines, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
+import { planChangeLines, planHasNoChanges, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
 import { applyWriteBack, hasWritableChanges, planWriteBack } from '../services/write-back/plan.js'
 import type { CommandAlternative } from '../helpers/command-preview.js'
 import type { Project } from '../constructs/project.js'
@@ -598,35 +598,49 @@ export default class Deploy extends AuthCommand {
             `Permanently delete ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}, `
             + 'losing its run history')
 
-    // The one confirmation of the command: the plan is known by now, so the
-    // prompt, the agent envelope and --dry-run all describe the deploy that is
-    // about to run rather than a deploy nobody has seen. A terminal gets the
-    // plan rendered as `--preview` prints it, with the options under it; the
-    // plan lines are not repeated there since the overview names every
-    // resource. No plan-token footer: this run pins the token itself.
-    await this.confirmOrAbort({
-      command: 'deploy',
-      description: 'Deploy project to Checkly',
-      changes: [...optionLines, ...planLines],
-      ...plan !== undefined
-        ? {
-            terminal: {
-              plan: renderPlan,
-              changes: optionLines,
-              alternatives: writeBackAlternatives(plan.diff, project, this),
-            },
-            question: 'Apply these changes?',
-          }
-        : {},
-      // The token rides along in the echoed command, so the confirming run
-      // deploys the plan that was shown here and refuses a different one.
-      flags: plan !== undefined ? { ...flags, 'plan-token': plan.planToken } : flags,
-      flagMetadata: metadata.flags,
-      classification,
-      ...plan !== undefined
-        ? { preview: { planToken: plan.planToken, diff: reducePlanForAgent(plan.diff) } }
-        : {},
-    }, { force, dryRun })
+    // A plan with nothing to write has nothing to approve, so nobody is asked:
+    // a terminal, an agent and a forced run all read that there are no changes
+    // and carry on. The deploy is still sent, pinned to the plan's token like
+    // any other. It writes no resource, but it records the deployment, renews
+    // the deployed state the next plan compares against (which is what clears
+    // the mark of a resource edited outside code once the code agrees with
+    // it), and schedules the checks unless told not to. --dry-run keeps its
+    // envelope, which a script reads the same way whatever the plan holds.
+    const nothingToApply = plan !== undefined && planHasNoChanges(plan.diff, summaryOptions)
+
+    if (nothingToApply && !dryRun) {
+      this.log(renderPlan())
+    } else {
+      // The one confirmation of the command: the plan is known by now, so the
+      // prompt, the agent envelope and --dry-run all describe the deploy that is
+      // about to run rather than a deploy nobody has seen. A terminal gets the
+      // plan rendered as `--preview` prints it, with the options under it; the
+      // plan lines are not repeated there since the overview names every
+      // resource. No plan-token footer: this run pins the token itself.
+      await this.confirmOrAbort({
+        command: 'deploy',
+        description: 'Deploy project to Checkly',
+        changes: [...optionLines, ...planLines],
+        ...plan !== undefined
+          ? {
+              terminal: {
+                plan: renderPlan,
+                changes: optionLines,
+                alternatives: writeBackAlternatives(plan.diff, project, this),
+              },
+              question: 'Apply these changes?',
+            }
+          : {},
+        // The token rides along in the echoed command, so the confirming run
+        // deploys the plan that was shown here and refuses a different one.
+        flags: plan !== undefined ? { ...flags, 'plan-token': plan.planToken } : flags,
+        flagMetadata: metadata.flags,
+        classification,
+        ...plan !== undefined
+          ? { preview: { planToken: plan.planToken, diff: reducePlanForAgent(plan.diff) } }
+          : {},
+      }, { force, dryRun })
+    }
 
     await uploadArtifacts()
 
@@ -646,7 +660,8 @@ export default class Deploy extends AuthCommand {
     })
 
     try {
-      this.style.actionStart('Deploying project')
+      // "Deploying" right under "No changes" would read as a contradiction.
+      this.style.actionStart(nothingToApply ? 'Recording the deployment' : 'Deploying project')
       let data: ProjectDeployResponse
       try {
         ({ data } = await runDeploy())
@@ -671,7 +686,11 @@ export default class Deploy extends AuthCommand {
           'The next `checkly deploy --plan` reports every Playwright check suite and every check with snapshots as changed.',
         )
       }
-      if (output) {
+      // Judged on what the deploy answered, not on the plan it started from: a
+      // forced run that planned again after the account moved may have written
+      // something after all.
+      const wroteNothing = plan !== undefined && planHasNoChanges(data.diff, summaryOptions)
+      if (output && !wroteNothing) {
         // The deploy response names every resource with its id; the plan the
         // deploy was confirmed against is where each one's deployed state is.
         // No heading: the success line that follows names the project and account.
@@ -685,7 +704,18 @@ export default class Deploy extends AuthCommand {
         }))
       }
       await setTimeout(500)
-      this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      if (wroteNothing) {
+        // Scheduling is the one thing such a deploy visibly does, so it is said.
+        // Counted on what was sent and can be scheduled: a testOnly check is
+        // in the project but not in the deploy, and a heartbeat monitor waits
+        // for pings instead of running.
+        const heartbeats = project.getHeartbeatLogicalIds()
+        const scheduled = scheduleOnDeploy
+          && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
+        this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
+      } else {
+        this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      }
 
       // Print the ping URL for heartbeat checks.
       const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
@@ -711,7 +741,10 @@ export default class Deploy extends AuthCommand {
             pruneRelations,
           }))
           this.style.longError(
-            'Your Checkly account changed while this deploy was being confirmed, so nothing was deployed.',
+            // A plan with nothing to apply was confirmed by nobody.
+            nothingToApply
+              ? 'Your Checkly account changed after the plan found no changes, so nothing was deployed.'
+              : 'Your Checkly account changed while this deploy was being confirmed, so nothing was deployed.',
             'The plan above is the current one. Re-run `checkly deploy --plan` to review and deploy it.',
           )
         } else {

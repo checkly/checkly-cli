@@ -185,12 +185,69 @@ describe('formatPreview', () => {
     expect(pruning).not.toContain('! Check')
     expect(pruning).toContain('1 relation pruned, 0 unchanged')
 
+    // Left alone, the relation is no change: the row still warns about it, and
+    // the plan reads as having nothing to apply.
     const leaving = uncoloured(formatPreview({ diff: [check], project }))
-    expect(leaving).toContain(
+    expect(leaving).toBe([
       '  ! Check  api-health  has alert channels or private locations this project does not manage'
       + ' (pass --plan --prune-relations to delete them)',
-    )
-    expect(leaving).toContain('\n1 with relations this project does not manage, 0 unchanged')
+      '',
+      'No changes. The 1 resource matches your code.',
+      '',
+    ].join('\n'))
+  })
+
+  it('says in one sentence that a plan has nothing to apply, with no overview, totals or token', () => {
+    const { local } = scenario()
+    const diff: DiffEntry[] = [
+      ...unchangedEntries,
+      { type: 'check', logicalId: 'api-health', physicalId: 'a1', action: 'UNCHANGED' },
+      { type: 'check', logicalId: 'signup', physicalId: 'a2', action: 'UNCHANGED' },
+      // A relation the project manages is part of its check, not a resource to count.
+      { type: 'alert-channel-subscription', logicalId: 'api-health#email', physicalId: 9, action: 'UNCHANGED' },
+    ]
+    const text = uncoloured(formatPreview({
+      heading: { title: 'Deploy preview', projectName: 'Website', accountName: 'Acme' },
+      diff,
+      project,
+      rendering: { plan: diff, local },
+      planToken: 'v1.token',
+    }))
+    expect(text).toBe('No changes. All 4 resources in account "Acme" match your code.\n')
+  })
+
+  it('keeps the rows that announce no write above that sentence', () => {
+    scenario({ testOnly: true })
+    const text = uncoloured(formatPreview({
+      heading: { title: 'Deploy preview', projectName: 'Website', accountName: 'Acme' },
+      diff: unchangedEntries,
+      project,
+    }))
+    expect(text).toBe([
+      'Deploy preview · Website → account Acme',
+      '',
+      '  · ApiCheck  smoke  skipped (testOnly)',
+      '',
+      'No changes. All 2 resources in account "Acme" match your code.',
+      '',
+    ].join('\n'))
+  })
+
+  it('still reports a finished deploy that wrote nothing with its totals', () => {
+    scenario()
+    const text = uncoloured(formatPreview({ done: true, diff: unchangedEntries, project }))
+    expect(text).toContain('    2 unchanged')
+    expect(text).not.toContain('No changes.')
+  })
+
+  it('counts a change to a resource this CLI version cannot render as a change', () => {
+    scenario()
+    const text = uncoloured(formatPreview({
+      diff: [...unchangedEntries, { type: 'check', logicalId: 'declared-elsewhere', physicalId: 'z1', action: 'UPDATE' }],
+      project,
+    }))
+    expect(text).not.toContain('No changes.')
+    expect(text).toContain('2 unchanged')
   })
 
   it('prints the construct diff under its resource header, one style per line kind', () => {
