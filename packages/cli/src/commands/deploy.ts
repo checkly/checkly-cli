@@ -338,7 +338,9 @@ export default class Deploy extends AuthCommand {
         }
       }
 
-      if (browserBundles.length) {
+      // The step is only announced when there is a snapshot to upload. Every
+      // browser check gets its snapshot list either way, an empty one included.
+      if (browserBundles.some(bundle => bundle.rawSnapshots?.length)) {
         this.style.actionStart('Uploading Playwright snapshots')
         try {
           for (const bundle of browserBundles) {
@@ -348,6 +350,10 @@ export default class Deploy extends AuthCommand {
         } catch (err) {
           this.style.actionFailure()
           throw err
+        }
+      } else {
+        for (const bundle of browserBundles) {
+          bundle.snapshots = []
         }
       }
     }
