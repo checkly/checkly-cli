@@ -709,6 +709,8 @@ const REFERENCE_PREFIXES = [
 
 /** Properties a remote change to is reported rather than written, with the reason. */
 const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
+  // Dropped again at the end of `planWriteBack` for a resource whose retry
+  // strategy was written: the advice would be wrong there.
   ['doubleCheck', 'replaced by retryStrategy; set the retry strategy in the code by hand'],
   ['runParallel', 'not a property this tool can update'],
   ['triggerIncident', 'Checkly does not report the incident trigger\'s settings; edit it by hand'],
@@ -1221,7 +1223,13 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
       }
     }
   }
-  return { files, applied, constructs, skipped, imports }
+  // Saving a retry strategy in Checkly also moves the legacy `doubleCheck`
+  // flag it replaced. Once the strategy itself is written, telling the user
+  // to set it by hand would be wrong.
+  const wroteRetryStrategy = (skip: WriteBackSkip) => applied.some(line =>
+    line.type === skip.type && line.logicalId === skip.logicalId && line.property === 'retryStrategy')
+  const reported = skipped.filter(skip => !(skip.property === '/doubleCheck' && wroteRetryStrategy(skip)))
+  return { files, applied, constructs, skipped: reported, imports }
 }
 
 /**
