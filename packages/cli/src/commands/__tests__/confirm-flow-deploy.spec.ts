@@ -1273,12 +1273,23 @@ new ApiCheck('api', {
 })
 `)
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('Updated 1 file:\n  api.check.ts: check api name: \'API\' -> \'API renamed\'')
-    // A property the code does not set is added the way `checkly import`
-    // spells it, and the helper it needs is imported.
-    expect(printed).toContain('  api.check.ts: check api frequency: not set -> Frequency.EVERY_5M')
-    expect(printed).toContain('  api.check.ts: imported Frequency from checkly/constructs')
-    expect(printed).toContain('Nothing was deployed. Review the changes, then run `checkly deploy --plan` again.')
+    // The construct's source as it was against as it is now, under the header
+    // the plan gave the resource. A property the code does not set is added
+    // the way `checkly import` spells it, and the helper it needs is imported.
+    expect(printed).toContain([
+      'Updated your code · 2 properties in 1 file',
+      '',
+      '~ ApiCheck api  api.check.ts',
+      '    new ApiCheck(\'api\', {',
+      '  -   name: \'API\',',
+      '  +   name: \'API renamed\',',
+      '      request: { url: \'https://example.com\', method: \'GET\' },',
+      '  +   frequency: Frequency.EVERY_5M,',
+      '    })',
+      '  ~ imported Frequency from \'checkly/constructs\'',
+      '',
+    ].join('\n'))
+    expect(printed).toContain('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy --plan` again.')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })
@@ -1333,7 +1344,8 @@ new ApiCheck('api', {
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('Not updated (edit these by hand):\n  check api name: name is the variable title, not a plain literal')
+    expect(printed).toContain('Not updated · edit these by hand\n\n! ApiCheck api  ')
+    expect(printed).toContain('\n    name  name is the variable title, not a plain literal\n')
     expect(printed).toContain('Nothing in the code could be updated automatically, so nothing was changed.')
     expect(applyWriteBack).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
@@ -1350,6 +1362,42 @@ new ApiCheck('api', {
     expect(ctx.style.longError).toHaveBeenCalledWith('Could not update your code.', 'Could not write api.check.ts: EACCES. No file was changed.')
     expect(ctx.logged.join('\n')).not.toContain('Updated')
     expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  // A check moved to another group in Checkly: a reference, which is refused.
+  const withRefusedChange: DiffEntry = {
+    ...remoteEdit,
+    changes: [...remoteEdit.changes!, { path: '/groupId', origin: 'remote', before: 1, after: 2 }],
+  }
+
+  it('lists what it could not update under what it updated', async () => {
+    planResolves([withRefusedChange])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    const printed = ctx.logged.join('\n')
+    const updated = printed.indexOf('Updated your code · 2 properties in 1 file')
+    const notUpdated = printed.indexOf('Not updated · edit these by hand')
+    expect(updated).toBeGreaterThan(-1)
+    expect(notUpdated).toBeGreaterThan(updated)
+    // The path Checkly reports is shown the way the code names the property.
+    expect(printed).toContain('\n    groupId  references another resource\n')
+    expect(printed.indexOf('Nothing was deployed.')).toBeGreaterThan(notUpdated)
+  })
+
+  it('still lists what has to be edited by hand when the write fails', async () => {
+    planResolves([withRefusedChange])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    vi.mocked(applyWriteBack).mockRejectedValueOnce(new Error('Could not write api.check.ts: EACCES. No file was changed.'))
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('Not updated · edit these by hand')
+    expect(printed).not.toContain('Updated your code')
   })
 
   it('asks the plain yes/no question when nothing was edited in Checkly', async () => {
