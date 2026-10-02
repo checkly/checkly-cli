@@ -1,5 +1,14 @@
 import { Codegen, Context } from './internal/codegen/index.js'
-import { expr, ident } from '../sourcegen/index.js'
+import { expr, ident, Value } from '../sourcegen/index.js'
+
+/** The expression for a timestamp the API reports as an ISO string: `new Date('<iso>')`. */
+export function valueForDate (iso: string): Value {
+  return expr(ident('Date'), builder => {
+    builder.new(builder => {
+      builder.string(iso)
+    })
+  })
+}
 
 export interface MaintenanceWindowResource {
   name: string
@@ -39,17 +48,8 @@ export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource>
             }
           })
 
-          builder.expr('startsAt', ident('Date'), builder => {
-            builder.new(builder => {
-              builder.string(resource.startsAt)
-            })
-          })
-
-          builder.expr('endsAt', ident('Date'), builder => {
-            builder.new(builder => {
-              builder.string(resource.endsAt)
-            })
-          })
+          builder.value('startsAt', valueForDate(resource.startsAt))
+          builder.value('endsAt', valueForDate(resource.endsAt))
 
           if (resource.repeatInterval !== undefined && resource.repeatInterval !== null) {
             builder.number('repeatInterval', resource.repeatInterval)
@@ -60,12 +60,7 @@ export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource>
           }
 
           if (resource.repeatEndsAt) {
-            const repeatEndsAt = resource.repeatEndsAt
-            builder.expr('repeatEndsAt', ident('Date'), builder => {
-              builder.new(builder => {
-                builder.string(repeatEndsAt)
-              })
-            })
+            builder.value('repeatEndsAt', valueForDate(resource.repeatEndsAt))
           }
         })
       })
