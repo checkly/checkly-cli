@@ -462,10 +462,8 @@ describe('loadChecklyConfig()', () => {
     it('loads the config file with its absolute path as the current check file', async () => {
       const filename = 'good-config.ts'
       let checkFileAbsolutePath: string | undefined
-      let checkFilePath: string | undefined
       const loadFile = vi.spyOn(Session, 'loadFile').mockImplementation(() => {
         checkFileAbsolutePath = Session.checkFileAbsolutePath
-        checkFilePath = Session.checkFilePath
         return Promise.resolve({ logicalId: 'test', projectName: 'Test' })
       })
 
@@ -474,9 +472,6 @@ describe('loadChecklyConfig()', () => {
       expect(loadFile).toHaveBeenCalledOnce()
       expect(checkFileAbsolutePath).toBe(path.join(configDir, filename))
       expect(path.isAbsolute(checkFileAbsolutePath!)).toBe(true)
-      // Session.checkFilePath drives `checkly test --files` filtering and is
-      // reserved for check files.
-      expect(checkFilePath).toBeUndefined()
     })
     it('clears the current check file after loading the config, even on failure', async () => {
       const filename = 'good-config.ts'
@@ -525,6 +520,24 @@ describe('loadChecklyConfig()', () => {
       expect(constructs).toHaveLength(1)
       expect(constructs[0]).toBeInstanceOf(CheckGroupV1)
       expect(constructs[0].checkFileAbsolutePath).toBe(configPath)
+    })
+    it('rejects a config-declared CheckGroup whose testMatch finds files, naming the config file', async () => {
+      // Checks cannot be declared in the config file, and a testMatch that
+      // matches creates checks. This used to crash on the missing base path
+      // before it got as far as that rule.
+      const filename = 'good-config.ts'
+      vi.spyOn(Session, 'loadFile').mockImplementation(() => {
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const group = new CheckGroupV1('config-group', {
+          name: 'Config group',
+          locations: ['us-east-1'],
+          browserChecks: { testMatch: 'good-config.js' },
+        })
+        return Promise.resolve({ logicalId: 'test', projectName: 'Test' })
+      })
+
+      await expect(loadChecklyConfig(configDir, [filename]))
+        .rejects.toThrow('Creating a BrowserCheck construct in the Checkly config file isn\'t supported.')
     })
   })
   it('config from absolute path', async () => {

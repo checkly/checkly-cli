@@ -1,3 +1,5 @@
+import path from 'node:path'
+
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { Frequency } from '../frequency.js'
@@ -15,6 +17,28 @@ describe('Check', () => {
 
   afterEach(() => {
     Session.reset()
+  })
+
+  describe('__checkFilePath', () => {
+    const request = { method: 'GET' as const, url: 'https://api.example.com/health' }
+
+    it('is the declaring file relative to the parse directory', () => {
+      // Created from a test, so the declaring file is the session's current
+      // check file.
+      Session.checkFilesDirectory = path.resolve('/proj')
+      Session.checkFileAbsolutePath = path.resolve('/proj/src/a.check.ts')
+      const check = new ApiCheck('a', { name: 'A', request })
+      expect(check.checkFileAbsolutePath).toBe(path.resolve('/proj/src/a.check.ts'))
+      expect(check.__checkFilePath).toBe('src/a.check.ts')
+      expect(check.getSourceFile()).toBe('src/a.check.ts')
+    })
+
+    it('is unset while no project is being parsed, as for constructs in the config file', () => {
+      Session.checkFileAbsolutePath = path.resolve('/proj/checkly.config.ts')
+      const check = new ApiCheck('a', { name: 'A', request })
+      expect(check.checkFileAbsolutePath).toBe(path.resolve('/proj/checkly.config.ts'))
+      expect(check.__checkFilePath).toBeUndefined()
+    })
   })
 
   it('synthesizes Frequency instances as numeric frequency fields', () => {

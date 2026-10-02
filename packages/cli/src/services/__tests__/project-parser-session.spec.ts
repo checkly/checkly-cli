@@ -39,6 +39,23 @@ describe('parseProject() Session plumbing', () => {
     expect(Session.embeddedPackages).toBeUndefined()
   })
 
+  it('parses from the physical directory, since loaders report files with symlinks resolved', async () => {
+    // On macOS os.tmpdir() is a symlink (/var -> /private/var), so the
+    // directory handed in here differs from its physical path.
+    await parseProject({
+      directory: dir,
+      projectLogicalId: 'test-project',
+      projectName: 'Test Project',
+      availableRuntimes: {},
+      defaultRuntimeId: '2025.04',
+    })
+
+    const physical = await fs.realpath(dir)
+    expect(Session.checkFilesDirectory).toBe(physical)
+    expect(Session.basePath).toBe(physical)
+    expect(Session.contextPath).toBe(physical)
+  })
+
   it('leaves Session.embeddedPackages undefined when not configured', async () => {
     await parseProject({
       directory: dir,

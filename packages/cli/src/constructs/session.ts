@@ -60,8 +60,20 @@ export class Session {
   static checkFilter?: CheckFilter
   static browserCheckDefaults?: CheckConfigDefaults
   static multiStepCheckDefaults?: CheckConfigDefaults
-  static checkFilePath?: string
+  /**
+   * The parser's current check file, as an absolute physical path. A
+   * construct whose declaring file cannot be read off the call stack (one
+   * the CLI creates itself for a `browserChecks` or `multiStepChecks` glob
+   * entry, a Playwright check, or one created from a test) is attributed
+   * to it; see `Construct.checkFileAbsolutePath`.
+   */
   static checkFileAbsolutePath?: string
+  /**
+   * The physical directory the project is parsed from. `Check.__checkFilePath`,
+   * the path `checkly test <file>` filters on and reporters group by, is
+   * relative to it.
+   */
+  static checkFilesDirectory?: string
   static availableRuntimes: Record<string, Runtime>
   static defaultRuntimeId?: string
   static verifyRuntimeDependencies = true
@@ -88,8 +100,8 @@ export class Session {
     this.checkFilter = undefined
     this.browserCheckDefaults = undefined
     this.multiStepCheckDefaults = undefined
-    this.checkFilePath = undefined
     this.checkFileAbsolutePath = undefined
+    this.checkFilesDirectory = undefined
     this.availableRuntimes = {}
     this.defaultRuntimeId = undefined
     this.verifyRuntimeDependencies = true
@@ -253,6 +265,19 @@ export class Session {
       })
     }
     return this.embeddedPackagesMaterializer
+  }
+
+  /**
+   * A construct's declaring file relative to the directory the project is
+   * parsed from, with posix separators; `undefined` until a parse is under
+   * way (constructs declared in the Checkly config file are created before
+   * that) or when the file is unknown.
+   */
+  static relativeCheckFilePath (absolutePath?: string): string | undefined {
+    if (!Session.checkFilesDirectory || !absolutePath) {
+      return undefined
+    }
+    return pathToPosix(path.relative(Session.checkFilesDirectory, absolutePath))
   }
 
   static relativePosixPath (filePath: string): string {
