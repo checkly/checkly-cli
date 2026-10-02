@@ -1,3 +1,5 @@
+import { RETRY_STRATEGY_DEFAULTS } from './internal/retry-strategy-defaults.js'
+
 /** Available retry strategy types */
 export type RetryStrategyType =
   | 'LINEAR'
@@ -185,11 +187,6 @@ export interface NoRetriesRetryStrategy extends Pick<RetryStrategy, 'type'> {
  * @see {@link https://www.checklyhq.com/docs/alerting-and-retries/retries/ | Retry Strategies Documentation}
  */
 export class RetryStrategyBuilder {
-  private static readonly DEFAULT_BASE_BACKOFF_SECONDS = 60
-  private static readonly DEFAULT_MAX_RETRIES = 2
-  private static readonly DEFAULT_MAX_DURATION_SECONDS = 60 * 10
-  private static readonly DEFAULT_SAME_REGION = true
-
   /**
    * Each retry is run with the same backoff between attempts.
    */
@@ -250,10 +247,10 @@ export class RetryStrategyBuilder {
 
   private static defaults (options?: RetryStrategyOptions): RetryStrategyOptions {
     return {
-      baseBackoffSeconds: options?.baseBackoffSeconds ?? RetryStrategyBuilder.DEFAULT_BASE_BACKOFF_SECONDS,
-      maxRetries: options?.maxRetries ?? RetryStrategyBuilder.DEFAULT_MAX_RETRIES,
-      maxDurationSeconds: options?.maxDurationSeconds ?? RetryStrategyBuilder.DEFAULT_MAX_DURATION_SECONDS,
-      sameRegion: options?.sameRegion ?? RetryStrategyBuilder.DEFAULT_SAME_REGION,
+      baseBackoffSeconds: options?.baseBackoffSeconds ?? RETRY_STRATEGY_DEFAULTS.baseBackoffSeconds,
+      maxRetries: options?.maxRetries ?? RETRY_STRATEGY_DEFAULTS.maxRetries,
+      maxDurationSeconds: options?.maxDurationSeconds ?? RETRY_STRATEGY_DEFAULTS.maxDurationSeconds,
+      sameRegion: options?.sameRegion ?? RETRY_STRATEGY_DEFAULTS.sameRegion,
       onlyOn: options?.onlyOn,
     }
   }
