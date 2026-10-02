@@ -18,6 +18,11 @@ export type GrpcMode = 'BEHAVIOR' | 'HEALTH'
 export type GrpcServiceDefinition = 'REFLECTION' | 'PROTO_FILE'
 
 /**
+ * The wire encoding used for a gRPC behavior request.
+ */
+export type GrpcEncoding = 'PROTOBUF' | 'FLATBUFFERS'
+
+/**
  * A single gRPC metadata (request header) key/value pair.
  */
 export interface GrpcMetadata {
@@ -58,6 +63,13 @@ export interface GrpcConfig {
   metadata?: Array<GrpcMetadata>
 
   /**
+   * The wire encoding used for the request and response.
+   *
+   * @defaultValue "PROTOBUF"
+   */
+  encoding?: GrpcEncoding
+
+  /**
    * How the service definition is resolved in `BEHAVIOR` mode: `REFLECTION`
    * uses server reflection; `PROTO_FILE` uses the inline `protoContent`.
    * Forbidden in `HEALTH` mode.
@@ -80,6 +92,20 @@ export interface GrpcConfig {
    * `PROTO_FILE` in `BEHAVIOR` mode.
    */
   protoContent?: string
+
+  /**
+   * A base64-encoded binary FlatBuffers schema (`.bfbs`). Required when
+   * `encoding` is `FLATBUFFERS` and forbidden for Protobuf requests.
+   *
+   * Generate the schema with `flatc -b --schema --bfbs-builtins schema.fbs`, then load it in
+   * your construct without manually encoding it:
+   *
+   * @example
+   * ```typescript
+   * bfbsContent: readFileSync('schema.bfbs').toString('base64')
+   * ```
+   */
+  bfbsContent?: string
 
   /**
    * The JSON request message sent as the gRPC call payload in `BEHAVIOR` mode.
