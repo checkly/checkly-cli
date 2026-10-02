@@ -3,6 +3,7 @@ import { isUtf8 } from 'node:buffer'
 import { execFile } from 'node:child_process'
 import { readFile } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
+import { buffer } from 'node:stream/consumers'
 import { AuthCommand } from './authCommand.js'
 import { api } from '../rest/api.js'
 import { parseFields } from '../helpers/api-fields.js'
@@ -169,18 +170,15 @@ export default class Api extends AuthCommand {
         await writeBody(chunk)
       }
     } else {
-      const chunks: Buffer[] = []
-      for await (const chunk of response.data) {
-        chunks.push(chunk as Buffer)
-      }
-      const responseData = parseResponse(Buffer.concat(chunks))
+      const body = await buffer(response.data)
+      const responseData = body.length > 0 ? parseJson(body) : null
 
-      if (Buffer.isBuffer(responseData)) {
+      if (responseData === undefined) {
         if (flags.jq) {
           this.error('Response is not JSON; --jq cannot be applied.', { exit: 1 })
         }
-        await writeBody(responseData)
-      } else if (responseData !== undefined && responseData !== null && responseData !== '') {
+        await writeBody(body)
+      } else if (responseData !== null) {
         const json = typeof responseData === 'string' ? responseData : formatJson(responseData)
         if (flags.jq) {
           await this.applyJq(json, flags.jq)
@@ -237,17 +235,14 @@ function writeBody (data: Buffer): Promise<void> {
   })
 }
 
-function parseResponse (data: Buffer): unknown {
-  if (data.length === 0) return ''
-
-  if (isUtf8(data)) {
-    try {
-      return JSON.parse(data.toString('utf-8').replace(/^\uFEFF/, ''))
-    } catch {
-      // Keep non-JSON bodies as bytes, including their original line endings.
-    }
+// Returns undefined when the body is not valid UTF-8 JSON (JSON.parse never yields undefined).
+function parseJson (data: Buffer): unknown {
+  if (!isUtf8(data)) return undefined
+  try {
+    return JSON.parse(data.toString('utf-8').replace(/^\uFEFF/, ''))
+  } catch {
+    return undefined
   }
-  return data
 }
 
 function formatJson (data: unknown): string {
