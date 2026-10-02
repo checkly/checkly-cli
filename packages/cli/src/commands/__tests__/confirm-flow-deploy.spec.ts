@@ -207,13 +207,13 @@ describe('deploy confirmation flow', () => {
 
 describe('deploy confirmCommand', () => {
   it('echoes only the flags the user typed', async () => {
-    expect(await confirmCommandFor([])).toBe('checkly deploy --force')
-    expect(await confirmCommandFor(['--preserve-resources'])).toBe('checkly deploy --preserve-resources --force')
+    expect(await confirmCommandFor([])).toBe('npx checkly deploy --force')
+    expect(await confirmCommandFor(['--preserve-resources'])).toBe('npx checkly deploy --preserve-resources --force')
   })
 
   it('keeps an explicit --no-<flag> for flags that allow it', async () => {
     expect(await confirmCommandFor(['--no-schedule-on-deploy']))
-      .toBe('checkly deploy --no-schedule-on-deploy --force')
+      .toBe('npx checkly deploy --no-schedule-on-deploy --force')
   })
 
   it('generates a command oclif can parse back', async () => {
