@@ -103,7 +103,7 @@ const compareEntries = (a: Listed, b: Listed): number =>
 
 const GAP = chalk.dim('⋯')
 
-const MARKER = {
+export const MARKER = {
   create: chalk.green('+'),
   update: chalk.yellow('~'),
   delete: chalk.red('-'),
@@ -387,7 +387,7 @@ export function formatPreview (input: PreviewOutputInput): string {
 }
 
 /** One rendered line with its marker and colour; a nested line sits two columns further in. */
-function styled (line: RenderedLine): string {
+export function styled (line: RenderedLine): string {
   switch (line.kind) {
     case 'add':
       return chalk.green(`+ ${line.text}`)

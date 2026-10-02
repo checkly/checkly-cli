@@ -1,4 +1,3 @@
-import path from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 import * as fs from 'fs/promises'
 import * as api from '../rest/api.js'
@@ -31,6 +30,7 @@ import {
 import { ConflictError, ValidationError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
 import { planChangeLines, planHasNoChanges, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
+import { formatWriteBackSkipped, formatWriteBackUpdated } from '../services/write-back/output.js'
 import { applyWriteBack, hasWritableChanges, planWriteBack } from '../services/write-back/plan.js'
 import type { CommandAlternative } from '../helpers/command-preview.js'
 import type { Project } from '../constructs/project.js'
@@ -80,18 +80,14 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
   return [{
     title: 'Update my code with the changes made in Checkly (deploys nothing)',
     run: async () => {
-      const writeBack = await planWriteBack({ diff, project, cwd: process.cwd() })
-      // A multi-line value is shown on one line, its line breaks and
-      // indentation collapsed to a space.
-      const oneLine = (text: string) => text.replace(/\s*\r?\n\s*/g, ' ')
+      const cwd = process.cwd()
+      const writeBack = await planWriteBack({ diff, project, cwd })
+      const skipped = writeBack.skipped.length > 0 ? formatWriteBackSkipped({ writeBack, project, cwd }) : undefined
       command.log()
-      if (writeBack.skipped.length > 0) {
-        command.log('Not updated (edit these by hand):')
-        for (const line of writeBack.skipped) {
-          command.log(`  ${line}`)
-        }
-      }
       if (writeBack.applied.length === 0) {
+        if (skipped !== undefined) {
+          command.log(skipped)
+        }
         command.log('Nothing in the code could be updated automatically, so nothing was changed.')
         command.log('Nothing was deployed.')
         return
@@ -99,26 +95,23 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
       try {
         await applyWriteBack(writeBack)
       } catch (err: any) {
+        // What has to be edited by hand is true whether or not the write
+        // went through, so it is still said.
+        if (skipped !== undefined) {
+          command.log(skipped)
+        }
         // The error names the files already rewritten, if any.
         command.style.longError('Could not update your code.', err.message)
         command.log('Nothing was deployed.')
         command.exit(1)
       }
-      // Reported once the files hold it, not as an intention.
-      command.log(`Updated ${writeBack.files.length === 1 ? '1 file' : `${writeBack.files.length} files`}:`)
-      for (const { path: filePath } of writeBack.files) {
-        const file = path.relative(process.cwd(), filePath)
-        for (const line of writeBack.applied.filter(line => line.file === file)) {
-          const note = line.replacesLocalEdit ? ' (replacing a local edit)' : ''
-          command.log(`  ${line.file}: ${line.type} ${line.logicalId} ${line.property}: `
-            + `${line.previous === undefined ? 'not set' : oneLine(line.previous)} -> ${oneLine(line.rendered)}${note}`)
-        }
-        const imported = writeBack.imports.find(entry => entry.file === file)
-        if (imported !== undefined) {
-          command.log(`  ${file}: imported ${imported.names.join(', ')} from checkly/constructs`)
-        }
+      // Reported once the files hold it, not as an intention; what could not
+      // be written follows what was.
+      command.log(formatWriteBackUpdated({ writeBack, project, cwd }))
+      if (skipped !== undefined) {
+        command.log(skipped)
       }
-      command.log('Nothing was deployed. Review the changes, then run `checkly deploy --plan` again.')
+      command.log('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy --plan` again.')
     },
   }]
 }
