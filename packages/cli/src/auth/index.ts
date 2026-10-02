@@ -1,20 +1,21 @@
-import axios, { type AxiosError } from 'axios'
-import * as os from 'os'
+import axios from 'axios'
 import * as http from 'http'
 import * as crypto from 'crypto'
-import { jwtDecode } from 'jwt-decode'
-import { getDefaults as getApiDefaults } from '../rest/api.js'
-import { assignProxy } from '../services/proxy.js'
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'node:url'
+import { credentialsFromTokens } from './api-key.js'
+import { assignProxy } from '../services/proxy.js'
+import config from '../services/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-export type AuthMode = 'signup' | 'login'
+/** 'any' leaves both login and sign-up enabled on the hosted page. */
+export type AuthMode = 'signup' | 'login' | 'any'
 
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
-const AUTH0_AUTHORIZATION_URL = 'https://auth.checklyhq.com/authorize'
+const authorizationUrl = () => `${config.getAuthUrl()}/authorize`
+const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const AUTH0_CALLBACK_URL = 'http://localhost:4242'
 
@@ -65,18 +66,11 @@ export class AuthContext {
         + 'support@checklyhq.com if this problem persists')
     }
 
-    const { name } = jwtDecode<any>(this.#idToken)
-
-    const { key } = await this.#getApiKey()
-
-    return {
-      name,
-      key,
-    }
+    return credentialsFromTokens({ accessToken: this.#accessToken, idToken: this.#idToken })
   }
 
   #generateAuthenticationUrl () {
-    const url = new URL(AUTH0_AUTHORIZATION_URL)
+    const url = new URL(authorizationUrl())
 
     const params = new URLSearchParams({
       client_id: AUTH0_CLIENT_ID,
@@ -88,7 +82,7 @@ export class AuthContext {
       state: this.#codeVerifier,
       mode: this.mode === 'signup' ? 'signUp' : '',
       allowLogin: this.mode === 'signup' ? 'false' : 'true',
-      allowSignUp: this.mode === 'signup' ? 'true' : 'false',
+      allowSignUp: this.mode === 'login' ? 'false' : 'true',
     })
 
     url.search = params.toString()
@@ -202,64 +196,20 @@ export class AuthContext {
       redirect_uri: AUTH0_CALLBACK_URL,
     })
 
-    const tokenResponse = await this.#axiosInstance.post(
-      'https://auth.checklyhq.com/oauth/token',
+    const tokenResponse = await axios.post(
+      tokenUrl(),
       tokenParams,
-      {
+      assignProxy(tokenUrl(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept-Encoding': '*',
         },
-      },
+      }),
     )
 
     const { access_token: accessToken, id_token: idToken } = tokenResponse.data
 
     this.#accessToken = accessToken
     this.#idToken = idToken
-  }
-
-  async #getApiKey () {
-    try {
-      await this.#fetchUser()
-    } catch (error: unknown) {
-      if ((error as AxiosError).response?.status === 401) {
-        await this.#registerUser()
-      } else {
-        throw error
-      }
-    }
-
-    const apiKeyName = `CLI User Key (${os.hostname()})`
-
-    const { data } = await this.#axiosInstance.post(`/users/me/api-keys?name=${apiKeyName}`)
-
-    return data
-  }
-
-  async #fetchUser () {
-    const { data } = await this.#axiosInstance.get('/users/me')
-
-    return data
-  }
-
-  async #registerUser () {
-    const { data } = await this.#axiosInstance.post('/users/', { accessToken: this.#accessToken })
-
-    return data
-  }
-
-  get #axiosInstance () {
-    // Keep axios instance stateless
-    const { baseURL } = getApiDefaults()
-    const axiosConf = assignProxy(baseURL, {
-      baseURL,
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        Authorization: `Bearer ${this.#accessToken}`,
-      },
-    })
-
-    return axios.create(axiosConf)
   }
 }
