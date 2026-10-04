@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiCheck } from '../../../constructs/api-check.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
@@ -296,6 +300,47 @@ describe('formatPreview', () => {
     formatPreview({ diff, project, rendering: { plan: diff, local } })
     const [{ variableNames }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
     expect([...variableNames ?? []]).toEqual([['alert-channel:email', 'onCall']])
+  })
+
+  describe('what the resource\'s source file tells the renderer', () => {
+    let directory: string
+
+    beforeEach(() => {
+      directory = fs.mkdtempSync(path.join(os.tmpdir(), 'preview-output-'))
+    })
+
+    afterEach(() => {
+      fs.rmSync(directory, { recursive: true, force: true })
+    })
+
+    it('passes the properties the construct\'s declaration spells out', () => {
+      const { local } = scenario()
+      const filePath = path.join(directory, 'api-health.check.ts')
+      fs.writeFileSync(filePath, `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+new ApiCheck('api-health', {
+  name: 'API health',
+  muted: false,
+  request: { url: 'https://api.example.com/v2/health', method: 'GET' },
+  retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 60 }),
+})
+`)
+      project.data.check['api-health'].checkFileAbsolutePath = filePath
+      const diff = [...unchangedEntries, updateEntry]
+      formatPreview({ diff, project, rendering: { plan: diff, local } })
+      const [{ spelledOut }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
+      expect([...spelledOut ?? []]).toEqual([
+        'name', 'muted', 'request', 'request.url', 'request.method', 'retryStrategy', 'retryStrategy.baseBackoffSeconds',
+      ])
+    })
+
+    it('passes nothing for a construct whose declaration cannot be read', () => {
+      const { local } = scenario()
+      project.data.check['api-health'].checkFileAbsolutePath = path.join(directory, 'missing.ts')
+      const diff = [...unchangedEntries, updateEntry]
+      formatPreview({ diff, project, rendering: { plan: diff, local } })
+      const [{ spelledOut }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
+      expect(spelledOut).toBeUndefined()
+    })
   })
 
   it('prints no diff block for an update with nothing to render', () => {

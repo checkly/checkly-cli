@@ -1,15 +1,8 @@
-import fs from 'node:fs'
-
 import type { Project } from '../../constructs/project.js'
 import { type ConstructExport, Session } from '../../constructs/session.js'
-import {
-  exportedNamesOf,
-  findConstructVariable,
-  IDENTIFIER,
-  parseSource,
-  type ParsedSource,
-} from '../write-back/source-file.js'
+import { exportedNamesOf, findConstructVariable, IDENTIFIER } from '../write-back/source-file.js'
 import { idKey, REFERENCEABLE_TYPES } from './import-shape.js'
+import { SourceIndex } from './source-index.js'
 
 /** The variable each construct goes by in the user's code, keyed like `PhysicalIds` (`idKey`). */
 export type VariableNames = ReadonlyMap<string, string>
@@ -41,21 +34,9 @@ export type VariableNames = ReadonlyMap<string, string>
 export function constructVariableNames (
   project: Project,
   exports: readonly ConstructExport[] = Session.constructExports,
+  sources: SourceIndex = new SourceIndex(),
 ): VariableNames {
   const names = new Map<string, string>()
-  const sources = new Map<string, ParsedSource | undefined>()
-  const sourceOf = (filePath: string): ParsedSource | undefined => {
-    if (!sources.has(filePath)) {
-      let source: ParsedSource | undefined
-      try {
-        source = parseSource(filePath, fs.readFileSync(filePath, 'utf8'))
-      } catch {
-        // A file that cannot be read or parsed names nothing.
-      }
-      sources.set(filePath, source)
-    }
-    return sources.get(filePath)
-  }
   for (const type of REFERENCEABLE_TYPES) {
     for (const [logicalId, construct] of Object.entries(project.data[type])) {
       // A reference construct (`fromId(...)`) is rendered as the reference it is.
@@ -68,7 +49,7 @@ export function constructVariableNames (
           && candidate.exportName !== 'default' && IDENTIFIER.test(candidate.exportName))
       const own = exported.filter(candidate => candidate.filePath === declaredIn).map(({ exportName }) => exportName)
       const declared = () => {
-        const source = declaredIn !== undefined ? sourceOf(declaredIn) : undefined
+        const source = declaredIn !== undefined ? sources.source(declaredIn) : undefined
         return source && findConstructVariable(source, logicalId, exportedNamesOf(construct))
       }
       let name: string | undefined

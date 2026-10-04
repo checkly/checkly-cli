@@ -74,6 +74,12 @@ export interface RenderResourceInput {
   pruneRelations: boolean
   /** The variable each construct has in the user's code; one without an entry gets a generated name. */
   variableNames?: VariableNames
+  /**
+   * The properties the resource's declaration spells out (`ContextOptions.spelledOut`):
+   * rendered on both sides whatever their values, so that a value moved to or
+   * from a default reads as a change of that line and not as its removal.
+   */
+  spelledOut?: ReadonlySet<string>
   /** The most lines a diff may take before the listing is printed instead. */
   maxLines?: number
 }
@@ -189,6 +195,7 @@ function renderSide (
   ids: PhysicalIds,
   maskedValues: ReadonlySet<string>,
   variableNames: VariableNames | undefined,
+  spelledOut: ReadonlySet<string> | undefined,
 ): string {
   const program = new Program({
     rootDirectory: '.',
@@ -196,7 +203,7 @@ function renderSide (
     specFileSuffix: '.spec',
     language: 'typescript',
   })
-  const context = new Context({ maskedValues })
+  const context = new Context({ maskedValues, spelledOut })
   const codegen = new SideCodegen(program, variableNames)
   registerProject(context, program, project, ids, variableNames)
   for (const relation of relations) {
@@ -231,7 +238,8 @@ function contentDiff (
 }
 
 export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] {
-  const { entry, local, localResources, diff, project, ids, pruneRelations, variableNames, maxLines } = input
+  const { entry, local, localResources, diff, project, ids, ...options } = input
+  const { pruneRelations, variableNames, spelledOut, maxLines } = options
   const lines: RenderedLine[] = []
   const changes = entry.changes ?? []
   // A secret is shown inline, masked, with `(changed)` on the element the
@@ -246,7 +254,8 @@ export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] 
   try {
     lines.push(
       ...renderShown(
-        shown, marked, entry, local, localResources, diff, project, ids, pruneRelations, variableNames, maxLines,
+        shown, marked, entry, local, localResources, diff, project, ids,
+        { pruneRelations, variableNames, spelledOut, maxLines },
       ),
     )
   } catch (cause) {
@@ -292,10 +301,9 @@ function renderShown (
   diff: readonly DiffEntry[],
   project: Project,
   ids: PhysicalIds,
-  pruneRelations: boolean,
-  variableNames: VariableNames | undefined,
-  maxLines: number | undefined,
+  options: Pick<RenderResourceInput, 'pruneRelations' | 'variableNames' | 'spelledOut' | 'maxLines'>,
 ): RenderedLine[] {
+  const { pruneRelations, variableNames, spelledOut, maxLines } = options
   // A secret change withholds the list it is in whole, plain siblings' edits
   // included, so the construct diff — both sides blanked — is the only place
   // such an edit shows: an entry with a secret change is rendered even when
@@ -378,8 +386,8 @@ function renderShown (
   }
   const afterRelations = relationResourcesForAfter({ ids, local: localResources, entry, diff, pruneRelations })
   const beforeRelations = relationResourcesFromBefore(type, entry.before)
-  const beforeText = renderSide(deployed, beforeRelations, project, ids, maskedValues, variableNames)
-  const afterText = renderSide(after, afterRelations, project, ids, maskedValues, variableNames)
+  const beforeText = renderSide(deployed, beforeRelations, project, ids, maskedValues, variableNames, spelledOut)
+  const afterText = renderSide(after, afterRelations, project, ids, maskedValues, variableNames, spelledOut)
   const rendered = diffLines(beforeText, afterText, { maxLines })
   if (rendered === undefined) {
     return shown.length > 0 ? listing(shown, 'the construct diff is too large to show') : []

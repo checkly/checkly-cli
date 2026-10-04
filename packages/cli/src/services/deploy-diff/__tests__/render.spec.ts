@@ -217,6 +217,97 @@ describe('renderResourceDiff', () => {
     expect(groupLines.join('\n')).toContain('+  name: \'Website Group v2\'')
   })
 
+  describe('the properties the code spells out', () => {
+    const retry = { type: 'LINEAR', baseBackoffSeconds: 60, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
+
+    /** The account moved `baseBackoffSeconds` to the default, 60; the code still says 12. */
+    const backoffMoved = (spelledOut?: ReadonlySet<string>) => {
+      const { local } = scenario({ retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 12 }) })
+      const entry: DiffEntry = {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/retryStrategy/baseBackoffSeconds', origin: 'remote', before: 12, after: 60 }],
+        before: deployed({ retryStrategy: retry }),
+        redactions: [],
+      }
+      const diff = plan(entry)
+      return plain(renderResourceDiff({
+        entry,
+        local: local.find(resource => resource.type === 'check'),
+        localResources: local,
+        diff,
+        project,
+        ids: physicalIdsFromPlan(diff, local),
+        pruneRelations: false,
+        spelledOut,
+      }))
+    }
+
+    it('shows a value moved to a default as a change of the line the code has, not as an addition', () => {
+      const changed = (lines: string[]) => lines.filter(line => line.startsWith('+') || line.startsWith('-'))
+      // Without the set, the deployed side leaves the default out, and the
+      // account's value is nowhere to be seen.
+      expect(changed(backoffMoved())).toEqual(['+    baseBackoffSeconds: 12,'])
+      expect(changed(backoffMoved(new Set(['retryStrategy', 'retryStrategy.baseBackoffSeconds'])))).toEqual([
+        '-    baseBackoffSeconds: 60,',
+        '+    baseBackoffSeconds: 12,',
+      ])
+    })
+
+    it('renders a spelled-out check prop and keyed list flags on both sides, and nothing for the rest', () => {
+      const { local } = scenario({
+        muted: true,
+        request: {
+          url: 'https://example.com/health',
+          method: 'GET',
+          headers: [{ key: 'x-a', value: '1', locked: true }, { key: 'x-b', value: '2' }],
+        },
+      })
+      const entry: DiffEntry = {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/muted', origin: 'remote', before: true, after: false }],
+        before: deployed({
+          muted: false,
+          request: {
+            url: 'https://example.com/health',
+            method: 'GET',
+            headers: [
+              { key: 'x-a', value: '1', locked: true, secret: false },
+              { key: 'x-b', value: '2', locked: false, secret: false },
+            ],
+            queryParameters: [],
+            assertions: [],
+          },
+        }),
+        redactions: [],
+      }
+      const diff = plan(entry)
+      const lines = plain(renderResourceDiff({
+        entry,
+        local: local.find(resource => resource.type === 'check'),
+        localResources: local,
+        diff,
+        project,
+        ids: physicalIdsFromPlan(diff, local),
+        pruneRelations: false,
+        spelledOut: new Set(['muted', 'request', 'request.headers', 'request.headers[x-a].locked']),
+      }))
+      expect(lines.filter(line => line.startsWith('+') || line.startsWith('-'))).toEqual([
+        '-  muted: false,',
+        '+  muted: true,',
+      ])
+      // The header the code spells `locked` on renders it alike on both
+      // sides, and the other header's `locked: false`, which only the account
+      // holds, is a line on neither: nothing but `muted` changed above.
+      expect(lines.join('\n')).not.toContain('locked: false')
+    })
+  })
+
   describe('the variable a construct is referred to by', () => {
     /** A check moved from the group `old` (43) to the group `grp` (42). */
     const moved = () => {

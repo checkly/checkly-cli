@@ -11,6 +11,7 @@ import type { DeployResourceSync, DiffEntry } from '../../rest/projects.js'
 import { physicalIdsFromPlan } from './import-shape.js'
 import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges } from './plan-summary.js'
 import { renderResourceDiff, type RenderedLine } from './render.js'
+import { SourceIndex } from './source-index.js'
 import { constructVariableNames } from './variable-names.js'
 
 /**
@@ -324,7 +325,8 @@ export function formatPreview (input: PreviewOutputInput): string {
   if (rendering !== undefined) {
     const ids = physicalIdsFromPlan(rendering.plan, rendering.local)
     // Reading them parses source files, so only once a diff is to be rendered.
-    const variableNames = sortedUpdating.length > 0 ? constructVariableNames(project) : undefined
+    const sources = new SourceIndex()
+    const variableNames = sortedUpdating.length > 0 ? constructVariableNames(project, undefined, sources) : undefined
     for (const listed of sortedUpdating) {
       const { resourceType, logicalId } = listed
       // The entry to render is the plan's, whether this listing is the plan
@@ -342,6 +344,7 @@ export function formatPreview (input: PreviewOutputInput): string {
         ids,
         pruneRelations,
         variableNames,
+        spelledOut: sources.spelledOut(listed.construct),
       })
       if (lines.length === 0) {
         continue
