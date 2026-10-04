@@ -13,11 +13,11 @@ export function valueForGrpcRequest (
     builder.string('url', request.url)
     builder.number('port', request.port)
 
-    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+    if (request.ipFamily && (request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
       builder.string('ipFamily', request.ipFamily)
     }
 
-    if (request.skipSSL) {
+    if (request.skipSSL != null && (request.skipSSL || context.spelledOut('request.skipSSL'))) {
       builder.boolean('skipSSL', request.skipSSL)
     }
 

@@ -131,7 +131,7 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
               }
 
               if (text) {
-                if (text !== TelegramAlertChannel.DEFAULT_PAYLOAD) {
+                if (text !== TelegramAlertChannel.DEFAULT_PAYLOAD || context.spelledOut('payload')) {
                   builder.string('payload', text)
                 }
               } else {
@@ -139,7 +139,7 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
               }
             }
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

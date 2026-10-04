@@ -12,15 +12,16 @@ export function valueForUrlRequest (
   return object(builder => {
     builder.string('url', request.url)
 
-    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+    if (request.ipFamily && (request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
       builder.string('ipFamily', request.ipFamily)
     }
 
-    if (request.followRedirects === false) {
+    if (request.followRedirects != null
+      && (request.followRedirects === false || context.spelledOut('request.followRedirects'))) {
       builder.boolean('followRedirects', request.followRedirects)
     }
 
-    if (request.skipSSL === true) {
+    if (request.skipSSL != null && (request.skipSSL === true || context.spelledOut('request.skipSSL'))) {
       builder.boolean('skipSSL', request.skipSSL)
     }
 

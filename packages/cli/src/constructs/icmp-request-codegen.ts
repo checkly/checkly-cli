@@ -12,7 +12,7 @@ export function valueForIcmpRequest (
   return object(builder => {
     builder.string('hostname', request.hostname)
 
-    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+    if (request.ipFamily && (request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
       builder.string('ipFamily', request.ipFamily)
     }
 

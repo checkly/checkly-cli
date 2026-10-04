@@ -60,11 +60,12 @@ function buildCheckGroupProps (
 ): void {
   builder.string('name', resource.name)
 
-  if (resource.activated === false) {
+  // A prop the code being rendered spells out is generated whatever its value.
+  if (resource.activated != null && (resource.activated === false || context.spelledOut('activated'))) {
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted === true) {
+  if (resource.muted != null && (resource.muted === true || context.spelledOut('muted'))) {
     builder.boolean('muted', resource.muted)
   }
 
@@ -139,7 +140,7 @@ function buildCheckGroupProps (
     if (variables.length > 0) {
       builder.array('environmentVariables', builder => {
         for (const variable of variables) {
-          builder.value(valueForKeyValuePair(program, genfile, context, variable))
+          builder.value(valueForKeyValuePair(program, genfile, context, variable, 'environmentVariables'))
         }
       })
     }
@@ -245,7 +246,7 @@ function buildCheckGroupProps (
         if (headers.length > 0) {
           builder.array('headers', builder => {
             for (const header of headers) {
-              builder.value(valueForKeyValuePair(program, genfile, context, header))
+              builder.value(valueForKeyValuePair(program, genfile, context, header, 'apiCheckDefaults.headers'))
             }
           })
         }
@@ -256,7 +257,7 @@ function buildCheckGroupProps (
         if (params.length > 0) {
           builder.array('queryParameters', builder => {
             for (const param of params) {
-              builder.value(valueForKeyValuePair(program, genfile, context, param))
+              builder.value(valueForKeyValuePair(program, genfile, context, param, 'apiCheckDefaults.queryParameters'))
             }
           })
         }
@@ -266,7 +267,7 @@ function buildCheckGroupProps (
         const basicAuth = config.basicAuth
         // Either field alone is a credential the construct must keep; only
         // the empty pair is the construct's own default.
-        if (basicAuth.username !== '' || basicAuth.password !== '') {
+        if (basicAuth.username !== '' || basicAuth.password !== '' || context.spelledOut('apiCheckDefaults.basicAuth')) {
           builder.object('basicAuth', builder => {
             builder.string('username', basicAuth.username)
             builder.string('password', basicAuth.password)
@@ -292,7 +293,11 @@ function buildCheckGroupProps (
   }
 
   if (resource.retryStrategy !== 'FALLBACK') {
-    builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
+    builder.value('retryStrategy', valueForRetryStrategy(
+      genfile,
+      resource.retryStrategy,
+      context.spelledOutUnder('retryStrategy'),
+    ))
   }
 
   if (resource.runParallel !== undefined && resource.runParallel !== null) {

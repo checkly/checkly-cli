@@ -18,11 +18,15 @@ export interface StatusPageV3ComponentResource {
 
 // The configuration's properties are top-level props on the construct. The
 // backend fills the defaults when one is omitted, so only values that differ
-// are worth generating.
-function nonDefaultConfiguration (resource: StatusPageV3ComponentResource): Array<[string, boolean]> {
+// are worth generating, plus those the code being rendered spells out.
+function nonDefaultConfiguration (
+  resource: StatusPageV3ComponentResource,
+  context: Context,
+): Array<[string, boolean]> {
   const defaults = defaultConfigurationByType[resource.type] ?? {}
   return Object.entries(resource.configuration ?? {})
-    .filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean' && defaults[entry[0]] !== entry[1])
+    .filter((entry): entry is [string, boolean] => typeof entry[1] === 'boolean'
+      && (defaults[entry[0]] !== entry[1] || context.spelledOut(entry[0])))
 }
 
 const construct = 'StatusPageV3Component'
@@ -90,7 +94,7 @@ export class StatusPageV3ComponentCodegen extends Codegen<StatusPageV3ComponentR
             builder.value('statusPage', valueForStatusPageV3Ref(file, resource.statusPageId, context))
 
             // SERVICE is the construct's default.
-            if (resource.type === 'GROUP') {
+            if (resource.type === 'GROUP' || context.spelledOut('type')) {
               builder.string('type', resource.type)
             }
 
@@ -100,13 +104,13 @@ export class StatusPageV3ComponentCodegen extends Codegen<StatusPageV3ComponentR
               builder.string('description', resource.description)
             }
 
-            if (resource.hidden === true) {
-              builder.boolean('hidden', true)
+            if (resource.hidden != null && (resource.hidden === true || context.spelledOut('hidden'))) {
+              builder.boolean('hidden', resource.hidden)
             }
 
             builder.number('displayOrder', resource.displayOrder)
 
-            for (const [key, value] of nonDefaultConfiguration(resource)) {
+            for (const [key, value] of nonDefaultConfiguration(resource, context)) {
               builder.boolean(key, value)
             }
 

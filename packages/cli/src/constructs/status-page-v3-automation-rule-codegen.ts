@@ -45,15 +45,16 @@ export class StatusPageV3AutomationRuleCodegen extends Codegen<StatusPageV3Autom
           builder.value('statusPage', valueForStatusPageV3Ref(file, resource.statusPageId, context))
           builder.string('name', resource.name)
 
-          if (resource.enabled === false) {
-            builder.boolean('enabled', false)
+          if (resource.enabled != null && (resource.enabled === false || context.spelledOut('enabled'))) {
+            builder.boolean('enabled', resource.enabled)
           }
 
           builder.string('firstUpdate', resource.firstUpdate)
           builder.string('lastUpdate', resource.lastUpdate)
 
-          if (resource.notifySubscribers === false) {
-            builder.boolean('notifySubscribers', false)
+          if (resource.notifySubscribers != null
+            && (resource.notifySubscribers === false || context.spelledOut('notifySubscribers'))) {
+            builder.boolean('notifySubscribers', resource.notifySubscribers)
           }
 
           builder.array('tags', builder => {

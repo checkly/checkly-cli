@@ -44,7 +44,7 @@ export class EmailAlertChannelCodegen extends Codegen<EmailAlertChannelResource>
           builder.object(builder => {
             builder.string('address', resource.config.address)
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

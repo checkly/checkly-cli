@@ -14,23 +14,24 @@ export function valueForRequest (
     builder.string('url', request.url)
     builder.string('method', request.method)
 
-    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+    if (request.ipFamily && (request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
       builder.string('ipFamily', request.ipFamily)
     }
 
-    if (request.followRedirects === false) {
+    if (request.followRedirects != null
+      && (request.followRedirects === false || context.spelledOut('request.followRedirects'))) {
       builder.boolean('followRedirects', request.followRedirects)
     }
 
-    if (request.skipSSL === true) {
+    if (request.skipSSL != null && (request.skipSSL === true || context.spelledOut('request.skipSSL'))) {
       builder.boolean('skipSSL', request.skipSSL)
     }
 
-    if (request.body !== undefined && request.body !== '') {
+    if (request.body !== undefined && (request.body !== '' || context.spelledOut('request.body'))) {
       builder.string('body', request.body)
     }
 
-    if (request.bodyType && request.bodyType !== 'NONE') {
+    if (request.bodyType && (request.bodyType !== 'NONE' || context.spelledOut('request.bodyType'))) {
       builder.string('bodyType', request.bodyType)
     }
 
@@ -39,7 +40,7 @@ export function valueForRequest (
       if (headers.length > 0) {
         builder.array('headers', builder => {
           for (const header of headers) {
-            builder.value(valueForKeyValuePair(program, genfile, context, header))
+            builder.value(valueForKeyValuePair(program, genfile, context, header, 'request.headers'))
           }
         })
       }
@@ -50,7 +51,7 @@ export function valueForRequest (
       if (queryParameters.length > 0) {
         builder.array('queryParameters', builder => {
           for (const param of queryParameters) {
-            builder.value(valueForKeyValuePair(program, genfile, context, param))
+            builder.value(valueForKeyValuePair(program, genfile, context, param, 'request.queryParameters'))
           }
         })
       }
@@ -59,7 +60,7 @@ export function valueForRequest (
     if (request.basicAuth) {
       const basicAuth = request.basicAuth
       // Either field alone is a credential the construct must keep.
-      if (basicAuth.username !== '' || basicAuth.password !== '') {
+      if (basicAuth.username !== '' || basicAuth.password !== '' || context.spelledOut('request.basicAuth')) {
         builder.object('basicAuth', builder => {
           builder.string('username', basicAuth.username)
           builder.string('password', basicAuth.password)
