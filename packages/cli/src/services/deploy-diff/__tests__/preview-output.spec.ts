@@ -275,6 +275,8 @@ describe('formatPreview', () => {
     const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
     expect(text).toContain([
       '~ ApiCheck api-health  src/api-health.check.ts',
+      '    - live in Checkly   replaced or removed by this deploy',
+      '    + in your code      added or changed by this deploy',
       '      name: \'API health\',',
       '  -   url: \'https://api.example.com/v1/health\',',
       '  +   url: \'https://api.example.com/v2/health\',',
@@ -363,6 +365,19 @@ new ApiCheck('api-health', {
       done: true,
     }))
     expect(text).toContain('\n1 created, 1 updated, 1 deleted, 0 unchanged\n')
+  })
+
+  it('labels the sides of a diff in the past tense once the plan was carried out', () => {
+    const { local } = scenario()
+    vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'add', text: '  muted: true,' }])
+    const diff = [...unchangedEntries, updateEntry]
+    const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
+    expect(text).toContain([
+      '~ ApiCheck api-health  src/api-health.check.ts',
+      '    - was live in Checkly   replaced or removed by the deploy',
+      '    + now live in Checkly   added or changed by the deploy',
+      '  +   muted: true,',
+    ].join('\n'))
   })
 
   it('says so when the plan is empty', () => {

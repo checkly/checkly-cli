@@ -353,6 +353,7 @@ export function formatPreview (input: PreviewOutputInput): string {
       output.push(
         `${MARKER.update} ${chalk.bold(listed.construct.constructor.name)} ${chalk.bold(logicalId)}`
         + (file !== undefined ? `  ${chalk.dim(file)}` : ''),
+        ...diffLegend(done),
       )
       // A hunk boundary is shown as the gap between two hunks of the same
       // diff, so the first hunk of the construct diff, and the first of a
@@ -391,6 +392,23 @@ export function formatPreview (input: PreviewOutputInput): string {
   // A blank line closes the plan, whatever follows it.
   output.push('')
   return output.join('\n')
+}
+
+/**
+ * What the two sides of a construct diff are, printed under the resource's
+ * header: a `-` line is the account's value, which the deploy replaces or,
+ * when no `+` line follows, removes; a `+` line is the code's value, which
+ * the deploy adds or, when a `-` line precedes it, changes to. Once the
+ * deploy is done the code's value is the live one, and the legend says so.
+ */
+function diffLegend (done: boolean): string[] {
+  const sides: Array<[string, string, string]> = done
+    ? [[MARKER.delete, 'was live in Checkly', 'replaced or removed by the deploy'],
+        [MARKER.create, 'now live in Checkly', 'added or changed by the deploy']]
+    : [[MARKER.delete, 'live in Checkly', 'replaced or removed by this deploy'],
+        [MARKER.create, 'in your code', 'added or changed by this deploy']]
+  const width = Math.max(...sides.map(([, label]) => label.length))
+  return sides.map(([marker, label, meaning]) => `    ${marker} ${chalk.dim(`${label.padEnd(width)}   ${meaning}`)}`)
 }
 
 /** One rendered line with its marker and colour; a nested line sits two columns further in. */
