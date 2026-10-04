@@ -3,6 +3,7 @@ import type { Value } from '../../sourcegen/index.js'
 import {
   appendAfterLast,
   IDENTIFIER,
+  memberName,
   type Node,
   type ParsedSource,
   type SourceToken,
@@ -85,20 +86,6 @@ export type Resolution =
   | { kind: 'found', node: Node, parent: ObjectNode | TSESTree.ArrayExpression }
   | { kind: 'missing', parent: ObjectNode, key: string }
   | { kind: 'unsupported', reason: string }
-
-/** The name of a plain `key: value` member, or undefined for a spread, method, accessor or computed key. */
-export function memberName (property: PropertyNode | TSESTree.SpreadElement): string | undefined {
-  if (property.type !== 'Property' || property.computed || property.kind !== 'init' || property.method) {
-    return undefined
-  }
-  if (property.key.type === 'Identifier') {
-    return property.key.name
-  }
-  if (property.key.type === 'Literal' && typeof property.key.value === 'string') {
-    return property.key.value
-  }
-  return undefined
-}
 
 /**
  * Whether a node is a value this module could have written itself: a

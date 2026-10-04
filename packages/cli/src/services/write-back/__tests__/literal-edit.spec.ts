@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { applyEdits } from '../apply-edits.js'
 import { detectStyle, evaluateLiteral, isPlainLiteral, resolvePath, templateLiteral } from '../literal-edit.js'
-import { findConstructOptions, parseSource, WriteBackSkipped } from '../source-file.js'
+import { findConstructOptions, parseSource, spelledOutPaths, WriteBackSkipped } from '../source-file.js'
 
 /**
  * The rewriter (`source-file.ts`, `literal-edit.ts`): finding the construct
@@ -460,6 +460,86 @@ new ApiCheck('api', { name: 'x', tags: [
     ])
     expect(nested.skipped).toEqual([{ path: ['request', 'body'], value: 'b', reason: 'overlaps another edit' }])
     expect(readsBack('a.ts', nested.text, ['request'], { url: 'u' })).toBe(true)
+  })
+})
+
+describe('spelledOutPaths', () => {
+  it('names every property the literal spells, nested objects and builder options included', () => {
+    const paths = spelledOutPaths(options('a.ts', `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+new ApiCheck('api', {
+  name: 'API',
+  muted: false,
+  request: { url: 'https://example.com', method: 'GET', skipSSL: false },
+  retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 60, maxRetries: 2 }),
+  'quoted key': 1,
+})
+`))
+    expect([...paths]).toEqual([
+      'name',
+      'muted',
+      'request',
+      'request.url',
+      'request.method',
+      'request.skipSSL',
+      'retryStrategy',
+      'retryStrategy.baseBackoffSeconds',
+      'retryStrategy.maxRetries',
+      'quoted key',
+    ])
+  })
+
+  it('names a list element\'s properties under its literal key, and skips elements without one', () => {
+    const paths = spelledOutPaths(options('a.ts', `import { ApiCheck } from 'checkly/constructs'
+const name = 'x-b'
+new ApiCheck('api', {
+  request: {
+    headers: [
+      { key: 'x-a', value: '1', locked: false },
+      { key: 'x.b' as const, locked: true },
+      { key: \`x-c\`, secret: false },
+      { key: name, value: '2', locked: false },
+      { key: \`x-\${name}\`, value: '2' },
+      { value: '3' },
+      'not an object',
+    ],
+  },
+  tags: ['a', 'b'],
+})
+`))
+    expect([...paths]).toEqual([
+      'request',
+      'request.headers',
+      'request.headers[x-a].key',
+      'request.headers[x-a].value',
+      'request.headers[x-a].locked',
+      'request.headers[x.b].key',
+      'request.headers[x.b].locked',
+      'request.headers[x-c].key',
+      'request.headers[x-c].secret',
+      'tags',
+    ])
+  })
+
+  it('leaves the arguments of a call with several alone: they are positional, not the property\'s options', () => {
+    const paths = spelledOutPaths(options('a.ts', `import { AlertEscalationBuilder, ApiCheck } from 'checkly/constructs'
+new ApiCheck('api', {
+  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1, { amount: 2, interval: 5 }),
+})
+`))
+    expect([...paths]).toEqual(['alertEscalationPolicy'])
+  })
+
+  it('looks through TypeScript wrappers on a value, and past spreads, computed keys and methods', () => {
+    const paths = spelledOutPaths(options('a.ts', `import { ApiCheck, Frequency } from 'checkly/constructs'
+const extra = { method: 'GET' }
+const key = 'muted'
+new ApiCheck('api', {
+  request: { url: 'https://example.com', ...extra, [key]: true, run () {} } as const,
+  frequency: Frequency.EVERY_5M satisfies Frequency,
+  activated: true!,
+})
+`))
+    expect([...paths]).toEqual(['request', 'request.url', 'frequency', 'activated'])
   })
 })
 

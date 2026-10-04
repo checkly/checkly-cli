@@ -25,7 +25,6 @@ import {
   isMultiLine,
   isPlainLiteral,
   memberColumn,
-  memberName,
   renderValue,
   templateLiteral,
   resolvePath,
@@ -33,9 +32,7 @@ import {
   type SourceStyle,
   trailingCommaOf,
 } from './literal-edit.js'
-import {
-  checklyBindings, declaresName, localBinding, type Node, type ParsedSource, type Splice, walk, WriteBackSkipped,
-} from './source-file.js'
+import { checklyBindings, declaresName, localBinding, memberName, type Node, type ParsedSource, type Splice, walk, WriteBackSkipped } from './source-file.js'
 
 export type { HelperEdit, SourceEdit }
 

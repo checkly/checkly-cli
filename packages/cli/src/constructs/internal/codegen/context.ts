@@ -147,13 +147,65 @@ export interface ContextOptions {
    * plain mask, never as itself.
    */
   maskedValues?: ReadonlySet<string>
+  /**
+   * Set when the code being rendered already exists (a deploy preview, the
+   * write-back), never by an import: the properties that code spells out,
+   * as dotted paths from the construct's options (`muted`,
+   * `request.skipSSL`, `retryStrategy.maxRetries`, and for a list element
+   * with a literal key, `headers[Authorization].locked`, the key taken as
+   * it is). A codegen writes
+   * such a property even when its value is the default it would otherwise
+   * leave out, so that a property the author wrote down does not vanish
+   * from a rendering, or read as added or removed in a diff, because its
+   * value happens to be the default.
+   */
+  spelledOut?: ReadonlySet<string>
+}
+
+/**
+ * The child keys under a prefix among dotted paths: `retryStrategy` picks
+ * `maxRetries` out of `retryStrategy.maxRetries`. A bracketed element key
+ * (`headers[x.trace].locked`) is opaque: the dots inside it do not separate
+ * segments, so `request` has the child `headers[x.trace]`.
+ */
+export function pathsUnder (paths: ReadonlySet<string>, prefix: string): string[] {
+  const children: string[] = []
+  for (const path of paths) {
+    if (!path.startsWith(`${prefix}.`)) {
+      continue
+    }
+    const rest = path.slice(prefix.length + 1)
+    let end = 0
+    let depth = 0
+    while (end < rest.length && (depth > 0 || rest[end] !== '.')) {
+      depth += rest[end] === '[' ? 1 : rest[end] === ']' ? -1 : 0
+      end += 1
+    }
+    const child = rest.slice(0, end)
+    if (!children.includes(child)) {
+      children.push(child)
+    }
+  }
+  return children
 }
 
 export class Context {
   readonly maskedValues: ReadonlySet<string> | undefined
+  readonly #spelledOut: ReadonlySet<string>
 
   constructor (options: ContextOptions = {}) {
     this.maskedValues = options.maskedValues
+    this.#spelledOut = options.spelledOut ?? new Set()
+  }
+
+  /** Whether the code being rendered spells out the property at `path` (see `ContextOptions.spelledOut`). */
+  spelledOut (path: string): boolean {
+    return this.#spelledOut.has(path)
+  }
+
+  /** The spelled-out properties directly under `prefix`, for a codegen that takes a list rather than a context. */
+  spelledOutUnder (prefix: string): string[] {
+    return pathsUnder(this.#spelledOut, prefix)
   }
 
   /**

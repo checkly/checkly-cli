@@ -369,6 +369,84 @@ export function findConstructVariable (
   return names.length === 1 ? names[0] : undefined
 }
 
+/** The name of a plain `key: value` member, or undefined for a spread, method, accessor or computed key. */
+export function memberName (property: TSESTree.Property | TSESTree.SpreadElement): string | undefined {
+  if (property.type !== 'Property' || property.computed || property.kind !== 'init' || property.method) {
+    return undefined
+  }
+  if (property.key.type === 'Identifier') {
+    return property.key.name
+  }
+  if (property.key.type === 'Literal' && typeof property.key.value === 'string') {
+    return property.key.value
+  }
+  return undefined
+}
+
+/** A value with the TypeScript wrappers that change nothing at run time (`as`, `satisfies`, `!`) taken off. */
+function unwrapped (node: Node): Node {
+  let current = node
+  while (current.type === 'TSAsExpression' || current.type === 'TSSatisfiesExpression'
+    || current.type === 'TSNonNullExpression') {
+    current = current.expression
+  }
+  return current
+}
+
+/**
+ * The properties a construct's options literal spells out, as the dotted
+ * paths `ContextOptions.spelledOut` takes: every plain `key: value` member,
+ * the members of an object value under its key, the members of the one
+ * object argument of a call or `new` (a builder such as
+ * `RetryStrategyBuilder.linearStrategy({ … })`) under the property's key,
+ * and, for an object element of an array with a string `key` property, its
+ * members under `<path>[<key>]`. Spreads, computed keys, methods and
+ * elements without such a key add nothing, and neither do the arguments of a
+ * call with several (`AlertEscalationBuilder.runBasedEscalation(1, { … })`):
+ * the codegen could not tell which value they stand for.
+ */
+export function spelledOutPaths (options: TSESTree.ObjectExpression): Set<string> {
+  const paths = new Set<string>()
+  const visitValue = (value: Node, path: string): void => {
+    const node = unwrapped(value)
+    if (node.type === 'ObjectExpression') {
+      visitObject(node, path)
+    } else if ((node.type === 'CallExpression' || node.type === 'NewExpression') && node.arguments.length === 1) {
+      const argument = unwrapped(node.arguments[0])
+      if (argument.type === 'ObjectExpression') {
+        visitObject(argument, path)
+      }
+    } else if (node.type === 'ArrayExpression') {
+      for (const element of node.elements) {
+        const unwrappedElement = element === null ? null : unwrapped(element)
+        if (unwrappedElement?.type !== 'ObjectExpression') {
+          continue
+        }
+        const keyProperty = unwrappedElement.properties.find(property => memberName(property) === 'key')
+        const key = keyProperty === undefined
+          ? undefined
+          : stringOf(unwrapped((keyProperty as TSESTree.Property).value))
+        if (key !== undefined) {
+          visitObject(unwrappedElement, `${path}[${key}]`)
+        }
+      }
+    }
+  }
+  const visitObject = (object: TSESTree.ObjectExpression, prefix: string): void => {
+    for (const property of object.properties) {
+      const name = memberName(property)
+      if (name === undefined) {
+        continue
+      }
+      const path = prefix === '' ? name : `${prefix}.${name}`
+      paths.add(path)
+      visitValue((property as TSESTree.Property).value, path)
+    }
+  }
+  visitObject(options, '')
+  return paths
+}
+
 /**
  * Whether `name` is used as an identifier anywhere in the program: a
  * declaration, an import, a reference, a type name. Member and property

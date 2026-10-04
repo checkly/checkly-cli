@@ -29,8 +29,8 @@ import {
   UndefinedValue,
   Value,
 } from '../../sourcegen/index.js'
-import { isPlainLiteral, layoutList, type LiteralEdit, memberName, quoteString, renderKey, type SourceStyle } from './literal-edit.js'
-import { type Node, WriteBackSkipped } from './source-file.js'
+import { isPlainLiteral, layoutList, type LiteralEdit, quoteString, renderKey, type SourceStyle } from './literal-edit.js'
+import { memberName, type Node, WriteBackSkipped } from './source-file.js'
 
 /**
  * Edits of the properties a construct spells with a helper expression rather
