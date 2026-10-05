@@ -3,6 +3,10 @@ import { AlertEscalation } from './alert-escalation-policy.js'
 
 export type AlertEscalationResource = AlertEscalation
 
+/** The thresholds `AlertEscalationBuilder` fills in when a policy has none. */
+const DEFAULT_FAILED_RUN_THRESHOLD = 1
+const DEFAULT_MINUTES_FAILING_THRESHOLD = 5
+
 /**
  * Whether stored alert settings describe a policy at all. The `alertSettings`
  * column defaults to an empty object, so a check or group that never set a
@@ -34,6 +38,12 @@ export function valueForAlertEscalation (genfile: GeneratedFile, escalation: Ale
 
     if (escalation.parallelRunFailureThreshold) {
       const threshold = escalation.parallelRunFailureThreshold
+      // The threshold is the builder's third parameter; without reminders
+      // to fill the second, an `undefined` holds its place, or the builder
+      // would read the threshold as the reminders.
+      if (!escalation.reminders) {
+        builder.undefined()
+      }
       builder.object(builder => {
         if (threshold.enabled !== undefined) {
           builder.boolean('enabled', threshold.enabled)
@@ -51,10 +61,10 @@ export function valueForAlertEscalation (genfile: GeneratedFile, escalation: Ale
       return expr(ident('AlertEscalationBuilder'), builder => {
         builder.member(ident('runBasedEscalation'))
         builder.call(builder => {
-          const threshold = escalation.runBasedEscalation?.failedRunThreshold
-          if (threshold !== undefined) {
-            builder.number(threshold)
-          }
+          // The threshold is the builder's first, required parameter; a
+          // stored policy without one gets the builder's own default, so the
+          // reminders after it keep their position.
+          builder.number(escalation.runBasedEscalation?.failedRunThreshold ?? DEFAULT_FAILED_RUN_THRESHOLD)
 
           appendCommonArguments(escalation, builder)
         })
@@ -63,10 +73,7 @@ export function valueForAlertEscalation (genfile: GeneratedFile, escalation: Ale
       return expr(ident('AlertEscalationBuilder'), builder => {
         builder.member(ident('timeBasedEscalation'))
         builder.call(builder => {
-          const threshold = escalation.timeBasedEscalation?.minutesFailingThreshold
-          if (threshold !== undefined) {
-            builder.number(threshold)
-          }
+          builder.number(escalation.timeBasedEscalation?.minutesFailingThreshold ?? DEFAULT_MINUTES_FAILING_THRESHOLD)
 
           appendCommonArguments(escalation, builder)
         })
