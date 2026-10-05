@@ -6,19 +6,17 @@ import { AuthCommand } from './authCommand.js'
 import { detectCliMode } from '../helpers/cli-mode.js'
 import { parseProject } from '../services/project-parser.js'
 import { loadChecklyConfig, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
-import {
-  Check, AlertChannelSubscription, AlertChannel, CheckGroup, Dashboard,
-  MaintenanceWindow, PrivateLocation, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
-  Project, ProjectData,
-  Session, StatusPage, StatusPageService,
-  StatusPageV3Component, StatusPageV3AutomationRule,
-} from '../constructs/index.js'
+import { Session } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation, getGitRepoRoot } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
 import { dryRunFlag, forceFlag } from '../helpers/flags.js'
-import { physicalIdsFromPlan } from '../services/deploy-diff/import-shape.js'
-import { renderResourceDiff } from '../services/deploy-diff/render.js'
+import {
+  formatPreview,
+  NON_REPORTED_TYPES,
+  PRETTY_RESOURCE_TYPES,
+  ResourceDeployStatus,
+} from '../services/deploy-diff/preview-output.js'
 import {
   DiffEntry,
   ProjectDeployResponse,
@@ -27,56 +25,14 @@ import {
   ProjectPreviewNotSupportedError,
   ProjectPreviewResponse,
   ProjectSync,
-  ResourceSync,
 } from '../rest/projects.js'
 import { ConflictError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
-import {
-  isPrunedRelation,
-  onlyUnmanagedChanges,
-  planChangeLines,
-  reducePlanForAgent,
-} from '../services/deploy-diff/plan-summary.js'
+import { planChangeLines, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
-
-// eslint-disable-next-line no-restricted-syntax
-enum ResourceDeployStatus {
-  UPDATE = 'UPDATE',
-  CREATE = 'CREATE',
-  DELETE = 'DELETE',
-  // Reported for a resource removed from code that is kept in the account
-  // (managed from the Checkly web app from then on) instead of deleted.
-  DETACH = 'DETACH',
-  // What the same case was called before the deploy diff landed. Still
-  // accepted so a newer CLI keeps rendering an older API's answer.
-  DETACHED = 'DETACHED',
-  // A resource the deploy leaves alone because code and account agree.
-  UNCHANGED = 'UNCHANGED',
-}
-
-const PRETTY_RESOURCE_TYPES: Record<string, string> = {
-  [Check.__checklyType]: 'Check',
-  [AlertChannel.__checklyType]: 'AlertChannel',
-  [CheckGroup.__checklyType]: 'CheckGroup',
-  [MaintenanceWindow.__checklyType]: 'MaintenanceWindow',
-  [PrivateLocation.__checklyType]: 'PrivateLocation',
-  [Dashboard.__checklyType]: 'Dashboard',
-  [StatusPage.__checklyType]: 'StatusPage',
-  [StatusPageService.__checklyType]: 'StatusPageService',
-  [StatusPageV3Component.__checklyType]: 'StatusPageV3Component',
-  [StatusPageV3AutomationRule.__checklyType]: 'StatusPageV3AutomationRule',
-}
-
-// Internal resources that users don't create directly. They are reported as
-// part of their owning check, so we exclude them from delete previews/guards.
-const NON_REPORTED_TYPES = [
-  AlertChannelSubscription.__checklyType,
-  PrivateLocationCheckAssignment.__checklyType,
-  PrivateLocationGroupAssignment.__checklyType,
-]
 
 export default class Deploy extends AuthCommand {
   static coreCommand = true
@@ -444,19 +400,15 @@ export default class Deploy extends AuthCommand {
     }
 
     if (preview && !dryRun) {
-      this.log(this.formatPreview(
-        { diff: plan?.diff ?? fallbackDiff?.diff ?? [] },
+      this.log(formatPreview({
+        heading: { title: 'Deploy preview', projectName: project.name, accountName: account.name },
+        diff: plan?.diff ?? fallbackDiff?.diff ?? [],
         project,
         verbose,
         pruneRelations,
-        plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
-      ))
-      if (plan !== undefined) {
-        this.log(`Plan token: ${plan.planToken}`)
-        this.log(chalk.grey(
-          `Deploy this exact plan with \`checkly deploy --plan-token ${plan.planToken}\`.\n`,
-        ))
-      }
+        rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
+        planToken: plan?.planToken,
+      }))
       return
     }
 
@@ -522,13 +474,15 @@ export default class Deploy extends AuthCommand {
       if (output) {
         // The deploy response names every resource with its id; the plan the
         // deploy was confirmed against is where each one's deployed state is.
-        this.log(this.formatPreview(
-          data,
+        // No heading: the success line that follows names the project and account.
+        this.log(formatPreview({
+          done: true,
+          diff: data.diff,
           project,
           verbose,
           pruneRelations,
-          plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
-        ))
+          rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
+        }))
       }
       await setTimeout(500)
       this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
@@ -549,7 +503,13 @@ export default class Deploy extends AuthCommand {
         // afresh: this run's token describes a state Checkly has left behind,
         // so sending it again would be refused again.
         if (err.diff.length) {
-          this.log(this.formatPreview({ diff: err.diff }, project, verbose, pruneRelations))
+          this.log(formatPreview({
+            heading: { title: 'Current plan', projectName: project.name, accountName: account.name },
+            diff: err.diff,
+            project,
+            verbose,
+            pruneRelations,
+          }))
           this.style.longError(
             'Your Checkly account changed while this deploy was being confirmed, so nothing was deployed.',
             'The plan above is the current one. Re-run `checkly deploy` to review and deploy it.',
@@ -592,229 +552,5 @@ export default class Deploy extends AuthCommand {
       .sort((a, b) =>
         a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
       )
-  }
-
-  private formatPreview (
-    previewData: { diff: DiffEntry[] },
-    project: Project,
-    verbose = false,
-    /** Whether this deploy deletes the relations it does not manage. */
-    pruneRelations = false,
-    /**
-     * The preview plan with each changed resource's deployed state, and the
-     * local payload it was computed for: with these, every updated resource
-     * prints the diff of its construct as deployed against as in code.
-     */
-    rendering?: { plan: DiffEntry[], local: ResourceSync[] },
-  ): string {
-    // Current format of the data is: { checks: { logical-id-1: 'UPDATE' }, groups: { another-logical-id: 'CREATE' } }
-    // We convert it into update: [{ logicalId, resourceType, construct }, ...], create: [], delete: []
-    // This makes it easier to display.
-    const updating = []
-    const creating = []
-    const deleting: Array<{ resourceType: string, logicalId: string }> = []
-    const detaching: Array<{ resourceType: string, logicalId: string }> = []
-    const pruning: Array<{ resourceType: string, logicalId: string }> = []
-    const unmanaged: Array<{ resourceType: string, logicalId: string }> = []
-    let unchanged = 0
-    for (const change of previewData?.diff ?? []) {
-      const { type, logicalId, physicalId, action, changes } = change
-      if (NON_REPORTED_TYPES.some(t => t === type)) {
-        // A relation the project manages is reported as part of the check or
-        // group it belongs to, since users do not declare these directly. One
-        // the project does NOT manage is only ever reported when --prune-relations
-        // would delete it, and that is worth its own line.
-        if (isPrunedRelation(change)) {
-          pruning.push({ resourceType: type, logicalId })
-        }
-        continue
-      }
-      // Relations the project does not manage are reported on their owning
-      // check or group whether or not they would be deleted. Without
-      // --prune-relations the deploy leaves them — and the resource — alone, so
-      // listing it as an update would name a write that never happens.
-      // Never an update: what the deploy deletes is the relation, not the
-      // check or group it hangs off. With --prune-relations the relation's own
-      // entry is already listed under Prune, so the resource needs no line of
-      // its own — and advising the flag the user just passed would be absurd.
-      if (onlyUnmanagedChanges(change)) {
-        if (!pruneRelations) {
-          unmanaged.push({ resourceType: type, logicalId })
-        }
-        continue
-      }
-      const construct = project.data[type as keyof ProjectData][logicalId]
-      if (action === ResourceDeployStatus.UPDATE) {
-        updating.push({ resourceType: type, logicalId, physicalId, construct })
-      } else if (action === ResourceDeployStatus.UNCHANGED) {
-        // A resource whose own properties agree with the account can still have
-        // changed alert channels or private locations, which are reported on it
-        // rather than as resources of their own; only an entry with nothing at
-        // all to report counts as unchanged.
-        if ((changes?.length ?? 0) > 0) {
-          updating.push({ resourceType: type, logicalId, physicalId, construct })
-        } else {
-          unchanged++
-        }
-      } else if (action === ResourceDeployStatus.CREATE) {
-        creating.push({ resourceType: type, logicalId, physicalId, construct })
-      } else if (action === ResourceDeployStatus.DELETE) {
-        // Since the resource is being deleted, the construct isn't in the project.
-        deleting.push({ resourceType: type, logicalId })
-      } else if (
-        action === ResourceDeployStatus.DETACH
-        || action === ResourceDeployStatus.DETACHED
-      ) {
-        // Removed from code but kept in the account, so the construct is not in
-        // the project any more.
-        detaching.push({ resourceType: type, logicalId })
-      }
-    }
-
-    // testOnly checks weren't sent to the BE and won't be in previewData.
-    // We load them from the `project` instead.
-    const skipping = project
-      .getTestOnlyConstructs().map(construct => ({
-        logicalId: construct.logicalId,
-        resourceType: construct.type,
-        construct,
-      }))
-      // There is an edge case when the check already exists in Checkly, but `testOnly: true` was just added.
-      // In this case, the check will be included in both `deleting` and `skipping`.
-      // To avoid displaying the check twice, we detect this case and only show the check in `deleting`.
-      // This implementation is O(n^2), but could be sped up with a map or set.
-      .filter(skip =>
-        !deleting.find(
-          deletion => deletion.logicalId === skip.logicalId && deletion.resourceType === skip.resourceType,
-        ),
-      )
-
-    // Having some order will make the output easier to read.
-    const compareEntries = (a: any, b: any) =>
-      a.resourceType.localeCompare(b.resourceType)
-      || a.logicalId.localeCompare(b.logicalId)
-
-    // filter resources without contructs that are created dynamically
-    // on the flight (i.e. a non project member private-location)
-    const sortedUpdating = updating
-      .filter(({ construct }) => Boolean(construct))
-      .sort(compareEntries)
-
-    // filter resources without contructs that are created dynamically
-    // on the flight (i.e. a non project member private-location)
-    const sortedCreating = creating
-      .filter(({ construct }) => Boolean(construct))
-      .sort(compareEntries)
-
-    const sortedDeleting = deleting
-      .sort(compareEntries)
-
-    const sortedDetaching = detaching
-      .sort(compareEntries)
-
-    const sortedPruning = pruning
-      .sort(compareEntries)
-
-    const sortedUnmanaged = unmanaged
-      .sort(compareEntries)
-
-    if (!sortedCreating.length && !sortedDeleting.length && !sortedDetaching.length
-      && !sortedUpdating.length && !sortedPruning.length && !sortedUnmanaged.length
-      && !unchanged && !skipping.length) {
-      return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
-    }
-
-    const output = []
-
-    if (sortedCreating.filter(({ construct }) => Boolean(construct)).length) {
-      output.push(chalk.bold.green('Create:'))
-      for (const { logicalId, physicalId, construct } of sortedCreating) {
-        output.push(`    ${construct.constructor.name}: ${logicalId}`)
-        if (verbose && (construct as any).name) {
-          output.push(`      name: ${(construct as any).name}`)
-        }
-        if (verbose && physicalId) {
-          output.push(`      id: ${physicalId}`)
-        }
-      }
-      output.push('')
-    }
-    if (sortedDeleting.length) {
-      output.push(chalk.bold.red('Delete:'))
-      for (const { resourceType, logicalId } of sortedDeleting) {
-        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (sortedDetaching.length) {
-      output.push(chalk.bold.yellow('Kept in your Checkly account (removed from code, now managed from the Checkly web app):'))
-      for (const { resourceType, logicalId } of sortedDetaching) {
-        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (sortedPruning.length) {
-      output.push(chalk.bold.red('Prune (relations not managed by this project):'))
-      for (const { resourceType, logicalId } of sortedPruning) {
-        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (sortedUpdating.length) {
-      output.push(chalk.bold.magenta('Update:'))
-      const ids = rendering !== undefined ? physicalIdsFromPlan(rendering.plan, rendering.local) : undefined
-      for (const { resourceType, logicalId, physicalId, construct } of sortedUpdating) {
-        output.push(`    ${construct.constructor.name}: ${logicalId}`)
-        if (verbose && (construct as any).name) {
-          output.push(`      name: ${(construct as any).name}`)
-        }
-        if (verbose && physicalId) {
-          output.push(`      id: ${physicalId}`)
-        }
-        if (rendering === undefined || ids === undefined) {
-          continue
-        }
-        // The entry to render is the plan's, whether this listing is the plan
-        // itself or the deploy that carried it out.
-        const planned = rendering.plan.find(entry => entry.type === resourceType && entry.logicalId === logicalId)
-        if (planned === undefined || planned.before === undefined) {
-          continue
-        }
-        const lines = renderResourceDiff({
-          entry: planned,
-          local: rendering.local.find(resource => resource.type === resourceType && resource.logicalId === logicalId),
-          localResources: rendering.local,
-          diff: rendering.plan,
-          project,
-          ids,
-          pruneRelations,
-        })
-        for (const line of lines) {
-          output.push(`      ${line}`)
-        }
-      }
-      output.push('')
-    }
-    if (sortedUnmanaged.length) {
-      output.push(chalk.bold.yellow(
-        'Has alert channels or private locations this project does not manage (pass --prune-relations to delete them):',
-      ))
-      for (const { resourceType, logicalId } of sortedUnmanaged) {
-        output.push(`    ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    if (unchanged) {
-      output.push(chalk.bold.grey(`Unchanged: ${unchanged}`))
-      output.push('')
-    }
-    if (skipping.length) {
-      output.push(chalk.bold.grey('Skip (testOnly):'))
-      for (const { logicalId, construct } of skipping) {
-        output.push(`    ${construct.constructor.name}: ${logicalId}`)
-      }
-      output.push('')
-    }
-    return output.join('\n')
   }
 }
