@@ -1,4 +1,5 @@
 import { Check, CheckProps } from './check.js'
+import { DEFAULT_AGENTIC_CHECK_LOCATION } from './internal/agentic-check-defaults.js'
 import { Frequency } from './frequency.js'
 import { Session } from './session.js'
 import { CheckTypes } from '../constants.js'
@@ -10,12 +11,6 @@ import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
  * backend according to the account's entitlements.
  */
 export type AgenticCheckFrequency = number | Frequency
-
-/**
- * Backwards-compatible default for checks that do not set a location and do
- * not inherit one from the project config.
- */
-const DEFAULT_AGENTIC_CHECK_LOCATION = 'us-east-1'
 
 /**
  * Configures the runtime context the agent has access to during a check.
@@ -52,7 +47,8 @@ export interface AgentRuntime {
  * platform does not yet honor them for agentic checks. They will be added back
  * as additive, non-breaking changes once support lands.
  */
-export interface AgenticCheckProps extends Omit<CheckProps,
+/** The check props an agentic check does not take; its codegen must generate none of them. */
+export type AgenticCheckOmittedProp =
   | 'privateLocations'
   | 'runParallel'
   | 'retryStrategy'
@@ -61,7 +57,8 @@ export interface AgenticCheckProps extends Omit<CheckProps,
   | 'triggerIncident'
   | 'groupId'
   | 'frequency'
-> {
+
+export interface AgenticCheckProps extends Omit<CheckProps, AgenticCheckOmittedProp> {
   /**
    * The prompt that defines what the agentic check should verify.
    * Maximum 10,000 characters.

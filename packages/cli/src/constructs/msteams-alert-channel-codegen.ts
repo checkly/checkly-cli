@@ -13,7 +13,7 @@ export interface MSTeamsAlertChannelResource extends WebhookAlertChannelResource
 const construct = 'MSTeamsAlertChannel'
 
 export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResource> {
-  validateSafety (resource: MSTeamsAlertChannelResource): void {
+  validateSafety (resource: MSTeamsAlertChannelResource, context?: Context): void {
     const { config } = resource
 
     if (config.method !== 'POST') {
@@ -28,7 +28,9 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
       throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
     }
 
-    if (config.webhookSecret) {
+    // The preview masks this field even when it is null, so a masked value
+    // says nothing about whether a secret is set.
+    if (config.webhookSecret && !context?.isMasked(config.webhookSecret)) {
       throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
     }
   }
@@ -40,7 +42,7 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
   }
 
   prepare (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
-    this.validateSafety(resource)
+    this.validateSafety(resource, context)
 
     const { name } = resource.config
 
@@ -56,29 +58,13 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
   }
 
   gencode (logicalId: string, resource: MSTeamsAlertChannelResource, context: Context): void {
-    this.validateSafety(resource)
+    this.validateSafety(resource, context)
 
     const { id, file } = context.lookupAlertChannel(resource.id)
 
     file.namedImport(construct, 'checkly/constructs')
 
     const { config } = resource
-
-    if (config.method !== 'POST') {
-      throw new ImportSafetyViolation(`Unsupported value for property 'method' (expected 'POST')`)
-    }
-
-    if (config.headers !== undefined && config.headers.length !== 0) {
-      throw new ImportSafetyViolation(`Unsupported value for property 'headers' (expected no value or an empty array)`)
-    }
-
-    if (config.queryParameters !== undefined && config.queryParameters.length !== 0) {
-      throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
-    }
-
-    if (config.webhookSecret) {
-      throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
-    }
 
     file.section(decl(id, builder => {
       builder.variable(expr(ident(construct), builder => {

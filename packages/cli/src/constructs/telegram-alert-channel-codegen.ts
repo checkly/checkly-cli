@@ -12,7 +12,12 @@ export interface TelegramAlertChannelResource extends WebhookAlertChannelResourc
   }
 }
 
-function apiKeyFromUrl (url: string): string | undefined {
+function apiKeyFromUrl (url: string, context: Context): string | undefined {
+  // A masked URL holds no key to extract; the mask stands in for it.
+  if (context.isMasked(url)) {
+    return url
+  }
+
   const match = /https:\/\/api.telegram.org\/bot([^/]+)\/sendMessage/.exec(url)
   if (match) {
     return match[1]
@@ -46,7 +51,7 @@ function parseTemplate (template: string): TemplateValues {
 const construct = 'TelegramAlertChannel'
 
 export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelResource> {
-  validateSafety (resource: TelegramAlertChannelResource) {
+  validateSafety (resource: TelegramAlertChannelResource, context?: Context) {
     const { config } = resource
 
     if (config.method !== 'POST') {
@@ -61,7 +66,9 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
       throw new ImportSafetyViolation(`Unsupported value for property 'queryParameters' (expected no value or an empty array)`)
     }
 
-    if (config.webhookSecret) {
+    // The preview masks this field even when it is null, so a masked value
+    // says nothing about whether a secret is set.
+    if (config.webhookSecret && !context?.isMasked(config.webhookSecret)) {
       throw new ImportSafetyViolation(`Unsupported value for property 'webhookSecret' (expected no value)`)
     }
   }
@@ -73,7 +80,7 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
   }
 
   prepare (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
-    this.validateSafety(resource)
+    this.validateSafety(resource, context)
 
     const { name } = resource.config
 
@@ -89,7 +96,7 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
   }
 
   gencode (logicalId: string, resource: TelegramAlertChannelResource, context: Context): void {
-    this.validateSafety(resource)
+    this.validateSafety(resource, context)
 
     const { id, file } = context.lookupAlertChannel(resource.id)
 
@@ -104,7 +111,7 @@ export class TelegramAlertChannelCodegen extends Codegen<TelegramAlertChannelRes
           builder.object(builder => {
             builder.string('name', config.name)
 
-            const apiKey = apiKeyFromUrl(config.url)
+            const apiKey = apiKeyFromUrl(config.url, context)
             if (apiKey) {
               builder.string('apiKey', apiKey)
             } else {

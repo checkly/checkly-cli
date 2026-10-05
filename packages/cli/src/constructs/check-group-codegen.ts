@@ -1,6 +1,6 @@
 import { Codegen, Context, ImportSafetyViolation } from './internal/codegen/index.js'
 import { decl, expr, GeneratedFile, ident, object, ObjectValueBuilder, Program, Value } from '../sourcegen/index.js'
-import { AlertEscalationResource, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
+import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckDefaultConfig } from './api-check.js'
 import { valueForAssertion } from './api-assertion-codegen.js'
 import { EnvironmentVariable } from './environment-variable.js'
@@ -66,6 +66,14 @@ function buildCheckGroupProps (
 
   if (resource.muted === true) {
     builder.boolean('muted', resource.muted)
+  }
+
+  // Always generated when the row carries it: the value a deploy stores for
+  // a group that leaves it unset (3, the deploy schema's default) differs
+  // from the column's own default (1), so there is no single value that
+  // omitting it would reproduce.
+  if (resource.concurrency !== undefined && resource.concurrency !== null) {
+    builder.number('concurrency', resource.concurrency)
   }
 
   if (resource.runtimeId) {
@@ -168,7 +176,11 @@ function buildCheckGroupProps (
   if (resource.useGlobalAlertSettings === true) {
     builder.string('alertEscalationPolicy', 'global')
   } else if (resource.useGlobalAlertSettings === false) {
-    if (resource.alertSettings) {
+    // The column defaults to an empty object, so a group flagged as owning a
+    // policy may hold none. Nothing is generated for it: the group then
+    // deploys without a flag, meaning its checks keep their own policies,
+    // which is all an empty group policy ever amounted to.
+    if (hasEscalationPolicy(resource.alertSettings)) {
       builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
     }
   }
@@ -252,7 +264,9 @@ function buildCheckGroupProps (
 
       if (config.basicAuth) {
         const basicAuth = config.basicAuth
-        if (basicAuth.username !== '' && basicAuth.password !== '') {
+        // Either field alone is a credential the construct must keep; only
+        // the empty pair is the construct's own default.
+        if (basicAuth.username !== '' || basicAuth.password !== '') {
           builder.object('basicAuth', builder => {
             builder.string('username', basicAuth.username)
             builder.string('password', basicAuth.password)
