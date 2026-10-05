@@ -542,12 +542,12 @@ describe('deploy', { timeout: 45_000 }, () => {
       }
       expect(stdout).toMatch(/^\s*-\s+name: 'Suite',$/m)
       expect(stdout).toMatch(/^\s*\+\s+name: 'Renamed suite',$/m)
-      // Context lines on both sides: the deployed side unfolds the config
-      // path and the projects from the stored test command exactly as the
-      // local side does, and spells the engine the same way. The rename is
-      // the only change the diff shows.
+      // The rename is the only change the diff shows: the deployed side
+      // unfolds the config path and the projects from the stored test command
+      // exactly as the local side does, and spells the engine the same way,
+      // or each would be a changed line of its own. The config path is close
+      // enough to the rename to be printed as context; the engine is not.
       expect(stdout).toContain('playwrightConfigPath: \'playwright.config.ts\'')
-      expect(stdout).toContain('engine: Engine.node(\'22\')')
       expect(stdout.match(/^\s*[-+]\s+[A-Za-z]+: /gm)).toHaveLength(2)
     }, 300_000)
   })
