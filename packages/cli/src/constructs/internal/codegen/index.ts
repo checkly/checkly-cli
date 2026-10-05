@@ -1,4 +1,6 @@
 export { Codegen } from './codegen.js'
-export { Context, MissingContextVariableMappingError } from './context.js'
+export { Context, MASKED_VALUE, type ContextOptions, MissingContextVariableMappingError } from './context.js'
+export { ConstructRenderError, renderConstruct } from './render.js'
+export type { RenderConstructOptions } from './render.js'
 export { ImportSafetyViolation } from './safety.js'
 export { validateScript } from './snippet.js'

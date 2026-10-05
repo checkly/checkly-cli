@@ -30,7 +30,7 @@ export type ResourceType =
   | 'status-page-component'
   | 'status-page-automation-rule'
 
-interface Resource {
+export interface Resource {
   type: ResourceType
   logicalId: string
   payload: any

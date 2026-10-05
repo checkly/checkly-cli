@@ -8,7 +8,12 @@ vi.mock('../../helpers/cli-mode', () => ({
 
 vi.mock('../../rest/api', () => ({
   runtimes: { getAll: vi.fn().mockResolvedValue([]) },
-  projects: { deploy: vi.fn().mockResolvedValue({ data: { diff: [] } }) },
+  projects: {
+    // A deploy previews first and sends what it previewed, so both calls see
+    // the same synthesized resources.
+    preview: vi.fn().mockResolvedValue({ planToken: 'v1.AAAAAAAAAAAAAAAAAAAAAA', diff: [] }),
+    deploy: vi.fn().mockResolvedValue({ data: { diff: [] } }),
+  },
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
 
@@ -69,7 +74,12 @@ function createCommandContext () {
     parse: vi.fn().mockResolvedValue({
       flags: {
         'force': true,
-        'preview': true,
+        'preview': false,
+        'dry-run': false,
+        'plan-token': undefined,
+        'prune-relations': false,
+        'preserve-resources': false,
+        'cancel-in-progress-deployment': false,
         'output': false,
         'verbose': false,
         'config': undefined,
@@ -96,6 +106,7 @@ function createCommandContext () {
       longInfo: vi.fn(),
       shortError: vi.fn(),
     },
+    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     validateProject: (AuthCommand.prototype as any).validateProject,
     formatPreview: (Deploy.prototype as any).formatPreview,
     constructor: Deploy,
