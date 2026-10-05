@@ -87,7 +87,11 @@ export abstract class AuthCommand extends BaseCommand {
 
       const confirmed = options.interactiveConfirm
         ? await options.interactiveConfirm()
-        : (await prompts({ name: 'confirm', type: 'confirm', message: 'Proceed?' })).confirm
+        : (await prompts({
+            name: 'confirm',
+            type: 'confirm',
+            message: preview.question ?? 'Proceed?',
+          })).confirm
 
       if (!confirmed) {
         return this.exit(0)
