@@ -514,11 +514,12 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
 
     // A deployed suite first: the preview renders a construct diff only for
-    // an updated resource. Both runs bundle the Playwright project, which is
-    // what takes the time; the enclosing suite's budget is smaller than one
-    // deploy's own.
+    // an updated resource, and only against a deploy that planned, since a
+    // deploy without a plan records nothing to compare the next one with.
+    // Both runs bundle the Playwright project, which is what takes the time;
+    // the enclosing suite's budget is smaller than one deploy's own.
     it('Should render a renamed Playwright check suite as a construct diff', async () => {
-      await runDeploy(fixt, ['--force'], {
+      await runDeploy(fixt, ['--plan', '--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           CHECKLY_E2E_CLI_VERSION: '4.8.0',
