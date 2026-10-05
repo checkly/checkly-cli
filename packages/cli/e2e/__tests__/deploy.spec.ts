@@ -483,6 +483,57 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
   })
 
+  describe('preview-playwright-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'preview-playwright-project'),
+        template: 'playwright',
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    // A deployed suite first: the preview renders a construct diff only for
+    // an updated resource. Both runs bundle the Playwright project, which is
+    // what takes the time; the enclosing suite's budget is smaller than one
+    // deploy's own.
+    it('Should render a renamed Playwright check suite as a construct diff', async () => {
+      await runDeploy(fixt, ['--force'], {
+        env: {
+          PROJECT_LOGICAL_ID: projectLogicalId,
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
+        },
+      })
+      const { stdout } = await runDeploy(fixt, ['--preview'], {
+        env: {
+          PROJECT_LOGICAL_ID: projectLogicalId,
+          SUITE_NAME: 'Renamed suite',
+          CHECKLY_E2E_CLI_VERSION: '4.8.0',
+        },
+      })
+      expect(stdout).toMatch(tableRows([['~', 'PlaywrightCheck', 'suite']]))
+      expect(stdout).not.toContain('could not render this resource')
+      // The construct diff needs the API's preview endpoint; against an API
+      // without it the CLI prints the overview only and says so.
+      if (stdout.includes('for the deploy preview endpoint')) {
+        return
+      }
+      expect(stdout).toMatch(/^\s*-\s+name: 'Suite',$/m)
+      expect(stdout).toMatch(/^\s*\+\s+name: 'Renamed suite',$/m)
+      // Context lines on both sides: the deployed side unfolds the config
+      // path and the projects from the stored test command exactly as the
+      // local side does, and spells the engine the same way. The rename is
+      // the only change the diff shows.
+      expect(stdout).toContain('playwrightConfigPath: \'playwright.config.ts\'')
+      expect(stdout).toContain('engine: Engine.node(\'22\')')
+      expect(stdout.match(/^\s*[-+]\s+[A-Za-z]+: /gm)).toHaveLength(2)
+    }, 300_000)
+  })
+
   describe('snapshot-project', () => {
     let fixt: FixtureSandbox
 
