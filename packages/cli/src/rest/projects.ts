@@ -101,6 +101,14 @@ export interface DiffEntry extends Change {
   foldedInto?: { type: string, logicalId: string }
   /** The file Checkly has recorded for the resource, or null if none. */
   sourceFile?: string | null
+  /**
+   * `live` when Checkly had no earlier planned deploy to compare the resource
+   * with and compared the code with the deployed resource instead. The deploy
+   * writes such a resource whatever the comparison found, and `changes` is not
+   * exhaustive: a value the deployed resource holds on a property the code
+   * does not set is left out, although the write may reset it.
+   */
+  basis?: 'live'
 }
 
 /** How much of each change a preview reports. */
