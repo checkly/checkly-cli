@@ -253,7 +253,8 @@ export class PlaywrightCheckCodegen extends Codegen<PlaywrightCheckResource> {
 
           // The construct fills in the package manager's `playwright test`
           // when no command is given, so that command is not spelled out.
-          if (command !== undefined && command !== PlaywrightCheck.defaultTestCommand()) {
+          if (command !== undefined
+            && (command !== PlaywrightCheck.defaultTestCommand() || context.spelledOut('testCommand'))) {
             builder.string('testCommand', command)
           }
 

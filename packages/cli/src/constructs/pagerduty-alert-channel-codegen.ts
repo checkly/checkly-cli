@@ -66,7 +66,7 @@ export class PagerdutyAlertChannelCodegen extends Codegen<PagerdutyAlertChannelR
 
             builder.string('serviceKey', config.serviceKey)
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

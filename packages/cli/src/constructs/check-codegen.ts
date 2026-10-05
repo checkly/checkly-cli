@@ -188,7 +188,8 @@ export function buildCheckProps (
   // the project config when it names one, else the backend default. A row
   // that differs from that is generated explicitly, even when it holds the
   // backend default, so an import does not hand the check to a project-wide
-  // setting it never had. alertChannels, privateLocations and
+  // setting it never had. A prop the code being rendered spells out
+  // (`context.spelledOut`) is generated whatever its value. alertChannels, privateLocations and
   // environmentVariables are one-directional: never left out when the row
   // holds any (a value comparison against constructs or key/value/locked/
   // secret objects is not attempted), and spelled out as empty when the
@@ -199,18 +200,19 @@ export function buildCheckProps (
   const defaults = projectDefaultsFor(resource.checkType)
   const omitted = new Set<OmittableCheckProp>(options.omit ?? [])
 
-  if (resource.activated !== undefined && resource.activated !== (defaults('activated') ?? true)) {
+  if (resource.activated !== undefined
+    && (resource.activated !== (defaults('activated') ?? true) || context.spelledOut('activated'))) {
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted !== undefined && resource.muted !== (defaults('muted') ?? false)) {
+  if (resource.muted !== undefined && (resource.muted !== (defaults('muted') ?? false) || context.spelledOut('muted'))) {
     builder.boolean('muted', resource.muted)
   }
 
   if (
     !omitted.has('shouldFail')
     && resource.shouldFail !== undefined
-    && resource.shouldFail !== (defaults('shouldFail') ?? false)
+    && (resource.shouldFail !== (defaults('shouldFail') ?? false) || context.spelledOut('shouldFail'))
   ) {
     builder.boolean('shouldFail', resource.shouldFail)
   }
@@ -218,7 +220,7 @@ export function buildCheckProps (
   if (resource.locations) {
     const locations = resource.locations
     const implied = defaults('locations') ?? options.fallbackLocations ?? []
-    if (!sameList(locations, implied)) {
+    if (!sameList(locations, implied) || context.spelledOut('locations')) {
       builder.array('locations', builder => {
         for (const location of locations) {
           builder.string(location)
@@ -265,7 +267,7 @@ export function buildCheckProps (
 
   if (resource.tags) {
     const tags = resource.tags
-    if (!sameList(tags, defaults('tags') ?? [])) {
+    if (!sameList(tags, defaults('tags') ?? []) || context.spelledOut('tags')) {
       builder.array('tags', builder => {
         for (const tag of tags) {
           builder.string(tag)
@@ -344,15 +346,20 @@ export function buildCheckProps (
     builder.value('alertEscalationPolicy', valueForAlertEscalation(genfile, resource.alertSettings))
   }
 
-  if (resource.testOnly !== undefined && resource.testOnly !== false) {
+  if (resource.testOnly !== undefined && (resource.testOnly !== false || context.spelledOut('testOnly'))) {
     builder.boolean('testOnly', resource.testOnly)
   }
 
   if (!options.skipRetryStrategy && !omitted.has('retryStrategy')) {
-    builder.value('retryStrategy', valueForRetryStrategy(genfile, resource.retryStrategy))
+    builder.value('retryStrategy', valueForRetryStrategy(
+      genfile,
+      resource.retryStrategy,
+      context.spelledOutUnder('retryStrategy'),
+    ))
   }
 
-  if (!omitted.has('runParallel') && resource.runParallel !== undefined && resource.runParallel !== false) {
+  if (!omitted.has('runParallel') && resource.runParallel !== undefined
+    && (resource.runParallel !== false || context.spelledOut('runParallel'))) {
     builder.boolean('runParallel', resource.runParallel)
   }
 }
@@ -384,7 +391,7 @@ export function buildRuntimeCheckProps (
     if (variables.length > 0 || implied.length > 0) {
       builder.array('environmentVariables', builder => {
         for (const variable of variables) {
-          builder.value(valueForKeyValuePair(program, genfile, context, variable))
+          builder.value(valueForKeyValuePair(program, genfile, context, variable, 'environmentVariables'))
         }
       })
     }

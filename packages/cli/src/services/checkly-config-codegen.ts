@@ -62,7 +62,7 @@ function buildCheckConfigDefaults (
     const environmentVariables = resource.environmentVariables
     builder.array('environmentVariables', builder => {
       for (const variable of environmentVariables) {
-        builder.value(valueForKeyValuePair(program, file, context, variable))
+        builder.value(valueForKeyValuePair(program, file, context, variable, 'environmentVariables'))
       }
     })
   }

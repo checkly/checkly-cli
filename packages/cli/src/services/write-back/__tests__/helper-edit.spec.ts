@@ -394,6 +394,22 @@ new ApiCheck('api', {
       .toContain(`{ retryStrategy: RetryStrategyBuilder.fixedStrategy({ maxRetries: 3 }) }`)
   })
 
+  it('keeps the options a replaced retry strategy spells out, as a builder call or a plain object', () => {
+    const call = `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+new ApiCheck('api', { retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 12, maxRetries: 2 }) })
+`
+    const strategy = { type: 'LINEAR', baseBackoffSeconds: 60, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
+    expect(apply('a.ts', call, [retry(strategy)]).text)
+      .toContain('RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 60, maxRetries: 2 })')
+    // A strategy written as an object is replaced by the builder call, and
+    // the options it names come along even at their defaults.
+    const object = `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+new ApiCheck('api', { retryStrategy: { type: 'FIXED', baseBackoffSeconds: 12, sameRegion: true } })
+`
+    expect(apply('a.ts', object, [retry(strategy)]).text)
+      .toContain('RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 60, sameRegion: true })')
+  })
+
   it('skips what it must not touch, with the reason', () => {
     const text = `import { ApiCheck, Frequency } from 'checkly/constructs'
 import { RetryStrategyBuilder } from './mine.js'

@@ -59,7 +59,8 @@ export class TcpMonitorCodegen extends Codegen<TcpMonitorResource> {
             builder.string('hostname', resource.request.hostname)
             builder.number('port', resource.request.port)
 
-            if (resource.request.ipFamily && resource.request.ipFamily !== 'IPv4') {
+            if (resource.request.ipFamily
+              && (resource.request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
               builder.string('ipFamily', resource.request.ipFamily)
             }
 

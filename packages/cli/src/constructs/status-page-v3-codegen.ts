@@ -166,8 +166,9 @@ export class StatusPageV3Codegen extends Codegen<StatusPageV3Resource> {
             }
 
             // Indexing is on by default; only the opt-out is worth spelling out.
-            if (resource.allowIndexing === false) {
-              builder.boolean('allowIndexing', false)
+            if (resource.allowIndexing != null
+              && (resource.allowIndexing === false || context.spelledOut('allowIndexing'))) {
+              builder.boolean('allowIndexing', resource.allowIndexing)
             }
 
             const themes = resource.themeColors ? themeColorEntries(resource.themeColors) : []

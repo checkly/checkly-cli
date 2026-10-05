@@ -239,8 +239,8 @@ describe('deploy', { timeout: 45_000 }, () => {
         .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
     })
 
-    it('deploys without a plan under --skip-plan', async () => {
-      const { stderr, stdout } = await runDeploy(fixt, ['--skip-plan', '--force'], {
+    it('deploys with a plan under --plan', async () => {
+      const { stderr, stdout } = await runDeploy(fixt, ['--plan', '--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
@@ -248,7 +248,14 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
       expect(stderr).toBe('')
-      expect(stdout).toContain('Successfully deployed project')
+      // Against an API that makes plans, a deploy of what is already deployed
+      // has nothing to write and says so; against one that does not, the
+      // deploy writes every resource as before.
+      if (stdout.includes('No changes.')) {
+        expect(stdout).toMatch(/Project ".*" is up to date\./)
+      } else {
+        expect(stdout).toContain('Successfully deployed project')
+      }
     })
 
     it('Simple project should deploy successfully', async () => {
@@ -421,17 +428,14 @@ describe('deploy', { timeout: 45_000 }, () => {
       // The check should only be listed under "Delete" and not "Skip".
       expect(stdout).toMatch(tableRows([['-', 'Check', 'testonly-true-check']], 'permanently deleted, run history lost'))
       expect(stdout).not.toContain('skipped (testOnly)')
-      // The two surviving checks are unchanged between the deploys. An API that
-      // reports the deploy diff says so and they are counted; an older one
-      // reports every retained resource as an update and they are listed.
-      expect(
-        /^ {4}2 unchanged$/m.test(stdout)
-        || tableRows([
-          ['~', 'ApiCheck', 'not-testonly-default-check'],
-          ['~', 'ApiCheck', 'not-testonly-false-check'],
-        ]).test(stdout),
-        stdout,
-      ).toBe(true)
+      // The two surviving checks are unchanged between the deploys, and a
+      // deploy without a plan writes them all the same: they are listed as
+      // updates, and nothing is counted as unchanged.
+      expect(stdout).toMatch(tableRows([
+        ['~', 'ApiCheck', 'not-testonly-default-check'],
+        ['~', 'ApiCheck', 'not-testonly-false-check'],
+      ]))
+      expect(stdout).not.toMatch(/^ {4}\d+ unchanged$/m)
       // --output without --verbose should not show name or id
       expect(stdout).not.toContain('name:')
       expect(stdout).not.toContain('id:')
@@ -510,17 +514,18 @@ describe('deploy', { timeout: 45_000 }, () => {
     })
 
     // A deployed suite first: the preview renders a construct diff only for
-    // an updated resource. Both runs bundle the Playwright project, which is
-    // what takes the time; the enclosing suite's budget is smaller than one
-    // deploy's own.
+    // an updated resource, and only against a deploy that planned, since a
+    // deploy without a plan records nothing to compare the next one with.
+    // Both runs bundle the Playwright project, which is what takes the time;
+    // the enclosing suite's budget is smaller than one deploy's own.
     it('Should render a renamed Playwright check suite as a construct diff', async () => {
-      await runDeploy(fixt, ['--force'], {
+      await runDeploy(fixt, ['--plan', '--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
-      const { stdout } = await runDeploy(fixt, ['--preview'], {
+      const { stdout } = await runDeploy(fixt, ['--plan', '--preview'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           SUITE_NAME: 'Renamed suite',
@@ -529,19 +534,20 @@ describe('deploy', { timeout: 45_000 }, () => {
       })
       expect(stdout).toMatch(tableRows([['~', 'PlaywrightCheck', 'suite']]))
       expect(stdout).not.toContain('could not render this resource')
-      // The construct diff needs the API's preview endpoint; against an API
-      // without it the CLI prints the overview only and says so.
-      if (stdout.includes('for the deploy preview endpoint')) {
+      // The construct diff needs a plan; against an API without the preview
+      // endpoint, or one that has plans switched off, the CLI prints the
+      // overview only and says so.
+      if (stdout.includes('for the deploy preview endpoint') || stdout.includes('deploy plans switched off')) {
         return
       }
       expect(stdout).toMatch(/^\s*-\s+name: 'Suite',$/m)
       expect(stdout).toMatch(/^\s*\+\s+name: 'Renamed suite',$/m)
-      // Context lines on both sides: the deployed side unfolds the config
-      // path and the projects from the stored test command exactly as the
-      // local side does, and spells the engine the same way. The rename is
-      // the only change the diff shows.
+      // The rename is the only change the diff shows: the deployed side
+      // unfolds the config path and the projects from the stored test command
+      // exactly as the local side does, and spells the engine the same way,
+      // or each would be a changed line of its own. The config path is close
+      // enough to the rename to be printed as context; the engine is not.
       expect(stdout).toContain('playwrightConfigPath: \'playwright.config.ts\'')
-      expect(stdout).toContain('engine: Engine.node(\'22\')')
       expect(stdout.match(/^\s*[-+]\s+[A-Za-z]+: /gm)).toHaveLength(2)
     }, 300_000)
   })

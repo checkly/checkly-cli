@@ -56,7 +56,7 @@ export class PhoneCallAlertChannelCodegen extends Codegen<PhoneCallAlertChannelR
 
             builder.string('phoneNumber', config.number)
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

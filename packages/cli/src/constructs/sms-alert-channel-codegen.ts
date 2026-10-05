@@ -56,7 +56,7 @@ export class SmsAlertChannelCodegen extends Codegen<SmsAlertChannelResource> {
 
             builder.string('phoneNumber', config.number)
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

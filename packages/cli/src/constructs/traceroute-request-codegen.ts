@@ -12,7 +12,7 @@ export function valueForTracerouteRequest (
   return object(builder => {
     builder.string('url', request.url)
 
-    if (request.protocol && request.protocol !== 'TCP') {
+    if (request.protocol && (request.protocol !== 'TCP' || context.spelledOut('request.protocol'))) {
       builder.string('protocol', request.protocol)
     }
 
@@ -22,7 +22,7 @@ export function valueForTracerouteRequest (
       builder.number('port', request.port)
     }
 
-    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+    if (request.ipFamily && (request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
       builder.string('ipFamily', request.ipFamily)
     }
 

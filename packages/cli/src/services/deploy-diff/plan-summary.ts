@@ -69,6 +69,16 @@ function reportable (entry: DiffEntry, { foldedTypes }: PlanSummaryOptions): boo
   return entry.action !== 'UNCHANGED' || (entry.changes?.length ?? 0) > 0
 }
 
+/**
+ * True when the plan gives the deploy nothing to write: no resource to create,
+ * update, delete or detach, and no relation to prune. Relations the project
+ * does not manage and is not pruning do not count, since the deploy leaves
+ * them alone.
+ */
+export function planHasNoChanges (diff: DiffEntry[], options: PlanSummaryOptions): boolean {
+  return !diff.some(entry => reportable(entry, options))
+}
+
 function label (entry: DiffEntry, { prettyTypes }: PlanSummaryOptions): string {
   return `${prettyTypes[entry.type] ?? entry.type}: ${entry.logicalId}`
 }

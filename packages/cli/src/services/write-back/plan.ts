@@ -3,7 +3,6 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
-import * as constructs from '../../constructs/index.js'
 import { AgenticCheck, type AgenticCheckProps } from '../../constructs/agentic-check.js'
 import { ApiCheck, type ApiCheckDefaultConfig, type ApiCheckProps } from '../../constructs/api-check.js'
 import type { Request } from '../../constructs/api-request.js'
@@ -64,7 +63,7 @@ import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../constructs/playwright-chec
 import { blankRedacted, nodeAt, pointerSegments, UnshapeableError } from '../deploy-diff/import-shape.js'
 import { applyEdits, readsBack, type SourceEdit } from './apply-edits.js'
 import type { AssertionBuilderName } from './helper-edit.js'
-import { findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
+import { exportedNamesOf, findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
 
 /**
  * Turns the remote changes of a deploy plan into edits of the construct
@@ -114,13 +113,45 @@ export interface WriteBackLine {
   replacesLocalEdit: boolean
 }
 
+/** A remote change that was not written, or a resource none could be written for. */
+export interface WriteBackSkip {
+  type: string
+  logicalId: string
+  /** The property or path the reason is about; none when it is about the whole resource. */
+  property?: string
+  reason: string
+}
+
+/**
+ * The source of one edited construct, from the line its options open on to
+ * the line they close on, before its edits and after them: what a reader
+ * needs to see the edits in place.
+ */
+export interface WriteBackConstruct {
+  /** The edited file, relative to `cwd`. */
+  file: string
+  type: string
+  logicalId: string
+  before: string
+  after: string
+}
+
 export interface WriteBackPlan {
   /** Each file's new text, with the text it was planned from. */
   files: { path: string, text: string, original: string }[]
   applied: WriteBackLine[]
-  skipped: string[]
+  /** One entry per construct `applied` has lines for, in the order they were edited. */
+  constructs: WriteBackConstruct[]
+  skipped: WriteBackSkip[]
   /** The helper classes added to each edited file's `checkly/constructs` import. */
   imports: { file: string, names: string[] }[]
+}
+
+/** The whole lines of `text` that the range `[start, end)` touches. */
+function linesSpanning (text: string, [start, end]: readonly [number, number]): string {
+  const from = text.lastIndexOf('\n', start - 1) + 1
+  const to = text.indexOf('\n', end)
+  return text.slice(from, to === -1 ? text.length : to)
 }
 
 /** How an import-format path maps onto a construct property. */
@@ -677,6 +708,8 @@ const REFERENCE_PREFIXES = [
 
 /** Properties a remote change to is reported rather than written, with the reason. */
 const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
+  // Dropped again at the end of `planWriteBack` for a resource whose retry
+  // strategy was written: the advice would be wrong there.
   ['doubleCheck', 'replaced by retryStrategy; set the retry strategy in the code by hand'],
   ['runParallel', 'not a property this tool can update'],
   ['triggerIncident', 'Checkly does not report the incident trigger\'s settings; edit it by hand'],
@@ -685,17 +718,6 @@ const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
   ['engineVersion', 'this tool does not update the engine yet; set it by hand'],
   ['agentRuntime', 'this tool does not update agentRuntime yet; set it by hand'],
 ])
-
-/** The names `checkly/constructs` exports for a construct's class; empty for a class of the user's own. */
-function exportedNamesOf (construct: Construct): Set<string> {
-  const names = new Set<string>()
-  for (const [name, value] of Object.entries(constructs)) {
-    if (value === construct.constructor) {
-      names.add(name)
-    }
-  }
-  return names
-}
 
 /** Whether a reported value is one of the API's stand-ins (`{ $hash }`, `{ $masked }`, `{ $json }`, `{ $ref }`) or holds one. */
 function withheld (value: unknown): boolean {
@@ -801,14 +823,11 @@ function refusal (change: DiffChange, segments: readonly string[]): string | und
 }
 
 class EntryContext {
-  readonly label: string
-
-  constructor (readonly entry: DiffEntry, readonly skipped: string[]) {
-    this.label = `${entry.type} ${entry.logicalId}`
-  }
+  constructor (readonly entry: DiffEntry, readonly skipped: WriteBackSkip[]) {}
 
   skip (reason: string, property?: string): void {
-    this.skipped.push(property === undefined ? `${this.label}: ${reason}` : `${this.label} ${property}: ${reason}`)
+    const { type, logicalId } = this.entry
+    this.skipped.push(property === undefined ? { type, logicalId, reason } : { type, logicalId, property, reason })
   }
 }
 
@@ -1002,7 +1021,7 @@ export function hasWritableChanges (diff: readonly DiffEntry[], project: Project
 }
 
 export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): Promise<WriteBackPlan> {
-  const skipped: string[] = []
+  const skipped: WriteBackSkip[] = []
   const byFile = new Map<string, FileWork[]>()
 
   for (const entry of diff) {
@@ -1080,6 +1099,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
 
   const files: WriteBackPlan['files'] = []
   const applied: WriteBackLine[] = []
+  const constructs: WriteBackConstruct[] = []
   const imports: WriteBackPlan['imports'] = []
   for (const [filePath, work] of byFile) {
     const file = path.relative(cwd, filePath)
@@ -1094,6 +1114,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
     }
     const original = text
     const lines: WriteBackLine[] = []
+    const edited: WriteBackConstruct[] = []
     const added = new Set<string>()
     // Constructs of one file are edited one after another, each against a
     // fresh parse of the text the previous one produced, so no range is stale.
@@ -1145,6 +1166,13 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
             throw new WriteBackSkipped(`the edited file did not read back as expected at ${edit.path.join('.')}`)
           }
         }
+        edited.push({
+          file,
+          type: context.entry.type,
+          logicalId,
+          before: linesSpanning(source.text, options.range),
+          after: linesSpanning(result.text, reparsed.range),
+        })
         text = result.text
         result.imports.forEach(name => added.add(name))
         for (const edit of result.applied) {
@@ -1169,6 +1197,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
         }
         text = original
         lines.length = 0
+        edited.length = 0
         added.clear()
         break
       }
@@ -1176,12 +1205,19 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
     if (text !== original) {
       files.push({ path: filePath, text, original })
       applied.push(...lines)
+      constructs.push(...edited)
       if (added.size > 0) {
         imports.push({ file, names: [...added] })
       }
     }
   }
-  return { files, applied, skipped, imports }
+  // Saving a retry strategy in Checkly also moves the legacy `doubleCheck`
+  // flag it replaced. Once the strategy itself is written, telling the user
+  // to set it by hand would be wrong.
+  const wroteRetryStrategy = (skip: WriteBackSkip) => applied.some(line =>
+    line.type === skip.type && line.logicalId === skip.logicalId && line.property === 'retryStrategy')
+  const reported = skipped.filter(skip => !(skip.property === '/doubleCheck' && wroteRetryStrategy(skip)))
+  return { files, applied, constructs, skipped: reported, imports }
 }
 
 /**
@@ -1192,7 +1228,7 @@ export async function planWriteBack ({ diff, project, cwd }: WriteBackOptions): 
  *
  * @throws Error naming the files already rewritten when a later one fails.
  */
-export async function applyWriteBack (plan: WriteBackPlan): Promise<void> {
+export async function applyWriteBack (plan: Pick<WriteBackPlan, 'files'>): Promise<void> {
   const written: string[] = []
   for (const file of plan.files) {
     let temporary: string | undefined

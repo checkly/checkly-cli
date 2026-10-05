@@ -10,7 +10,7 @@ import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel
 import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
-import { physicalIdsFromPlan } from '../import-shape.js'
+import { idKey, physicalIdsFromPlan } from '../import-shape.js'
 import { renderResourceDiff, type RenderedLine } from '../render.js'
 
 /**
@@ -215,6 +215,220 @@ describe('renderResourceDiff', () => {
     )
     expect(groupLines.join('\n')).not.toContain('could not render')
     expect(groupLines.join('\n')).toContain('+  name: \'Website Group v2\'')
+  })
+
+  describe('the properties the code spells out', () => {
+    const retry = { type: 'LINEAR', baseBackoffSeconds: 60, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
+
+    /** The account moved `baseBackoffSeconds` to the default, 60; the code still says 12. */
+    const backoffMoved = (spelledOut?: ReadonlySet<string>) => {
+      const { local } = scenario({ retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 12 }) })
+      const entry: DiffEntry = {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/retryStrategy/baseBackoffSeconds', origin: 'remote', before: 12, after: 60 }],
+        before: deployed({ retryStrategy: retry }),
+        redactions: [],
+      }
+      const diff = plan(entry)
+      return plain(renderResourceDiff({
+        entry,
+        local: local.find(resource => resource.type === 'check'),
+        localResources: local,
+        diff,
+        project,
+        ids: physicalIdsFromPlan(diff, local),
+        pruneRelations: false,
+        spelledOut,
+      }))
+    }
+
+    it('shows a value moved to a default as a change of the line the code has, not as an addition', () => {
+      const changed = (lines: string[]) => lines.filter(line => line.startsWith('+') || line.startsWith('-'))
+      // Without the set, the deployed side leaves the default out, and the
+      // account's value is nowhere to be seen.
+      expect(changed(backoffMoved())).toEqual(['+    baseBackoffSeconds: 12,'])
+      expect(changed(backoffMoved(new Set(['retryStrategy', 'retryStrategy.baseBackoffSeconds'])))).toEqual([
+        '-    baseBackoffSeconds: 60,',
+        '+    baseBackoffSeconds: 12,',
+      ])
+    })
+
+    it('renders a spelled-out check prop and keyed list flags on both sides, and nothing for the rest', () => {
+      const { local } = scenario({
+        muted: true,
+        request: {
+          url: 'https://example.com/health',
+          method: 'GET',
+          headers: [{ key: 'x-a', value: '1', locked: true }, { key: 'x-b', value: '2' }],
+        },
+      })
+      const entry: DiffEntry = {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/muted', origin: 'remote', before: true, after: false }],
+        before: deployed({
+          muted: false,
+          request: {
+            url: 'https://example.com/health',
+            method: 'GET',
+            headers: [
+              { key: 'x-a', value: '1', locked: true, secret: false },
+              { key: 'x-b', value: '2', locked: false, secret: false },
+            ],
+            queryParameters: [],
+            assertions: [],
+          },
+        }),
+        redactions: [],
+      }
+      const diff = plan(entry)
+      const lines = plain(renderResourceDiff({
+        entry,
+        local: local.find(resource => resource.type === 'check'),
+        localResources: local,
+        diff,
+        project,
+        ids: physicalIdsFromPlan(diff, local),
+        pruneRelations: false,
+        spelledOut: new Set(['muted', 'request', 'request.headers', 'request.headers[x-a].locked']),
+      }))
+      expect(lines.filter(line => line.startsWith('+') || line.startsWith('-'))).toEqual([
+        '-  muted: false,',
+        '+  muted: true,',
+      ])
+      // The header the code spells `locked` on renders it alike on both
+      // sides, and the other header's `locked: false`, which only the account
+      // holds, is a line on neither: nothing but `muted` changed above.
+      expect(lines.join('\n')).not.toContain('locked: false')
+    })
+  })
+
+  describe('the variable a construct is referred to by', () => {
+    /** A check moved from the group `old` (43) to the group `grp` (42). */
+    const moved = () => {
+      const { local } = scenario()
+      const previous = new CheckGroupV2('old', { name: 'Old Group' })
+      local.push({ type: 'check-group', logicalId: 'old', member: true, payload: previous.synthesize() })
+      const entry: DiffEntry = {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/groupId', origin: 'code', before: 43, after: 42 }],
+        before: deployed({ groupId: 43 }),
+        redactions: [],
+      }
+      const diff = plan(entry, { type: 'check-group', logicalId: 'old', physicalId: 43, action: 'UNCHANGED' })
+      return (variableNames?: ReadonlyMap<string, string>) => plain(renderResourceDiff({
+        entry,
+        local: local.find(resource => resource.type === 'check'),
+        localResources: local,
+        diff,
+        project,
+        ids: physicalIdsFromPlan(diff, local),
+        pruneRelations: false,
+        variableNames,
+      }))
+    }
+
+    it('is the name the construct has in the code, on both sides', () => {
+      const lines = moved()(new Map([
+        [idKey('check-group', 'grp'), 'websiteTeam'],
+        [idKey('check-group', 'old'), 'previous'],
+        [idKey('alert-channel', 'email'), 'onCall'],
+      ]))
+      expect(lines).toContain('-  group: previous,')
+      expect(lines).toContain('+  group: websiteTeam,')
+      expect(lines).toContain('     onCall,')
+    })
+
+    it('is a generated name for a construct the code gives none', () => {
+      const lines = moved()(new Map([[idKey('check-group', 'grp'), 'websiteTeam']]))
+      expect(lines).toContain('-  group: oldGroup,')
+      expect(lines).toContain('+  group: websiteTeam,')
+      expect(lines.join('\n')).toMatch(/^ {5}\w+Alert,$/m)
+    })
+
+    it('keeps the code\'s name for its construct when another construct\'s derived name is the same', () => {
+      // `old` sorts after `grp` and is named in the code; `grp` has no name
+      // there, and "Website Group" derives the very same identifier.
+      const lines = moved()(new Map([[idKey('check-group', 'old'), 'websiteGroup']]))
+      expect(lines).toContain('-  group: websiteGroup,')
+      expect(lines).toContain('+  group: websiteGroup2,')
+    })
+
+    it('names the rendered construct itself, which keeps the name while its content changes', () => {
+      const { local } = scenario()
+      const group = local.find(resource => resource.type === 'check-group') as ResourceSync
+      group.payload = { ...group.payload, name: 'Renamed' }
+      const entry: DiffEntry = {
+        type: 'check-group',
+        logicalId: 'grp',
+        physicalId: 42,
+        action: 'UPDATE',
+        changes: [{ path: '/name', origin: 'code', before: 'Website Group', after: 'Renamed' }],
+        before: { id: 42, name: 'Website Group', alertChannelSubscriptions: [], privateLocationAssignments: [] },
+        redactions: [],
+      }
+      const diff = plan(entry)
+      const lines = plain(renderResourceDiff({
+        entry,
+        local: group,
+        localResources: local,
+        diff,
+        project,
+        ids: physicalIdsFromPlan(diff, local),
+        pruneRelations: false,
+        variableNames: new Map([[idKey('check-group', 'grp'), 'websiteTeam']]),
+      }))
+      expect(lines).toContain(' export const websiteTeam = new CheckGroupV2(\'grp\', {')
+      expect(lines.filter(line => line.startsWith('+') || line.startsWith('-'))).toEqual([
+        '-  name: \'Website Group\',',
+        '+  name: \'Renamed\',',
+      ])
+    })
+
+    it.each([
+      ['the code', new Map([[idKey('check-group', 'grp'), 'websiteGroup']]), 'websiteGroup'],
+      // The logical id `website` and the name "Website" both make `websiteGroup`.
+      ['the logical id', undefined, 'websiteGroup'],
+    ])('names the rendered construct after %s even when the codegen derives the same name from its content', (
+      _case, variableNames, expected,
+    ) => {
+      const group = new CheckGroupV2('website', { name: 'Website v2' })
+      const local: ResourceSync[] = [
+        { type: 'check-group', logicalId: 'website', member: true, payload: group.synthesize() },
+      ]
+      const entry: DiffEntry = {
+        type: 'check-group',
+        logicalId: 'website',
+        physicalId: 42,
+        action: 'UPDATE',
+        changes: [{ path: '/name', origin: 'code', before: 'Website', after: 'Website v2' }],
+        before: { id: 42, name: 'Website', alertChannelSubscriptions: [], privateLocationAssignments: [] },
+        redactions: [],
+      }
+      const lines = plain(renderResourceDiff({
+        entry,
+        local: local[0],
+        localResources: local,
+        diff: [entry],
+        project,
+        ids: physicalIdsFromPlan([entry], local),
+        pruneRelations: false,
+        variableNames: variableNames && new Map([[idKey('check-group', 'website'), 'websiteGroup']]),
+      }))
+      expect(lines).toContain(` export const ${expected} = new CheckGroupV2('website', {`)
+      expect(lines.filter(line => line.startsWith('+') || line.startsWith('-'))).toEqual([
+        '-  name: \'Website\',',
+        '+  name: \'Website v2\',',
+      ])
+    })
   })
 
   it('shows a script change as a text diff of its own, beside the construct diff when there is one', () => {

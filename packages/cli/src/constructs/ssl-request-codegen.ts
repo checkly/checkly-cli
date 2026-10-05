@@ -12,11 +12,11 @@ export function valueForSslRequest (
   return object(builder => {
     builder.string('hostname', request.hostname)
 
-    if (request.port !== undefined && request.port !== 443) {
+    if (request.port !== undefined && (request.port !== 443 || context.spelledOut('request.port'))) {
       builder.number('port', request.port)
     }
 
-    if (request.ipFamily && request.ipFamily !== 'IPv4') {
+    if (request.ipFamily && (request.ipFamily !== 'IPv4' || context.spelledOut('request.ipFamily'))) {
       builder.string('ipFamily', request.ipFamily)
     }
 
@@ -30,7 +30,8 @@ export function valueForSslRequest (
         builder.string('sslClientCertificateId', config.sslClientCertificateId)
       }
 
-      if (config.skipChainValidation) {
+      if (config.skipChainValidation != null
+        && (config.skipChainValidation || context.spelledOut('request.sslConfig.skipChainValidation'))) {
         builder.boolean('skipChainValidation', config.skipChainValidation)
       }
 

@@ -56,7 +56,7 @@ export class SlackAlertChannelCodegen extends Codegen<SlackAlertChannelResource>
               builder.string('channel', config.channel)
             }
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

@@ -30,29 +30,39 @@ export interface AlertChannelResource {
   sslExpiryThreshold: number
 }
 
-export function buildAlertChannelProps (builder: ObjectValueBuilder, resource: AlertChannelResource): void {
+/**
+ * The props every alert channel shares. One is left out when it holds the
+ * construct's default, unless the code being rendered spells it out
+ * (`context.spelledOut`).
+ */
+export function buildAlertChannelProps (
+  builder: ObjectValueBuilder,
+  resource: AlertChannelResource,
+  context: Context,
+): void {
   // The default value for sendRecovery is true, only include if false.
-  if (resource.sendRecovery !== undefined && !resource.sendRecovery) {
+  if (resource.sendRecovery !== undefined && (!resource.sendRecovery || context.spelledOut('sendRecovery'))) {
     builder.boolean('sendRecovery', resource.sendRecovery)
   }
 
   // The default value for sendFailure is true, only include if false.
-  if (resource.sendFailure !== undefined && !resource.sendFailure) {
+  if (resource.sendFailure !== undefined && (!resource.sendFailure || context.spelledOut('sendFailure'))) {
     builder.boolean('sendFailure', resource.sendFailure)
   }
 
   // The default value for sendDegraded is false, only include if true.
-  if (resource.sendDegraded !== undefined && resource.sendDegraded) {
+  if (resource.sendDegraded !== undefined && (resource.sendDegraded || context.spelledOut('sendDegraded'))) {
     builder.boolean('sendDegraded', resource.sendDegraded)
   }
 
   // The default value for sslExpiry is false, only include if true.
-  if (resource.sslExpiry !== undefined && resource.sslExpiry) {
+  if (resource.sslExpiry !== undefined && (resource.sslExpiry || context.spelledOut('sslExpiry'))) {
     builder.boolean('sslExpiry', resource.sslExpiry)
   }
 
   // The default value for sslExpiryThreshold is 30, only include if other.
-  if (resource.sslExpiryThreshold !== undefined && resource.sslExpiryThreshold !== 30) {
+  if (resource.sslExpiryThreshold !== undefined
+    && (resource.sslExpiryThreshold !== 30 || context.spelledOut('sslExpiryThreshold'))) {
     builder.number('sslExpiryThreshold', resource.sslExpiryThreshold)
   }
 }

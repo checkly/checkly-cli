@@ -3,6 +3,9 @@ import { createRequire } from 'node:module'
 import * as acorn from 'acorn'
 import type { TSESTree } from '@typescript-eslint/typescript-estree'
 
+import * as constructs from '../../constructs/index.js'
+import type { Construct } from '../../constructs/construct.js'
+
 /**
  * Reads a construct's source file far enough to find the `new X('id', { … })`
  * that declared it, so `literal-edit.ts` can splice values into that options
@@ -272,6 +275,30 @@ export function isChecklyRequire (node: Node | null | undefined): boolean {
     && CHECKLY_MODULE.test(stringOf(node.arguments[0]) ?? '')
 }
 
+/** A name that can be written as an identifier: a variable, or an object key without quotes. */
+export const IDENTIFIER = /^[A-Za-z_$][\w$]*$/
+
+/** The names `checkly/constructs` exports for a construct's class; empty for a class of the user's own. */
+export function exportedNamesOf (construct: Construct): Set<string> {
+  const names = new Set<string>()
+  for (const [name, value] of Object.entries(constructs)) {
+    if (value === construct.constructor) {
+      names.add(name)
+    }
+  }
+  return names
+}
+
+/** Whether a node is `new <Class>('<logicalId>', …)` of a class one of `locals` is bound to. */
+function isConstructCall (
+  node: Node | null | undefined,
+  locals: ReadonlySet<string>,
+  logicalId: string,
+): node is TSESTree.NewExpression {
+  return node?.type === 'NewExpression' && node.callee.type === 'Identifier' && locals.has(node.callee.name)
+    && stringOf(node.arguments[0]) === logicalId
+}
+
 /**
  * The options object literal of the one `new <Class>('<logicalId>', { … })`
  * in the file, where `<Class>` is bound to one of `exportedNames` from a
@@ -294,8 +321,7 @@ export function findConstructOptions (
   }
   const matches: TSESTree.NewExpression[] = []
   for (const node of walk(program)) {
-    if (node.type === 'NewExpression' && node.callee.type === 'Identifier' && locals.has(node.callee.name)
-      && stringOf(node.arguments[0]) === logicalId) {
+    if (isConstructCall(node, locals, logicalId)) {
       matches.push(node)
     }
   }
@@ -313,6 +339,112 @@ export function findConstructOptions (
     throw new WriteBackSkipped('its options spread another object')
   }
   return options
+}
+
+/**
+ * The name of the top-level variable the file initialises with its one
+ * `new <Class>('<logicalId>', …)`, exported or not, where `<Class>` is bound
+ * to one of `exportedNames` from a checkly package. None when the construct
+ * is not declared that way (made inside a function or a loop, passed straight
+ * to another call, destructured), or when several declarations match.
+ */
+export function findConstructVariable (
+  { program }: ParsedSource,
+  logicalId: string,
+  exportedNames: ReadonlySet<string>,
+): string | undefined {
+  const locals = checklyBindings(program, exportedNames)
+  const names: string[] = []
+  for (const statement of program.body) {
+    const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement
+    if (declaration?.type !== 'VariableDeclaration') {
+      continue
+    }
+    for (const { id, init } of declaration.declarations) {
+      if (id.type === 'Identifier' && isConstructCall(init, locals, logicalId)) {
+        names.push(id.name)
+      }
+    }
+  }
+  return names.length === 1 ? names[0] : undefined
+}
+
+/** The name of a plain `key: value` member, or undefined for a spread, method, accessor or computed key. */
+export function memberName (property: TSESTree.Property | TSESTree.SpreadElement): string | undefined {
+  if (property.type !== 'Property' || property.computed || property.kind !== 'init' || property.method) {
+    return undefined
+  }
+  if (property.key.type === 'Identifier') {
+    return property.key.name
+  }
+  if (property.key.type === 'Literal' && typeof property.key.value === 'string') {
+    return property.key.value
+  }
+  return undefined
+}
+
+/** A value with the TypeScript wrappers that change nothing at run time (`as`, `satisfies`, `!`) taken off. */
+function unwrapped (node: Node): Node {
+  let current = node
+  while (current.type === 'TSAsExpression' || current.type === 'TSSatisfiesExpression'
+    || current.type === 'TSNonNullExpression') {
+    current = current.expression
+  }
+  return current
+}
+
+/**
+ * The properties a construct's options literal spells out, as the dotted
+ * paths `ContextOptions.spelledOut` takes: every plain `key: value` member,
+ * the members of an object value under its key, the members of the one
+ * object argument of a call or `new` (a builder such as
+ * `RetryStrategyBuilder.linearStrategy({ … })`) under the property's key,
+ * and, for an object element of an array with a string `key` property, its
+ * members under `<path>[<key>]`. Spreads, computed keys, methods and
+ * elements without such a key add nothing, and neither do the arguments of a
+ * call with several (`AlertEscalationBuilder.runBasedEscalation(1, { … })`):
+ * the codegen could not tell which value they stand for.
+ */
+export function spelledOutPaths (options: TSESTree.ObjectExpression): Set<string> {
+  const paths = new Set<string>()
+  const visitValue = (value: Node, path: string): void => {
+    const node = unwrapped(value)
+    if (node.type === 'ObjectExpression') {
+      visitObject(node, path)
+    } else if ((node.type === 'CallExpression' || node.type === 'NewExpression') && node.arguments.length === 1) {
+      const argument = unwrapped(node.arguments[0])
+      if (argument.type === 'ObjectExpression') {
+        visitObject(argument, path)
+      }
+    } else if (node.type === 'ArrayExpression') {
+      for (const element of node.elements) {
+        const unwrappedElement = element === null ? null : unwrapped(element)
+        if (unwrappedElement?.type !== 'ObjectExpression') {
+          continue
+        }
+        const keyProperty = unwrappedElement.properties.find(property => memberName(property) === 'key')
+        const key = keyProperty === undefined
+          ? undefined
+          : stringOf(unwrapped((keyProperty as TSESTree.Property).value))
+        if (key !== undefined) {
+          visitObject(unwrappedElement, `${path}[${key}]`)
+        }
+      }
+    }
+  }
+  const visitObject = (object: TSESTree.ObjectExpression, prefix: string): void => {
+    for (const property of object.properties) {
+      const name = memberName(property)
+      if (name === undefined) {
+        continue
+      }
+      const path = prefix === '' ? name : `${prefix}.${name}`
+      paths.add(path)
+      visitValue((property as TSESTree.Property).value, path)
+    }
+  }
+  visitObject(options, '')
+  return paths
 }
 
 /**

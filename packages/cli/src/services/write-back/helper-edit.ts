@@ -29,8 +29,8 @@ import {
   UndefinedValue,
   Value,
 } from '../../sourcegen/index.js'
-import { isPlainLiteral, layoutList, type LiteralEdit, memberName, quoteString, renderKey, type SourceStyle } from './literal-edit.js'
-import { type Node, WriteBackSkipped } from './source-file.js'
+import { isPlainLiteral, layoutList, type LiteralEdit, quoteString, renderKey, type SourceStyle } from './literal-edit.js'
+import { memberName, type Node, WriteBackSkipped } from './source-file.js'
 
 /**
  * Edits of the properties a construct spells with a helper expression rather
@@ -181,7 +181,10 @@ function referencedClasses (value: Value, names: Set<string> = new Set()): Set<s
  * or one that means "unset", which is never written because nothing is
  * ever removed from the code.
  */
-export function buildHelperValue (edit: HelperEdit): { value: Value, imports: string[] } {
+export function buildHelperValue (
+  edit: HelperEdit,
+  spelledOut: readonly string[] = [],
+): { value: Value, imports: string[] } {
   const at = edit.path.join('.')
   const missing = () => new WriteBackSkipped(`Checkly has no value for ${at}; edit the property by hand`)
   const sink = new ImportSink()
@@ -207,7 +210,7 @@ export function buildHelperValue (edit: HelperEdit): { value: Value, imports: st
         if (strategy !== null && typeof strategy?.type !== 'string') {
           throw missing()
         }
-        value = valueForRetryStrategy(sink, strategy as Parameters<typeof valueForRetryStrategy>[1])
+        value = valueForRetryStrategy(sink, strategy as Parameters<typeof valueForRetryStrategy>[1], spelledOut)
         break
       }
       case 'alertEscalation':

@@ -1,4 +1,8 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
+
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { ApiCheck } from '../../../constructs/api-check.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
@@ -98,7 +102,7 @@ describe('formatPreview', () => {
       '    2 unchanged',
       '',
       '1 to create, 1 to update, 1 to delete, 1 kept in your account, 1 skipped (testOnly), 2 unchanged',
-      'Deploy exactly this plan: checkly deploy --plan-token v1.token',
+      'Deploy exactly this plan: checkly deploy --plan --plan-token v1.token',
       '',
     ].join('\n'))
   })
@@ -185,12 +189,69 @@ describe('formatPreview', () => {
     expect(pruning).not.toContain('! Check')
     expect(pruning).toContain('1 relation pruned, 0 unchanged')
 
+    // Left alone, the relation is no change: the row still warns about it, and
+    // the plan reads as having nothing to apply.
     const leaving = uncoloured(formatPreview({ diff: [check], project }))
-    expect(leaving).toContain(
+    expect(leaving).toBe([
       '  ! Check  api-health  has alert channels or private locations this project does not manage'
-      + ' (pass --prune-relations to delete them)',
-    )
-    expect(leaving).toContain('\n1 with relations this project does not manage, 0 unchanged')
+      + ' (pass --plan --prune-relations to delete them)',
+      '',
+      'No changes. The 1 resource matches your code.',
+      '',
+    ].join('\n'))
+  })
+
+  it('says in one sentence that a plan has nothing to apply, with no overview, totals or token', () => {
+    const { local } = scenario()
+    const diff: DiffEntry[] = [
+      ...unchangedEntries,
+      { type: 'check', logicalId: 'api-health', physicalId: 'a1', action: 'UNCHANGED' },
+      { type: 'check', logicalId: 'signup', physicalId: 'a2', action: 'UNCHANGED' },
+      // A relation the project manages is part of its check, not a resource to count.
+      { type: 'alert-channel-subscription', logicalId: 'api-health#email', physicalId: 9, action: 'UNCHANGED' },
+    ]
+    const text = uncoloured(formatPreview({
+      heading: { title: 'Deploy preview', projectName: 'Website', accountName: 'Acme' },
+      diff,
+      project,
+      rendering: { plan: diff, local },
+      planToken: 'v1.token',
+    }))
+    expect(text).toBe('No changes. All 4 resources in account "Acme" match your code.\n')
+  })
+
+  it('keeps the rows that announce no write above that sentence', () => {
+    scenario({ testOnly: true })
+    const text = uncoloured(formatPreview({
+      heading: { title: 'Deploy preview', projectName: 'Website', accountName: 'Acme' },
+      diff: unchangedEntries,
+      project,
+    }))
+    expect(text).toBe([
+      'Deploy preview · Website → account Acme',
+      '',
+      '  · ApiCheck  smoke  skipped (testOnly)',
+      '',
+      'No changes. All 2 resources in account "Acme" match your code.',
+      '',
+    ].join('\n'))
+  })
+
+  it('still reports a finished deploy that wrote nothing with its totals', () => {
+    scenario()
+    const text = uncoloured(formatPreview({ done: true, diff: unchangedEntries, project }))
+    expect(text).toContain('    2 unchanged')
+    expect(text).not.toContain('No changes.')
+  })
+
+  it('counts a change to a resource this CLI version cannot render as a change', () => {
+    scenario()
+    const text = uncoloured(formatPreview({
+      diff: [...unchangedEntries, { type: 'check', logicalId: 'declared-elsewhere', physicalId: 'z1', action: 'UPDATE' }],
+      project,
+    }))
+    expect(text).not.toContain('No changes.')
+    expect(text).toContain('2 unchanged')
   })
 
   it('prints the construct diff under its resource header, one style per line kind', () => {
@@ -214,6 +275,8 @@ describe('formatPreview', () => {
     const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
     expect(text).toContain([
       '~ ApiCheck api-health  src/api-health.check.ts',
+      '    - live in Checkly   replaced or removed by this deploy',
+      '    + in your code      added or changed by this deploy',
       '      name: \'API health\',',
       '  -   url: \'https://api.example.com/v1/health\',',
       '  +   url: \'https://api.example.com/v2/health\',',
@@ -228,6 +291,58 @@ describe('formatPreview', () => {
       '1 to update, 2 unchanged',
     ].join('\n'))
     expect(vi.mocked(renderResourceDiff)).toHaveBeenCalledWith(expect.objectContaining({ entry: updateEntry }))
+  })
+
+  it('renders an update with the names the project\'s constructs are exported by', () => {
+    const { local } = scenario()
+    Session.constructExports.push(
+      { type: 'alert-channel', logicalId: 'email', filePath: 'src/alerts.check.ts', exportName: 'onCall' },
+    )
+    const diff = [...unchangedEntries, updateEntry]
+    formatPreview({ diff, project, rendering: { plan: diff, local } })
+    const [{ variableNames }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
+    expect([...variableNames ?? []]).toEqual([['alert-channel:email', 'onCall']])
+  })
+
+  describe('what the resource\'s source file tells the renderer', () => {
+    let directory: string
+
+    beforeEach(() => {
+      directory = fs.mkdtempSync(path.join(os.tmpdir(), 'preview-output-'))
+    })
+
+    afterEach(() => {
+      fs.rmSync(directory, { recursive: true, force: true })
+    })
+
+    it('passes the properties the construct\'s declaration spells out', () => {
+      const { local } = scenario()
+      const filePath = path.join(directory, 'api-health.check.ts')
+      fs.writeFileSync(filePath, `import { ApiCheck, RetryStrategyBuilder } from 'checkly/constructs'
+new ApiCheck('api-health', {
+  name: 'API health',
+  muted: false,
+  request: { url: 'https://api.example.com/v2/health', method: 'GET' },
+  retryStrategy: RetryStrategyBuilder.linearStrategy({ baseBackoffSeconds: 60 }),
+})
+`)
+      project.data.check['api-health'].checkFileAbsolutePath = filePath
+      const diff = [...unchangedEntries, updateEntry]
+      formatPreview({ diff, project, rendering: { plan: diff, local } })
+      const [{ spelledOut }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
+      expect([...spelledOut ?? []]).toEqual([
+        'name', 'muted', 'request', 'request.url', 'request.method', 'retryStrategy', 'retryStrategy.baseBackoffSeconds',
+      ])
+    })
+
+    it('passes nothing for a construct whose declaration cannot be read', () => {
+      const { local } = scenario()
+      project.data.check['api-health'].checkFileAbsolutePath = path.join(directory, 'missing.ts')
+      const diff = [...unchangedEntries, updateEntry]
+      formatPreview({ diff, project, rendering: { plan: diff, local } })
+      const [{ spelledOut }] = vi.mocked(renderResourceDiff).mock.lastCall ?? []
+      expect(spelledOut).toBeUndefined()
+    })
   })
 
   it('prints no diff block for an update with nothing to render', () => {
@@ -250,6 +365,19 @@ describe('formatPreview', () => {
       done: true,
     }))
     expect(text).toContain('\n1 created, 1 updated, 1 deleted, 0 unchanged\n')
+  })
+
+  it('labels the sides of a diff in the past tense once the plan was carried out', () => {
+    const { local } = scenario()
+    vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'add', text: '  muted: true,' }])
+    const diff = [...unchangedEntries, updateEntry]
+    const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
+    expect(text).toContain([
+      '~ ApiCheck api-health  src/api-health.check.ts',
+      '    - was live in Checkly   replaced or removed by the deploy',
+      '    + now live in Checkly   added or changed by the deploy',
+      '  +   muted: true,',
+    ].join('\n'))
   })
 
   it('says so when the plan is empty', () => {

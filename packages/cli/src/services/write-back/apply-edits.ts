@@ -13,6 +13,7 @@ import {
   type SourceEdit,
 } from './helper-edit.js'
 import { appendImports, resolveImports } from './imports.js'
+import { pathsUnder } from '../../constructs/internal/codegen/index.js'
 import { isDeepStrictEqual } from 'node:util'
 
 import {
@@ -25,7 +26,6 @@ import {
   isMultiLine,
   isPlainLiteral,
   memberColumn,
-  memberName,
   renderValue,
   templateLiteral,
   resolvePath,
@@ -34,7 +34,16 @@ import {
   trailingCommaOf,
 } from './literal-edit.js'
 import {
-  checklyBindings, declaresName, localBinding, type Node, type ParsedSource, type Splice, walk, WriteBackSkipped,
+  checklyBindings,
+  declaresName,
+  localBinding,
+  memberName,
+  type Node,
+  type ParsedSource,
+  spelledOutPaths,
+  type Splice,
+  walk,
+  WriteBackSkipped,
 } from './source-file.js'
 
 export type { HelperEdit, SourceEdit }
@@ -61,6 +70,10 @@ export function applyEdits (
 ): EditResult {
   const { text, program } = source
   const style = detectStyle(source, options)
+  // The properties the construct spells out stay spelled out, whatever
+  // value they get: an option its author wrote down must not vanish because
+  // Checkly's value for it is the builder's default.
+  const spelledOut = spelledOutPaths(options)
   const applied: AppliedEdit[] = []
   // Skips are found in two passes (resolution, then range claims) and are
   // reported in the order the edits were given.
@@ -115,7 +128,7 @@ export function applyEdits (
         // node holds; a node without one (a number, a constant, null) is laid
         // out like the object holding it, as an inserted member would be.
         const model = firstList(node) ?? resolution.parent
-        const rendered = render(program, style, edit, helper, {
+        const rendered = render(program, style, edit, helper, spelledOut, {
           column: indentationAt(text, node.range[0]),
           inline: !isMultiLine(text, model),
           trailingComma: trailingCommaOf(source, model) !== undefined,
@@ -132,7 +145,7 @@ export function applyEdits (
         continue
       }
       const { parent, key } = resolution
-      const rendered = render(program, style, edit, helper, {
+      const rendered = render(program, style, edit, helper, spelledOut, {
         column: memberColumn(text, parent, style),
         inline: !isMultiLine(text, parent),
         trailingComma: trailingCommaOf(source, parent) !== undefined,
@@ -270,6 +283,7 @@ function render (
   style: SourceStyle,
   edit: SourceEdit,
   helper: HelperEdit | undefined,
+  spelledOut: ReadonlySet<string>,
   layout: { column: string, inline: boolean, trailingComma: boolean },
   node?: Node,
 ): Rendered {
@@ -287,7 +301,10 @@ function render (
     const expected = helper.literalAlternative
     return { edit, text: renderValue(expected, style, { ...layout, at }), form: 'literal', expected, needs: [] }
   }
-  const built = buildHelperValue(helper)
+  // The options the replaced expression spells out, by name: of the helpers,
+  // only the retry strategy's codegen leaves an option out for holding the
+  // builder's default, so only it reads the list.
+  const built = buildHelperValue(helper, pathsUnder(spelledOut, at))
   const locals = new Map<string, string>()
   const needs: string[] = []
   for (const name of built.imports) {

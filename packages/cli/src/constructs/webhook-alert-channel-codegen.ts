@@ -58,7 +58,7 @@ export function buildWebhookAlertChannelConfig (
     if (headers.length > 0) {
       builder.array('headers', builder => {
         for (const header of headers) {
-          builder.value(valueForKeyValuePair(program, genfile, context, header))
+          builder.value(valueForKeyValuePair(program, genfile, context, header, 'headers'))
         }
       })
     }
@@ -69,7 +69,7 @@ export function buildWebhookAlertChannelConfig (
     if (queryParameters.length > 0) {
       builder.array('queryParameters', builder => {
         for (const param of queryParameters) {
-          builder.value(valueForKeyValuePair(program, genfile, context, param))
+          builder.value(valueForKeyValuePair(program, genfile, context, param, 'queryParameters'))
         }
       })
     }
@@ -186,7 +186,7 @@ export class WebhookAlertChannelCodegen extends Codegen<WebhookAlertChannelResou
           builder.string(logicalId)
           builder.object(builder => {
             buildWebhookAlertChannelConfig(this.program, file, context, builder, resource.config)
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

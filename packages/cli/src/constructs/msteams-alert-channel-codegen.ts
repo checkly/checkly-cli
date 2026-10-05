@@ -75,12 +75,12 @@ export class MSTeamsAlertChannelCodegen extends Codegen<MSTeamsAlertChannelResou
             builder.string('url', config.url)
 
             if (config.template) {
-              if (config.template !== MSTeamsAlertChannel.DEFAULT_PAYLOAD) {
+              if (config.template !== MSTeamsAlertChannel.DEFAULT_PAYLOAD || context.spelledOut('payload')) {
                 builder.string('payload', config.template)
               }
             }
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

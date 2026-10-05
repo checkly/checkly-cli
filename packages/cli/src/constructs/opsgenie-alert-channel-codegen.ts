@@ -50,7 +50,7 @@ export class OpsgenieAlertChannelCodegen extends Codegen<OpsgenieAlertChannelRes
             builder.string('region', config.region)
             builder.string('priority', config.priority)
 
-            buildAlertChannelProps(builder, resource)
+            buildAlertChannelProps(builder, resource, context)
           })
         })
       }))

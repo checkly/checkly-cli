@@ -79,6 +79,7 @@ import { ConflictError, ValidationError } from '../../rest/errors.js'
 import {
   type DiffEntry,
   ProjectPlanStaleError,
+  ProjectPlanDisabledError,
   ProjectPreviewNotSupportedError,
 } from '../../rest/projects.js'
 import { Ok } from '../../services/check-parser/package-files/result.js'
@@ -127,8 +128,8 @@ const DEFAULT_FLAGS = {
   'force': false,
   'preview': false,
   'dry-run': false,
+  'plan': false,
   'plan-token': undefined,
-  'skip-plan': false,
   'prune-relations': false,
   'output': false,
   'verbose': false,
@@ -144,7 +145,7 @@ const DEFAULT_FLAGS = {
 const DEFAULT_METADATA = {
   'preview': { setFromDefault: true },
   'dry-run': { setFromDefault: true },
-  'skip-plan': { setFromDefault: true },
+  'plan': { setFromDefault: true },
   'prune-relations': { setFromDefault: true },
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
@@ -156,9 +157,16 @@ const DEFAULT_METADATA = {
   'debug-bundle-output-file': { setFromDefault: true },
 }
 
-function createCommandContext (flags: Record<string, unknown> = {}) {
+/**
+ * A `checkly deploy` run with the flags given. Most of this file is about a
+ * planned deploy, so the run is one started with `--plan` unless the flags say
+ * `plan: false`, which is a run that did not type it.
+ */
+function createCommandContext (given: Record<string, unknown> = {}) {
   const logged: string[] = []
   let exitCodeValue: number | undefined
+  const { plan = true, ...rest } = given
+  const flags: Record<string, unknown> = plan === true ? { plan, ...rest } : rest
   const typed = Object.keys(flags)
   return {
     parse: vi.fn().mockResolvedValue({
@@ -320,7 +328,9 @@ describe('deploy confirmation flow', () => {
     expect(output.preview.diff).toHaveLength(2)
     expect(output.changes).toContain('Permanently delete Check: gone, losing its run history')
     expect(output.changes).toContain('Update AlertChannel: ops')
-    // Re-running as told deploys the plan that was shown, not a newer one.
+    // Re-running as told deploys the plan that was shown, not a newer one. It
+    // asks for a plan itself, without which the token would be refused.
+    expect(output.confirmCommand).toMatch(/ --plan( |$)/)
     expect(output.confirmCommand).toContain(`--plan-token="${PLAN_TOKEN}"`)
     expect(output.confirmCommand).toContain('--force')
 
@@ -377,7 +387,8 @@ describe('deploy confirmation flow', () => {
 
     expect(api.projects.preview).toHaveBeenCalledOnce()
     expect(api.projects.deploy).toHaveBeenCalledOnce()
-    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: PLAN_TOKEN })
+    // The deploy is asked to apply a plan, and which one.
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: true, planToken: PLAN_TOKEN })
     // The upload happens once the plan has been accepted, before the deploy.
     expect(storeBundle).toHaveBeenCalledOnce()
   })
@@ -389,7 +400,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     expect(ctx.logged.join('\n')).toContain('Deploy preview · My Project → account Test Account')
-    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan-token ${PLAN_TOKEN}`)
+    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan --plan-token ${PLAN_TOKEN}`)
     expect(api.projects.deploy).not.toHaveBeenCalled()
     expect(storeBundle).not.toHaveBeenCalled()
   })
@@ -455,7 +466,61 @@ describe('deploy confirmation flow', () => {
       expect.any(String),
     )
     expect(api.projects.deploy).toHaveBeenCalledOnce()
-    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: undefined })
+    // Without a plan in hand the deploy is not asked to apply one either.
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: false, planToken: undefined })
+  })
+
+  it('deploys without a plan, and the payload as it is, while Checkly has plans switched off', async () => {
+    vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPlanDisabledError())
+    vi.mocked(getGitRepoRoot).mockReturnValue(repoRoot)
+    declareProjectIn(repoRoot)
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.style.longWarning).toHaveBeenCalledWith(
+      'Checkly has deploy plans switched off at the moment.',
+      expect.any(String),
+    )
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    const [payload, options] = vi.mocked(api.projects.deploy).mock.calls[0]
+    expect(options).toMatchObject({ plan: false, planToken: undefined })
+    // This API knows the fields that arrived with the preview endpoint, so
+    // they are sent: stripping them would blank the content hashes it stores.
+    expect(payload.resources[0]).toHaveProperty('sourceFile', 'src/alerts.ts')
+  })
+
+  it('refuses to prune or to deploy a pinned plan while Checkly has plans switched off', async () => {
+    for (const flags of [{ 'prune-relations': true }, { 'plan-token': PLAN_TOKEN }]) {
+      vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPlanDisabledError())
+      const ctx = createCommandContext({ force: true, ...flags })
+
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+      expect(api.projects.deploy).not.toHaveBeenCalled()
+      expect(JSON.stringify(vi.mocked(ctx.style.longError).mock.calls[0])).toContain('switched off')
+    }
+  })
+
+  it('says so when plans were switched off between the plan and the deploy', async () => {
+    planResolves()
+    vi.mocked(api.projects.deploy).mockRejectedValue(new ValidationError({
+      statusCode: 400,
+      error: 'Bad Request',
+      message: 'Deploy plans are switched off at the moment, so a deploy that is pinned to a plan token cannot run.',
+      code: 'DEPLOY_PLAN_DISABLED',
+    }))
+    const ctx = createCommandContext({ force: true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    // Not the refusal as the API words it, which tells the caller to drop a
+    // token this run never asked the user for.
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      expect.stringContaining('switched deploy plans off while this deploy was being prepared'),
+      'Re-run the command. While plans are switched off it deploys without one.',
+    )
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 
   it('aborts when the user pinned a plan the API cannot check', async () => {
@@ -521,7 +586,7 @@ describe('deploy confirmation flow', () => {
     expect(resource.payload).not.toHaveProperty('codeBundleSha256')
   })
 
-  it('falls back to the dry-run delete guard, uploads first, and asks with what it found', async () => {
+  it('falls back to the dry-run delete guard and asks with what it found, uploading nothing', async () => {
     vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPreviewNotSupportedError())
     vi.mocked(api.projects.deploy).mockResolvedValue({
       data: {
@@ -533,11 +598,11 @@ describe('deploy confirmation flow', () => {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
-    // Without a plan the deletions are only visible in a dry-run deploy, which
-    // validates the storage keys — so the uploads have to precede it.
+    // Without a plan the deletions are only visible in a dry-run deploy. It is
+    // sent without storage keys, so an answer of no leaves nothing in storage.
     expect(api.projects.deploy).toHaveBeenCalledOnce()
     expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ dryRun: true })
-    expect(storeBundle).toHaveBeenCalled()
+    expect(storeBundle).not.toHaveBeenCalled()
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     expect(output.changes).toContain('Permanently delete Check: gone, losing its run history')
@@ -649,7 +714,7 @@ describe('deploy confirmation flow', () => {
 
     const printed = ctx.logged.join('\n')
     expect(printed).toContain('relation on Check chk not managed by this project, deleted by --prune-relations')
-    expect(printed).not.toContain('pass --prune-relations to delete them')
+    expect(printed).not.toContain('pass --plan --prune-relations to delete them')
   })
 
   it('reports an unmanaged relation without advising anything twice when it will not prune', async () => {
@@ -665,7 +730,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('pass --prune-relations to delete them')
+    expect(printed).toContain('pass --plan --prune-relations to delete them')
     expect(printed).not.toMatch(/^ {2}~ /m)
   })
 
@@ -710,9 +775,11 @@ describe('deploy confirmation flow', () => {
       action: 'UNCHANGED',
       changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
     }])
-    const ctx = createCommandContext()
+    // Such a plan has nothing to apply and nobody is asked to confirm it, so
+    // the envelope is the one --dry-run prints.
+    const ctx = createCommandContext({ 'dry-run': true })
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     expect(output.changes).not.toContain('Update Check: chk')
@@ -759,7 +826,7 @@ describe('deploy confirmation flow', () => {
       expect.stringContaining('changed while this deploy was being confirmed'),
       // Re-running is the way out: the refused token describes a state the
       // account has left behind, so it must not be sent again.
-      expect.stringContaining('Re-run `checkly deploy`'),
+      expect.stringContaining('Re-run `checkly deploy --plan`'),
     )
   })
 })
@@ -867,7 +934,7 @@ describe('deploy confirmation in a terminal', () => {
   })
 })
 
-describe('deploy --skip-plan', () => {
+describe('deploy without --plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(detectCliMode).mockReturnValue('interactive')
@@ -885,7 +952,7 @@ describe('deploy --skip-plan', () => {
     vi.mocked(api.projects.deploy).mockResolvedValue({
       data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
     })
-    const ctx = createCommandContext({ 'skip-plan': true })
+    const ctx = createCommandContext({ plan: false })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -904,10 +971,27 @@ describe('deploy --skip-plan', () => {
     const confirmed = vi.mocked(api.projects.deploy).mock.calls[1][1]
     expect(confirmed?.dryRun).toBeFalsy()
     expect(confirmed?.planToken).toBeUndefined()
+    // The code bundle went up after the answer, not before the question.
+    expect(storeBundle).toHaveBeenCalledOnce()
+    expect(storeBundle.mock.invocationCallOrder[0]).toBeGreaterThan(vi.mocked(prompts).mock.invocationCallOrder[0])
+  })
+
+  it('uploads nothing when the answer is no', async () => {
+    vi.mocked(api.projects.deploy).mockResolvedValue({
+      data: { project: {} as any, diff: [{ type: 'check', logicalId: 'gone', physicalId: 7, action: 'DELETE' }] },
+    })
+    vi.mocked(prompts).mockResolvedValueOnce({ confirm: false })
+    const ctx = createCommandContext({ plan: false })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_')
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ dryRun: true })
+    expect(storeBundle).not.toHaveBeenCalled()
   })
 
   it('deploys straight away with --force', async () => {
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -923,7 +1007,7 @@ describe('deploy --skip-plan', () => {
     vi.mocked(api.projects.deploy)
       .mockRejectedValueOnce(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
       .mockResolvedValueOnce({ data: { project: {} as any, diff: [] } })
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -947,7 +1031,7 @@ describe('deploy --skip-plan', () => {
     )
     const second = new ValidationError({ statusCode: 400, error: 'Bad Request', message: 'something else' })
     vi.mocked(api.projects.deploy).mockRejectedValueOnce(first).mockRejectedValueOnce(second)
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
@@ -964,7 +1048,7 @@ describe('deploy --skip-plan', () => {
       vi.mocked(api.projects.deploy).mockClear()
       vi.mocked(api.projects.deploy)
         .mockRejectedValue(new ValidationError({ statusCode: 400, error: 'Bad Request', message }))
-      const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+      const ctx = createCommandContext({ plan: false, force: true })
 
       await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
@@ -978,7 +1062,7 @@ describe('deploy --skip-plan', () => {
     const refusal = new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' })
     const conflict = new ConflictError({ statusCode: 409, error: 'Conflict', message: 'in progress' })
     vi.mocked(api.projects.deploy).mockRejectedValueOnce(refusal).mockRejectedValueOnce(conflict)
-    const ctx = createCommandContext({ 'skip-plan': true, 'force': true })
+    const ctx = createCommandContext({ plan: false, force: true })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
     expect(api.projects.deploy).toHaveBeenCalledTimes(2)
@@ -1006,7 +1090,7 @@ describe('deploy --skip-plan', () => {
     vi.mocked(api.projects.deploy)
       .mockRejectedValueOnce(new ValidationError({ statusCode: 400, error: 'Bad Request', message: '"sourceFile" is not allowed' }))
       .mockResolvedValue({ data: { project: {} as any, diff: [] } })
-    const ctx = createCommandContext({ 'skip-plan': true })
+    const ctx = createCommandContext({ plan: false })
 
     await Deploy.prototype.run.call(ctx as any)
 
@@ -1029,13 +1113,51 @@ describe('deploy --skip-plan', () => {
     expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 
-  it('is --skip-preview too, and cannot be combined with a plan feature', async () => {
-    const { flags } = await Parser.parse(['--skip-preview'], { flags: Deploy.flags, strict: true })
-    expect(flags['skip-plan']).toBe(true)
+  it('is the default, and --no-plan says so', async () => {
+    const parse = async (argv: string[]) =>
+      (await Parser.parse(argv, { flags: Deploy.flags, strict: true })).flags.plan
 
-    for (const argv of [['--skip-plan', '--preview'], ['--skip-plan', '--dry-run'], ['--skip-plan', '--plan-token', PLAN_TOKEN], ['--skip-plan', '--prune-relations']]) {
-      await expect(Parser.parse(argv, { flags: Deploy.flags, strict: true }), argv.join(' '))
-        .rejects.toThrow(/cannot also be provided/)
+    expect(await parse([])).toBe(false)
+    expect(await parse(['--no-plan'])).toBe(false)
+    expect(await parse(['--plan'])).toBe(true)
+  })
+
+  it('echoes no plan flag in the command that confirms it', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const ctx = createCommandContext({ plan: false })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+
+    const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
+    expect(output.confirmCommand).toBe('npx checkly deploy --force')
+    expect(output).not.toHaveProperty('preview')
+  })
+
+  it('sends no plan to the deploy, which then writes every resource', async () => {
+    const ctx = createCommandContext({ plan: false, force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: false })
+  })
+
+  it('refuses what only a plan can deliver, before doing anything', async () => {
+    for (const [flags, named] of [
+      [{ 'plan-token': PLAN_TOKEN }, '--plan-token'],
+      [{ 'prune-relations': true }, '--prune-relations'],
+    ] as const) {
+      vi.mocked(parseProject).mockClear()
+      const ctx = createCommandContext({ plan: false, force: true, ...flags })
+
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+      expect(ctx.style.longError).toHaveBeenCalledWith(
+        `${named} applies to a planned deploy only.`,
+        `Re-run with --plan, or without ${named}.`,
+      )
+      expect(parseProject).not.toHaveBeenCalled()
+      expect(api.projects.preview).not.toHaveBeenCalled()
+      expect(api.projects.deploy).not.toHaveBeenCalled()
     }
   })
 })
@@ -1057,9 +1179,10 @@ describe('deploy confirmCommand', () => {
       ['--preserve-resources'],
       ['--no-schedule-on-deploy'],
       ['--verbose'],
-      ['--prune-relations'],
-      ['--plan-token', PLAN_TOKEN],
-      ['--skip-plan'],
+      ['--plan'],
+      ['--no-plan'],
+      ['--plan', '--prune-relations'],
+      ['--plan', '--plan-token', PLAN_TOKEN],
     ]
     for (const argv of argvs) {
       const confirmCommand = await confirmCommandFor(argv)
@@ -1150,12 +1273,23 @@ new ApiCheck('api', {
 })
 `)
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('Updated 1 file:\n  api.check.ts: check api name: \'API\' -> \'API renamed\'')
-    // A property the code does not set is added the way `checkly import`
-    // spells it, and the helper it needs is imported.
-    expect(printed).toContain('  api.check.ts: check api frequency: not set -> Frequency.EVERY_5M')
-    expect(printed).toContain('  api.check.ts: imported Frequency from checkly/constructs')
-    expect(printed).toContain('Nothing was deployed. Review the changes, then run `checkly deploy` again.')
+    // The construct's source as it was against as it is now, under the header
+    // the plan gave the resource. A property the code does not set is added
+    // the way `checkly import` spells it, and the helper it needs is imported.
+    expect(printed).toContain([
+      'Updated your code · 2 properties in 1 file',
+      '',
+      '~ ApiCheck api  api.check.ts',
+      '    new ApiCheck(\'api\', {',
+      '  -   name: \'API\',',
+      '  +   name: \'API renamed\',',
+      '      request: { url: \'https://example.com\', method: \'GET\' },',
+      '  +   frequency: Frequency.EVERY_5M,',
+      '    })',
+      '  ~ imported Frequency from \'checkly/constructs\'',
+      '',
+    ].join('\n'))
+    expect(printed).toContain('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy --plan` again.')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })
@@ -1210,7 +1344,8 @@ new ApiCheck('api', {
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('Not updated (edit these by hand):\n  check api name: name is the variable title, not a plain literal')
+    expect(printed).toContain('Not updated · edit these by hand\n\n! ApiCheck api  ')
+    expect(printed).toContain('\n    name  name is the variable title, not a plain literal\n')
     expect(printed).toContain('Nothing in the code could be updated automatically, so nothing was changed.')
     expect(applyWriteBack).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
@@ -1227,6 +1362,42 @@ new ApiCheck('api', {
     expect(ctx.style.longError).toHaveBeenCalledWith('Could not update your code.', 'Could not write api.check.ts: EACCES. No file was changed.')
     expect(ctx.logged.join('\n')).not.toContain('Updated')
     expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  // A check moved to another group in Checkly: a reference, which is refused.
+  const withRefusedChange: DiffEntry = {
+    ...remoteEdit,
+    changes: [...remoteEdit.changes!, { path: '/groupId', origin: 'remote', before: 1, after: 2 }],
+  }
+
+  it('lists what it could not update under what it updated', async () => {
+    planResolves([withRefusedChange])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    const printed = ctx.logged.join('\n')
+    const updated = printed.indexOf('Updated your code · 2 properties in 1 file')
+    const notUpdated = printed.indexOf('Not updated · edit these by hand')
+    expect(updated).toBeGreaterThan(-1)
+    expect(notUpdated).toBeGreaterThan(updated)
+    // The path Checkly reports is shown the way the code names the property.
+    expect(printed).toContain('\n    groupId  references another resource\n')
+    expect(printed.indexOf('Nothing was deployed.')).toBeGreaterThan(notUpdated)
+  })
+
+  it('still lists what has to be edited by hand when the write fails', async () => {
+    planResolves([withRefusedChange])
+    vi.mocked(prompts).mockResolvedValue({ action: 'alternative:0' })
+    vi.mocked(applyWriteBack).mockRejectedValueOnce(new Error('Could not write api.check.ts: EACCES. No file was changed.'))
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('Not updated · edit these by hand')
+    expect(printed).not.toContain('Updated your code')
   })
 
   it('asks the plain yes/no question when nothing was edited in Checkly', async () => {
@@ -1259,5 +1430,196 @@ new ApiCheck('api', {
 
     expect(prompts).not.toHaveBeenCalled()
     expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+})
+
+describe('deploy of a plan with nothing to apply', () => {
+  const UNCHANGED_CHANNEL: DiffEntry = { type: 'alert-channel', logicalId: 'ops', physicalId: 42, action: 'UNCHANGED' }
+  const UNCHANGED_CHECK: DiffEntry = { type: 'check', logicalId: 'api', physicalId: 'a1', action: 'UNCHANGED' }
+
+  /** The project every other test deploys, with a check next to its alert channel. */
+  function declareProjectWithCheck () {
+    const project = declareProject()
+    new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    return project
+  }
+
+  function nothingToApply (diff: DiffEntry[] = [UNCHANGED_CHANNEL]) {
+    planResolves(diff)
+    vi.mocked(api.projects.deploy).mockResolvedValue({ data: { project: {} as any, diff } })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(prompts).mockResolvedValue({ confirm: true })
+    storeBundle.mockResolvedValue({ key: 'stored-bundle-key' })
+    declareProject()
+    nothingToApply()
+  })
+
+  afterEach(() => {
+    Session.reset()
+  })
+
+  it('asks nobody in a terminal: says so, then records the deployment', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(prompts).not.toHaveBeenCalled()
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('No changes. The 1 resource in account "Test Account" matches your code.')
+    expect(printed).not.toContain('Deploy preview')
+    expect(printed).not.toContain('This will:')
+    expect(printed).not.toContain('--plan-token')
+
+    // The deploy is still sent, pinned to the plan that said so.
+    expect(storeBundle).toHaveBeenCalledOnce()
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ plan: true, planToken: PLAN_TOKEN })
+    expect(ctx.style.actionStart).toHaveBeenCalledWith('Recording the deployment')
+    expect(ctx.style.actionStart).not.toHaveBeenCalledWith('Deploying project')
+    // A project without checks has nothing to schedule, so nothing is claimed.
+    expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  it('hands an agent or CI run no confirmation envelope', async () => {
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.exit).not.toHaveBeenCalled()
+    expect(ctx.logged.join('\n')).not.toContain('confirmation_required')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('says the same to a forced run', async () => {
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.logged.join('\n')).toContain('No changes.')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('says whether the checks were scheduled', async () => {
+    declareProjectWithCheck()
+    nothingToApply([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+    const scheduling = createCommandContext()
+    await Deploy.prototype.run.call(scheduling as any)
+    expect(scheduling.logged[scheduling.logged.length - 1])
+      .toBe('Project "My Project" is up to date. Checks were scheduled to run.')
+
+    declareProjectWithCheck()
+    const notScheduling = createCommandContext({ 'schedule-on-deploy': false })
+    await Deploy.prototype.run.call(notScheduling as any)
+    expect(notScheduling.logged[notScheduling.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  it('still warns about relations the project does not manage, without asking', async () => {
+    nothingToApply([{
+      type: 'check',
+      logicalId: 'chk',
+      physicalId: 1,
+      action: 'UNCHANGED',
+      changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+    }])
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toMatch(/^ {2}! Check {2}chk {2}has alert channels or private locations this project does not/m)
+    expect(printed).toContain('No changes. The 1 resource in account "Test Account" matches your code.')
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('prints the sentence and no token under --preview, and deploys nothing', async () => {
+    const ctx = createCommandContext({ preview: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('No changes.')
+    expect(printed).not.toContain('--plan-token')
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+    expect(storeBundle).not.toHaveBeenCalled()
+  })
+
+  it('keeps the dry_run envelope, token included', async () => {
+    const ctx = createCommandContext({ 'dry-run': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
+    expect(output.status).toBe('dry_run')
+    expect(output.preview.planToken).toBe(PLAN_TOKEN)
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+  })
+
+  it('prints no overview of nothing after the deploy under --output', async () => {
+    const ctx = createCommandContext({ output: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.logged.join('\n')).not.toContain('unchanged')
+  })
+
+  it('reports a deploy that wrote something after all as a deploy', async () => {
+    // A forced run plans again when the account moved under it, and deploys
+    // whatever the new plan holds.
+    vi.mocked(api.projects.preview)
+      .mockResolvedValueOnce({ planToken: PLAN_TOKEN, diff: [UNCHANGED_CHANNEL] })
+      .mockResolvedValueOnce({ planToken: 'v1.BBBBBBBBBBBBBBBBBBBBBB', diff: [CHANGED] })
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValueOnce(new ProjectPlanStaleError('The project changed since the preview.', []))
+      .mockResolvedValueOnce({ data: { project: {} as any, diff: [CHANGED] } })
+    const ctx = createCommandContext({ force: true, output: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deploy).toHaveBeenCalledTimes(2)
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('1 updated')
+    expect(ctx.logged[ctx.logged.length - 1])
+      .toBe('Successfully deployed project "My Project" to account "Test Account".')
+  })
+
+  it('refuses, in words that claim no confirmation, when the account moves before the deploy lands', async () => {
+    // Nobody confirmed this plan, but it was shown, so it is not replaced by
+    // another one behind the user's back.
+    vi.mocked(api.projects.deploy).mockRejectedValue(
+      new ProjectPlanStaleError('The project changed since the preview.', [CHANGED]),
+    )
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Your Checkly account changed after the plan found no changes, so nothing was deployed.',
+      expect.any(String),
+    )
+  })
+
+  it('claims no scheduling for a project whose only checks are never deployed', async () => {
+    declareProject()
+    new ApiCheck('smoke', { name: 'Smoke', testOnly: true, request: { url: 'https://example.com', method: 'GET' } })
+    const ctx = createCommandContext()
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  it('still asks when the plan could not be made', async () => {
+    // Without a plan nothing says there are no changes: the fallback lists
+    // every existing resource as an update, and the confirmation stands.
+    vi.mocked(api.projects.preview).mockRejectedValue(new Error('boom'))
+    const ctx = createCommandContext()
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
   })
 })

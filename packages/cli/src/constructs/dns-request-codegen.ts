@@ -21,7 +21,7 @@ export function valueForDnsRequest (
       builder.number('port', request.port)
     }
 
-    if (request.protocol && request.protocol !== 'UDP') {
+    if (request.protocol && (request.protocol !== 'UDP' || context.spelledOut('request.protocol'))) {
       builder.string('protocol', request.protocol)
     }
 
