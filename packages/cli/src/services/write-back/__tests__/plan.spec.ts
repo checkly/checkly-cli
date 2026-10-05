@@ -10,14 +10,14 @@ import { DnsMonitor } from '../../../constructs/dns-monitor.js'
 import { IcmpMonitor } from '../../../constructs/icmp-monitor.js'
 import { SslMonitor } from '../../../constructs/ssl-monitor.js'
 import { TracerouteMonitor } from '../../../constructs/traceroute-monitor.js'
-import { CheckGroup } from '../../../constructs/check-group.js'
+import { CheckGroup, CheckGroupRef } from '../../../constructs/check-group.js'
 import { EmailAlertChannel } from '../../../constructs/email-alert-channel.js'
 import { HeartbeatMonitor } from '../../../constructs/heartbeat-monitor.js'
 import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
 import { TcpMonitor } from '../../../constructs/tcp-monitor.js'
 import { UrlMonitor } from '../../../constructs/url-monitor.js'
-import type { DiffEntry, DiffRedaction } from '../../../rest/projects.js'
+import type { DiffChange, DiffEntry, DiffRedaction } from '../../../rest/projects.js'
 import * as constructs from '../../../constructs/index.js'
 import { AgenticCheck } from '../../../constructs/agentic-check.js'
 import { Check, RuntimeCheck, RepairableRuntimeCheck } from '../../../constructs/check.js'
@@ -30,6 +30,29 @@ import { AGENTIC_CHECK_OMITTED_PROPS } from '../../../constructs/internal/agenti
 import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../../constructs/playwright-check-codegen.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
 import { PlaywrightCheck } from '../../../constructs/playwright-check.js'
+import { AlertChannel, AlertChannelRef } from '../../../constructs/alert-channel.js'
+import { AlertChannelSubscription } from '../../../constructs/alert-channel-subscription.js'
+import { Construct } from '../../../constructs/construct.js'
+import { Dashboard } from '../../../constructs/dashboard.js'
+import { IncidentioAlertChannel } from '../../../constructs/incidentio-alert-channel.js'
+import { MaintenanceWindow } from '../../../constructs/maintenance-window.js'
+import { MSTeamsAlertChannel } from '../../../constructs/msteams-alert-channel.js'
+import { OpsgenieAlertChannel } from '../../../constructs/opsgenie-alert-channel.js'
+import { PagerdutyAlertChannel } from '../../../constructs/pagerduty-alert-channel.js'
+import { PhoneCallAlertChannel } from '../../../constructs/phone-call-alert-channel.js'
+import { PrivateLocation, PrivateLocationRef } from '../../../constructs/private-location.js'
+import { PrivateLocationCheckAssignment } from '../../../constructs/private-location-check-assignment.js'
+import { PrivateLocationGroupAssignment } from '../../../constructs/private-location-group-assignment.js'
+import { SlackAlertChannel } from '../../../constructs/slack-alert-channel.js'
+import { SlackAppAlertChannel } from '../../../constructs/slack-app-alert-channel.js'
+import { SmsAlertChannel } from '../../../constructs/sms-alert-channel.js'
+import { StatusPage } from '../../../constructs/status-page.js'
+import { StatusPageService, StatusPageServiceRef } from '../../../constructs/status-page-service.js'
+import { StatusPageV3, StatusPageV3Ref } from '../../../constructs/status-page-v3.js'
+import { StatusPageV3AutomationRule } from '../../../constructs/status-page-v3-automation-rule.js'
+import { StatusPageV3Component, StatusPageV3ComponentRef } from '../../../constructs/status-page-v3-component.js'
+import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel.js'
+import { WebhookAlertChannel } from '../../../constructs/webhook-alert-channel.js'
 
 vi.mock('../literal-edit.js', async importOriginal => {
   const original = await importOriginal<typeof import('../literal-edit.js')>()
@@ -58,6 +81,12 @@ async function declare<T> (name: string, source: string, build: () => T): Promis
 }
 
 const read = (name: string) => fs.readFile(path.join(dir, name), 'utf8')
+
+/** The rule table the API reports for an alert channel: every credential blanked, whatever the flags. */
+const ALERT_CHANNEL_REDACTIONS: DiffRedaction[] = [
+  '/config/apiKey', '/config/webhookSecret', '/config/url', '/config/serviceKey',
+  '/config/headers/*/value', '/config/queryParameters/*/value',
+].map(path => ({ path, kind: 'value' }))
 
 /** The rule table the API reports for a check: env var values and header values blanked when locked. */
 const CHECK_REDACTIONS: DiffRedaction[] = [
@@ -107,6 +136,16 @@ function apiEntry (overrides: Partial<DiffEntry> = {}): DiffEntry {
     ...overrides,
   }
 }
+
+/** A change the account made, with `secret` set the way the API sets it on a credential leaf. */
+const remote = (path: string, before: unknown, after: unknown, secret?: true): DiffChange =>
+  ({ path, origin: 'remote', before, after, ...(secret === undefined ? {} : { secret }) })
+
+/** An updated resource of any type, as a full-detail preview reports it. */
+const entry = (
+  type: string, logicalId: string, before: Record<string, unknown>, changes: DiffChange[],
+  redactions: DiffRedaction[] = [],
+): DiffEntry => ({ type, logicalId, action: 'UPDATE', changes, before, redactions })
 
 beforeEach(async () => {
   dir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'write-back-')))
@@ -360,9 +399,8 @@ describe('planWriteBack', () => {
     await declare('wrapped.check.ts', `import { ApiCheck } from 'checkly'\nnew Wrapped('wrapped', { name: 'w' })\n`, () => {
       new Wrapped('wrapped', { name: 'w', request: { url: 'https://example.com', method: 'GET' } })
     })
-    await declare('email.ts', `import { EmailAlertChannel } from 'checkly'\nnew EmailAlertChannel('mail', { address: 'a@b.c' })\n`, () => {
-      new EmailAlertChannel('mail', { address: 'a@b.c' })
-    })
+    // A reference to another project's channel is a class of checkly's with nothing to write.
+    await declare('ref.ts', `import { AlertChannel } from 'checkly'\nAlertChannel.fromId(7)\n`, () => AlertChannel.fromId(7))
     const plan = await planWriteBack({
       diff: [
         apiEntry({ before: undefined, redactions: undefined }),
@@ -371,7 +409,7 @@ describe('planWriteBack', () => {
         apiEntry({ logicalId: 'gone' }),
         apiEntry({
           type: 'alert-channel',
-          logicalId: 'mail',
+          logicalId: 'alert-channel-7',
           changes: [{ path: '/config/address', origin: 'remote', before: 'a@b.c', after: 'x@b.c' }],
         }),
       ],
@@ -384,7 +422,7 @@ describe('planWriteBack', () => {
       'check api: Checkly did not report which of its values are secret',
       'check wrapped: Wrapped is not a class from checkly/constructs',
       'check gone: not found in the project',
-      'alert-channel mail: updating the code is supported for checks and check groups only',
+      'alert-channel alert-channel-7: AlertChannelRef has no properties this tool can update',
     ])
   })
 
@@ -551,16 +589,26 @@ new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: unit, grace:
   })
 
   it('lists every construct class checkly/constructs exports, or excludes it on purpose', () => {
-    // Abstract bases never appear in a project; every other check or group
-    // class must be named so a new one cannot fall back to a base's rules.
-    const abstract = new Set<ConstructClass>([Check, RuntimeCheck, RepairableRuntimeCheck, Monitor])
+    // Every concrete resource class must be named so a new one cannot fall
+    // back to a base's rules. Left out on purpose: the abstract bases, which
+    // never appear in a project; the references to another project's
+    // resources, which hold nothing to write; the relations, which the plan
+    // reports on the check or group they belong to; and the project itself.
+    const onPurpose = new Set<ConstructClass>([
+      Check, RuntimeCheck, RepairableRuntimeCheck, Monitor, AlertChannel,
+      CheckGroupRef, AlertChannelRef, PrivateLocationRef, StatusPageServiceRef, StatusPageV3Ref,
+      StatusPageV3ComponentRef,
+      AlertChannelSubscription, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
+      Project,
+    ])
     const exported = Object.values(constructs).filter((value): value is ConstructClass =>
-      typeof value === 'function'
-      && (value.prototype instanceof Check || value.prototype instanceof CheckGroupV1 || value === CheckGroupV1)
-      && !abstract.has(value as ConstructClass))
-    expect(exported.length).toBeGreaterThan(10)
+      typeof value === 'function' && value.prototype instanceof Construct && !onPurpose.has(value as ConstructClass))
+    expect(exported.length).toBeGreaterThan(30)
     for (const cls of exported) {
       expect(RULES_BY_CLASS.has(cls), `${cls.name} has no rules`).toBe(true)
+    }
+    for (const cls of onPurpose) {
+      expect(RULES_BY_CLASS.has(cls), `${cls.name} has rules`).toBe(false)
     }
   })
 
@@ -863,6 +911,9 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
     const has = (rules: readonly Rule[], target: string) => rules.some(rule => rule.target.join('.') === target && rule.companion === undefined)
     for (const [cls, rules] of RULES_BY_CLASS) {
       const isGroup = cls === CheckGroupV1 || cls === CheckGroupV2
+      if (!isGroup && !(cls.prototype instanceof Check)) {
+        continue
+      }
       const omitted: readonly string[] = cls === AgenticCheck
         ? AGENTIC_CHECK_OMITTED_PROPS
         : cls === PlaywrightCheck ? PLAYWRIGHT_CHECK_OMITTED_PROPS : []
@@ -1210,6 +1261,252 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 4
     expect(plan.applied.map(line => [line.logicalId, line.property, line.previous, line.rendered])).toEqual([
       ['api', 'runtimeId', '\'2024.02\'', '\'2025.04\''],
       ['grp', 'runtimeId', undefined, '\'2025.04\''],
+    ])
+  })
+
+  it('writes the props of every alert channel type onto the construct, flat', async () => {
+    await declare('channels.ts', `import {
+  EmailAlertChannel, SlackAlertChannel, SlackAppAlertChannel, WebhookAlertChannel, OpsgenieAlertChannel,
+  PagerdutyAlertChannel, SmsAlertChannel, PhoneCallAlertChannel, MSTeamsAlertChannel, TelegramAlertChannel,
+  IncidentioAlertChannel,
+} from 'checkly/constructs'
+
+new EmailAlertChannel('email', { address: 'a@b.c' })
+new SlackAlertChannel('slack', { url: 'https://hooks.slack.com/x', channel: '#ops' })
+new SlackAppAlertChannel('slackapp', { slackChannels: ['C1'] })
+new WebhookAlertChannel('webhook', { name: 'Hook', url: 'https://example.com/hook', method: 'POST', headers: [{ key: 'k', value: 'v' }] })
+new WebhookAlertChannel('webhook2', { name: 'Hook2', url: 'https://example.com/hook2' })
+new OpsgenieAlertChannel('opsgenie', { name: 'Ops', apiKey: 'k', region: 'EU', priority: 'P1' })
+new PagerdutyAlertChannel('pagerduty', { serviceKey: 'k', account: 'acc' })
+new SmsAlertChannel('sms', { phoneNumber: '+1', name: 'Sms' })
+new PhoneCallAlertChannel('call', { phoneNumber: '+1' })
+new MSTeamsAlertChannel('teams', { name: 'Teams', url: 'https://example.com/teams' })
+new TelegramAlertChannel('telegram', { name: 'Tg', chatId: '1', apiKey: 'k' })
+new IncidentioAlertChannel('incidentio', { name: 'Inc', url: 'https://example.com/inc', apiKey: 'k' })
+`, () => {
+      new EmailAlertChannel('email', { address: 'a@b.c' })
+      new SlackAlertChannel('slack', { url: 'https://hooks.slack.com/x', channel: '#ops' })
+      new SlackAppAlertChannel('slackapp', { slackChannels: ['C1'] })
+      new WebhookAlertChannel('webhook', { name: 'Hook', url: 'https://example.com/hook', method: 'POST', headers: [{ key: 'k', value: 'v' }] })
+      new WebhookAlertChannel('webhook2', { name: 'Hook2', url: 'https://example.com/hook2' })
+      new OpsgenieAlertChannel('opsgenie', { name: 'Ops', apiKey: 'k', region: 'EU', priority: 'P1' })
+      new PagerdutyAlertChannel('pagerduty', { serviceKey: 'k', account: 'acc' })
+      new SmsAlertChannel('sms', { phoneNumber: '+1', name: 'Sms' })
+      new PhoneCallAlertChannel('call', { phoneNumber: '+1' })
+      new MSTeamsAlertChannel('teams', { name: 'Teams', url: 'https://example.com/teams' })
+      new TelegramAlertChannel('telegram', { name: 'Tg', chatId: '1', apiKey: 'k' })
+      new IncidentioAlertChannel('incidentio', { name: 'Inc', url: 'https://example.com/inc', apiKey: 'k' })
+    })
+    const channel = (logicalId: string, config: Record<string, unknown>, changes: DiffChange[], top = {}) =>
+      entry('alert-channel', logicalId, { config, ...top }, changes, ALERT_CHANNEL_REDACTIONS)
+    const plan = await planWriteBack({
+      diff: [
+        channel('email', { address: 'x@b.c' }, [
+          remote('/config/address', 'a@b.c', 'x@b.c'), remote('/sendRecovery', true, false), remote('/type', 'EMAIL', 'SLACK'),
+        ], { sendRecovery: false }),
+        // A change at a credential arrives as a secret; the value is never in `before`.
+        channel('slack', { url: '', channel: '#alerts' }, [
+          remote('/config/channel', '#ops', '#alerts'), remote('/config/url', { $masked: 'same' }, { $masked: 'changed' }, true),
+        ]),
+        channel('slackapp', { slackChannels: ['C1', 'C2'] }, [remote('/config/slackChannels', ['C1'], ['C1', 'C2'])]),
+        // A header list whose values are all secret is reported as a secret; a
+        // list change that somehow is not still cannot be written from the
+        // blanked values.
+        channel('webhook', { url: '', method: 'PUT', headers: [{ key: 'k', value: '', locked: false }] }, [
+          remote('/config/method', 'POST', 'PUT'), remote('/config/headers', undefined, undefined, true),
+        ]),
+        channel('webhook2', { url: '', name: 'Hook 2', headers: [{ key: 'k', value: '', locked: false }] }, [
+          remote('/config/name', 'Hook2', 'Hook 2'), remote('/config/headers', [], [{ key: 'k', value: '' }]),
+        ]),
+        channel('opsgenie', { apiKey: '', region: 'US' }, [
+          remote('/config/region', 'EU', 'US'), remote('/config/apiKey', { $masked: 'same' }, { $masked: 'changed' }, true),
+        ]),
+        // A credential change the API did not flag is still refused: the
+        // blanked value can never pass for the account's.
+        channel('pagerduty', { account: 'acc2', serviceKey: '' }, [
+          remote('/config/account', 'acc', 'acc2'), remote('/config/serviceKey', 'a', 'b'),
+        ]),
+        channel('sms', { number: '+2' }, [remote('/config/number', '+1', '+2')]),
+        channel('call', { number: '+2', name: 'Call' }, [remote('/config/number', '+1', '+2'), remote('/config/name', null, 'Call')]),
+        channel('teams', { url: '', template: '{"x":1}', method: 'GET', webhookType: 'WEBHOOK_MSTEAMS' }, [
+          remote('/config/template', '{}', '{"x":1}'), remote('/config/method', 'POST', 'GET'),
+          remote('/config/webhookType', 'WEBHOOK_MSTEAMS', 'WEBHOOK_TELEGRAM'),
+        ]),
+        channel('telegram', { url: '', name: 'Telegram', template: 'chat_id=2' }, [
+          remote('/config/name', 'Tg', 'Telegram'), remote('/config/template', 'chat_id=1', 'chat_id=2'),
+        ]),
+        channel('incidentio', { url: '', template: '{"y":2}', headers: [{ key: 'authorization', value: '', locked: false }] }, [
+          remote('/config/template', '{}', '{"y":2}'), remote('/config/headers', [], [{ key: 'authorization', value: '' }]),
+        ]),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([
+      'alert-channel email /type: the channel type is the construct\'s class; change the class by hand',
+      'alert-channel slack /config/url: a secret changed; Checkly does not return its value',
+      'alert-channel webhook /config/headers: a secret changed; Checkly does not return its value',
+      'alert-channel webhook2 headers: contains a locked or secret value that Checkly does not return',
+      'alert-channel opsgenie /config/apiKey: a secret changed; Checkly does not return its value',
+      'alert-channel pagerduty serviceKey: contains a locked or secret value that Checkly does not return',
+      'alert-channel teams /config/method: fixed by the construct; it cannot be changed in the code',
+      'alert-channel teams /config/webhookType: fixed by the construct; it cannot be changed in the code',
+      'alert-channel telegram /config/template: built from chatId, messageThreadId and payload; edit them by hand',
+      'alert-channel incidentio /config/headers: built from apiKey; edit it by hand',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.previous, line.rendered])).toEqual([
+      ['email', 'address', '\'a@b.c\'', '\'x@b.c\''],
+      ['email', 'sendRecovery', undefined, 'false'],
+      ['slack', 'channel', '\'#ops\'', '\'#alerts\''],
+      ['slackapp', 'slackChannels', '[\'C1\']', '[\'C1\', \'C2\']'],
+      ['webhook', 'method', '\'POST\'', '\'PUT\''],
+      ['webhook2', 'name', '\'Hook2\'', '\'Hook 2\''],
+      ['opsgenie', 'region', '\'EU\'', '\'US\''],
+      ['pagerduty', 'account', '\'acc\'', '\'acc2\''],
+      ['sms', 'phoneNumber', '\'+1\'', '\'+2\''],
+      ['call', 'phoneNumber', '\'+1\'', '\'+2\''],
+      ['call', 'name', undefined, '\'Call\''],
+      ['teams', 'payload', undefined, '\'{"x":1}\''],
+      ['telegram', 'name', '\'Tg\'', '\'Telegram\''],
+      ['incidentio', 'payload', undefined, '\'{"y":2}\''],
+    ])
+    const text = plan.files[0].text
+    expect(text).toContain('new SmsAlertChannel(\'sms\', { phoneNumber: \'+2\', name: \'Sms\' })')
+    expect(text).toContain('new PhoneCallAlertChannel(\'call\', { phoneNumber: \'+2\', name: \'Call\' })')
+    expect(text).toContain('new EmailAlertChannel(\'email\', { address: \'x@b.c\', sendRecovery: false })')
+  })
+
+  it('writes private locations, dashboards, maintenance windows and status pages', async () => {
+    await declare('resources.ts', `import { PrivateLocation, Dashboard, MaintenanceWindow } from 'checkly/constructs'
+
+const unit = 'DAY'
+new PrivateLocation('pl', { name: 'PL', slugName: 'pl' })
+new Dashboard('dash', { customUrl: 'dash', tags: ['a'], refreshRate: 60, customCSS: { content: 'a {}' } })
+new MaintenanceWindow('mw', { name: 'MW', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'DAY' })
+new MaintenanceWindow('mw2', { name: 'MW2', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: unit })
+new MaintenanceWindow('mw3', { name: 'MW3', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'WEEK' })
+new MaintenanceWindow('mw4', { name: 'MW4', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'DAY' })
+new MaintenanceWindow('mw5', { name: 'MW5', tags: ['a'], startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z'), repeatInterval: 1, repeatUnit: 'DAY', repeatEndsAt: new Date('2026-03-01T00:00:00.000Z') })
+new PrivateLocation('pl2', { name: 'PL2', slugName: 'pl2', proxyUrl: 'http://proxy' })
+`, () => {
+      const dates = { startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z') }
+      new PrivateLocation('pl', { name: 'PL', slugName: 'pl' })
+      new Dashboard('dash', { customUrl: 'dash', tags: ['a'], refreshRate: 60, customCSS: { content: 'a {}' } })
+      new MaintenanceWindow('mw', { name: 'MW', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY' })
+      new MaintenanceWindow('mw2', { name: 'MW2', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY' })
+      new MaintenanceWindow('mw3', { name: 'MW3', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'WEEK' })
+      new MaintenanceWindow('mw4', { name: 'MW4', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY' })
+      new MaintenanceWindow('mw5', {
+        name: 'MW5', tags: ['a'], ...dates, repeatInterval: 1, repeatUnit: 'DAY', repeatEndsAt: new Date('2026-03-01T00:00:00.000Z'),
+      })
+      new PrivateLocation('pl2', { name: 'PL2', slugName: 'pl2', proxyUrl: 'http://proxy' })
+    })
+    await declare('pages.ts', `import {
+  StatusPage, StatusPageService, StatusPageV3, StatusPageV3Component, StatusPageV3AutomationRule,
+} from 'checkly/constructs'
+
+const service = new StatusPageService('svc', { name: 'Svc' })
+new StatusPage('v2', { name: 'V2', url: 'v2', cards: [{ name: 'Card', services: [service] }] })
+const page = new StatusPageV3('v3', { name: 'V3', url: 'v3', themeColors: { light: { bodyBackgroundColor: '#fff' } } })
+const component = new StatusPageV3Component('comp', { statusPage: page, name: 'Comp', displayOrder: 1 })
+new StatusPageV3AutomationRule('rule', {
+  statusPage: page, name: 'Rule', firstUpdate: 'a', lastUpdate: 'b', tags: ['t'], coolDownMinutes: 5,
+  components: [{ component, targetImpact: 'MAJOR_OUTAGE' }],
+})
+`, () => {
+      const service = new StatusPageService('svc', { name: 'Svc' })
+      new StatusPage('v2', { name: 'V2', url: 'v2', cards: [{ name: 'Card', services: [service] }] })
+      const page = new StatusPageV3('v3', { name: 'V3', url: 'v3', themeColors: { light: { bodyBackgroundColor: '#fff' } } })
+      const component = new StatusPageV3Component('comp', { statusPage: page, name: 'Comp', displayOrder: 1 })
+      new StatusPageV3AutomationRule('rule', {
+        statusPage: page, name: 'Rule', firstUpdate: 'a', lastUpdate: 'b', tags: ['t'], coolDownMinutes: 5,
+        components: [{ component, targetImpact: 'MAJOR_OUTAGE' }],
+      })
+    })
+    const plan = await planWriteBack({
+      diff: [
+        entry('private-location', 'pl', { name: 'PL 2', proxyUrl: '' }, [
+          remote('/name', 'PL', 'PL 2'), remote('/proxyUrl', { $masked: 'same' }, { $masked: 'changed' }, true),
+        ], [{ path: '/proxyUrl', kind: 'value' }]),
+        entry('private-location', 'pl2', { proxyUrl: '' }, [remote('/proxyUrl', 'a', 'b')], [{ path: '/proxyUrl', kind: 'value' }]),
+        // A repeat setting the code changed, or one the account holds no
+        // value for, keeps the other from being written alone.
+        entry('maintenance-window', 'mw3', { repeatInterval: 2, repeatUnit: 'WEEK' }, [
+          remote('/repeatInterval', 1, 2), { path: '/repeatUnit', origin: 'code', before: 'DAY', after: 'WEEK' },
+        ]),
+        entry('maintenance-window', 'mw4', { repeatInterval: 2, repeatUnit: 'WEEK' }, [
+          remote('/repeatInterval', 1, 2), remote('/repeatUnit', 'DAY', 'MONTH'),
+        ]),
+        // An end date the account cleared is a null the writer refuses, which takes the interval with it.
+        entry('maintenance-window', 'mw5', { repeatInterval: 2, repeatEndsAt: null }, [
+          remote('/repeatInterval', 1, 2), remote('/repeatEndsAt', '2026-03-01T00:00:00.000Z', null),
+        ]),
+        entry('dashboard', 'dash', { tags: ['a', 'b'], refreshRate: 300, customCSS: 'b {}' }, [
+          { path: '/tags/x', origin: 'remote', after: 'b' }, remote('/refreshRate', 60, 300), remote('/customCSS', 'a {}', 'b {}'),
+        ]),
+        entry('maintenance-window', 'mw', {
+          startsAt: '2026-02-01T00:00:00.000Z', repeatInterval: 2, repeatUnit: 'WEEK', repeatEndsAt: '2026-03-01T00:00:00.000Z',
+        }, [
+          remote('/startsAt', '2026-01-01T00:00:00.000Z', '2026-02-01T00:00:00.000Z'),
+          remote('/repeatInterval', 1, 2), remote('/repeatUnit', 'DAY', 'WEEK'),
+          remote('/repeatEndsAt', null, '2026-03-01T00:00:00.000Z'),
+        ]),
+        entry('maintenance-window', 'mw2', { repeatInterval: 2, repeatUnit: 'WEEK' }, [
+          remote('/repeatInterval', 1, 2), remote('/repeatUnit', 'DAY', 'WEEK'),
+        ]),
+        entry('status-page', 'v2', { name: 'V2 renamed', cards: [{ name: 'Card 2' }] }, [
+          remote('/name', 'V2', 'V2 renamed'), remote('/cards/0/name', 'Card', 'Card 2'),
+        ]),
+        entry('status-page', 'v3', {
+          version: 3, themeColors: { light: { bodyBackgroundColor: '#000' }, dark: { bodyBackgroundColor: '#111' } },
+        }, [
+          remote('/themeColors/light/bodyBackgroundColor', '#fff', '#000'),
+          remote('/themeColors/dark/bodyBackgroundColor', null, '#111'), remote('/version', 2, 3),
+        ]),
+        entry('status-page-service', 'svc', { name: 'Service' }, [remote('/name', 'Svc', 'Service')]),
+        entry('status-page-component', 'comp', { configuration: { showHistoricalData: false }, statusPageId: 'p', parentId: 'q' }, [
+          remote('/configuration/showHistoricalData', true, false), remote('/statusPageId', 'p', 'p2'), remote('/parentId', null, 'q'),
+        ]),
+        entry('status-page-automation-rule', 'rule', { coolDownWindowMinutes: 10, tags: ['t', 'u'], components: [] }, [
+          remote('/coolDownWindowMinutes', 5, 10), { path: '/tags/x', origin: 'remote', after: 'u' },
+          { path: '/components/x', origin: 'remote', before: { componentId: 'c' } },
+        ]),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped).toEqual([
+      'private-location pl /proxyUrl: a secret changed; Checkly does not return its value',
+      'private-location pl2 proxyUrl: contains a locked or secret value that Checkly does not return',
+      'maintenance-window mw3 repeatInterval: your code also changed it since the last deploy; merge by hand',
+      'maintenance-window mw4 repeatUnit: Checkly reported two different current values',
+      'maintenance-window mw4 repeatInterval: written together with repeatUnit',
+      'dashboard dash /customCSS: a stylesheet, not a property; edit the file or the content by hand',
+      'status-page v2 /cards/0/name: cards hold status page services; edit them by hand',
+      'status-page v3 /version: fixed by the construct; it cannot be changed in the code',
+      'status-page-component comp /statusPageId: references another resource',
+      'status-page-component comp /parentId: references another resource',
+      'status-page-automation-rule rule /components/x: references another resource',
+      'maintenance-window mw5 repeatInterval: written together with repeatEndsAt',
+      'maintenance-window mw5 repeatEndsAt: Checkly has no value for repeatEndsAt; edit the property by hand',
+      'maintenance-window mw2 repeatInterval: written together with repeatUnit',
+      'maintenance-window mw2 repeatUnit: repeatUnit is the variable unit, not a plain literal',
+      'status-page v3 themeColors.dark.bodyBackgroundColor: themeColors.dark is not set in the code',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.previous, line.rendered])).toEqual([
+      ['pl', 'name', '\'PL\'', '\'PL 2\''],
+      ['dash', 'tags', '[\'a\']', '[\'a\', \'b\']'],
+      ['dash', 'refreshRate', '60', '300'],
+      ['mw', 'startsAt', 'new Date(\'2026-01-01T00:00:00.000Z\')', 'new Date(\'2026-02-01T00:00:00.000Z\')'],
+      ['mw', 'repeatInterval', '1', '2'],
+      ['mw', 'repeatUnit', '\'DAY\'', '\'WEEK\''],
+      ['mw', 'repeatEndsAt', undefined, 'new Date(\'2026-03-01T00:00:00.000Z\')'],
+      ['v2', 'name', '\'V2\'', '\'V2 renamed\''],
+      ['v3', 'themeColors.light.bodyBackgroundColor', '\'#fff\'', '\'#000\''],
+      ['svc', 'name', '\'Svc\'', '\'Service\''],
+      ['comp', 'showHistoricalData', undefined, 'false'],
+      ['rule', 'coolDownMinutes', '5', '10'],
+      ['rule', 'tags', '[\'t\']', '[\'t\', \'u\']'],
     ])
   })
 
