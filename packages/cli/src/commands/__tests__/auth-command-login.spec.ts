@@ -6,7 +6,10 @@ vi.mock('../../rest/api', () => ({
 vi.mock('../../services/config', () => ({
   default: { hasValidCredentials: vi.fn(), hasEnvVarsConfigured: vi.fn() },
 }))
-vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
+vi.mock('../../helpers/cli-mode', async importOriginal => ({
+  ...await importOriginal<typeof import('../../helpers/cli-mode.js')>(),
+  detectCliMode: vi.fn(),
+}))
 vi.mock('../login', () => ({ default: vi.fn() }))
 
 import * as api from '../../rest/api.js'

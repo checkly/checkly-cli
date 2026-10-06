@@ -143,6 +143,29 @@ export function platformForOperator (operator: string): string | undefined {
   return prefix ? OPERATOR_TO_PLATFORM[prefix] : undefined
 }
 
+// Interactive mode is the fallback when no agent or CI is detected, so it also
+// covers cron jobs and scripts. Two checks tell whether a person is there:
+
+/**
+ * For `checkly login` itself, which only needs someone to read the login code:
+ * a terminal on stdin (stdout may still be piped, e.g. into `tee`), or
+ * CHECKLY_CLI_MODE=interactive set explicitly, for terminals Node does not
+ * recognise as one (e.g. mintty) and for wrappers and tests using pipes.
+ */
+export function canShowLoginCode (): boolean {
+  return Boolean(process.stdin.isTTY) || process.env.CHECKLY_CLI_MODE === 'interactive'
+}
+
+/**
+ * For a login an authenticated command starts on its own: only with terminals
+ * on both stdin and stdout. Anything less (pipes, redirects, an explicit mode
+ * included) fails fast with the hint to log in, so an unattended run never
+ * waits on a code nobody sees.
+ */
+export function canLogInInline (): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY)
+}
+
 export function detectCliMode (fileExists: (path: string) => boolean = existsSync): CliMode {
   const envMode = process.env.CHECKLY_CLI_MODE
   if (envMode && VALID_CLI_MODES.has(envMode)) {

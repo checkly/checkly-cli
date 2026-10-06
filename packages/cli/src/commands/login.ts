@@ -16,7 +16,7 @@ import {
   type DeviceAuthorization,
 } from '../auth/device-flow.js'
 import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
-import { detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
+import { canShowLoginCode, detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
 import { activateAccount } from '../helpers/activate-account.js'
 import commonMessages from '../messages/common-messages.js'
 
@@ -122,6 +122,12 @@ export default class Login extends BaseCommand {
           this.error((reuseStoredKey ? 'The stored login is no longer valid and was removed. ' : '')
             + '`npx checkly login` needs a browser. In CI, set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` '
             + 'in the environment instead.', { exit: 1 })
+        }
+        if (this.#mode === 'interactive' && !canShowLoginCode()) {
+          this.error((reuseStoredKey ? 'The stored login is no longer valid and was removed. ' : '')
+            + '`npx checkly login` needs a terminal to show the login code and wait for it. '
+            + 'Run it in a terminal, or set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` in the environment. '
+            + 'If you are at a terminal that is not detected as one, set `CHECKLY_CLI_MODE=interactive`.', { exit: 1 })
         }
         if (reuseStoredKey && this.#mode === 'interactive') {
           this.#print('The stored login is no longer valid. Logging in again.')

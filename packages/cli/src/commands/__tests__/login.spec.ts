@@ -109,8 +109,16 @@ function jsonLines (cmd: Login): any[] {
   return loggedLines(cmd).map(line => JSON.parse(line))
 }
 
+const originalStdinIsTTY = process.stdin.isTTY
+
+afterEach(() => {
+  process.stdin.isTTY = originalStdinIsTTY
+  delete process.env.CHECKLY_CLI_MODE
+})
+
 beforeEach(() => {
   vi.clearAllMocks()
+  process.stdin.isTTY = true
   for (const mock of [
     config.data.get, config.auth.get, api.user.get, api.accounts.getAll, api.validateAuthentication,
     deviceFlow.requestAuthorization, deviceFlow.pollForTokens, deviceFlow.pollOnce, open, prompts,
@@ -569,6 +577,44 @@ describe('checkly login', () => {
 
       expect(config.data.store).toEqual({})
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
+    })
+  })
+
+  describe('interactive mode without a terminal', () => {
+    beforeEach(() => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      process.stdin.isTTY = false as any
+    })
+
+    it('fails at once instead of waiting for a code nobody sees', async () => {
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toThrow(/needs a terminal.*CHECKLY_API_KEY.*CHECKLY_CLI_MODE=interactive/s)
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+    })
+
+    it('still runs when CHECKLY_CLI_MODE=interactive is set explicitly', async () => {
+      process.env.CHECKLY_CLI_MODE = 'interactive'
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      expect(deviceFlow.pollForTokens).toHaveBeenCalled()
+    })
+
+    it('says the stored login was removed when its key is rejected', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_revoked')
+      vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toThrow(/no longer valid and was removed.*needs a terminal/s)
+    })
+
+    it('still finishes an unfinished login with the stored key, which needs no code', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      const cmd = createCommand('--account-id', 'acc-1')
+
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
     })
   })
 

@@ -4,7 +4,7 @@ import * as api from '../rest/api.js'
 import { Account } from '../rest/accounts.js'
 import { Session } from '../constructs/session.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
-import { detectCliMode } from '../helpers/cli-mode.js'
+import { canLogInInline, detectCliMode } from '../helpers/cli-mode.js'
 import config from '../services/config.js'
 import Login from './login.js'
 import type { Project } from '../constructs/project.js'
@@ -36,7 +36,7 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
     return
   }
 
-  if (mode === 'interactive' && !(process.stdin.isTTY && process.stdout.isTTY)) {
+  if (mode === 'interactive' && !canLogInInline()) {
     return
   }
 
