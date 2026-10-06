@@ -383,4 +383,138 @@ new ApiCheck('api-health', {
   it('says so when the plan is empty', () => {
     expect(formatPreview({ diff: [], project })).toContain('No checks were detected')
   })
+
+  /**
+   * Resources Checkly had no earlier planned deploy to compare with: it
+   * compared the code with what is deployed and marks the entry `basis: 'live'`.
+   * The deploy writes each of them whatever that comparison found.
+   */
+  describe('a plan for resources compared with what is live', () => {
+    const rewrites: DiffEntry[] = [
+      { type: 'check-group', logicalId: 'grp', physicalId: 42, action: 'UPDATE', basis: 'live' },
+      { type: 'alert-channel', logicalId: 'email', physicalId: 7, action: 'UPDATE', basis: 'live' },
+      { type: 'check', logicalId: 'signup', physicalId: 's1', action: 'UPDATE', basis: 'live' },
+      // A relation is part of its check and counts for nothing here.
+      {
+        type: 'alert-channel-subscription',
+        logicalId: 'api-health#email',
+        physicalId: 9,
+        action: 'UPDATE',
+        basis: 'live',
+        foldedInto: { type: 'check', logicalId: 'api-health' },
+      },
+    ]
+    const note = (first: string, second: string, third: string) =>
+      [first, second, third, 'From the next deploy with --plan on, a plan shows only what changed.'].join('\n')
+
+    it('counts the ones with no difference instead of listing each as an update, and says why they are written', () => {
+      const { local } = scenario()
+      const diff: DiffEntry[] = [
+        ...rewrites,
+        { type: 'check', logicalId: 'api-health', physicalId: 'a1', action: 'UPDATE', basis: 'live' },
+      ]
+      const text = uncoloured(formatPreview({
+        heading: { title: 'Deploy preview', projectName: 'Website', accountName: 'Acme' },
+        diff,
+        project,
+        rendering: { plan: diff, local },
+        planToken: 'v1.token',
+      }))
+      expect(text).toBe([
+        'Deploy preview · Website → account Acme',
+        '',
+        '    4 to write again with no difference found',
+        '',
+        note(
+          '4 resources have no earlier planned deploy to compare with (none yet, or a deploy without --plan ran since).',
+          'They are compared with what is live in Checkly, and this deploy writes each of them once.',
+          'A value set only in Checkly, on a property your code does not set, may be reset.',
+        ),
+        '',
+        '4 to write again with no difference found, 0 unchanged',
+        'Deploy exactly this plan: checkly deploy --plan --plan-token v1.token',
+        '',
+      ].join('\n'))
+      expect(text).not.toContain('No changes.')
+    })
+
+    it('lists one that differs as an update, with the note of what it was compared with under its header', () => {
+      const { local } = scenario()
+      vi.mocked(renderResourceDiff).mockReturnValue([
+        { kind: 'remove', text: '  name: \'Edited in Checkly\',' },
+        { kind: 'add', text: '  name: \'API health\',' },
+      ])
+      const diff: DiffEntry[] = [...rewrites, { ...updateEntry, basis: 'live' }]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+      expect(text).toContain([
+        '  ~ ApiCheck  api-health  src/api-health.check.ts',
+        '    3 to write again with no difference found',
+        '',
+        '4 resources have no earlier planned deploy to compare with',
+      ].join('\n'))
+      expect(text).toContain([
+        '~ ApiCheck api-health  src/api-health.check.ts',
+        '    - live in Checkly   replaced or removed by this deploy',
+        '    + in your code      added or changed by this deploy',
+        '    compared with what is live in Checkly, not with an earlier plan',
+        '  -   name: \'Edited in Checkly\',',
+        '  +   name: \'API health\',',
+      ].join('\n'))
+      expect(text).toContain('\n1 to update, 3 to write again with no difference found, 0 unchanged\n')
+
+      const after = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
+      expect(after).toContain('    compared with what was live in Checkly, not with an earlier plan\n')
+    })
+
+    it('counts one whose only reported changes are relations the project does not manage, and still warns about those', () => {
+      scenario()
+      const diff: DiffEntry[] = [{
+        type: 'check',
+        logicalId: 'signup',
+        physicalId: 's1',
+        action: 'UPDATE',
+        basis: 'live',
+        changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+      }]
+      const text = uncoloured(formatPreview({ diff, project }))
+      expect(text).toContain('  ! Check  signup  has alert channels or private locations this project does not manage')
+      expect(text).toContain('    1 to write again with no difference found\n')
+      expect(text).toContain('1 resource has no earlier planned deploy to compare with')
+      expect(text).not.toContain('No changes.')
+    })
+
+    it('speaks of one resource in the singular, and in the past tense once the plan was carried out', () => {
+      scenario()
+      const text = uncoloured(formatPreview({ diff: [rewrites[0], ...unchangedEntries.slice(1)], project, done: true }))
+      expect(text).toContain([
+        '    1 written again with no difference found',
+        '    1 unchanged',
+        '',
+        note(
+          '1 resource had no earlier planned deploy to compare with (none yet, or a deploy without --plan ran since).',
+          'It was compared with what was live in Checkly and written once.',
+          'A value set only in Checkly, on a property your code does not set, may have been reset.',
+        ),
+        '',
+        '1 written again with no difference found, 1 unchanged',
+      ].join('\n'))
+    })
+
+    it('says nothing of the kind for a plan compared with an earlier one', () => {
+      const { local } = scenario()
+      const diff = [...unchangedEntries, updateEntry]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+      expect(text).not.toContain('earlier planned deploy')
+      expect(text).not.toContain('again')
+    })
+  })
+
+  it('prints the legend of the two sides only above a diff that has sides', () => {
+    const { local } = scenario()
+    vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'note', text: '/codeBundle: changed (code bundle)' }])
+    const diff = [...unchangedEntries, updateEntry]
+    const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+    expect(text).toContain('~ ApiCheck api-health  src/api-health.check.ts\n  ~ /codeBundle: changed (code bundle)\n')
+    expect(text).not.toContain('live in Checkly')
+  })
 })

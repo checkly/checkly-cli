@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DiffEntry } from '../../../rest/projects.js'
-import { planHasNoChanges, reducePlanForAgent } from '../plan-summary.js'
+import { planChangeLines, planHasNoChanges, reducePlanForAgent } from '../plan-summary.js'
 
 const options = { prettyTypes: { check: 'Check' }, foldedTypes: ['alert-channel-subscription'] }
 
@@ -29,6 +29,17 @@ describe('planHasNoChanges', () => {
   it.each<[string, DiffEntry]>([
     ['a create', { type: 'check', logicalId: 'new', action: 'CREATE' }],
     ['an update', { type: 'check', logicalId: 'api', physicalId: 1, action: 'UPDATE' }],
+    ['a resource written again with no difference found, which is a write all the same', {
+      type: 'check', logicalId: 'api', physicalId: 1, action: 'UPDATE', basis: 'live',
+    }],
+    ['such a resource with a relation the project does not manage', {
+      type: 'check',
+      logicalId: 'api',
+      physicalId: 1,
+      action: 'UPDATE',
+      basis: 'live',
+      changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+    }],
     ['a delete', { type: 'check', logicalId: 'gone', physicalId: 3, action: 'DELETE' }],
     ['a detachment', { type: 'check', logicalId: 'kept', physicalId: 4, action: 'DETACH' }],
     ['a managed relation that changed, reported on its unchanged owner', {
@@ -45,6 +56,36 @@ describe('planHasNoChanges', () => {
     }],
   ])('does not hold for %s', (_, entry) => {
     expect(planHasNoChanges([unchanged, entry], options)).toBe(false)
+  })
+})
+
+/**
+ * The lines the confirmation lists. A resource Checkly compared with what is
+ * deployed and found no difference in is still written, once, so that later
+ * plans have something to compare against.
+ */
+describe('planChangeLines', () => {
+  it('sums the resources written again up in one line that carries its own caveat, after the changes', () => {
+    const rewrite = (logicalId: string): DiffEntry =>
+      ({ type: 'check', logicalId, physicalId: logicalId, action: 'UPDATE', basis: 'live' })
+    expect(planChangeLines([
+      rewrite('a'),
+      rewrite('b'),
+      {
+        type: 'check',
+        logicalId: 'renamed',
+        physicalId: 3,
+        action: 'UPDATE',
+        basis: 'live',
+        changes: [{ path: '/name', origin: 'code', before: 'Old', after: 'New' }],
+      },
+      { type: 'check', logicalId: 'new', action: 'CREATE' },
+    ], options)).toEqual([
+      'Update Check: renamed',
+      'Create Check: new',
+      'Write 2 resource(s) again in which no difference from what is live was found; '
+      + 'a value set only in Checkly may be reset',
+    ])
   })
 })
 
