@@ -34,7 +34,7 @@ Two rules that survive any fallback:
   - If the line carries no `user_code`, the URL must be opened on the same machine as the CLI, and the command waits for it instead of exiting: run it in the background so you can relay the URL.
 - `{"status":"action_required","reason":"select_account","accounts":[…],"next":[…]}` — the key is stored, but the user belongs to several accounts. Ask which one (or use an id the user already gave you) and run `npx checkly login --account-id <id>`. There is no second browser step. The same command switches accounts later.
 - `{"status":"success","accountId":…,"accountName":…}` — done. Tell the user which account you are on.
-- `{"status":"error","error":…}` — report the error; do not retry in a loop. To log in as a different user, run `npx checkly logout --force` first.
+- `{"status":"error","error":…}` — report the error; do not retry in a loop. To log in as a different user, run `npx checkly logout` first.
 
 On a host without a browser set `CHECKLY_NO_BROWSER=1` so the CLI does not try to open one; the URL and code are printed regardless. The flag forms are `--account-id` and `--no-browser`.
 

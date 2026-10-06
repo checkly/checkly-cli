@@ -147,12 +147,13 @@ export function platformForOperator (operator: string): string | undefined {
 // covers cron jobs and scripts. Two checks tell whether a person is there:
 
 /**
- * For `checkly login` itself, which only needs someone to read the login code:
- * a terminal on stdin (stdout may still be piped, e.g. into `tee`), or
- * CHECKLY_CLI_MODE=interactive set explicitly, for terminals Node does not
- * recognise as one (e.g. mintty) and for wrappers and tests using pipes.
+ * For commands a person runs directly, such as `checkly login` showing its
+ * code or `checkly logout` asking for confirmation: a terminal on stdin (stdout
+ * may still be piped, e.g. into `tee`), or CHECKLY_CLI_MODE=interactive set
+ * explicitly, for terminals Node does not recognise as one (e.g. mintty) and
+ * for wrappers and tests that answer through pipes.
  */
-export function canShowLoginCode (): boolean {
+export function isPersonAtTerminal (): boolean {
   return Boolean(process.stdin.isTTY) || process.env.CHECKLY_CLI_MODE === 'interactive'
 }
 

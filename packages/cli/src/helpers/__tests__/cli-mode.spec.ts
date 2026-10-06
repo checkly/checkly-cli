@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { canLogInInline, canShowLoginCode, detectOperator, detectCliMode, platformForOperator } from '../cli-mode.js'
+import { canLogInInline, isPersonAtTerminal, detectOperator, detectCliMode, platformForOperator } from '../cli-mode.js'
 
 const operatorEnvVars = [
   'AI_AGENT', 'AGENT', 'CLAUDECODE', 'CLAUDE_CODE', 'CLAUDE_CODE_IS_COWORK',
@@ -390,18 +390,18 @@ describe('terminal checks for logging in', () => {
     else process.env.CHECKLY_CLI_MODE = original.mode
   })
 
-  it('canShowLoginCode() needs only stdin to be a terminal', () => {
+  it('isPersonAtTerminal() needs only stdin to be a terminal', () => {
     delete process.env.CHECKLY_CLI_MODE
     setTTY(true, false)
-    expect(canShowLoginCode()).toBe(true)
+    expect(isPersonAtTerminal()).toBe(true)
     setTTY(false, true)
-    expect(canShowLoginCode()).toBe(false)
+    expect(isPersonAtTerminal()).toBe(false)
   })
 
-  it('canShowLoginCode() accepts an explicit CHECKLY_CLI_MODE=interactive without a terminal', () => {
+  it('isPersonAtTerminal() accepts an explicit CHECKLY_CLI_MODE=interactive without a terminal', () => {
     setTTY(false, false)
     process.env.CHECKLY_CLI_MODE = 'interactive'
-    expect(canShowLoginCode()).toBe(true)
+    expect(isPersonAtTerminal()).toBe(true)
   })
 
   it('canLogInInline() needs terminals on both stdin and stdout, explicit mode or not', () => {

@@ -16,7 +16,7 @@ import {
   type DeviceAuthorization,
 } from '../auth/device-flow.js'
 import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
-import { canShowLoginCode, detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
+import { isPersonAtTerminal, detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
 import { activateAccount } from '../helpers/activate-account.js'
 import commonMessages from '../messages/common-messages.js'
 
@@ -123,7 +123,7 @@ export default class Login extends BaseCommand {
             + '`npx checkly login` needs a browser. In CI, set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` '
             + 'in the environment instead.', { exit: 1 })
         }
-        if (this.#mode === 'interactive' && !canShowLoginCode()) {
+        if (this.#mode === 'interactive' && !isPersonAtTerminal()) {
           this.error((reuseStoredKey ? 'The stored login is no longer valid and was removed. ' : '')
             + '`npx checkly login` needs a terminal to show the login code and wait for it. '
             + 'Run it in a terminal, or set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` in the environment. '
@@ -163,7 +163,7 @@ export default class Login extends BaseCommand {
           userActionRequired: false,
           message: 'Logged in, but this user belongs to several accounts. '
             + 'Choose one with `npx checkly login --account-id <id>`. '
-            + 'To log in as someone else instead, run `npx checkly logout --force` first.',
+            + 'To log in as someone else instead, run `npx checkly logout` first.',
           user: userName,
           accounts: accountSummaries,
           next: [{ command: 'npx checkly login --account-id <id>' }],
@@ -228,14 +228,6 @@ export default class Login extends BaseCommand {
       }
       throw error
     }
-  }
-
-  /**
-   * `checkly logout` asks for confirmation, which only a person at a terminal
-   * can give; anywhere else it would exit without logging out.
-   */
-  #logoutCommand (): string {
-    return this.#mode === 'interactive' ? 'npx checkly logout' : 'npx checkly logout --force'
   }
 
   #print (line: string): void {
@@ -472,7 +464,7 @@ export default class Login extends BaseCommand {
         // account may belong to another identity the user also logs in with.
         throw new Error(`No account with id "${requestedId}" is available to this user. `
           + `Available: ${available}`
-          + (usingStoredKey ? `. To log in as a different user, run \`${this.#logoutCommand()}\` first.` : ''))
+          + (usingStoredKey ? '. To log in as a different user, run `npx checkly logout` first.' : ''))
       }
       return match
     }
