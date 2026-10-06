@@ -18,8 +18,10 @@ const authorizationUrl = () => `${config.getAuthUrl()}/authorize`
 const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const AUTH0_CALLBACK_URL = 'http://localhost:4242'
-// Auth0's default device-code lifetime, so both login flows give up after a similar wait.
-const LOGIN_TIMEOUT_MS = 15 * 60 * 1000
+// Long enough to sign up (which can include confirming an email address),
+// short enough not to block an inline login for long; within what other CLIs
+// use for a browser login (AWS CLI and Heroku wait 10 minutes).
+const LOGIN_TIMEOUT_MS = 10 * 60 * 1000
 
 function escapeHtml (value: string | null): string {
   return (value ?? '').replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`)
