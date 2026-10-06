@@ -32,7 +32,7 @@ import AlertNotifications from './alert-notifications.js'
 import Rca from './rca.js'
 import Cancel from './cancel.js'
 import Usage from './usage.js'
-import { handleErrorResponse, UnauthorizedError } from './errors.js'
+import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
 import { detectOperator } from '../helpers/cli-mode.js'
 
@@ -45,7 +45,14 @@ export function getDefaults () {
   return { baseURL, accountId, Authorization, apiKey }
 }
 
-export async function validateAuthentication (): Promise<Account | undefined> {
+/**
+ * Checks the configured credentials against the configured account. Pass
+ * `suggestLogin: false` when trying out a different account (switching),
+ * where logging in again would not help.
+ */
+export async function validateAuthentication (
+  { suggestLogin = true }: { suggestLogin?: boolean } = {},
+): Promise<Account | undefined> {
   // This internal environment variable allows auth checks to be skipped
   // when using e.g. debug flags that don't actually need to authenticate
   // with the Checkly API.
@@ -73,9 +80,15 @@ export async function validateAuthentication (): Promise<Account | undefined> {
     const resp = await accounts.get(accountId)
     return resp.data
   } catch (err: any) {
+    // A stored login can be renewed by logging in again; environment
+    // credentials have to be fixed where they are set.
+    const hint = suggestLogin && !config.hasEnvVarsConfigured() ? ' Run `npx checkly login` to log in again.' : ''
     if (err instanceof UnauthorizedError) {
       throw new Error(`Authentication failed with account id "${accountId}" `
-        + `and API key "...${apiKey?.slice(-4)}"`, { cause: err })
+        + `and API key "...${apiKey?.slice(-4)}".${hint}`, { cause: err })
+    }
+    if (hint && (err instanceof ForbiddenError || err instanceof NotFoundError)) {
+      throw new Error(`Account "${accountId}" is not available with the stored login.${hint}`, { cause: err })
     }
 
     throw err

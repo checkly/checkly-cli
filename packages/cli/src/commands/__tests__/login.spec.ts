@@ -7,7 +7,7 @@ vi.mock('../../helpers/cli-mode', async importOriginal => ({
   detectCliMode: vi.fn(),
 }))
 vi.mock('../../rest/api', () => ({
-  accounts: { getAll: vi.fn() },
+  accounts: { getAll: vi.fn(), get: vi.fn() },
   user: { get: vi.fn() },
   validateAuthentication: vi.fn(),
 }))
@@ -52,7 +52,7 @@ import config from '../../services/config.js'
 import { DeviceFlow, DeviceFlowError, DeviceFlowNotAllowedError } from '../../auth/device-flow.js'
 import { credentialsFromTokens } from '../../auth/api-key.js'
 import { AuthContext } from '../../auth/index.js'
-import { UnauthorizedError } from '../../rest/errors.js'
+import { ForbiddenError, NotFoundError, UnauthorizedError } from '../../rest/errors.js'
 import Login from '../login.js'
 
 const mockConfig = {
@@ -120,7 +120,7 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.stdin.isTTY = true
   for (const mock of [
-    config.data.get, config.auth.get, api.user.get, api.accounts.getAll, api.validateAuthentication,
+    config.data.get, config.auth.get, api.user.get, api.accounts.getAll, api.accounts.get, api.validateAuthentication,
     deviceFlow.requestAuthorization, deviceFlow.pollForTokens, deviceFlow.pollOnce, open, prompts,
   ]) {
     vi.mocked(mock).mockReset()
@@ -138,6 +138,7 @@ beforeEach(() => {
   vi.mocked(config.getAccountId).mockReturnValue('')
   vi.mocked(api.user.get).mockResolvedValue({ data: { id: 'u1', name: 'Ada Lovelace' } } as any)
   vi.mocked(api.accounts.getAll).mockResolvedValue({ data: [{ id: 'acc-1', name: 'Acme' }] } as any)
+  vi.mocked(api.accounts.get).mockResolvedValue({ data: { id: 'acc-1', name: 'Acme' } } as any)
   vi.mocked(api.validateAuthentication).mockResolvedValue({ id: 'acc-1', name: 'Acme' } as any)
   vi.mocked(open).mockResolvedValue({} as any)
   vi.mocked(prompts).mockResolvedValue({})
@@ -405,6 +406,92 @@ describe('checkly login', () => {
         vi.mocked(api.accounts.getAll).mockResolvedValue({
           data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
         } as any)
+      })
+
+      describe('when the stored login no longer works', () => {
+        beforeEach(() => {
+          // The stored account comes from the config store, so dropping it is visible to the login.
+          vi.mocked(config.getAccountId).mockImplementation(() => (config.data.store as any).accountId ?? '')
+          vi.mocked(api.accounts.get).mockRejectedValueOnce(unauthorized())
+        })
+
+        it.each([
+          ['access to it was removed', new ForbiddenError({ statusCode: 403, error: 'Forbidden', message: 'Forbidden' } as any)],
+          ['it was deleted', new NotFoundError({ statusCode: 404, error: 'Not Found', message: 'Not Found' } as any)],
+        ])('also drops the account when %s', async (_, error) => {
+          vi.mocked(api.accounts.get).mockReset().mockRejectedValueOnce(error)
+          const cmd = createCommand()
+          await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+          expect(config.data.delete).toHaveBeenCalledWith('accountId')
+          expect(jsonLines(cmd)).toEqual([expect.objectContaining({ reason: 'select_account' })])
+        })
+
+        it('tells an interactive user the account is gone and lets them choose another', async () => {
+          vi.mocked(detectCliMode).mockReturnValue('interactive')
+          vi.mocked(prompts).mockResolvedValueOnce({ selectedAccount: { id: 'acc-2', name: 'Globex' } })
+          const cmd = createCommand()
+          await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+          const output = loggedLines(cmd).join('\n')
+          expect(output).toContain('Account "Acme" is no longer available with the stored login.')
+          expect(output).not.toContain('Continuing the login as')
+          expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+          // Only the account picker; no question about logging in to a different account.
+          expect(prompts).toHaveBeenCalledTimes(1)
+          expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
+        })
+
+        it('logs an interactive user in again without asking about a different account', async () => {
+          vi.mocked(detectCliMode).mockReturnValue('interactive')
+          vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+          const cmd = createCommand('--account-id', 'acc-1')
+          await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+          expect(prompts).not.toHaveBeenCalled()
+          expect(loggedLines(cmd).join('\n')).toContain('The stored login is no longer valid')
+          expect(deviceFlow.pollForTokens).toHaveBeenCalled()
+        })
+
+        it('drops the account and resumes with the still working key instead of claiming success', async () => {
+          const cmd = createCommand()
+          await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+          expect(config.data.delete).toHaveBeenCalledWith('accountId')
+          expect(config.auth.delete).not.toHaveBeenCalledWith('apiKey')
+          expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+          expect(jsonLines(cmd)).toEqual([expect.objectContaining({
+            status: 'action_required',
+            reason: 'select_account',
+            notice: 'Account "Acme" is no longer available with the stored login.',
+          })])
+        })
+
+        it('starts a new login when the key itself was revoked', async () => {
+          vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+          const cmd = createCommand()
+          await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+          expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
+          expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'action_required', reason: 'login' })])
+        })
+
+        it('in CI says the stored login was removed', async () => {
+          vi.mocked(detectCliMode).mockReturnValue('ci')
+          vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+          const cmd = createCommand()
+
+          await expect(cmd.run()).rejects.toThrow(/no longer valid and was removed.*CHECKLY_API_KEY/s)
+        })
+      })
+
+      it('reports a server error while checking the stored login without touching it', async () => {
+        vi.mocked(api.accounts.get).mockRejectedValueOnce(new Error('Service Unavailable'))
+        const cmd = createCommand()
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+        expect(config.data.delete).not.toHaveBeenCalled()
+        expect(jsonLines(cmd)).toEqual([{ status: 'error', success: false, error: 'Service Unavailable' }])
       })
 
       it('switches to the account given by --account-id with the stored key', async () => {

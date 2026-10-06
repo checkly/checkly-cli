@@ -16,7 +16,7 @@ export async function activateAccount (account: { id: string, name: string }): P
   config.data.set('accountId', account.id)
   config.data.set('accountName', account.name)
   try {
-    await api.validateAuthentication()
+    await api.validateAuthentication({ suggestLogin: false })
   } catch (error) {
     config.data.store = previous
     throw error

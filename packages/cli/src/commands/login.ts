@@ -6,7 +6,7 @@ import prompts from 'prompts'
 import { BaseCommand } from './baseCommand.js'
 import config from '../services/config.js'
 import * as api from '../rest/api.js'
-import { UnauthorizedError } from '../rest/errors.js'
+import { ForbiddenError, NotFoundError, UnauthorizedError } from '../rest/errors.js'
 import type { Account } from '../rest/accounts.js'
 import { AuthContext, type AuthMode } from '../auth/index.js'
 import {
@@ -106,11 +106,24 @@ export default class Login extends BaseCommand {
     const switchingAccount = config.hasValidCredentials()
       && Boolean(options.accountId) && options.accountId !== config.getAccountId()
 
-    if (config.hasValidCredentials() && !switchingAccount && !await this.#wantsToReplaceLogin()) {
-      return true
-    }
-
     try {
+      // A stored login is only kept as it is while it still works. Dropping an
+      // unusable account sends the flow below into the stored-key resume path:
+      // account selection with a working key, a new login otherwise.
+      let notice: string | undefined
+      if (config.hasValidCredentials() && !switchingAccount) {
+        const droppedAccount = await this.#dropUnusableStoredAccount()
+        if (droppedAccount === undefined && !await this.#wantsToReplaceLogin()) {
+          return true
+        }
+        if (droppedAccount !== undefined) {
+          notice = `Account "${droppedAccount}" is no longer available with the stored login.`
+          if (this.#mode !== 'agent') {
+            this.#print(notice)
+          }
+        }
+      }
+
       // The stored key is reused when switching accounts, and when a previous
       // login stored it but stopped before an account was chosen (agent mode
       // with several accounts, or a cancelled account prompt).
@@ -145,7 +158,7 @@ export default class Login extends BaseCommand {
           this.#storeNewKey(result.key)
           userName = result.name
         }
-      } else if (this.#mode === 'interactive' && !switchingAccount) {
+      } else if (this.#mode === 'interactive' && !switchingAccount && !notice) {
         this.#print(`Continuing the login as ${chalk.bold(userName)}. `
           + 'Run `npx checkly logout` first to log in as someone else.')
       }
@@ -167,6 +180,7 @@ export default class Login extends BaseCommand {
           user: userName,
           accounts: accountSummaries,
           next: [{ command: 'npx checkly login --account-id <id>' }],
+          ...(notice ? { notice } : {}),
         }))
         return false
       }
@@ -181,6 +195,7 @@ export default class Login extends BaseCommand {
           accountId: account.id,
           accountName: account.name,
           accounts: accountSummaries,
+          ...(notice ? { notice } : {}),
         }))
       } else if (switchingAccount && usingStoredKey) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
@@ -259,6 +274,32 @@ export default class Login extends BaseCommand {
       message: `You are currently logged in to "${accountName}". Do you want to log out and log in to a different account?`,
     })
     return Boolean(setNewkey)
+  }
+
+  /**
+   * Checks the stored key against the stored account. If it no longer works
+   * (key revoked, access removed, account deleted), drops the stored account
+   * and returns its name, so the stored key is then checked like that of an
+   * unfinished login. Returns undefined when the stored login works. Other
+   * failures, such as the API being unreachable, are thrown.
+   */
+  async #dropUnusableStoredAccount (): Promise<string | undefined> {
+    const accountId = config.getAccountId()
+    try {
+      await api.accounts.get(accountId)
+      return undefined
+    } catch (error) {
+      const unusable = error instanceof UnauthorizedError
+        || error instanceof ForbiddenError
+        || error instanceof NotFoundError
+      if (!unusable) {
+        throw error
+      }
+      const accountName = config.data.get('accountName') as string | undefined
+      config.data.delete('accountId')
+      config.data.delete('accountName')
+      return accountName || accountId
+    }
   }
 
   // ─── AUTHENTICATION ─────────────────────────────────────────
