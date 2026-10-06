@@ -1,18 +1,17 @@
 import config from '../services/config.js'
 import * as api from '../rest/api.js'
-import commonMessages from '../messages/common-messages.js'
 
 /**
  * Makes `account` the active account and checks that the stored credentials
  * work with it. If they do not, the previously active account stays active.
  * `checkly login` and `checkly switch` both select accounts through this.
+ *
+ * While CHECKLY_API_KEY or CHECKLY_ACCOUNT_ID is set, it takes precedence
+ * over the stored value: the account is still stored for later, but the
+ * check uses the environment's key or account, so it cannot tell whether the
+ * stored key works with the stored account.
  */
 export async function activateAccount (account: { id: string, name: string }): Promise<void> {
-  // Credentials from the environment take precedence over the stored account,
-  // so the switch could neither take effect nor be validated.
-  if (config.hasEnvVarsConfigured()) {
-    throw new Error(`${commonMessages.envCredentialsConfigured} Unset them to switch the stored account.`)
-  }
   const previous = config.data.store
   config.data.set('accountId', account.id)
   config.data.set('accountName', account.name)

@@ -8,7 +8,7 @@ vi.mock('../../services/config', () => {
       data.store = { ...data.store, [key]: value }
     }),
   }
-  return { default: { data, hasEnvVarsConfigured: vi.fn(() => false) } }
+  return { default: { data } }
 })
 
 import * as api from '../../rest/api.js'
@@ -28,15 +28,6 @@ describe('activateAccount()', () => {
 
     expect(config.data.store).toEqual({ accountId: 'acc-2', accountName: 'Globex' })
     expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
-  })
-
-  it('refuses to switch while credentials come from the environment', async () => {
-    vi.mocked(config.hasEnvVarsConfigured).mockReturnValueOnce(true)
-
-    await expect(activateAccount({ id: 'acc-2', name: 'Globex' })).rejects.toThrow('CHECKLY_API_KEY')
-
-    expect(config.data.store).toEqual({ accountId: 'acc-1', accountName: 'Acme' })
-    expect(api.validateAuthentication).not.toHaveBeenCalled()
   })
 
   it('keeps the previous account when the credentials do not work with the new one', async () => {
