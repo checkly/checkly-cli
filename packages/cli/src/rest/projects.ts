@@ -102,11 +102,15 @@ export interface DiffEntry extends Change {
   /** The file Checkly has recorded for the resource, or null if none. */
   sourceFile?: string | null
   /**
-   * `live` when Checkly had no earlier planned deploy to compare the resource
-   * with and compared the code with the deployed resource instead. The deploy
-   * writes such a resource whatever the comparison found, and `changes` is not
-   * exhaustive: a value the deployed resource holds on a property the code
-   * does not set is left out, although the write may reset it.
+   * `live` when Checkly had no usable state from an earlier planned deploy to
+   * compare the resource with (the project's first plan, the first after a
+   * deploy without one, a resource added with `checkly import`, or a stored
+   * state a Checkly update made unusable) and compared the code with the
+   * deployed resource instead. The deploy
+   * writes such a resource whatever the comparison found, to set the baseline
+   * for later plans, and `changes` is not exhaustive: a value the deployed
+   * resource holds on a property the code does not set is left out, although
+   * the write may reset it.
    */
   basis?: 'live'
 }

@@ -29,10 +29,10 @@ describe('planHasNoChanges', () => {
   it.each<[string, DiffEntry]>([
     ['a create', { type: 'check', logicalId: 'new', action: 'CREATE' }],
     ['an update', { type: 'check', logicalId: 'api', physicalId: 1, action: 'UPDATE' }],
-    ['a resource written again with no difference found, which is a write all the same', {
+    ['a resource updated to set the baseline, in which nothing differs', {
       type: 'check', logicalId: 'api', physicalId: 1, action: 'UPDATE', basis: 'live',
     }],
-    ['such a resource with a relation the project does not manage', {
+    ['such a resource whose only reported change is a relation the project does not manage', {
       type: 'check',
       logicalId: 'api',
       physicalId: 1,
@@ -61,30 +61,29 @@ describe('planHasNoChanges', () => {
 
 /**
  * The lines the confirmation lists. A resource Checkly compared with what is
- * deployed and found no difference in is still written, once, so that later
- * plans have something to compare against.
+ * deployed is written whatever was found, to set the baseline for later plans,
+ * so it is listed as the update it is.
  */
 describe('planChangeLines', () => {
-  it('sums the resources written again up in one line that carries its own caveat, after the changes', () => {
-    const rewrite = (logicalId: string): DiffEntry =>
+  it('lists a resource updated to set the baseline like any other update', () => {
+    const setsBaseline = (logicalId: string): DiffEntry =>
       ({ type: 'check', logicalId, physicalId: logicalId, action: 'UPDATE', basis: 'live' })
     expect(planChangeLines([
-      rewrite('a'),
-      rewrite('b'),
+      setsBaseline('a'),
       {
-        type: 'check',
-        logicalId: 'renamed',
-        physicalId: 3,
-        action: 'UPDATE',
-        basis: 'live',
+        ...setsBaseline('relation-only'),
+        changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+      },
+      {
+        ...setsBaseline('renamed'),
         changes: [{ path: '/name', origin: 'code', before: 'Old', after: 'New' }],
       },
       { type: 'check', logicalId: 'new', action: 'CREATE' },
     ], options)).toEqual([
+      'Update Check: a',
+      'Update Check: relation-only',
       'Update Check: renamed',
       'Create Check: new',
-      'Write 2 resource(s) again in which no difference from what is live was found; '
-      + 'a value set only in Checkly may be reset',
     ])
   })
 })

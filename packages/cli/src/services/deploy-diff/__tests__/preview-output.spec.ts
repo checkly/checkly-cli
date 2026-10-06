@@ -386,11 +386,12 @@ new ApiCheck('api-health', {
 
   /**
    * Resources Checkly had no earlier planned deploy to compare with: it
-   * compared the code with what is deployed and marks the entry `basis: 'live'`.
-   * The deploy writes each of them whatever that comparison found.
+   * compared the code with what is deployed, marks the entry `basis: 'live'`,
+   * and the deploy writes each of them whatever that found, to set the
+   * baseline for later plans.
    */
-  describe('a plan for resources compared with what is live', () => {
-    const rewrites: DiffEntry[] = [
+  describe('a plan that sets the baseline', () => {
+    const baseline: DiffEntry[] = [
       { type: 'check-group', logicalId: 'grp', physicalId: 42, action: 'UPDATE', basis: 'live' },
       { type: 'alert-channel', logicalId: 'email', physicalId: 7, action: 'UPDATE', basis: 'live' },
       { type: 'check', logicalId: 'signup', physicalId: 's1', action: 'UPDATE', basis: 'live' },
@@ -404,13 +405,12 @@ new ApiCheck('api-health', {
         foldedInto: { type: 'check', logicalId: 'api-health' },
       },
     ]
-    const note = (first: string, second: string, third: string) =>
-      [first, second, third, 'From the next deploy with --plan on, a plan shows only what changed.'].join('\n')
+    const LATER = 'Later deploys with --plan show only what changed.'
 
-    it('counts the ones with no difference instead of listing each as an update, and says why they are written', () => {
+    it('lists every resource as an update and counts them in the note', () => {
       const { local } = scenario()
       const diff: DiffEntry[] = [
-        ...rewrites,
+        ...baseline,
         { type: 'check', logicalId: 'api-health', physicalId: 'a1', action: 'UPDATE', basis: 'live' },
       ]
       const text = uncoloured(formatPreview({
@@ -423,89 +423,90 @@ new ApiCheck('api-health', {
       expect(text).toBe([
         'Deploy preview · Website → account Acme',
         '',
-        '    4 to write again with no difference found',
+        '  ~ EmailAlertChannel  email',
+        '  ~ ApiCheck           api-health  src/api-health.check.ts',
+        '  ~ ApiCheck           signup      src/signup.check.ts',
+        '  ~ CheckGroupV2       grp',
         '',
-        note(
-          '4 resources have no earlier planned deploy to compare with (none yet, or a deploy without --plan ran since).',
-          'They are compared with what is live in Checkly, and this deploy writes each of them once.',
-          'A value set only in Checkly, on a property your code does not set, may be reset.',
-        ),
+        `4 resources are updated to set a baseline for --plan. ${LATER}`,
         '',
-        '4 to write again with no difference found, 0 unchanged',
+        '4 to update, 0 unchanged',
         'Deploy exactly this plan: checkly deploy --plan --plan-token v1.token',
         '',
       ].join('\n'))
       expect(text).not.toContain('No changes.')
     })
 
-    it('lists one that differs as an update, with the note of what it was compared with under its header', () => {
+    it('counts only the resources that set the baseline, and renders a diff as usual', () => {
       const { local } = scenario()
       vi.mocked(renderResourceDiff).mockReturnValue([
         { kind: 'remove', text: '  name: \'Edited in Checkly\',' },
         { kind: 'add', text: '  name: \'API health\',' },
       ])
-      const diff: DiffEntry[] = [...rewrites, { ...updateEntry, basis: 'live' }]
+      const diff: DiffEntry[] = [...baseline, updateEntry]
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
       expect(text).toContain([
-        '  ~ ApiCheck  api-health  src/api-health.check.ts',
-        '    3 to write again with no difference found',
+        '  ~ CheckGroupV2       grp',
         '',
-        '4 resources have no earlier planned deploy to compare with',
-      ].join('\n'))
-      expect(text).toContain([
+        `3 resources are updated to set a baseline for --plan. ${LATER}`,
+        '',
         '~ ApiCheck api-health  src/api-health.check.ts',
         '    - live in Checkly   replaced or removed by this deploy',
         '    + in your code      added or changed by this deploy',
-        '    compared with what is live in Checkly, not with an earlier plan',
         '  -   name: \'Edited in Checkly\',',
         '  +   name: \'API health\',',
       ].join('\n'))
-      expect(text).toContain('\n1 to update, 3 to write again with no difference found, 0 unchanged\n')
+      expect(text).toContain('\n4 to update, 0 unchanged\n')
 
       const after = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
-      expect(after).toContain('    compared with what was live in Checkly, not with an earlier plan\n')
+      expect(after).toContain(`\n3 resources were updated to set a baseline for --plan. ${LATER}\n`)
+      expect(after).toContain('\n4 updated, 0 unchanged\n')
     })
 
-    it('counts one whose only reported changes are relations the project does not manage, and still warns about those', () => {
-      scenario()
+    it('lists one whose only reported changes are relations the project does not manage, next to the warning, without a diff', () => {
+      const { local } = scenario()
+      // What the diff of such a resource would show: its relation as removed,
+      // which the deploy does not do without --prune-relations.
+      vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'note', text: '/alertChannels/7: {"ref":"ops"} -> (absent) (not managed by this project)' }])
       const diff: DiffEntry[] = [{
         type: 'check',
         logicalId: 'signup',
         physicalId: 's1',
         action: 'UPDATE',
         basis: 'live',
+        before: { id: 's1', checkType: 'API', name: 'Signup' },
         changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
-      }]
-      const text = uncoloured(formatPreview({ diff, project }))
-      expect(text).toContain('  ! Check  signup  has alert channels or private locations this project does not manage')
-      expect(text).toContain('    1 to write again with no difference found\n')
-      expect(text).toContain('1 resource has no earlier planned deploy to compare with')
+      }, unchangedEntries[0]]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+      expect(text).toContain('  ~ ApiCheck  signup  src/signup.check.ts\n')
+      expect(text).toContain('  ! Check     signup  has alert channels or private locations this project does not manage')
+      expect(text).toContain(`\n1 resource is updated to set a baseline for --plan. ${LATER}\n`)
+      expect(text).not.toContain('(absent)')
+      expect(text).toContain('\n1 to update, 1 with relations this project does not manage, 1 unchanged\n')
       expect(text).not.toContain('No changes.')
     })
 
-    it('speaks of one resource in the singular, and in the past tense once the plan was carried out', () => {
-      scenario()
-      const text = uncoloured(formatPreview({ diff: [rewrites[0], ...unchangedEntries.slice(1)], project, done: true }))
+    it('speaks in the past tense once the plan was carried out', () => {
+      const { local } = scenario()
+      const diff = [baseline[0], updateEntry]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
       expect(text).toContain([
-        '    1 written again with no difference found',
-        '    1 unchanged',
+        '  ~ ApiCheck      api-health  src/api-health.check.ts',
+        '  ~ CheckGroupV2  grp',
         '',
-        note(
-          '1 resource had no earlier planned deploy to compare with (none yet, or a deploy without --plan ran since).',
-          'It was compared with what was live in Checkly and written once.',
-          'A value set only in Checkly, on a property your code does not set, may have been reset.',
-        ),
+        `1 resource was updated to set a baseline for --plan. ${LATER}`,
         '',
-        '1 written again with no difference found, 1 unchanged',
+        '2 updated, 0 unchanged',
       ].join('\n'))
+      const all = uncoloured(formatPreview({ diff: [baseline[0], unchangedEntries[1]], project, done: true }))
+      expect(all).toContain(`\n1 resource was updated to set a baseline for --plan. ${LATER}\n`)
     })
 
     it('says nothing of the kind for a plan compared with an earlier one', () => {
       const { local } = scenario()
       const diff = [...unchangedEntries, updateEntry]
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
-      expect(text).not.toContain('earlier planned deploy')
-      expect(text).not.toContain('again')
+      expect(text).not.toContain('baseline')
     })
   })
 
