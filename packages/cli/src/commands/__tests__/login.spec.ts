@@ -835,7 +835,8 @@ describe('checkly login', () => {
     it('fails at once instead of waiting for a code nobody sees', async () => {
       const cmd = createCommand()
 
-      await expect(cmd.run()).rejects.toThrow(/needs a terminal.*CHECKLY_API_KEY.*CHECKLY_CLI_MODE=interactive/s)
+      await expect(cmd.run())
+        .rejects.toThrow(/needs a terminal.*CHECKLY_API_KEY.*CHECKLY_CLI_MODE=interactive.*CHECKLY_CLI_MODE=agent/s)
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
     })
 
