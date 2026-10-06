@@ -577,17 +577,21 @@ export default class Login extends BaseCommand {
     const authContext = new AuthContext(mode)
 
     if (this.#mode === 'interactive') {
-      const { openUrl } = await prompts({
+      // --no-browser / CHECKLY_NO_BROWSER: don't offer to open one.
+      const openUrl = this.#openBrowser && (await prompts({
         name: 'openUrl',
         type: 'confirm',
         message: `Do you want to open a browser window to continue with ${mode === 'signup' ? 'sign up' : 'login'}?`,
         initial: true,
-      })
+      })).openUrl
 
       if (openUrl) {
         await open(authContext.authenticationUrl)
       } else {
-        this.#print(`Please open the following URL in your browser: \n\n${chalk.cyan(authContext.authenticationUrl)}`)
+        // The login completes through a callback to localhost, so a browser
+        // elsewhere (e.g. on the laptop an SSH session comes from) won't do.
+        this.#print('Please open the following URL in a browser on this machine: '
+          + `\n\n${chalk.cyan(authContext.authenticationUrl)}`)
       }
     } else {
       this.#announce({

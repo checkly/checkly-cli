@@ -1004,6 +1004,17 @@ describe('checkly login', () => {
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_pkce')
     })
 
+    it('prints the URL without offering a browser in the fallback when asked not to open one', async () => {
+      deviceFlow.requestAuthorization.mockRejectedValueOnce(new DeviceFlowNotAllowedError('not allowed'))
+      vi.mocked(prompts).mockResolvedValueOnce({ mode: 'login' })
+      const cmd = createCommand('--no-browser')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(prompts).toHaveBeenCalledTimes(1)
+      expect(loggedLines(cmd).join('\n')).toContain('https://auth.checklyhq.com/authorize?client_id=x')
+      expect(open).not.toHaveBeenCalled()
+    })
+
     it('resumes a login that has a key but no account by asking which account to use', async () => {
       vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
       vi.mocked(api.accounts.getAll).mockResolvedValue({
