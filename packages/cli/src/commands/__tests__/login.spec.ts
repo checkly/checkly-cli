@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('open', () => ({ default: vi.fn() }))
 vi.mock('prompts', () => ({ default: vi.fn() }))
-vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
+vi.mock('../../helpers/cli-mode', async importOriginal => ({
+  ...await importOriginal<typeof import('../../helpers/cli-mode.js')>(),
+  detectCliMode: vi.fn(),
+}))
 vi.mock('../../rest/api', () => ({
   accounts: { getAll: vi.fn() },
   user: { get: vi.fn() },
@@ -370,6 +373,15 @@ describe('checkly login', () => {
 
       expect(open).not.toHaveBeenCalled()
       expect(jsonLines(cmd)[0].status).toBe('action_required')
+    })
+
+    it.each(['0', 'false', 'no', 'off', ''])('opens the browser when CHECKLY_NO_BROWSER is %j', async value => {
+      process.env.CHECKLY_NO_BROWSER = value
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(open).toHaveBeenCalled()
     })
   })
 

@@ -10,7 +10,7 @@ import type { Account } from '../rest/accounts.js'
 import { AuthContext, type AuthMode } from '../auth/index.js'
 import { DeviceFlow, DeviceFlowNotAllowedError, type DeviceAuthorization } from '../auth/device-flow.js'
 import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
-import { detectCliMode, type CliMode } from '../helpers/cli-mode.js'
+import { detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
 import commonMessages from '../messages/common-messages.js'
 
 export const selectAccount = async (
@@ -78,7 +78,7 @@ export default class Login extends BaseCommand {
    */
   async login (options: { accountId?: string, openBrowser?: boolean } = {}): Promise<boolean> {
     this.#mode = detectCliMode()
-    this.#openBrowser = (options.openBrowser ?? true) && !process.env.CHECKLY_NO_BROWSER
+    this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
       this.warn(`${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`)

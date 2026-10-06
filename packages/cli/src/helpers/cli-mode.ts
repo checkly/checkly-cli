@@ -35,9 +35,15 @@ const GENERIC_AGENT_VALUES: ReadonlySet<string> = new Set(['1', 'true', 'yes', '
 const RESERVED_OPERATOR_NAMES: ReadonlySet<string> = new Set(['manual'])
 const VALID_OPERATOR_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/
 
-function normalizeExplicitAgent (value: string | undefined): string | undefined {
+/** True for a set environment flag: any value except empty or an explicit off (0, false, no, off). */
+export function isEnvFlagSet (value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase()
-  if (!normalized || DISABLED_AGENT_VALUES.has(normalized)) return undefined
+  return !!normalized && !DISABLED_AGENT_VALUES.has(normalized)
+}
+
+function normalizeExplicitAgent (value: string | undefined): string | undefined {
+  if (!isEnvFlagSet(value)) return undefined
+  const normalized = value!.trim().toLowerCase()
   if (GENERIC_AGENT_VALUES.has(normalized)) return 'agent'
   if (RESERVED_OPERATOR_NAMES.has(normalized) || !VALID_OPERATOR_NAME.test(normalized)) return 'agent'
   return EXPLICIT_AGENT_ALIASES[normalized] ?? normalized.replaceAll('_', '-')
