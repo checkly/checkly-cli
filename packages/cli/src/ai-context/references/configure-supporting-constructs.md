@@ -78,8 +78,8 @@ new StatusPageV3AutomationRule('example-api-down-rule', {
 ## Maintenance Window
 
 - Import the `MaintenanceWindow` construct from `checkly/constructs`.
-- Maintenance windows are used to pause checks during maintenance periods so no alerts are sent.
-- Checks are referenced by their tags in the `tags` property.
+- Maintenance windows pause checks (`tags` or `pauseAllChecks`) and/or silence their alerts while the checks keep running (`silenceAlertsTags` or `silenceAllAlerts`).
+- Set `timezone` (an IANA name such as `America/New_York`) so recurring windows keep their local time.
 
 <!-- EXAMPLE: MAINTENANCE_WINDOW -->
 

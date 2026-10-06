@@ -1559,6 +1559,42 @@ new StatusPageV3AutomationRule('rule', {
     ])
   })
 
+  it('writes a maintenance window\'s timezone and its pause and silence scope', async () => {
+    const dates = `startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z')`
+    await declare('mw.ts', `import { MaintenanceWindow } from 'checkly/constructs'
+
+new MaintenanceWindow('mw', { name: 'MW', tags: ['a'], ${dates} })
+new MaintenanceWindow('reset', { name: 'Reset', tags: ['a'], timezone: 'Europe/Berlin', ${dates} })
+`, () => {
+      const dates = { startsAt: new Date('2026-01-01T00:00:00.000Z'), endsAt: new Date('2026-01-02T00:00:00.000Z') }
+      new MaintenanceWindow('mw', { name: 'MW', tags: ['a'], ...dates })
+      new MaintenanceWindow('reset', { name: 'Reset', tags: ['a'], timezone: 'Europe/Berlin', ...dates })
+    })
+    const plan = await planWriteBack({
+      diff: [
+        entry('maintenance-window', 'mw', {
+          tags: ['a'], timezone: 'America/New_York', pauseAllChecks: true, silenceAlertsTags: ['b'], silenceAllAlerts: true,
+        }, [
+          remote('/timezone', null, 'America/New_York'), remote('/pauseAllChecks', false, true),
+          { path: '/silenceAlertsTags/x', origin: 'remote', after: 'b' }, remote('/silenceAllAlerts', false, true),
+        ]),
+        // A timezone reset in Checkly leaves no value to write.
+        entry('maintenance-window', 'reset', { timezone: null }, [remote('/timezone', 'Europe/Berlin', null)]),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped.map(describeSkip)).toEqual([
+      'maintenance-window reset timezone: Checkly has no value for timezone; edit the property by hand',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.property, line.previous, line.rendered])).toEqual([
+      ['mw', 'timezone', undefined, '\'America/New_York\''],
+      ['mw', 'pauseAllChecks', undefined, 'true'],
+      ['mw', 'silenceAlertsTags', undefined, '[\'b\']'],
+      ['mw', 'silenceAllAlerts', undefined, 'true'],
+    ])
+  })
+
   it('accepts a leaf that became a subtree, but not an object the account no longer holds', async () => {
     await declare('api.check.ts', API_SOURCE, () => {
       new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })

@@ -8,4 +8,7 @@ new MaintenanceWindow('maintenance-window-1', {
   repeatInterval: 1,
   repeatUnit: 'MONTH',
   repeatEndsAt: new Date(new Date().valueOf() + (2160 * 60 * 60 * 1000)), // ~three months from now
+  // The window starts now, so it is active when redeployed; the API rejects timezone changes on an
+  // active window, so this value must stay the same across deploys.
+  timezone: 'Europe/Berlin',
 })
