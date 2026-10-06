@@ -10,7 +10,7 @@ import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
 // Drives `checkly login` in a real process through the whole device flow:
 // device code -> user approves -> tokens -> Checkly API key -> account. Auth0
 // and the Checkly API are replaced by a local server so this runs anywhere
-// and, unlike the real tenant today, has the device_code grant enabled.
+// and can approve the code without a person logging in to a real account.
 
 interface Seen {
   method: string
