@@ -684,6 +684,15 @@ describe('checkly login', () => {
       expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error', reason: 'no_accounts' })
     })
 
+    it('reports network_error when the login server cannot be reached for a new code', async () => {
+      deviceFlow.requestAuthorization.mockRejectedValueOnce(
+        new DeviceFlowError('network_error', 'Could not reach the login server (ENOTFOUND).'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error', reason: 'network_error' })
+    })
+
     it('reports invalid_response when the login server answers unexpectedly', async () => {
       storePendingCode({ approved: true })
       deviceFlow.pollOnce.mockRejectedValue(

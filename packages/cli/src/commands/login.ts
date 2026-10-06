@@ -44,7 +44,7 @@ export const selectAccount = async (
  * on; the skill documents every value, so keep the two in step.
  */
 type ErrorReason =
-  | 'access_denied' | 'expired_token' | 'code_used' | 'invalid_response'
+  | 'access_denied' | 'expired_token' | 'code_used' | 'invalid_response' | 'network_error'
   | 'account_not_found' | 'no_accounts' | 'api_error' | 'env_credentials' | 'login_failed'
 
 /** A login failure with the `reason` code agent-mode output reports for it. */
@@ -56,9 +56,10 @@ class LoginError extends Error {
 }
 
 /**
- * Classifies a login failure: the device-flow outcomes, the account problems
- * raised by the login itself, `api_error` for a failed or unreachable
- * Checkly API and `login_failed` for anything else. (`env_credentials` is
+ * Classifies a login failure: the device-flow outcomes (`network_error` when
+ * the login server cannot be reached), the account problems raised by the
+ * login itself, `api_error` for a failed or unreachable Checkly API and
+ * `login_failed` for anything else. (`env_credentials` is
  * reported before any of these can happen.)
  */
 function errorReason (error: unknown): ErrorReason {
@@ -70,6 +71,7 @@ function errorReason (error: unknown): ErrorReason {
       case 'access_denied':
       case 'expired_token':
       case 'invalid_response':
+      case 'network_error':
         return error.code
       case 'invalid_grant':
         return 'code_used'

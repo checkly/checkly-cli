@@ -94,6 +94,22 @@ describe('DeviceFlow', () => {
       expect(error.message).toContain('proxy')
     })
 
+    it.each([
+      ['its error code', Object.assign(new Error('getaddrinfo ENOTFOUND auth.checklyhq.com'), { code: 'ENOTFOUND' }),
+        'ENOTFOUND'],
+      ['a fixed phrase, never the message', new Error('connect to http://user:secret@proxy.test:3128 failed'),
+        'network error'],
+    ])('reports an unreachable login server by %s', async (_, failure, named) => {
+      post.mockRejectedValueOnce(failure)
+
+      const error = await flow.requestAuthorization().catch(e => e)
+
+      expect(error).toBeInstanceOf(DeviceFlowError)
+      expect(error.code).toBe('network_error')
+      expect(error.message).toContain(`(${named})`)
+      expect(error.message).not.toContain('secret')
+    })
+
     it('falls back to the plain verification URL when the server omits the complete one', async () => {
       const withoutCompleteUri = { ...authorizationResponse, verification_uri_complete: undefined }
       post.mockResolvedValueOnce({ status: 200, data: withoutCompleteUri })
@@ -294,6 +310,12 @@ describe('DeviceFlow', () => {
       post.mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
 
       await expect(flow.pollOnce(auth)).resolves.toEqual({ failure: 'ECONNRESET' })
+    })
+
+    it('never names the failure by an error message, which can carry proxy credentials', async () => {
+      post.mockRejectedValueOnce(new Error('connect to http://user:secret@proxy.test:3128 failed'))
+
+      await expect(flow.pollOnce(auth)).resolves.toEqual({ failure: 'network error' })
     })
 
     it('throws when the code was denied or already used', async () => {

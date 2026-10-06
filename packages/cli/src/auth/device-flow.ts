@@ -50,8 +50,8 @@ export interface DeviceFlowDeps {
 }
 
 export class DeviceFlowError extends Error {
-  constructor (readonly code: string, message: string) {
-    super(message)
+  constructor (readonly code: string, message: string, options?: ErrorOptions) {
+    super(message, options)
     this.name = 'DeviceFlowError'
   }
 }
@@ -89,6 +89,15 @@ function errorFrom (data: any, fallback: string): DeviceFlowError {
   return new DeviceFlowError(code, message)
 }
 
+/**
+ * Names a failed request by its error code only: error messages can carry
+ * request or proxy URLs, credentials included.
+ */
+function transportFailure (error: unknown): string {
+  const code = (error as { code?: unknown })?.code
+  return typeof code === 'string' ? code : 'network error'
+}
+
 function tokenParams (auth: DeviceAuthorization): URLSearchParams {
   return new URLSearchParams({
     grant_type: DEVICE_CODE_GRANT,
@@ -110,7 +119,14 @@ export class DeviceFlow {
       scope: AUTH0_SCOPES,
     })
 
-    const { status, data } = await this.#deps.post(deviceCodeUrl(), params)
+    let response: OAuthResponse
+    try {
+      response = await this.#deps.post(deviceCodeUrl(), params)
+    } catch (error) {
+      throw new DeviceFlowError('network_error', `Could not reach the login server (${transportFailure(error)}). `
+        + 'Check your network or proxy settings and try again.', { cause: error })
+    }
+    const { status, data } = response
 
     // A proxy or captive portal can answer in place of the login server, with
     // an HTML page and any status; without these checks the user would see an
@@ -191,8 +207,8 @@ export class DeviceFlow {
     let response: OAuthResponse
     try {
       response = await this.#deps.post(tokenUrl(), params)
-    } catch (error: any) {
-      return { state: 'pending', failure: error?.code ?? error?.message ?? String(error) }
+    } catch (error) {
+      return { state: 'pending', failure: transportFailure(error) }
     }
     const { status, data } = response
 
