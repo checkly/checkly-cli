@@ -19,6 +19,10 @@ const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const AUTH0_CALLBACK_URL = 'http://localhost:4242'
 
+function escapeHtml (value: string | null): string {
+  return (value ?? '').replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`)
+}
+
 export function generatePKCE () {
   const codeVerifier = crypto
     .randomBytes(64)
@@ -91,17 +95,25 @@ export class AuthContext {
 
   #startServer (): Promise<string> {
     return new Promise((resolve, reject) => {
+      // The CLI may keep running after the login (an authenticated command
+      // logging in inline), so nothing here may keep the process alive
+      // afterwards: every request gets an answer, the response that settles
+      // the login closes its connection instead of keeping it alive for the
+      // browser's next request, and the server stops listening.
       const server = http.createServer()
       server.on('request', (req, res) => {
         if (req.url?.endsWith('.svg')) {
-          res.writeHead(200, { 'Content-Type': 'image/svg+xml' })
-
           fs.readFile(path.join(__dirname, `.${req.url}`), 'utf8', (err, data) => {
-            if (!err) res.end(data)
+            if (err) {
+              res.writeHead(404).end()
+            } else {
+              res.writeHead(200, { 'Content-Type': 'image/svg+xml' }).end(data)
+            }
           })
-
+        } else if (req.url?.includes('favicon.ico')) {
+          res.writeHead(404).end()
         // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
-        } else if (!req.url?.includes('favicon.ico')) {
+        } else {
           const responseParams = new URLSearchParams(req.url?.substring(1))
           const code = responseParams.get('code')
           const state = responseParams.get('state')
@@ -109,7 +121,15 @@ export class AuthContext {
           const error = responseParams.get('error')
           const errorDescription = responseParams.get('error_description')
 
-          if (code && state === this.#codeVerifier) {
+          // A code or an error that answers this login (the state matches)
+          // settles it, as the device flow does; anything else, such as a
+          // stray request, leaves the server waiting for the real callback.
+          const settles = state === this.#codeVerifier && Boolean(code || error)
+          if (settles) {
+            res.setHeader('Connection', 'close')
+          }
+
+          if (code && settles) {
             res.write(`
         <html>
             <style>
@@ -146,32 +166,30 @@ export class AuthContext {
         </body>
         </html>
       `)
+            server.close()
             resolve(code)
           } else {
             res.write(`
         <html>
         <body>
           <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
-            <h3 style="font-weight:200;">Login failed, please try again!</h3>
+            <h3 style="font-weight:200;">${settles ? 'Login failed. Go back to your terminal; you can close this tab.' : 'Login failed, please try again!'}</h3>
             <p>
-              <b>${error}</b>: ${errorDescription}
+              <b>${escapeHtml(error)}</b>: ${escapeHtml(errorDescription)}
             </p>
           </div>
         </body>
         </html>
       `)
+            if (settles) {
+              server.close()
+              reject(new Error(`Login failed: ${errorDescription || error}`))
+            }
           }
 
           res.end()
         }
       })
-
-      const signals = ['SIGTERM', 'SIGHUP', 'SIGINT']
-
-      signals.forEach(signal => process.on(signal, () => {
-        server.close()
-        process.exitCode = 1
-      }))
 
       server.listen(4242).on('error', (err: any) => {
         if (err.code === 'EADDRINUSE') {
