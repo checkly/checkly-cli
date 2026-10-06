@@ -2,13 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import {
   AUTH0_CLIENT_ID,
-  AUTH0_DEVICE_CODE_URL,
-  AUTH0_TOKEN_URL,
   DeviceFlow,
   DeviceFlowError,
   DeviceFlowNotAllowedError,
   type DeviceAuthorization,
 } from '../device-flow.js'
+import config from '../../services/config.js'
 
 const authorizationResponse = {
   device_code: 'dev-code-123',
@@ -47,7 +46,7 @@ describe('DeviceFlow', () => {
       const auth = await flow.requestAuthorization()
 
       expect(post).toHaveBeenCalledTimes(1)
-      expect(post.mock.calls[0]![0]).toBe(AUTH0_DEVICE_CODE_URL)
+      expect(post.mock.calls[0]![0]).toBe(`${config.getAuthUrl()}/oauth/device/code`)
       expect(params(post.mock.calls[0]!)).toEqual({
         client_id: AUTH0_CLIENT_ID,
         scope: 'openid profile email',
@@ -118,7 +117,7 @@ describe('DeviceFlow', () => {
 
       expect(tokens).toEqual({ accessToken: 'at', idToken: 'idt' })
       expect(post).toHaveBeenCalledTimes(3)
-      expect(post.mock.calls[0]![0]).toBe(AUTH0_TOKEN_URL)
+      expect(post.mock.calls[0]![0]).toBe(`${config.getAuthUrl()}/oauth/token`)
       expect(params(post.mock.calls[0]!)).toEqual({
         grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
         device_code: 'dev-code-123',

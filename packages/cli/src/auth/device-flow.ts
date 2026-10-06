@@ -9,8 +9,6 @@ import config from '../services/config.js'
 // server, so it works over SSH, in containers and from agent sandboxes.
 
 export const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
-export const AUTH0_DEVICE_CODE_URL = 'https://auth.checklyhq.com/oauth/device/code'
-export const AUTH0_TOKEN_URL = 'https://auth.checklyhq.com/oauth/token'
 
 const deviceCodeUrl = () => `${config.getAuthUrl()}/oauth/device/code`
 const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
