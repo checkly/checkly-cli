@@ -541,8 +541,7 @@ type StatusPageReferenceKey = 'cards' | 'statusPage' | 'parent' | 'components'
 /** `true` when every key of `Written` is a key of `T`, `never` otherwise. */
 type Within<T, Written extends PropertyKey> = Exclude<Written, keyof T> extends never ? true : never
 /** Both directions: every key of `T` is written or in `Left`, and every written key is one `T` has. */
-type Exact<T, Written extends PropertyKey, Left extends PropertyKey> =
-  Covers<T, Written | Left> extends true ? Within<T, Written> : never
+type Exact<T, Written extends PropertyKey, Left extends PropertyKey> = Covers<T, Written | Left> & Within<T, Written>
 // A build-time assertion only; nothing reads it. When it fails, the props
 // type named at the failing position gained or lost a key: add it to the
 // class's written list and a rule, or to the reasons above.
