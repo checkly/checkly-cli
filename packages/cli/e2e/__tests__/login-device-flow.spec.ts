@@ -181,7 +181,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(userCode).toMatch(/^WXYZ-\d{4}$/)
     expect(actionRequired).toMatchObject({
       status: 'action_required',
-      reason: 'login',
+      reason: 'login_required',
       userActionRequired: true,
       verification_uri: `${fake.baseUrl}/activate`,
       verification_uri_complete: `${fake.baseUrl}/activate?user_code=${userCode}`,
@@ -205,9 +205,9 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(jsonLines(approved.stdout)).toEqual([expect.objectContaining({
       status: 'action_required',
       reason: 'select_account',
-      userActionRequired: false,
+      userActionRequired: true,
       user: 'Ada Lovelace',
-      accounts: [{ id: 'acc-e2e', name: 'E2E Account' }, { id: 'acc-other', name: 'Other' }],
+      choices: [{ id: 'acc-e2e', name: 'E2E Account' }, { id: 'acc-other', name: 'Other' }],
       next: [{ command: 'npx checkly login --account-id <id>' }],
     })])
     const urls = fake.seen.map(s => `${s.method} ${decodeURIComponent(s.url)}`)
@@ -222,7 +222,12 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     const resumed = await runLoginInHome(home, ['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'agent' })
     expect(resumed.stderr).toBe('')
     expect(resumed.exitCode).toBe(0)
-    expect(jsonLines(resumed.stdout)[0]).toMatchObject({ success: true, accountId: 'acc-e2e', accountName: 'E2E Account' })
+    expect(jsonLines(resumed.stdout)[0]).toMatchObject({
+      status: 'success',
+      reason: 'logged_in',
+      accountId: 'acc-e2e',
+      accountName: 'E2E Account',
+    })
     const resumedUrls = fake.seen.map(s => `${s.method} ${s.url}`)
     expect(resumedUrls).not.toContain('POST /oauth/device/code')
     expect(resumedUrls).not.toContain('POST /oauth/token')
@@ -251,7 +256,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     // Inline, the login writes to stderr: stdout belongs to the command.
     expect(started.stdout).toBe('')
     expect(jsonLines(started.stderr)).toEqual([
-      expect.objectContaining({ status: 'action_required', reason: 'login', user_code: expect.stringMatching(/^WXYZ-\d{4}$/) }),
+      expect.objectContaining({ status: 'action_required', reason: 'login_required', user_code: expect.stringMatching(/^WXYZ-\d{4}$/) }),
     ])
     expect(started.exitCode).toBe(1)
 

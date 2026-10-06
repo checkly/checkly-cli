@@ -3,6 +3,7 @@ import * as os from 'os'
 import { jwtDecode } from 'jwt-decode'
 
 import { getDefaults as getApiDefaults } from '../rest/api.js'
+import { handleErrorResponse } from '../rest/errors.js'
 import { assignProxy } from '../services/proxy.js'
 
 export interface ApiKeyExchangeDeps {
@@ -41,19 +42,25 @@ export async function exchangeAccessTokenForApiKey (
   const client = createClient(accessToken)
 
   try {
-    await client.get('/users/me')
-  } catch (error: unknown) {
-    if ((error as AxiosError).response?.status === 401) {
-      await client.post('/users/', { accessToken })
-    } else {
-      throw error
+    try {
+      await client.get('/users/me')
+    } catch (error: unknown) {
+      if ((error as AxiosError).response?.status === 401) {
+        await client.post('/users/', { accessToken })
+      } else {
+        throw error
+      }
     }
+
+    const apiKeyName = `CLI User Key (${hostname()})`
+    const { data } = await client.post(`/users/me/api-keys?name=${apiKeyName}`)
+
+    return data
+  } catch (error) {
+    // The same typed errors as the regular API client, so callers can tell a
+    // failed or unreachable Checkly API from other failures.
+    handleErrorResponse(error as Error)
   }
-
-  const apiKeyName = `CLI User Key (${hostname()})`
-  const { data } = await client.post(`/users/me/api-keys?name=${apiKeyName}`)
-
-  return data
 }
 
 export interface Credentials {

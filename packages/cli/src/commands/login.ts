@@ -6,7 +6,14 @@ import prompts from 'prompts'
 import { BaseCommand } from './baseCommand.js'
 import config from '../services/config.js'
 import * as api from '../rest/api.js'
-import { ForbiddenError, NotFoundError, UnauthorizedError } from '../rest/errors.js'
+import {
+  ApiError,
+  ForbiddenError,
+  MissingResponseError,
+  NotFoundError,
+  ProxyConnectionError,
+  UnauthorizedError,
+} from '../rest/errors.js'
 import type { Account } from '../rest/accounts.js'
 import { AuthContext, type AuthMode } from '../auth/index.js'
 import {
@@ -32,6 +39,53 @@ export const selectAccount = async (
   return selectedAccount
 }
 
+/**
+ * The `reason` of an agent-mode error line. A closed set that agents branch
+ * on; the skill documents every value, so keep the two in step.
+ */
+type ErrorReason =
+  | 'access_denied' | 'expired_token' | 'code_used' | 'invalid_response'
+  | 'account_not_found' | 'no_accounts' | 'api_error' | 'env_credentials' | 'login_failed'
+
+/** A login failure with the `reason` code agent-mode output reports for it. */
+class LoginError extends Error {
+  constructor (readonly reason: ErrorReason, message: string) {
+    super(message)
+    this.name = 'LoginError'
+  }
+}
+
+/**
+ * Classifies a login failure: the device-flow outcomes, the account problems
+ * raised by the login itself, `api_error` for a failed or unreachable
+ * Checkly API and `login_failed` for anything else. (`env_credentials` is
+ * reported before any of these can happen.)
+ */
+function errorReason (error: unknown): ErrorReason {
+  if (error instanceof LoginError) {
+    return error.reason
+  }
+  if (error instanceof DeviceFlowError) {
+    switch (error.code) {
+      case 'access_denied':
+      case 'expired_token':
+      case 'invalid_response':
+        return error.code
+      case 'invalid_grant':
+        return 'code_used'
+    }
+    return 'login_failed'
+  }
+  // validateAuthentication() rewords rejected stored credentials into a plain
+  // Error that keeps the API error as its cause.
+  const apiError = error instanceof Error && error.cause instanceof ApiError ? error.cause : error
+  if (apiError instanceof ApiError || apiError instanceof MissingResponseError
+    || apiError instanceof ProxyConnectionError) {
+    return 'api_error'
+  }
+  return 'login_failed'
+}
+
 /** A device code kept between agent-mode runs, with the login server it belongs to. */
 type PendingDeviceAuthorization = DeviceAuthorization & { authUrl: string }
 
@@ -43,7 +97,7 @@ type PendingDeviceAuthorization = DeviceAuthorization & { authUrl: string }
  */
 interface ActionRequired {
   status: 'action_required'
-  reason: 'login'
+  reason: 'login_required'
   userActionRequired: true
   message: string
   verification_uri: string
@@ -97,7 +151,15 @@ export default class Login extends BaseCommand {
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
-      this.warn(`${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`)
+      const message = `${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`
+      if (this.#mode === 'agent') {
+        // Not a success: the variables may be incomplete or wrong, and only
+        // the user can remove them.
+        const reason: ErrorReason = 'env_credentials'
+        this.#print(JSON.stringify({ status: 'error', reason, userActionRequired: true, message }))
+        return false
+      }
+      this.warn(message)
       return true
     }
 
@@ -152,7 +214,7 @@ export default class Login extends BaseCommand {
         if (result === 'stored') {
           userName = await this.#storedKeyUserName()
           if (userName === undefined) {
-            throw new Error('The login code was already used. Please run the login again.')
+            throw new LoginError('code_used', 'The login code was already used. Please run the login again.')
           }
         } else {
           this.#storeNewKey(result.key)
@@ -170,34 +232,38 @@ export default class Login extends BaseCommand {
       if (!account) {
         // Agent mode, several accounts, none requested: do not guess.
         // (CI never gets here; #pickAccount throws instead.)
+        // A person has to choose; the agent must not pick an account itself.
         this.#print(JSON.stringify({
           status: 'action_required',
           reason: 'select_account',
-          userActionRequired: false,
-          message: 'Logged in, but this user belongs to several accounts. '
-            + 'Choose one with `npx checkly login --account-id <id>`. '
-            + 'To log in as someone else instead, run `npx checkly logout` first.',
+          userActionRequired: true,
+          message: (notice ? `${notice} ` : '')
+            + 'Logged in, but this user belongs to several accounts. Ask the user which one to use, then run '
+            + '`npx checkly login --account-id <id>`'
+            + (this.#inline ? ' and run the original command again' : '')
+            + '. To log in as someone else instead, run `npx checkly logout` first.',
           user: userName,
-          accounts: accountSummaries,
+          choices: accountSummaries,
           next: [{ command: 'npx checkly login --account-id <id>' }],
-          ...(notice ? { notice } : {}),
         }))
         return false
       }
 
       await activateAccount(account)
 
+      const switched = switchingAccount && usingStoredKey
       if (this.#mode === 'agent') {
         this.#print(JSON.stringify({
           status: 'success',
-          success: true,
+          reason: switched ? 'account_switched' : 'logged_in',
+          message: (notice ? `${notice} ` : '') + (switched
+            ? `Switched to account "${account.name}".`
+            : `Logged in as ${userName} to account "${account.name}".`),
           user: userName,
           accountId: account.id,
           accountName: account.name,
-          accounts: accountSummaries,
-          ...(notice ? { notice } : {}),
         }))
-      } else if (switchingAccount && usingStoredKey) {
+      } else if (switched) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
       } else {
         this.#print(`Successfully logged in as ${chalk.cyan.bold(userName)}`)
@@ -208,7 +274,7 @@ export default class Login extends BaseCommand {
       if (this.#mode !== 'agent') {
         throw error
       }
-      this.#print(JSON.stringify({ status: 'error', success: false, error: error.message || String(error) }))
+      this.#print(JSON.stringify({ status: 'error', reason: errorReason(error), message: error.message || String(error) }))
       return false
     }
   }
@@ -261,7 +327,13 @@ export default class Login extends BaseCommand {
 
     if (this.#mode !== 'interactive') {
       if (this.#mode === 'agent') {
-        this.#print(JSON.stringify({ status: 'success', success: true, alreadyLoggedIn: true, accountId, accountName }))
+        this.#print(JSON.stringify({
+          status: 'success',
+          reason: 'already_logged_in',
+          message: `Already logged in to account "${accountName}".`,
+          accountId,
+          accountName,
+        }))
       } else {
         this.#print(`Already logged in to "${accountName}".`)
       }
@@ -410,7 +482,7 @@ export default class Login extends BaseCommand {
   #announceDeviceCode (authorization: DeviceAuthorization, problem?: string): void {
     this.#announce({
       status: 'action_required',
-      reason: 'login',
+      reason: 'login_required',
       userActionRequired: true,
       message: `Open ${authorization.verificationUri} in a browser on any device and enter the code `
         + `${authorization.userCode}. Once the user has approved, run this command again.`
@@ -452,7 +524,7 @@ export default class Login extends BaseCommand {
     } else {
       this.#announce({
         status: 'action_required',
-        reason: 'login',
+        reason: 'login_required',
         userActionRequired: true,
         message: 'Ask the user to open the URL in a browser on the same machine as this CLI '
           + '(it completes through a local callback).',
@@ -517,7 +589,7 @@ export default class Login extends BaseCommand {
       if (!match) {
         // With the stored key the account list is that user's; the requested
         // account may belong to another identity the user also logs in with.
-        throw new Error(`No account with id "${requestedId}" is available to this user. `
+        throw new LoginError('account_not_found', `No account with id "${requestedId}" is available to this user. `
           + `Available: ${available}`
           + (usingStoredKey ? '. To log in as a different user, run `npx checkly logout` first.' : ''))
       }
@@ -525,7 +597,8 @@ export default class Login extends BaseCommand {
     }
 
     if (accounts.length === 0) {
-      throw new Error('This user has no Checkly accounts.')
+      throw new LoginError('no_accounts', 'This user has no Checkly accounts. '
+        + 'To log in as a different user, run `npx checkly logout` first.')
     }
 
     if (accounts.length === 1) {

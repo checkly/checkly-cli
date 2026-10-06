@@ -1,11 +1,12 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { credentialsFromTokens, exchangeAccessTokenForApiKey } from '../api-key.js'
+import { MissingResponseError, ServerError } from '../../rest/errors.js'
 
 function axiosError (status: number) {
   return Object.assign(new Error(`Request failed with status code ${status}`), {
     isAxiosError: true,
-    response: { status },
+    response: { status, data: { statusCode: status, error: 'Error', message: `Status ${status}` } },
   })
 }
 
@@ -53,8 +54,18 @@ describe('exchangeAccessTokenForApiKey()', () => {
     await expect(exchangeAccessTokenForApiKey('access-token', {
       createClient: () => client as any,
       hostname: () => 'my-laptop',
-    })).rejects.toThrow('status code 500')
+    })).rejects.toBeInstanceOf(ServerError)
     expect(client.post).not.toHaveBeenCalled()
+  })
+
+  it('reports an unreachable API as a missing response', async () => {
+    client.get.mockResolvedValueOnce({ data: {} })
+    client.post.mockRejectedValueOnce(Object.assign(new Error('connect ECONNREFUSED'), { isAxiosError: true }))
+
+    await expect(exchangeAccessTokenForApiKey('access-token', {
+      createClient: () => client as any,
+      hostname: () => 'my-laptop',
+    })).rejects.toBeInstanceOf(MissingResponseError)
   })
 
   it('sends the access token as a bearer token on the default client', async () => {

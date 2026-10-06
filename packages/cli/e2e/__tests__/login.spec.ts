@@ -138,7 +138,7 @@ describe('login', () => {
     const first = JSON.parse(lines[0]!)
     expect(first).toMatchObject({
       status: 'action_required',
-      reason: 'login',
+      reason: 'login_required',
       userActionRequired: true,
     })
     expect(first.verification_uri).toMatch(/^https:\/\/auth\.checklyhq\.com\//)
