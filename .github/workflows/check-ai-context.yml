@@ -4,6 +4,12 @@ on:
   # Every pull request, whatever its base branch.
   pull_request:
 
+# One run per PR, so two runs can't both find no comment and each post one. The latest run always
+# re-reconciles the comment, so cancelling an in-flight run loses nothing.
+concurrency:
+  group: check-ai-context-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   check-ai-context:
     runs-on: ubuntu-latest
@@ -34,19 +40,69 @@ jobs:
       - if: steps.changes.outputs.cli == 'true'
         run: pnpm run sync:skills
       - name: Check for uncommitted changes in skills/
+        id: skills
         if: steps.changes.outputs.cli == 'true'
         run: git diff --exit-code skills/
-      - name: Comment on PR if skills/ is out of date
-        if: failure() && steps.changes.outputs.cli == 'true'
+      # Keeps at most one "out of date" comment per PR in line with the skills/ verdict: posted or
+      # updated when the diff step fails, deleted when it passes or the PR no longer touches
+      # packages/cli. The condition keys off the diff step's own outcome rather than failure(), so a
+      # failing install or sync (which skips the diff step) neither posts a misleading comment nor
+      # deletes a valid one. Fork PRs are skipped: their token can't write comments. Comment upkeep
+      # never decides the required check's result (continue-on-error), so an API hiccup can't block
+      # a merge.
+      - name: Post or clear the skills/ out-of-date comment
+        continue-on-error: true
+        if: >-
+          !cancelled() &&
+          github.event.pull_request.head.repo.full_name == github.repository &&
+          (steps.skills.outcome == 'failure' || steps.skills.outcome == 'success' ||
+          steps.changes.outputs.cli == 'false')
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          MODE: ${{ steps.skills.outcome == 'failure' && 'post' || 'clear' }}
         run: |
-          gh pr comment ${{ github.event.pull_request.number }} --body "## ⚠️ AI context is out of date
+          set -euo pipefail
 
-          The \`skills/\` directory doesn't match the generated output from \`packages/cli\`.
+          # Matches the hidden marker, or the heading of comments posted before the marker existed.
+          # Captured via plain $(...) so `set -e` aborts if the API call fails. With --paginate,
+          # --jq runs on each page separately and emits one id per line.
+          comment_ids=$(gh api --paginate "repos/$REPO/issues/$PR/comments" --jq \
+            '.[] | select(.user.login == "github-actions[bot]"
+              and ((.body | contains("<!-- check-ai-context -->"))
+                or (.body | startswith("## ⚠️ AI context is out of date")))) | .id')
+          ids=()
+          if [[ -n "$comment_ids" ]]; then
+            mapfile -t ids <<<"$comment_ids"
+          fi
+
+          if [[ "$MODE" == "post" ]]; then
+            body=$(cat <<'EOF'
+          <!-- check-ai-context -->
+          ## ⚠️ AI context is out of date
+
+          The `skills/` directory doesn't match the generated output from `packages/cli`.
 
           Please run the following locally and commit the changes:
 
-          \`\`\`
+          ```
           pnpm run sync:skills
-          \`\`\`"
+          ```
+          EOF
+            )
+            if [[ ${#ids[@]} -eq 0 ]]; then
+              gh pr comment "$PR" --repo "$REPO" --body-file - <<<"$body"
+              echo "Posted out-of-date comment on PR #$PR."
+            else
+              gh api --method PATCH "repos/$REPO/issues/comments/${ids[0]}" -F body=@- <<<"$body" >/dev/null
+              echo "Updated out-of-date comment ${ids[0]} on PR #$PR."
+              ids=("${ids[@]:1}")
+            fi
+          fi
+
+          # In post mode, these are duplicates beyond the one kept; in clear mode, all of them.
+          for id in "${ids[@]}"; do
+            gh api --method DELETE "repos/$REPO/issues/comments/$id"
+            echo "Deleted out-of-date comment $id on PR #$PR."
+          done
