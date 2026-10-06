@@ -42,7 +42,14 @@ jobs:
       - name: Check for uncommitted changes in skills/
         id: skills
         if: steps.changes.outputs.cli == 'true'
-        run: git diff --exit-code skills/
+        # Staging everything and diffing the index against HEAD catches newly generated files too,
+        # which a plain `git diff` would ignore as untracked.
+        run: |
+          git add -A -- skills/
+          git diff --cached --exit-code -- skills/ || {
+            echo "::error::skills/ is out of date. Run 'pnpm run sync:skills' and commit the result."
+            exit 1
+          }
       # Keeps at most one "out of date" comment per PR in line with the skills/ verdict: posted or
       # updated when the diff step fails, deleted when it passes or the PR no longer touches
       # packages/cli. The condition keys off the diff step's own outcome rather than failure(), so a
