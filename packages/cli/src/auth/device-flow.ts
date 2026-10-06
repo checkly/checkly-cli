@@ -18,6 +18,7 @@ const AUTH0_SCOPES = 'openid profile email'
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 const DEFAULT_INTERVAL_MS = 5_000
 const SLOW_DOWN_STEP_MS = 5_000
+const REQUEST_TIMEOUT_MS = 30_000
 
 export interface DeviceAuthorization {
   deviceCode: string
@@ -33,6 +34,10 @@ export interface DeviceTokens {
   accessToken: string
   idToken: string
 }
+
+type TokenRequestResult =
+  | { state: 'approved', tokens: DeviceTokens, failure?: undefined }
+  | { state: 'pending' | 'slow_down', failure?: string }
 
 export interface OAuthResponse {
   status: number
@@ -69,6 +74,7 @@ const defaultDeps: DeviceFlowDeps = {
         'Accept-Encoding': '*',
       },
       validateStatus: () => true,
+      timeout: REQUEST_TIMEOUT_MS,
     }))
     return { status, data }
   },
@@ -124,30 +130,59 @@ export class DeviceFlow {
     })
 
     let intervalMs = auth.intervalMs
+    let lastFailure: string | undefined
 
     while (this.#deps.now() + intervalMs <= auth.expiresAt) {
       await this.#deps.sleep(intervalMs)
 
-      const { status, data } = await this.#deps.post(tokenUrl(), params)
-
-      if (status >= 200 && status < 300) {
-        if (!data?.access_token || !data?.id_token) {
-          throw new DeviceFlowError('invalid_response', 'The token response did not include the expected tokens.')
-        }
-        return { accessToken: data.access_token, idToken: data.id_token }
-      }
-
-      switch (data?.error) {
-        case 'authorization_pending':
-          continue
-        case 'slow_down':
-          intervalMs += SLOW_DOWN_STEP_MS
-          continue
-        default:
-          throw errorFrom(data, 'token_request_failed')
+      const result = await this.#requestTokens(params)
+      lastFailure = result.failure
+      if (result.state === 'slow_down') {
+        intervalMs += SLOW_DOWN_STEP_MS
+      } else if (result.state === 'approved') {
+        return result.tokens
       }
     }
 
-    throw new DeviceFlowError('expired_token', 'The login code expired before it was used. Please run the login again.')
+    // A code the user approved can still expire here when the login server
+    // was unreachable at the end; say so rather than blaming the user.
+    throw new DeviceFlowError('expired_token', lastFailure
+      ? `The login code expired; the last attempt to reach the login server failed (${lastFailure}). `
+      + 'Please run the login again.'
+      : 'The login code expired before it was used. Please run the login again.')
+  }
+
+  /**
+   * One token request. Polling can last as long as the code is valid, often
+   * after the user has already approved it in the browser, so a network
+   * failure or a server-side error counts as "try again" rather than ending
+   * the login; only an OAuth error from the server is final.
+   */
+  async #requestTokens (params: URLSearchParams): Promise<TokenRequestResult> {
+    let response: OAuthResponse
+    try {
+      response = await this.#deps.post(tokenUrl(), params)
+    } catch (error: any) {
+      return { state: 'pending', failure: error?.code ?? error?.message ?? String(error) }
+    }
+    const { status, data } = response
+
+    if (status >= 200 && status < 300) {
+      if (!data?.access_token || !data?.id_token) {
+        throw new DeviceFlowError('invalid_response', 'The token response did not include the expected tokens.')
+      }
+      return { state: 'approved', tokens: { accessToken: data.access_token, idToken: data.id_token } }
+    }
+
+    if (status >= 500) {
+      return { state: 'pending', failure: `HTTP ${status}` }
+    }
+    if (data?.error === 'slow_down' || (status === 429 && data?.error === undefined)) {
+      return { state: 'slow_down' }
+    }
+    if (data?.error === 'authorization_pending') {
+      return { state: 'pending' }
+    }
+    throw errorFrom(data, 'token_request_failed')
   }
 }

@@ -172,6 +172,49 @@ describe('DeviceFlow', () => {
       expect(post).toHaveBeenCalledTimes(2)
     })
 
+    it('keeps polling through network errors and server errors', async () => {
+      post
+        .mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
+        .mockResolvedValueOnce({ status: 502, data: '<html>Bad Gateway</html>' })
+        .mockResolvedValueOnce({ status: 503, data: { error: 'temporarily_unavailable' } })
+        .mockResolvedValueOnce({ status: 200, data: { access_token: 'at', id_token: 'idt' } })
+
+      const tokens = await flow.pollForTokens(auth)
+
+      expect(tokens).toEqual({ accessToken: 'at', idToken: 'idt' })
+      expect(sleep).toHaveBeenNthCalledWith(2, 5_000)
+      expect(sleep).toHaveBeenNthCalledWith(4, 5_000)
+    })
+
+    it('backs off on a rate-limit response without an OAuth error', async () => {
+      post
+        .mockResolvedValueOnce({ status: 429, data: 'Too Many Requests' })
+        .mockResolvedValueOnce({ status: 200, data: { access_token: 'at', id_token: 'idt' } })
+
+      await flow.pollForTokens(auth)
+
+      expect(sleep).toHaveBeenNthCalledWith(2, 10_000)
+    })
+
+    it('still gives up when the code expires while the server keeps failing, and names the failure', async () => {
+      post.mockRejectedValue(Object.assign(new Error('getaddrinfo ENOTFOUND auth.checklyhq.com'), { code: 'ENOTFOUND' }))
+
+      const error = await flow.pollForTokens({ ...auth, expiresAt: now + 12_000 }).catch(e => e)
+
+      expect(error).toBeInstanceOf(DeviceFlowError)
+      expect(error.code).toBe('expired_token')
+      expect(error.message).toContain('ENOTFOUND')
+    })
+
+    it('fails on a client error without an OAuth error code', async () => {
+      post.mockResolvedValueOnce({ status: 400, data: 'Bad Request' })
+
+      const error = await flow.pollForTokens(auth).catch(e => e)
+
+      expect(error).toBeInstanceOf(DeviceFlowError)
+      expect(error.code).toBe('token_request_failed')
+    })
+
     it('fails when the server returns a success status without tokens', async () => {
       post.mockResolvedValueOnce({ status: 200, data: { token_type: 'Bearer' } })
 
