@@ -9,7 +9,12 @@ import * as api from '../rest/api.js'
 import { UnauthorizedError } from '../rest/errors.js'
 import type { Account } from '../rest/accounts.js'
 import { AuthContext, type AuthMode } from '../auth/index.js'
-import { DeviceFlow, DeviceFlowNotAllowedError, type DeviceAuthorization } from '../auth/device-flow.js'
+import {
+  DeviceFlow,
+  DeviceFlowError,
+  DeviceFlowNotAllowedError,
+  type DeviceAuthorization,
+} from '../auth/device-flow.js'
 import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
 import { detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
 import { activateAccount } from '../helpers/activate-account.js'
@@ -27,10 +32,14 @@ export const selectAccount = async (
   return selectedAccount
 }
 
+/** A device code kept between agent-mode runs, with the login server it belongs to. */
+type PendingDeviceAuthorization = DeviceAuthorization & { authUrl: string }
+
 /**
  * Structured "a human has to act" message for agents. Mirrors the shape used
  * by other non-interactive CLIs so an agent can relay the URL and code to
- * the user and keep waiting.
+ * the user. For a device code it is the last line before the command exits;
+ * running the command again after the approval collects it.
  */
 interface ActionRequired {
   status: 'action_required'
@@ -117,9 +126,19 @@ export default class Login extends BaseCommand {
         if (reuseStoredKey && this.#mode === 'interactive') {
           this.#print('The stored login is no longer valid. Logging in again.')
         }
-        const credentials = await this.#authenticate()
-        this.#storeNewKey(credentials.key)
-        userName = credentials.name
+        const result = await this.#authenticate()
+        if (result === 'pending') {
+          return false
+        }
+        if (result === 'stored') {
+          userName = await this.#storedKeyUserName()
+          if (userName === undefined) {
+            throw new Error('The login code was already used. Please run the login again.')
+          }
+        } else {
+          this.#storeNewKey(result.key)
+          userName = result.name
+        }
       } else if (this.#mode === 'interactive' && !switchingAccount) {
         this.#print(`Continuing the login as ${chalk.bold(userName)}. `
           + 'Run `npx checkly logout` first to log in as someone else.')
@@ -173,7 +192,8 @@ export default class Login extends BaseCommand {
   }
 
   /**
-   * Stores the key of a fresh login. The previous account belongs to the
+   * Stores the key of a fresh login and forgets any device code an agent
+   * login left behind. The previous account belongs to the
    * previous key, possibly another user, so it is dropped first: if choosing
    * an account fails afterwards, the login is left unfinished (key without
    * account, which the next login resumes) instead of pairing the new key
@@ -182,6 +202,7 @@ export default class Login extends BaseCommand {
   #storeNewKey (key: string): void {
     config.data.delete('accountId')
     config.data.delete('accountName')
+    config.auth.delete('pendingDeviceAuthorization')
     config.auth.set('apiKey', key)
   }
 
@@ -235,8 +256,22 @@ export default class Login extends BaseCommand {
 
   // ─── AUTHENTICATION ─────────────────────────────────────────
 
-  async #authenticate (): Promise<Credentials> {
+  /**
+   * Returns the new credentials, or:
+   * - 'pending' when an agent-mode login has shown the code and returned
+   *   without waiting for the user (the next run collects it);
+   * - 'stored' when another process completed this login with the same code
+   *   and stored its key.
+   */
+  async #authenticate (): Promise<Credentials | 'pending' | 'stored'> {
     const deviceFlow = new DeviceFlow()
+
+    if (this.#mode === 'agent') {
+      const pending = this.#pendingAuthorization()
+      if (pending) {
+        return this.#collectPendingAuthorization(deviceFlow, pending)
+      }
+    }
 
     let authorization: DeviceAuthorization
     try {
@@ -248,11 +283,76 @@ export default class Login extends BaseCommand {
       throw error
     }
 
+    if (this.#mode === 'agent') {
+      // Agents usually show a command's output only once it exits, so
+      // waiting here would hide the code until it expired. Keep the code and
+      // return; the next login (or authenticated command) collects it.
+      const stored: PendingDeviceAuthorization = { ...authorization, authUrl: config.getAuthUrl() }
+      config.auth.set('pendingDeviceAuthorization', stored)
+    }
+
+    this.#announceDeviceCode(authorization)
+    await this.#tryOpenBrowser(authorization.verificationUriComplete)
+
+    if (this.#mode === 'agent') {
+      return 'pending'
+    }
+    if (this.#mode === 'interactive') {
+      this.#print(chalk.dim('Waiting for you to finish in the browser...'))
+    }
+
+    const tokens = await deviceFlow.pollForTokens(authorization)
+    return credentialsFromTokens(tokens)
+  }
+
+  /** The stored device code, if it is still usable against this login server. */
+  #pendingAuthorization (): DeviceAuthorization | undefined {
+    const stored = config.auth.get('pendingDeviceAuthorization') as PendingDeviceAuthorization | undefined
+    if (!stored) {
+      return undefined
+    }
+    if (stored.authUrl !== config.getAuthUrl() || !(stored.expiresAt > Date.now())) {
+      config.auth.delete('pendingDeviceAuthorization')
+      return undefined
+    }
+    return stored
+  }
+
+  /**
+   * Checks once whether the user has approved the stored code. Still
+   * waiting: show the same code again and return 'pending'.
+   */
+  async #collectPendingAuthorization (
+    deviceFlow: DeviceFlow, pending: DeviceAuthorization,
+  ): Promise<Credentials | 'pending' | 'stored'> {
+    let tokens
+    try {
+      tokens = await deviceFlow.pollOnce(pending)
+    } catch (error) {
+      // Denied, expired or already used: the code is done either way.
+      config.auth.delete('pendingDeviceAuthorization')
+      if (error instanceof DeviceFlowError && config.getApiKey()) {
+        return 'stored'
+      }
+      throw error
+    }
+
+    if (!tokens) {
+      this.#announceDeviceCode(pending)
+      return 'pending'
+    }
+
+    config.auth.delete('pendingDeviceAuthorization')
+    return credentialsFromTokens(tokens)
+  }
+
+  #announceDeviceCode (authorization: DeviceAuthorization): void {
     this.#announce({
       status: 'action_required',
       reason: 'login',
       userActionRequired: true,
-      message: `Open ${authorization.verificationUri} in a browser on any device and enter the code ${authorization.userCode}.`,
+      message: `Open ${authorization.verificationUri} in a browser on any device and enter the code `
+        + `${authorization.userCode}. Once the user has approved, run this command again.`,
       verification_uri: authorization.verificationUri,
       verification_uri_complete: authorization.verificationUriComplete,
       user_code: authorization.userCode,
@@ -261,14 +361,6 @@ export default class Login extends BaseCommand {
       `Visit ${chalk.bold(authorization.verificationUri)} and enter the code ${chalk.bold(authorization.userCode)}`,
       chalk.dim(`Or open ${authorization.verificationUriComplete}`),
     ])
-    await this.#tryOpenBrowser(authorization.verificationUriComplete)
-
-    if (this.#mode === 'interactive') {
-      this.#print(chalk.dim('Waiting for you to finish in the browser...'))
-    }
-
-    const tokens = await deviceFlow.pollForTokens(authorization)
-    return credentialsFromTokens(tokens)
   }
 
   /**

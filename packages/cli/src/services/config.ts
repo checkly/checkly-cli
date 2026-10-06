@@ -7,6 +7,9 @@ const dataSchema = {
 
 const authSchema = {
   apiKey: { type: 'string' },
+  // A device code an agent-mode login handed to the user and has not
+  // collected yet; see `checkly login`.
+  pendingDeviceAuthorization: { type: 'object' },
 }
 
 const projectSuffix = process.env.CHECKLY_ENV ?? ''
@@ -20,7 +23,7 @@ enum Env {
 }
 
 class ChecklyConfig {
-  private _auth?: Conf<{ apiKey: unknown }>
+  private _auth?: Conf<{ apiKey: unknown, pendingDeviceAuthorization: unknown }>
   private _data?: Conf<{ accountId: unknown, accountName: unknown }>
 
   // Accessing auth or data will cause a config file to be created.

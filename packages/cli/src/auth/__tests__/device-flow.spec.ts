@@ -223,4 +223,49 @@ describe('DeviceFlow', () => {
       expect(error.code).toBe('invalid_response')
     })
   })
+
+  describe('pollOnce()', () => {
+    const auth: DeviceAuthorization = {
+      deviceCode: 'dev-code-123',
+      userCode: 'ABCD-EFGH',
+      verificationUri: 'https://auth.checklyhq.com/activate',
+      verificationUriComplete: 'https://auth.checklyhq.com/activate?user_code=ABCD-EFGH',
+      expiresAt: 1_000_000 + 900_000,
+      intervalMs: 5_000,
+    }
+
+    it('returns the tokens without waiting once the user has approved', async () => {
+      post.mockResolvedValueOnce({ status: 200, data: { access_token: 'at', id_token: 'idt' } })
+
+      await expect(flow.pollOnce(auth)).resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
+      expect(sleep).not.toHaveBeenCalled()
+      expect(params(post.mock.calls[0]!).device_code).toBe('dev-code-123')
+    })
+
+    it.each([
+      ['authorization_pending', { status: 403, data: { error: 'authorization_pending' } }],
+      ['slow_down', { status: 429, data: { error: 'slow_down' } }],
+      ['a server error', { status: 503, data: 'Service Unavailable' }],
+    ])('returns undefined on %s', async (_, response) => {
+      post.mockResolvedValueOnce(response)
+
+      await expect(flow.pollOnce(auth)).resolves.toBeUndefined()
+      expect(sleep).not.toHaveBeenCalled()
+    })
+
+    it('returns undefined when the login server cannot be reached', async () => {
+      post.mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
+
+      await expect(flow.pollOnce(auth)).resolves.toBeUndefined()
+    })
+
+    it('throws when the code was denied or already used', async () => {
+      post.mockResolvedValueOnce({ status: 400, data: { error: 'invalid_grant' } })
+
+      const error = await flow.pollOnce(auth).catch(e => e)
+
+      expect(error).toBeInstanceOf(DeviceFlowError)
+      expect(error.code).toBe('invalid_grant')
+    })
+  })
 })

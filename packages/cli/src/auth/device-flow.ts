@@ -89,6 +89,14 @@ function errorFrom (data: any, fallback: string): DeviceFlowError {
   return new DeviceFlowError(code, message)
 }
 
+function tokenParams (auth: DeviceAuthorization): URLSearchParams {
+  return new URLSearchParams({
+    grant_type: DEVICE_CODE_GRANT,
+    device_code: auth.deviceCode,
+    client_id: AUTH0_CLIENT_ID,
+  })
+}
+
 export class DeviceFlow {
   #deps: DeviceFlowDeps
 
@@ -121,12 +129,7 @@ export class DeviceFlow {
   }
 
   async pollForTokens (auth: DeviceAuthorization): Promise<DeviceTokens> {
-    const params = new URLSearchParams({
-      grant_type: DEVICE_CODE_GRANT,
-      device_code: auth.deviceCode,
-      client_id: AUTH0_CLIENT_ID,
-    })
-
+    const params = tokenParams(auth)
     let intervalMs = auth.intervalMs
     let lastFailure: string | undefined
 
@@ -148,6 +151,16 @@ export class DeviceFlow {
       ? `The login code expired; the last attempt to reach the login server failed (${lastFailure}). `
       + 'Please run the login again.'
       : 'The login code expired before it was used. Please run the login again.')
+  }
+
+  /**
+   * A single token request without waiting: the tokens once the user has
+   * approved, undefined while they have not (or while the login server
+   * cannot be reached). Lets a caller check a stored code and return at once.
+   */
+  async pollOnce (auth: DeviceAuthorization): Promise<DeviceTokens | undefined> {
+    const result = await this.#requestTokens(tokenParams(auth))
+    return result.state === 'approved' ? result.tokens : undefined
   }
 
   /**

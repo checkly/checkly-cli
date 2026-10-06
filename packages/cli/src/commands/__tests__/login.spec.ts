@@ -28,7 +28,8 @@ vi.mock('../../services/config', () => {
       hasValidCredentials: vi.fn(),
       getApiKey: vi.fn(),
       getAccountId: vi.fn(),
-      auth: { set: vi.fn(), delete: vi.fn() },
+      getAuthUrl: vi.fn(() => 'https://auth.checklyhq.com'),
+      auth: { set: vi.fn(), delete: vi.fn(), get: vi.fn() },
       data,
     },
   }
@@ -82,6 +83,15 @@ const authorization = {
 const deviceFlow = {
   requestAuthorization: vi.fn(),
   pollForTokens: vi.fn(),
+  pollOnce: vi.fn(),
+}
+
+/** A code an earlier agent-mode run stored; `approved` decides what the next poll sees. */
+function storePendingCode ({ approved }: { approved: boolean }) {
+  vi.mocked(config.auth.get).mockImplementation((key: string) => key === 'pendingDeviceAuthorization'
+    ? { ...authorization, expiresAt: Date.now() + 600_000, authUrl: 'https://auth.checklyhq.com' }
+    : undefined)
+  deviceFlow.pollOnce.mockResolvedValue(approved ? { accessToken: 'at', idToken: 'idt' } : undefined)
 }
 
 const unauthorized = () => new UnauthorizedError({ statusCode: 401, error: 'Unauthorized', message: 'Unauthorized' } as any)
@@ -101,7 +111,12 @@ function jsonLines (cmd: Login): any[] {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(config.data.get).mockReset()
+  for (const mock of [
+    config.data.get, config.auth.get, api.user.get, api.accounts.getAll, api.validateAuthentication,
+    deviceFlow.requestAuthorization, deviceFlow.pollForTokens, deviceFlow.pollOnce, open, prompts,
+  ]) {
+    vi.mocked(mock).mockReset()
+  }
   config.data.store = {} as any
   vi.mocked(DeviceFlow).mockImplementation(() => deviceFlow as any)
   vi.mocked(AuthContext).mockImplementation(() => authContext as any)
@@ -126,12 +141,13 @@ describe('checkly login', () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
     })
 
-    it('runs the device flow without prompts and prints action_required then success as JSON', async () => {
+    it('shows the code and returns at once, keeping the code for the next run', async () => {
       const cmd = createCommand()
-      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(prompts).not.toHaveBeenCalled()
-      const [actionRequired, success] = jsonLines(cmd)
+      expect(jsonLines(cmd)).toHaveLength(1)
+      const [actionRequired] = jsonLines(cmd)
       expect(actionRequired).toMatchObject({
         status: 'action_required',
         reason: 'login',
@@ -141,32 +157,122 @@ describe('checkly login', () => {
         user_code: 'ABCD-EFGH',
       })
       expect(actionRequired.message).toContain('ABCD-EFGH')
+      expect(actionRequired.message).toContain('run this command again')
       expect(actionRequired.expires_in).toBeGreaterThan(0)
-      expect(success).toEqual({
+
+      // Waiting would hide the code from an agent until the command exits.
+      expect(deviceFlow.pollForTokens).not.toHaveBeenCalled()
+      expect(config.auth.set).toHaveBeenCalledWith('pendingDeviceAuthorization', expect.objectContaining({
+        deviceCode: 'dev-code',
+        userCode: 'ABCD-EFGH',
+        authUrl: 'https://auth.checklyhq.com',
+      }))
+      expect(config.auth.set).not.toHaveBeenCalledWith('apiKey', expect.anything())
+    })
+
+    it('completes the login on the next run once the user has approved', async () => {
+      storePendingCode({ approved: true })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(jsonLines(cmd)).toEqual([{
         success: true,
         user: 'Ada Lovelace',
         accountId: 'acc-1',
         accountName: 'Acme',
         accounts: [{ id: 'acc-1', name: 'Acme' }],
-      })
-      expect(loggedLines(cmd)).toHaveLength(2)
-
+      }])
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
       expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
       expect(config.data.set).toHaveBeenCalledWith('accountName', 'Acme')
       expect(api.validateAuthentication).toHaveBeenCalled()
     })
 
-    it('opens the browser as a best effort and keeps going when that fails', async () => {
-      vi.mocked(open).mockRejectedValueOnce(new Error('no display'))
+    it('shows the same code again, without waiting, while the user has not approved', async () => {
+      storePendingCode({ approved: false })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(deviceFlow.pollForTokens).not.toHaveBeenCalled()
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'action_required', user_code: 'ABCD-EFGH' })])
+      expect(config.auth.delete).not.toHaveBeenCalledWith('pendingDeviceAuthorization')
+    })
+
+    it.each([
+      ['expired', { expiresAt: Date.now() - 1_000, authUrl: 'https://auth.checklyhq.com' }],
+      ['issued by another login server', { expiresAt: Date.now() + 600_000, authUrl: 'http://127.0.0.1:4000' }],
+    ])('starts with a new code when the stored one is %s', async (_, stored) => {
+      vi.mocked(config.auth.get).mockImplementation((key: string) => key === 'pendingDeviceAuthorization'
+        ? { ...authorization, ...stored }
+        : undefined)
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(deviceFlow.pollOnce).not.toHaveBeenCalled()
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
+    })
+
+    it('forgets the code and reports the error when the user denied it', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('access_denied', 'User denied'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'User denied' }])
+    })
+
+    it('continues with the key another run stored with the same code', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('invalid_grant', 'Invalid or expired device code.'))
+      // No key when this run started; the other run stored one meanwhile.
+      vi.mocked(config.getApiKey).mockReturnValueOnce('').mockReturnValue('cak_other')
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
+      expect(api.user.get).toHaveBeenCalled()
+      expect(config.auth.set).not.toHaveBeenCalledWith('apiKey', expect.anything())
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ success: true, accountId: 'acc-1' })])
+    })
+
+    it('fails when another run used the code but its key is not accepted', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('invalid_grant', 'Invalid or expired device code.'))
+      vi.mocked(config.getApiKey).mockReturnValueOnce('').mockReturnValue('cak_other')
+      vi.mocked(api.user.get).mockRejectedValue(unauthorized())
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(api.accounts.getAll).not.toHaveBeenCalled()
+      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'The login code was already used. Please run the login again.' }])
+    })
+
+    it('forgets an approved code whose key exchange failed, so the next run starts over', async () => {
+      storePendingCode({ approved: true })
+      vi.mocked(credentialsFromTokens).mockRejectedValueOnce(new Error('Request failed with status code 500'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      // The device code is single-use: once its tokens were issued it cannot be collected again.
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'Request failed with status code 500' }])
+    })
+
+    it('opens the browser as a best effort and keeps going when that fails', async () => {
+      vi.mocked(open).mockRejectedValueOnce(new Error('no display'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
       expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
-      expect(jsonLines(cmd)[1].success).toBe(true)
+      expect(jsonLines(cmd)[0].status).toBe('action_required')
     })
 
     it('selects the account given by --account-id when the user has several', async () => {
+      storePendingCode({ approved: true })
       vi.mocked(api.accounts.getAll).mockResolvedValue({
         data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
       } as any)
@@ -174,10 +280,11 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(prompts).not.toHaveBeenCalled()
-      expect(jsonLines(cmd)[1]).toMatchObject({ accountId: 'acc-2', accountName: 'Globex' })
+      expect(jsonLines(cmd)[0]).toMatchObject({ accountId: 'acc-2', accountName: 'Globex' })
     })
 
     it('with several accounts and no --account-id stores the key but asks the agent to select one', async () => {
+      storePendingCode({ approved: true })
       vi.mocked(api.accounts.getAll).mockResolvedValue({
         data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
       } as any)
@@ -188,8 +295,7 @@ describe('checkly login', () => {
       expect(config.data.set).not.toHaveBeenCalled()
       expect(api.validateAuthentication).not.toHaveBeenCalled()
 
-      const [login, select] = jsonLines(cmd)
-      expect(login.status).toBe('action_required')
+      const [select] = jsonLines(cmd)
       expect(select).toMatchObject({
         status: 'action_required',
         reason: 'select_account',
@@ -199,7 +305,7 @@ describe('checkly login', () => {
       })
       expect(select.next[0].command).toBe('npx checkly login --account-id <id>')
       expect(select.message).toContain('npx checkly logout')
-      expect(loggedLines(cmd)).toHaveLength(2)
+      expect(loggedLines(cmd)).toHaveLength(1)
     })
 
     it('resumes a login that has a key but no account: selects with --account-id, no new authentication', async () => {
@@ -241,12 +347,11 @@ describe('checkly login', () => {
       vi.mocked(config.getApiKey).mockReturnValue('cak_revoked')
       vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
       const cmd = createCommand('--account-id', 'acc-1')
-      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
       expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
-      expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
-      expect(jsonLines(cmd).at(-1)).toMatchObject({ success: true, accountId: 'acc-1' })
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'action_required', reason: 'login' })])
     })
 
     it('reports other errors of the stored key without deleting it', async () => {
@@ -261,6 +366,7 @@ describe('checkly login', () => {
     })
 
     it('fails with a JSON error when --account-id does not match any account', async () => {
+      storePendingCode({ approved: true })
       const cmd = createCommand('--account-id', 'nope')
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
@@ -388,14 +494,13 @@ describe('checkly login', () => {
       })
     })
 
-    it('prints a JSON error and exits 1 when the login code expires', async () => {
-      deviceFlow.pollForTokens.mockRejectedValueOnce(new DeviceFlowError('expired_token', 'The login code expired.'))
+    it('prints a JSON error and exits 1 when the login code expired on the server', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('expired_token', 'The login code expired.'))
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
-      const lines = jsonLines(cmd)
-      expect(lines[0].status).toBe('action_required')
-      expect(lines[1]).toEqual({ success: false, error: 'The login code expired.' })
+      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'The login code expired.' }])
     })
 
     it('falls back to the browser-callback flow when the device grant is not enabled, still without prompts', async () => {
@@ -493,6 +598,19 @@ describe('checkly login', () => {
   describe('interactive mode', () => {
     beforeEach(() => {
       vi.mocked(detectCliMode).mockReturnValue('interactive')
+    })
+
+    it('waits for its own code and forgets one an agent-mode login left behind once it stores a key', async () => {
+      storePendingCode({ approved: false })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(deviceFlow.pollOnce).not.toHaveBeenCalled()
+      expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
+      expect(deviceFlow.pollForTokens).toHaveBeenCalled()
+
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
     })
 
     it('shows the verification URL and code, opens the browser and skips the login/sign-up menu', async () => {
@@ -593,7 +711,7 @@ describe('checkly login', () => {
       process.env.CHECKLY_NO_BROWSER = '1'
       vi.mocked(detectCliMode).mockReturnValue('agent')
       const cmd = createCommand()
-      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(open).not.toHaveBeenCalled()
       expect(jsonLines(cmd)[0].status).toBe('action_required')
@@ -603,7 +721,7 @@ describe('checkly login', () => {
       process.env.CHECKLY_NO_BROWSER = value
       vi.mocked(detectCliMode).mockReturnValue('agent')
       const cmd = createCommand()
-      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(open).toHaveBeenCalled()
     })
@@ -612,18 +730,25 @@ describe('checkly login', () => {
   describe('inline login from another command', () => {
     it('writes every line to stderr so the command\'s stdout stays clean', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
-      const cmd = createCommand()
+      const first = createCommand()
+      await expect(first.login({ inline: true })).resolves.toBe(false)
 
-      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+      storePendingCode({ approved: true })
+      const second = createCommand()
+      await expect(second.login({ inline: true })).resolves.toBe(true)
 
-      expect(cmd.log).not.toHaveBeenCalled()
-      const lines = vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => JSON.parse(String(line)))
+      for (const cmd of [first, second]) {
+        expect(cmd.log).not.toHaveBeenCalled()
+      }
+      const lines = [first, second].flatMap(cmd =>
+        vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => JSON.parse(String(line))))
       expect(lines.map(line => line.status ?? line.success)).toEqual(['action_required', true])
     })
 
     it('writes the failure line to stderr as well', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
-      deviceFlow.pollForTokens.mockRejectedValueOnce(new DeviceFlowError('access_denied', 'User denied'))
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('access_denied', 'User denied'))
       const cmd = createCommand()
 
       await expect(cmd.login({ inline: true })).resolves.toBe(false)

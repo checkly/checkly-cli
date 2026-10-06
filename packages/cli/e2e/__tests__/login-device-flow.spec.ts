@@ -22,9 +22,16 @@ function fakeJwt (payload: Record<string, unknown>): string {
   return `${b64({ alg: 'none' })}.${b64(payload)}.sig`
 }
 
-function startFakeServers (): Promise<{ baseUrl: string, seen: Seen[], close: () => Promise<void> }> {
+interface FakeServers {
+  baseUrl: string
+  seen: Seen[]
+  /** Whether the user has approved the device code; the token endpoint answers pending until then. */
+  approved: boolean
+  close: () => Promise<void>
+}
+
+function startFakeServers (): Promise<FakeServers> {
   const seen: Seen[] = []
-  let tokenPolls = 0
 
   const server = http.createServer((req, res) => {
     const url = req.url ?? ''
@@ -46,8 +53,7 @@ function startFakeServers (): Promise<{ baseUrl: string, seen: Seen[], close: ()
       })
     }
     if (req.method === 'POST' && url === '/oauth/token') {
-      tokenPolls += 1
-      if (tokenPolls === 1) return json(403, { error: 'authorization_pending' })
+      if (!fake.approved) return json(403, { error: 'authorization_pending' })
       return json(200, { access_token: 'access-e2e', id_token: fakeJwt({ name: 'Ada Lovelace' }) })
     }
     if (req.method === 'GET' && url === '/users/me') return json(200, { id: 'user-e2e' })
@@ -62,21 +68,24 @@ function startFakeServers (): Promise<{ baseUrl: string, seen: Seen[], close: ()
     return json(404, { error: 'not_found', url })
   })
 
+  const fake: FakeServers = {
+    baseUrl: '',
+    seen,
+    approved: false,
+    close: () => new Promise(done => server.close(() => done())),
+  }
   return new Promise(resolve => {
     server.listen(0, '127.0.0.1', () => {
       const { port } = server.address() as { port: number }
-      resolve({
-        baseUrl: `http://127.0.0.1:${port}`,
-        seen,
-        close: () => new Promise(done => server.close(() => done())),
-      })
+      fake.baseUrl = `http://127.0.0.1:${port}`
+      resolve(fake)
     })
   })
 }
 
 describe('login with the device flow (fake Auth0 + API)', () => {
   let fixt: FixtureSandbox
-  let fake: Awaited<ReturnType<typeof startFakeServers>>
+  let fake: FakeServers
   let home: string
 
   beforeAll(async () => {
@@ -145,16 +154,21 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     return undefined
   }
 
-  it('agent mode: prints action_required with the code, waits for approval, stores the key, then asks which account to use', async () => {
+  function jsonLines (output: string): any[] {
+    return output.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line))
+  }
+
+  it('agent mode: prints the code and returns, collects the approval on a later run, then asks which account to use', async () => {
     fake.seen.length = 0
-    const { stdout, stderr, exitCode } = await runLogin(['login'], { CHECKLY_CLI_MODE: 'agent' })
+    fake.approved = false
+    const started = await runLogin(['login'], { CHECKLY_CLI_MODE: 'agent' })
 
-    expect(stderr).toBe('')
-    expect(exitCode).toBe(1)
-
-    const lines = stdout.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line))
-    expect(lines).toHaveLength(2)
-    expect(lines[0]).toMatchObject({
+    // Returns at once with the code: an agent sees output only when the command exits.
+    expect(started.stderr).toBe('')
+    expect(started.exitCode).toBe(1)
+    const [actionRequired] = jsonLines(started.stdout)
+    expect(jsonLines(started.stdout)).toHaveLength(1)
+    expect(actionRequired).toMatchObject({
       status: 'action_required',
       reason: 'login',
       userActionRequired: true,
@@ -162,19 +176,32 @@ describe('login with the device flow (fake Auth0 + API)', () => {
       verification_uri: `${fake.baseUrl}/activate`,
       verification_uri_complete: `${fake.baseUrl}/activate?user_code=WXYZ-1234`,
     })
-    // Two accounts and no --account-id: the CLI must not guess.
-    expect(lines[1]).toMatchObject({
+    expect(fake.seen.map(s => `${s.method} ${s.url}`)).not.toContain('POST /oauth/token')
+
+    // Run again before the user approved: the same code, no new one.
+    fake.seen.length = 0
+    const waiting = await runLoginInHome(home, ['login'], { CHECKLY_CLI_MODE: 'agent' })
+    expect(waiting.exitCode).toBe(1)
+    expect(jsonLines(waiting.stdout)).toEqual([expect.objectContaining({ status: 'action_required', user_code: 'WXYZ-1234' })])
+    expect(fake.seen.map(s => `${s.method} ${s.url}`)).not.toContain('POST /oauth/device/code')
+
+    // The user approves; the next run stores the key and, with two accounts
+    // and no --account-id, does not guess.
+    fake.approved = true
+    fake.seen.length = 0
+    const approved = await runLoginInHome(home, ['login'], { CHECKLY_CLI_MODE: 'agent' })
+    expect(approved.stderr).toBe('')
+    expect(approved.exitCode).toBe(1)
+    expect(jsonLines(approved.stdout)).toEqual([expect.objectContaining({
       status: 'action_required',
       reason: 'select_account',
       userActionRequired: false,
       user: 'Ada Lovelace',
       accounts: [{ id: 'acc-e2e', name: 'E2E Account' }, { id: 'acc-other', name: 'Other' }],
       next: [{ command: 'npx checkly login --account-id <id>' }],
-    })
-
+    })])
     const urls = fake.seen.map(s => `${s.method} ${decodeURIComponent(s.url)}`)
-    expect(urls[0], urls.join('\n')).toBe('POST /oauth/device/code')
-    expect(urls.filter(u => u === 'POST /oauth/token')).toHaveLength(2)
+    expect(urls.filter(u => u === 'POST /oauth/token')).toHaveLength(1)
     expect(urls).toContain('GET /users/me')
     expect(urls.some(u => u.startsWith('POST /users/me/api-keys?name=CLI User Key')), urls.join('\n')).toBe(true)
     expect(urls).toContain('GET /next/accounts')
@@ -185,15 +212,16 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     const resumed = await runLoginInHome(home, ['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'agent' })
     expect(resumed.stderr).toBe('')
     expect(resumed.exitCode).toBe(0)
-    const [success] = resumed.stdout.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line))
-    expect(success).toMatchObject({ success: true, accountId: 'acc-e2e', accountName: 'E2E Account' })
+    expect(jsonLines(resumed.stdout)[0]).toMatchObject({ success: true, accountId: 'acc-e2e', accountName: 'E2E Account' })
     const resumedUrls = fake.seen.map(s => `${s.method} ${s.url}`)
     expect(resumedUrls).not.toContain('POST /oauth/device/code')
+    expect(resumedUrls).not.toContain('POST /oauth/token')
     expect(resumedUrls).toContain('GET /next/accounts/acc-e2e')
     await rm(home, { recursive: true, force: true })
   }, 180_000)
 
   it('interactive mode: shows the URL and code without any prompt and confirms the login', async () => {
+    fake.approved = true
     const { stdout, stderr, exitCode } = await runLogin(['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'interactive' })
 
     expect(stderr).toBe('')
@@ -207,15 +235,24 @@ describe('login with the device flow (fake Auth0 + API)', () => {
 
   it('an authenticated command without credentials logs in inline in agent mode and stops at account selection', async () => {
     fake.seen.length = 0
-    const { stdout, stderr, exitCode } = await runLogin(['whoami'], { CHECKLY_CLI_MODE: 'agent' })
+    fake.approved = false
+    const started = await runLogin(['whoami'], { CHECKLY_CLI_MODE: 'agent' })
 
     // Inline, the login writes to stderr: stdout belongs to the command.
-    expect(stdout).toBe('')
-    const lines = stderr.split('\n').filter(line => line.trim() !== '')
-    expect(JSON.parse(lines[0]!)).toMatchObject({ status: 'action_required', reason: 'login', user_code: 'WXYZ-1234' })
-    expect(JSON.parse(lines[1]!)).toMatchObject({ status: 'action_required', reason: 'select_account' })
-    expect(lines, stderr).toHaveLength(2)
-    expect(exitCode).toBe(1)
+    expect(started.stdout).toBe('')
+    expect(jsonLines(started.stderr)).toEqual([
+      expect.objectContaining({ status: 'action_required', reason: 'login', user_code: 'WXYZ-1234' }),
+    ])
+    expect(started.exitCode).toBe(1)
+
+    // After approval, rerunning the command collects the login and stops at account selection.
+    fake.approved = true
+    const approved = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
+    expect(approved.stdout).toBe('')
+    expect(jsonLines(approved.stderr)).toEqual([
+      expect.objectContaining({ status: 'action_required', reason: 'select_account' }),
+    ])
+    expect(approved.exitCode).toBe(1)
 
     // After choosing, the command runs without any further login.
     fake.seen.length = 0
