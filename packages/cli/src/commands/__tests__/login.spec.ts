@@ -18,7 +18,9 @@ vi.mock('../../services/config', () => {
       data.store = { ...data.store, [key]: value }
     }),
     get: vi.fn(),
-    delete: vi.fn(),
+    delete: vi.fn((key: string) => {
+      data.store = Object.fromEntries(Object.entries(data.store).filter(([k]) => k !== key))
+    }),
   }
   return {
     default: {
@@ -413,6 +415,42 @@ describe('checkly login', () => {
       expect(actionRequired.message).toContain('same machine')
       expect(success).toMatchObject({ success: true, accountId: 'acc-1' })
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_pkce')
+    })
+  })
+
+  describe('replacing a login', () => {
+    it('drops the previous account before storing the new key, so a failure cannot pair them', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+      vi.mocked(config.getApiKey).mockReturnValue('cak_old')
+      vi.mocked(config.getAccountId).mockReturnValue('acc-old')
+      vi.mocked(prompts).mockResolvedValueOnce({ setNewkey: true })
+      vi.mocked(api.accounts.getAll).mockRejectedValueOnce(new Error('Service Unavailable'))
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toThrow('Service Unavailable')
+
+      expect(config.data.delete).toHaveBeenCalledWith('accountId')
+      expect(config.data.delete).toHaveBeenCalledWith('accountName')
+      expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
+      const deleteOrder = vi.mocked(config.data.delete).mock.invocationCallOrder[0]!
+      expect(deleteOrder).toBeLessThan(vi.mocked(config.auth.set).mock.invocationCallOrder[0]!)
+    })
+
+    it('does not bring the previous account back when validating the new login fails', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+      vi.mocked(config.getApiKey).mockReturnValue('cak_old')
+      vi.mocked(config.getAccountId).mockReturnValue('acc-old')
+      config.data.store = { accountId: 'acc-old', accountName: 'Old' } as any
+      vi.mocked(prompts).mockResolvedValueOnce({ setNewkey: true })
+      vi.mocked(api.validateAuthentication).mockRejectedValueOnce(new Error('Service Unavailable'))
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toThrow('Service Unavailable')
+
+      expect(config.data.store).toEqual({})
+      expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
     })
   })
 

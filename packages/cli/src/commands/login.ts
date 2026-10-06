@@ -118,7 +118,7 @@ export default class Login extends BaseCommand {
           this.#print('The stored login is no longer valid. Logging in again.')
         }
         const credentials = await this.#authenticate()
-        config.auth.set('apiKey', credentials.key)
+        this.#storeNewKey(credentials.key)
         userName = credentials.name
       } else if (this.#mode === 'interactive' && !switchingAccount) {
         this.#print(`Continuing the login as ${chalk.bold(userName)}. `
@@ -170,6 +170,19 @@ export default class Login extends BaseCommand {
       this.#print(JSON.stringify({ success: false, error: error.message || String(error) }))
       return false
     }
+  }
+
+  /**
+   * Stores the key of a fresh login. The previous account belongs to the
+   * previous key, possibly another user, so it is dropped first: if choosing
+   * an account fails afterwards, the login is left unfinished (key without
+   * account, which the next login resumes) instead of pairing the new key
+   * with the old account.
+   */
+  #storeNewKey (key: string): void {
+    config.data.delete('accountId')
+    config.data.delete('accountName')
+    config.auth.set('apiKey', key)
   }
 
   /**
