@@ -61,6 +61,20 @@ describe('DeviceFlow', () => {
       })
     })
 
+    it.each([
+      [0, 5_000],
+      [-3, 5_000],
+      [0.01, 1_000],
+      [3e6, 60_000],
+      ['5', 5_000],
+    ])('keeps a sane polling interval when the server sends %s', async (interval, expected) => {
+      post.mockResolvedValueOnce({ status: 200, data: { ...authorizationResponse, interval } })
+
+      const auth = await flow.requestAuthorization()
+
+      expect(auth.intervalMs).toBe(expected)
+    })
+
     it('defaults the polling interval to 5 seconds when the server omits it', async () => {
       const withoutInterval: Partial<typeof authorizationResponse> = { ...authorizationResponse }
       delete withoutInterval.interval
@@ -233,9 +247,12 @@ describe('DeviceFlow', () => {
       expect(sleep).toHaveBeenNthCalledWith(4, 5_000)
     })
 
-    it('backs off on a rate-limit response without an OAuth error', async () => {
+    it.each([
+      ['without an OAuth error', 'Too Many Requests'],
+      ['with an OAuth error other than slow_down', { error: 'too_many_requests' }],
+    ])('backs off on a rate-limit response %s', async (_, data) => {
       post
-        .mockResolvedValueOnce({ status: 429, data: 'Too Many Requests' })
+        .mockResolvedValueOnce({ status: 429, data })
         .mockResolvedValueOnce({ status: 200, data: { access_token: 'at', id_token: 'idt' } })
 
       await flow.pollForTokens(auth)
@@ -354,6 +371,15 @@ describe('DeviceFlow', () => {
 
       await expect(flow.pollOnce(auth)).resolves.toEqual({ failure: undefined })
       expect(sleep).not.toHaveBeenCalled()
+    })
+
+    it.each([
+      ['without a body', 'Too Many Requests'],
+      ['with an OAuth error other than slow_down', { error: 'too_many_requests' }],
+    ])('names a rate limit %s as a failure, since it says nothing about the approval', async (_, data) => {
+      post.mockResolvedValueOnce({ status: 429, data })
+
+      await expect(flow.pollOnce(auth)).resolves.toEqual({ failure: 'HTTP 429' })
     })
 
     it('names the failure when the login server answers with an error', async () => {

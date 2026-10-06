@@ -157,7 +157,11 @@ export class DeviceFlow {
       throw unexpectedResponseError()
     }
 
-    const intervalSeconds = typeof data.interval === 'number' ? data.interval : DEFAULT_INTERVAL_MS / 1000
+    // Between a second and a minute, whatever the response says: a delay
+    // beyond setTimeout's range would fire at once and poll in a tight loop.
+    const intervalSeconds = Number.isFinite(data.interval) && data.interval > 0
+      ? Math.min(60, Math.max(1, data.interval))
+      : DEFAULT_INTERVAL_MS / 1000
 
     return {
       deviceCode: data.device_code,
@@ -225,7 +229,7 @@ export class DeviceFlow {
   /**
    * One token request. Polling can last as long as the code is valid, often
    * after the user has already approved it in the browser, so a network
-   * failure, a server-side error or an answer that did not come from the
+   * failure, a server-side error, a rate limit or an answer that did not come from the
    * login server (e.g. a proxy's or captive portal's page) counts as "try
    * again" rather than ending the login; only an OAuth error from the server
    * is final.
@@ -251,8 +255,13 @@ export class DeviceFlow {
     if (status >= 500) {
       return { state: 'pending', failure: `HTTP ${status}` }
     }
-    if (data?.error === 'slow_down' || (status === 429 && data?.error === undefined)) {
+    if (data?.error === 'slow_down') {
       return { state: 'slow_down' }
+    }
+    // Rate limited (by the login server or something in front of it): never
+    // a final answer, and it says nothing about whether the code was approved.
+    if (status === 429) {
+      return { state: 'slow_down', failure: 'HTTP 429' }
     }
     if (data?.error === 'authorization_pending') {
       return { state: 'pending' }
