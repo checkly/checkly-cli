@@ -429,6 +429,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(config.data.set).not.toHaveBeenCalled()
       expect(jsonLines(cmd)).toEqual([{
         status: 'success',
         reason: 'already_logged_in',
@@ -436,6 +437,35 @@ describe('checkly login', () => {
         accountId: 'acc-1',
         accountName: 'Acme',
       }])
+    })
+
+    it('names the account\'s current name when asking whether to replace the login', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+      vi.mocked(config.getAccountId).mockReturnValue('acc-2')
+      vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-2', accountName: 'Acme' })[key])
+      vi.mocked(api.accounts.get).mockResolvedValue({ data: { id: 'acc-2', name: 'Globex' } } as any)
+      vi.mocked(prompts).mockResolvedValueOnce({ setNewkey: false })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      const { message } = vi.mocked(prompts).mock.calls[0][0] as any
+      expect(message).toContain('"Globex"')
+      expect(message).not.toContain('Acme')
+    })
+
+    it('reports and stores the account\'s current name when the stored one is stale', async () => {
+      vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+      vi.mocked(config.getAccountId).mockReturnValue('acc-2')
+      vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-2', accountName: 'Acme' })[key])
+      vi.mocked(api.accounts.get).mockResolvedValue({ data: { id: 'acc-2', name: 'Globex' } } as any)
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(config.data.set).toHaveBeenCalledWith('accountName', 'Globex')
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({
+        reason: 'already_logged_in', accountId: 'acc-2', accountName: 'Globex',
+      })])
     })
 
     describe('already logged in', () => {

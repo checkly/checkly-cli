@@ -190,12 +190,12 @@ export default class Login extends BaseCommand {
       // account selection with a working key, a new login otherwise.
       let notice: string | undefined
       if (config.hasValidCredentials() && !switchingAccount) {
-        const droppedAccount = await this.#dropUnusableStoredAccount()
-        if (droppedAccount === undefined && !await this.#wantsToReplaceLogin()) {
+        const storedAccount = await this.#checkStoredAccount()
+        if (storedAccount.usable && !await this.#wantsToReplaceLogin(storedAccount.name)) {
           return true
         }
-        if (droppedAccount !== undefined) {
-          notice = `Account "${droppedAccount}" is no longer available with the stored login.`
+        if (!storedAccount.usable) {
+          notice = `Account "${storedAccount.name}" is no longer available with the stored login.`
           if (this.#mode !== 'agent') {
             this.#print(notice)
           }
@@ -342,9 +342,8 @@ export default class Login extends BaseCommand {
 
   // ─── LOGIN STATE ────────────────────────────────────────────
 
-  async #wantsToReplaceLogin (): Promise<boolean> {
+  async #wantsToReplaceLogin (accountName: string): Promise<boolean> {
     const accountId = config.data.get('accountId')
-    const accountName = config.data.get('accountName')
 
     if (this.#mode !== 'interactive') {
       if (this.#mode === 'agent') {
@@ -371,16 +370,21 @@ export default class Login extends BaseCommand {
 
   /**
    * Checks the stored key against the stored account. If it no longer works
-   * (key revoked, access removed, account deleted), drops the stored account
-   * and returns its name, so the stored key is then checked like that of an
-   * unfinished login. Returns undefined when the stored login works. Other
-   * failures, such as the API being unreachable, are thrown.
+   * (key revoked, access removed, account deleted), drops the stored account,
+   * so the stored key is then checked like that of an unfinished login. Other
+   * failures, such as the API being unreachable, are thrown. Returns the
+   * account's name either way.
    */
-  async #dropUnusableStoredAccount (): Promise<string | undefined> {
+  async #checkStoredAccount (): Promise<{ usable: boolean, name: string }> {
     const accountId = config.getAccountId()
     try {
-      await api.accounts.get(accountId)
-      return undefined
+      const { data: account } = await api.accounts.get(accountId)
+      // Older CLI versions' `checkly switch` stored only the new account's
+      // id, so the stored name can belong to another account.
+      if (account.name !== config.data.get('accountName')) {
+        config.data.set('accountName', account.name)
+      }
+      return { usable: true, name: account.name }
     } catch (error) {
       const unusable = error instanceof UnauthorizedError
         || error instanceof ForbiddenError
@@ -391,7 +395,7 @@ export default class Login extends BaseCommand {
       const accountName = config.data.get('accountName') as string | undefined
       config.data.delete('accountId')
       config.data.delete('accountName')
-      return accountName || accountId
+      return { usable: false, name: accountName || accountId }
     }
   }
 
