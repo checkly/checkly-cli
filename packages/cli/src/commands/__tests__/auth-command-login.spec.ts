@@ -37,6 +37,12 @@ function createCommand () {
 }
 
 let baseInitSpy: ReturnType<typeof vi.spyOn>
+const originalIsTTY = { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY }
+
+function setTTY (isTTY: boolean) {
+  process.stdin.isTTY = isTTY
+  process.stdout.isTTY = isTTY
+}
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -46,10 +52,13 @@ beforeEach(() => {
   loginInstance.login.mockResolvedValue(true)
   vi.mocked(api.validateAuthentication).mockResolvedValue({ id: 'acc-1', name: 'Acme', features: [] } as any)
   vi.mocked(config.hasValidCredentials).mockReturnValue(false)
+  setTTY(true)
 })
 
 afterEach(() => {
   baseInitSpy.mockRestore()
+  process.stdin.isTTY = originalIsTTY.stdin
+  process.stdout.isTTY = originalIsTTY.stdout
 })
 
 describe('AuthCommand.init without stored credentials', () => {
@@ -85,6 +94,27 @@ describe('AuthCommand.init without stored credentials', () => {
 
     await expect(cmd.init()).rejects.toThrow('CHECKLY_API_KEY')
     expect(loginInstance.login).not.toHaveBeenCalled()
+  })
+
+  it('does not start a login flow in interactive mode without a terminal', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('interactive')
+    setTTY(false)
+    vi.mocked(api.validateAuthentication).mockRejectedValue(new Error('Run `npx checkly login` or set `CHECKLY_API_KEY`'))
+    const cmd = createCommand()
+
+    await expect(cmd.init()).rejects.toThrow('CHECKLY_API_KEY')
+    expect(loginInstance.login).not.toHaveBeenCalled()
+    expect(cmd.log).not.toHaveBeenCalled()
+  })
+
+  it('starts the login flow in agent mode without a terminal', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    setTTY(false)
+    const cmd = createCommand()
+
+    await cmd.init()
+
+    expect(loginInstance.login).toHaveBeenCalledTimes(1)
   })
 
   it('exits 1 when the inline login does not complete', async () => {

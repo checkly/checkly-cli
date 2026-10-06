@@ -14,7 +14,10 @@ import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/comm
 /**
  * Without stored credentials an interactive user or an agent gets the login
  * flow right here instead of an error telling them to run it. CI keeps the
- * error: it should be configured through environment variables.
+ * error: it should be configured through environment variables. So does an
+ * unattended run that is not recognised as CI (cron, a script, a container
+ * without a TTY): nobody would see the login code, and the flow would wait
+ * for it until it expires.
  */
 async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
   if (process.env.CHECKLY_SKIP_AUTH === '1' || config.hasValidCredentials()) {
@@ -23,6 +26,10 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
 
   const mode = detectCliMode()
   if (mode === 'ci') {
+    return
+  }
+
+  if (mode === 'interactive' && !(process.stdin.isTTY && process.stdout.isTTY)) {
     return
   }
 
