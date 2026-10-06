@@ -54,6 +54,13 @@ export async function validateAuthentication (): Promise<Account | undefined> {
   }
 
   if (!config.hasValidCredentials()) {
+    // Credentials from the environment are a deliberate choice, so the
+    // missing half is the actionable part, not a hint to log in.
+    if (config.hasEnvVarsConfigured()) {
+      const missing = config.getApiKey() ? 'CHECKLY_ACCOUNT_ID' : 'CHECKLY_API_KEY'
+      throw new Error(`\`${missing}\` is not set. Set both \`CHECKLY_API_KEY\` and \`CHECKLY_ACCOUNT_ID\` `
+        + 'in your environment or .env file.')
+    }
     throw new Error('Run `npx checkly login` or set `CHECKLY_API_KEY` '
       + '& `CHECKLY_ACCOUNT_ID` in your environment or .env file.')
   }

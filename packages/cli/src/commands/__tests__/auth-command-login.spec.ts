@@ -4,7 +4,7 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn(),
 }))
 vi.mock('../../services/config', () => ({
-  default: { hasValidCredentials: vi.fn() },
+  default: { hasValidCredentials: vi.fn(), hasEnvVarsConfigured: vi.fn() },
 }))
 vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn() }))
 vi.mock('../login', () => ({ default: vi.fn() }))
@@ -53,6 +53,7 @@ beforeEach(() => {
   loginInstance.login.mockResolvedValue(true)
   vi.mocked(api.validateAuthentication).mockResolvedValue({ id: 'acc-1', name: 'Acme', features: [] } as any)
   vi.mocked(config.hasValidCredentials).mockReturnValue(false)
+  vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(false)
   setTTY(true)
 })
 
@@ -119,6 +120,17 @@ describe('AuthCommand.init without stored credentials', () => {
     await cmd.init()
 
     expect(loginInstance.login).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves incomplete environment credentials to authentication instead of logging in', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+    vi.mocked(api.validateAuthentication).mockRejectedValue(new Error('`CHECKLY_ACCOUNT_ID` is not set.'))
+    const cmd = createCommand()
+
+    await expect(cmd.init()).rejects.toThrow('CHECKLY_ACCOUNT_ID')
+    expect(loginInstance.login).not.toHaveBeenCalled()
+    expect(cmd.logToStderr).not.toHaveBeenCalled()
   })
 
   it('exits 1 when the inline login does not complete', async () => {

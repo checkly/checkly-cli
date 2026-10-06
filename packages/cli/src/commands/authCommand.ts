@@ -17,10 +17,17 @@ import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/comm
  * error: it should be configured through environment variables. So does an
  * unattended run that is not recognised as CI (cron, a script, a container
  * without a TTY): nobody would see the login code, and the flow would wait
- * for it until it expires.
+ * for it until it expires. Credentials from the environment, even incomplete
+ * ones, skip it too: login refuses to run while they are set.
  */
 async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
   if (process.env.CHECKLY_SKIP_AUTH === '1' || config.hasValidCredentials()) {
+    return
+  }
+
+  // Credentials from the environment mean the user chose API keys; login
+  // would refuse to run, and authentication names what is missing.
+  if (config.hasEnvVarsConfigured()) {
     return
   }
 
