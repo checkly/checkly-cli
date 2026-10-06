@@ -157,7 +157,7 @@ export default class Login extends BaseCommand {
           userActionRequired: false,
           message: 'Logged in, but this user belongs to several accounts. '
             + 'Choose one with `npx checkly login --account-id <id>`. '
-            + 'To log in as someone else instead, run `npx checkly logout` first.',
+            + 'To log in as someone else instead, run `npx checkly logout --force` first.',
           user: userName,
           accounts: accountSummaries,
           next: [{ command: 'npx checkly login --account-id <id>' }],
@@ -222,6 +222,14 @@ export default class Login extends BaseCommand {
       }
       throw error
     }
+  }
+
+  /**
+   * `checkly logout` asks for confirmation, which only a person at a terminal
+   * can give; anywhere else it would exit without logging out.
+   */
+  #logoutCommand (): string {
+    return this.#mode === 'interactive' ? 'npx checkly logout' : 'npx checkly logout --force'
   }
 
   #print (line: string): void {
@@ -458,7 +466,7 @@ export default class Login extends BaseCommand {
         // account may belong to another identity the user also logs in with.
         throw new Error(`No account with id "${requestedId}" is available to this user. `
           + `Available: ${available}`
-          + (usingStoredKey ? '. To log in as a different user, run `npx checkly logout` first.' : ''))
+          + (usingStoredKey ? `. To log in as a different user, run \`${this.#logoutCommand()}\` first.` : ''))
       }
       return match
     }

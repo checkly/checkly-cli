@@ -305,7 +305,8 @@ describe('checkly login', () => {
         accounts: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
       })
       expect(select.next[0].command).toBe('npx checkly login --account-id <id>')
-      expect(select.message).toContain('npx checkly logout')
+      // Without a terminal, plain `logout` would wait for a confirmation nobody gives.
+      expect(select.message).toContain('npx checkly logout --force')
       expect(loggedLines(cmd)).toHaveLength(1)
     })
 
@@ -418,7 +419,17 @@ describe('checkly login', () => {
         expect(jsonLines(cmd).at(-1)).toMatchObject({ success: false })
         expect(jsonLines(cmd).at(-1).error).toContain('nope')
         // The account may belong to another identity: say how to get there.
-        expect(jsonLines(cmd).at(-1).error).toContain('npx checkly logout')
+        expect(jsonLines(cmd).at(-1).error).toContain('npx checkly logout --force')
+      })
+
+      it.each([
+        ['interactive', 'run `npx checkly logout` first'],
+        ['ci', 'run `npx checkly logout --force` first'],
+      ] as const)('names the logout command a %s run can complete', async (mode, hint) => {
+        vi.mocked(detectCliMode).mockReturnValue(mode)
+        const cmd = createCommand('--account-id', 'nope')
+
+        await expect(cmd.run()).rejects.toThrow(hint)
       })
 
       it('switches without prompting in interactive mode', async () => {
@@ -668,7 +679,7 @@ describe('checkly login', () => {
       expect(prompts).toHaveBeenCalledTimes(1)
       expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
       expect(loggedLines(cmd).join('\n')).toContain('Continuing the login as')
-      expect(loggedLines(cmd).join('\n')).toContain('npx checkly logout')
+      expect(loggedLines(cmd).join('\n')).toContain('Run `npx checkly logout` first')
       expect(loggedLines(cmd).join('\n')).toContain('Successfully logged in as Ada Lovelace')
     })
 
