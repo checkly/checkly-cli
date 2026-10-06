@@ -243,14 +243,25 @@ describe('checkly login', () => {
       expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
     })
 
-    it('forgets the code and reports the error when the user denied it', async () => {
+    it('forgets the code and reports the error when the user cancelled it', async () => {
       storePendingCode({ approved: false })
-      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('access_denied', 'User denied'))
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('access_denied', 'User did not confirm their request'))
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
-      expect(jsonLines(cmd)).toEqual([{ status: 'error', reason: 'access_denied', message: 'User denied' }])
+      expect(jsonLines(cmd)).toEqual([{
+        status: 'error', reason: 'access_denied', message: 'The login was cancelled in the browser.',
+      }])
+    })
+
+    it('keeps the login server\'s message for other denials', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValue(new DeviceFlowError('access_denied', 'Blocked by policy'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(jsonLines(cmd)).toEqual([{ status: 'error', reason: 'access_denied', message: 'Blocked by policy' }])
     })
 
     it('continues with the key another run stored with the same code', async () => {
@@ -836,6 +847,40 @@ describe('checkly login', () => {
       // No login/sign-up menu, no "open a browser?" question, single account => no account prompt.
       expect(prompts).not.toHaveBeenCalled()
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
+    })
+
+    it('reports a login cancelled in the browser as a plain error', async () => {
+      deviceFlow.pollForTokens.mockRejectedValueOnce(
+        new DeviceFlowError('access_denied', 'User did not confirm their request'))
+      const cmd = createCommand()
+      const error = await cmd.run().catch(error => error)
+
+      expect(error.message).toBe('The login was cancelled in the browser.')
+      expect(error.oclif).toMatchObject({ exit: 1 })
+    })
+
+    it.each([
+      ['an expired code', () => deviceFlow.pollForTokens.mockRejectedValueOnce(
+        new DeviceFlowError('expired_token', 'The login code expired.')), 'The login code expired.'],
+      ['a user without accounts', () => vi.mocked(api.accounts.getAll).mockResolvedValue({ data: [] } as any),
+        /has no Checkly accounts/],
+      ['an unreachable API', () => vi.mocked(api.accounts.getAll).mockRejectedValue(unreachable()),
+        /error connecting to Checkly/],
+    ])('reports %s as a plain error', async (_, arrange, message) => {
+      arrange()
+      const cmd = createCommand()
+      const error = await cmd.run().catch(error => error)
+
+      expect(error.message).toMatch(message)
+      expect(error.oclif).toMatchObject({ exit: 1 })
+    })
+
+    it('rethrows unexpected errors unchanged', async () => {
+      const unexpected = new TypeError('boom')
+      deviceFlow.pollForTokens.mockRejectedValueOnce(unexpected)
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toBe(unexpected)
     })
 
     it('asks which account to use when there are several', async () => {

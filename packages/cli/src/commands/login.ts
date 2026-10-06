@@ -86,6 +86,22 @@ function errorReason (error: unknown): ErrorReason {
   return 'login_failed'
 }
 
+/** What Auth0 says when the user cancels on the activation page. */
+const AUTH0_CANCELLED_MESSAGE = 'User did not confirm their request'
+
+/**
+ * The message of a login failure, in our own words for a login cancelled in
+ * the browser. Other denials (e.g. by a tenant rule) keep the login
+ * server's message, the only place their reason appears.
+ */
+function errorMessage (error: any): string {
+  if (error instanceof DeviceFlowError && error.code === 'access_denied'
+    && error.message === AUTH0_CANCELLED_MESSAGE) {
+    return 'The login was cancelled in the browser.'
+  }
+  return error?.message || String(error)
+}
+
 /** A device code kept between agent-mode runs, with the login server it belongs to. */
 type PendingDeviceAuthorization = DeviceAuthorization & { authUrl: string }
 
@@ -272,9 +288,14 @@ export default class Login extends BaseCommand {
       return true
     } catch (error: any) {
       if (this.#mode !== 'agent') {
+        // Expected login failures get a plain message; anything else keeps
+        // its stack for debugging.
+        if (errorReason(error) !== 'login_failed') {
+          this.error(errorMessage(error), { exit: 1 })
+        }
         throw error
       }
-      this.#print(JSON.stringify({ status: 'error', reason: errorReason(error), message: error.message || String(error) }))
+      this.#print(JSON.stringify({ status: 'error', reason: errorReason(error), message: errorMessage(error) }))
       return false
     }
   }
