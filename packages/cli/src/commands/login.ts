@@ -118,10 +118,11 @@ interface ActionRequired {
   reason: 'login_required'
   userActionRequired: true
   message: string
-  verification_uri: string
+  verification_uri?: string
   verification_uri_complete?: string
   user_code?: string
   expires_in?: number
+  next?: Array<{ command: string }>
 }
 
 export default class Login extends BaseCommand {
@@ -406,7 +407,8 @@ export default class Login extends BaseCommand {
   /**
    * Returns the new credentials, or:
    * - 'pending' when an agent-mode login has shown the code and returned
-   *   without waiting for the user (the next run collects it);
+   *   without waiting for the user (the next run collects it), or has sent
+   *   the agent to `npx checkly login` (nothing stored to collect);
    * - 'stored' when another process completed this login with the same code
    *   and stored its key.
    */
@@ -534,7 +536,24 @@ export default class Login extends BaseCommand {
    * the device grant is not enabled for the CLI client. Only works when the
    * browser runs on the same machine as the CLI.
    */
-  async #authenticateWithBrowserCallback (): Promise<Credentials> {
+  async #authenticateWithBrowserCallback (): Promise<Credentials | 'pending'> {
+    // This login only completes while the command waits for the browser on
+    // this machine. A command an agent started for something else (often
+    // just a `whoami` check) would sit there unseen, since agents usually
+    // show output only once a command exits; send the agent to the login
+    // command instead.
+    if (this.#mode === 'agent' && this.#inline) {
+      this.#announce({
+        status: 'action_required',
+        reason: 'login_required',
+        userActionRequired: true,
+        message: 'Run `npx checkly login` in the background to log in (it waits for the browser on this machine '
+          + 'to finish), relay what it prints, then run the original command again.',
+        next: [{ command: 'npx checkly login' }],
+      }, [])
+      return 'pending'
+    }
+
     const mode: AuthMode = this.#mode === 'interactive'
       ? await this.#promptForLoginOrSignUp()
       : 'any'

@@ -1063,14 +1063,22 @@ describe('checkly login', () => {
       expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
     })
 
-    it('still opens a browser for the localhost fallback an agent\'s command started, which needs it', async () => {
+    it('sends an agent to `checkly login` instead of waiting for the localhost fallback', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
       deviceFlow.requestAuthorization.mockRejectedValueOnce(new DeviceFlowNotAllowedError('not allowed'))
       const cmd = createCommand()
 
-      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+      await expect(cmd.login({ inline: true })).resolves.toBe(false)
 
-      expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/authorize?client_id=x')
+      expect(AuthContext).not.toHaveBeenCalled()
+      expect(open).not.toHaveBeenCalled()
+      const line = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
+      expect(line).toMatchObject({
+        status: 'action_required',
+        reason: 'login_required',
+        next: [{ command: 'npx checkly login' }],
+      })
+      expect(line.verification_uri).toBeUndefined()
     })
 
     it('asks an agent to run the original command again after choosing an account', async () => {
