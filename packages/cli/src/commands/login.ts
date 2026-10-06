@@ -6,11 +6,13 @@ import prompts from 'prompts'
 import { BaseCommand } from './baseCommand.js'
 import config from '../services/config.js'
 import * as api from '../rest/api.js'
+import { UnauthorizedError } from '../rest/errors.js'
 import type { Account } from '../rest/accounts.js'
 import { AuthContext, type AuthMode } from '../auth/index.js'
 import { DeviceFlow, DeviceFlowNotAllowedError, type DeviceAuthorization } from '../auth/device-flow.js'
 import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
 import { detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
+import { activateAccount } from '../helpers/activate-account.js'
 import commonMessages from '../messages/common-messages.js'
 
 export const selectAccount = async (
@@ -52,7 +54,8 @@ export default class Login extends BaseCommand {
 
   static flags = {
     'account-id': Flags.string({
-      description: 'Select this account after logging in instead of asking (or defaulting to the first one).',
+      description: 'Use this account instead of asking which one. When already logged in, switch to it '
+        + 'without logging in again, like `checkly switch --account-id`.',
     }),
     'no-browser': Flags.boolean({
       description: 'Only print the login URL and code; do not try to open a browser. '
@@ -89,41 +92,53 @@ export default class Login extends BaseCommand {
       return true
     }
 
-    if (config.hasValidCredentials() && !await this.#wantsToReplaceLogin()) {
+    // `--account-id` naming a different account switches to it with the
+    // stored key; it is not a request to log in again.
+    const switchingAccount = config.hasValidCredentials()
+      && Boolean(options.accountId) && options.accountId !== config.getAccountId()
+
+    if (config.hasValidCredentials() && !switchingAccount && !await this.#wantsToReplaceLogin()) {
       return true
     }
 
-    if (this.#mode === 'ci') {
-      this.error('`npx checkly login` needs a browser. In CI, set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` '
-        + 'in the environment instead.', { exit: 1 })
-    }
-
     try {
-      // A previous login may have stored the key but stopped before an
-      // account was chosen (agent mode with several accounts). Resume there
-      // instead of authenticating again.
-      const resuming = Boolean(config.getApiKey()) && !config.getAccountId()
-      let userName: string
-      if (resuming) {
-        userName = (await api.user.get()).data.name
-      } else {
+      // The stored key is reused when switching accounts, and when a previous
+      // login stored it but stopped before an account was chosen (agent mode
+      // with several accounts, or a cancelled account prompt).
+      const reuseStoredKey = switchingAccount || (Boolean(config.getApiKey()) && !config.getAccountId())
+      let userName = reuseStoredKey ? await this.#storedKeyUserName() : undefined
+      const usingStoredKey = userName !== undefined
+      if (userName === undefined) {
+        if (this.#mode === 'ci') {
+          this.error((reuseStoredKey ? 'The stored login is no longer valid and was removed. ' : '')
+            + '`npx checkly login` needs a browser. In CI, set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` '
+            + 'in the environment instead.', { exit: 1 })
+        }
+        if (reuseStoredKey && this.#mode === 'interactive') {
+          this.#print('The stored login is no longer valid. Logging in again.')
+        }
         const credentials = await this.#authenticate()
         config.auth.set('apiKey', credentials.key)
         userName = credentials.name
+      } else if (this.#mode === 'interactive' && !switchingAccount) {
+        this.#print(`Continuing the login as ${chalk.bold(userName)}. `
+          + 'Run `npx checkly logout` first to log in as someone else.')
       }
 
       const { data: accounts } = await api.accounts.getAll()
       const accountSummaries = accounts.map(({ id, name }) => ({ id, name }))
-      const account = await this.#pickAccount(accounts, options.accountId)
+      const account = await this.#pickAccount(accounts, options.accountId, usingStoredKey)
 
       if (!account) {
         // Agent mode, several accounts, none requested: do not guess.
+        // (CI never gets here; #pickAccount throws instead.)
         this.#print(JSON.stringify({
           status: 'action_required',
           reason: 'select_account',
           userActionRequired: false,
           message: 'Logged in, but this user belongs to several accounts. '
-            + 'Choose one with `npx checkly login --account-id <id>`.',
+            + 'Choose one with `npx checkly login --account-id <id>`. '
+            + 'To log in as someone else instead, run `npx checkly logout` first.',
           user: userName,
           accounts: accountSummaries,
           next: [{ command: 'npx checkly login --account-id <id>' }],
@@ -131,10 +146,7 @@ export default class Login extends BaseCommand {
         return false
       }
 
-      config.data.set('accountId', account.id)
-      config.data.set('accountName', account.name)
-
-      await api.validateAuthentication()
+      await activateAccount(account)
 
       if (this.#mode === 'agent') {
         this.#print(JSON.stringify({
@@ -144,6 +156,8 @@ export default class Login extends BaseCommand {
           accountName: account.name,
           accounts: accountSummaries,
         }))
+      } else if (switchingAccount && usingStoredKey) {
+        this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
       } else {
         this.#print(`Successfully logged in as ${chalk.cyan.bold(userName)}`)
         this.#print('Welcome to the Checkly CLI')
@@ -155,6 +169,23 @@ export default class Login extends BaseCommand {
       }
       this.#print(JSON.stringify({ success: false, error: error.message || String(error) }))
       return false
+    }
+  }
+
+  /**
+   * The name of the user the stored key belongs to, or undefined when the
+   * key is no longer accepted (revoked or expired). A rejected key is
+   * deleted so the caller authenticates again instead of reusing it.
+   */
+  async #storedKeyUserName (): Promise<string | undefined> {
+    try {
+      return (await api.user.get()).data.name
+    } catch (error) {
+      if (error instanceof UnauthorizedError) {
+        config.auth.delete('apiKey')
+        return undefined
+      }
+      throw error
     }
   }
 
@@ -310,12 +341,18 @@ export default class Login extends BaseCommand {
    * Returns undefined only in agent mode when several accounts are available
    * and none was requested: the caller reports the choice instead of guessing.
    */
-  async #pickAccount (accounts: Account[], requestedId: string | undefined): Promise<Account | undefined> {
+  async #pickAccount (
+    accounts: Account[], requestedId: string | undefined, usingStoredKey: boolean,
+  ): Promise<Account | undefined> {
+    const available = accounts.map(a => `${a.name} (${a.id})`).join(', ')
     if (requestedId) {
       const match = accounts.find(account => account.id === requestedId)
       if (!match) {
+        // With the stored key the account list is that user's; the requested
+        // account may belong to another identity the user also logs in with.
         throw new Error(`No account with id "${requestedId}" is available to this user. `
-          + `Available: ${accounts.map(a => `${a.name} (${a.id})`).join(', ')}`)
+          + `Available: ${available}`
+          + (usingStoredKey ? '. To log in as a different user, run `npx checkly logout` first.' : ''))
       }
       return match
     }
@@ -328,7 +365,14 @@ export default class Login extends BaseCommand {
       return accounts[0]!
     }
 
-    if (this.#mode !== 'interactive') {
+    if (this.#mode === 'ci') {
+      throw new Error('This user belongs to several accounts: '
+        + `${available}. `
+        + 'Choose one with `npx checkly login --account-id <id>`, or set `CHECKLY_API_KEY` and '
+        + '`CHECKLY_ACCOUNT_ID` in the environment.')
+    }
+
+    if (this.#mode === 'agent') {
       return undefined
     }
 

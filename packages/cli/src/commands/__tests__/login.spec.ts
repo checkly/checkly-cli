@@ -11,16 +11,26 @@ vi.mock('../../rest/api', () => ({
   user: { get: vi.fn() },
   validateAuthentication: vi.fn(),
 }))
-vi.mock('../../services/config', () => ({
-  default: {
-    hasEnvVarsConfigured: vi.fn(),
-    hasValidCredentials: vi.fn(),
-    getApiKey: vi.fn(),
-    getAccountId: vi.fn(),
-    auth: { set: vi.fn() },
-    data: { set: vi.fn(), get: vi.fn() },
-  },
-}))
+vi.mock('../../services/config', () => {
+  const data = {
+    store: {} as Record<string, unknown>,
+    set: vi.fn((key: string, value: unknown) => {
+      data.store = { ...data.store, [key]: value }
+    }),
+    get: vi.fn(),
+    delete: vi.fn(),
+  }
+  return {
+    default: {
+      hasEnvVarsConfigured: vi.fn(),
+      hasValidCredentials: vi.fn(),
+      getApiKey: vi.fn(),
+      getAccountId: vi.fn(),
+      auth: { set: vi.fn(), delete: vi.fn() },
+      data,
+    },
+  }
+})
 vi.mock('../../auth/device-flow', async importOriginal => {
   const actual = await importOriginal<typeof import('../../auth/device-flow.js')>()
   return {
@@ -39,6 +49,7 @@ import config from '../../services/config.js'
 import { DeviceFlow, DeviceFlowError, DeviceFlowNotAllowedError } from '../../auth/device-flow.js'
 import { credentialsFromTokens } from '../../auth/api-key.js'
 import { AuthContext } from '../../auth/index.js'
+import { UnauthorizedError } from '../../rest/errors.js'
 import Login from '../login.js'
 
 const mockConfig = {
@@ -71,6 +82,8 @@ const deviceFlow = {
   pollForTokens: vi.fn(),
 }
 
+const unauthorized = () => new UnauthorizedError({ statusCode: 401, error: 'Unauthorized', message: 'Unauthorized' } as any)
+
 const authContext = {
   authenticationUrl: 'https://auth.checklyhq.com/authorize?client_id=x',
   getAuth0Credentials: vi.fn(),
@@ -86,6 +99,8 @@ function jsonLines (cmd: Login): any[] {
 
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(config.data.get).mockReset()
+  config.data.store = {} as any
   vi.mocked(DeviceFlow).mockImplementation(() => deviceFlow as any)
   vi.mocked(AuthContext).mockImplementation(() => authContext as any)
   deviceFlow.requestAuthorization.mockResolvedValue({ ...authorization, expiresAt: Date.now() + 900_000 })
@@ -181,6 +196,7 @@ describe('checkly login', () => {
         accounts: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
       })
       expect(select.next[0].command).toBe('npx checkly login --account-id <id>')
+      expect(select.message).toContain('npx checkly logout')
       expect(loggedLines(cmd)).toHaveLength(2)
     })
 
@@ -219,6 +235,29 @@ describe('checkly login', () => {
       expect(loggedLines(cmd)).toHaveLength(1)
     })
 
+    it('authenticates again when the stored key of an unfinished login is no longer accepted', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_revoked')
+      vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+      const cmd = createCommand('--account-id', 'acc-1')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
+      expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
+      expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
+      expect(jsonLines(cmd).at(-1)).toMatchObject({ success: true, accountId: 'acc-1' })
+    })
+
+    it('reports other errors of the stored key without deleting it', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      vi.mocked(api.user.get).mockRejectedValueOnce(new Error('connect ECONNREFUSED'))
+      const cmd = createCommand('--account-id', 'acc-1')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(config.auth.delete).not.toHaveBeenCalled()
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(jsonLines(cmd).at(-1)).toMatchObject({ success: false, error: 'connect ECONNREFUSED' })
+    })
+
     it('fails with a JSON error when --account-id does not match any account', async () => {
       const cmd = createCommand('--account-id', 'nope')
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
@@ -236,6 +275,115 @@ describe('checkly login', () => {
 
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
       expect(jsonLines(cmd)).toEqual([{ success: true, alreadyLoggedIn: true, accountId: 'acc-1', accountName: 'Acme' }])
+    })
+
+    describe('already logged in', () => {
+      beforeEach(() => {
+        vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+        vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+        vi.mocked(config.getAccountId).mockReturnValue('acc-1')
+        vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-1', accountName: 'Acme' })[key])
+        config.data.store = { accountId: 'acc-1', accountName: 'Acme' } as any
+        vi.mocked(api.accounts.getAll).mockResolvedValue({
+          data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+        } as any)
+      })
+
+      it('switches to the account given by --account-id with the stored key', async () => {
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+        expect(config.auth.set).not.toHaveBeenCalled()
+        expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
+        expect(config.data.set).toHaveBeenCalledWith('accountName', 'Globex')
+        expect(jsonLines(cmd)).toEqual([expect.objectContaining({ success: true, accountId: 'acc-2', accountName: 'Globex' })])
+      })
+
+      it('keeps the current account when --account-id names an unknown one', async () => {
+        const cmd = createCommand('--account-id', 'nope')
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+        expect(config.data.set).not.toHaveBeenCalled()
+        expect(jsonLines(cmd).at(-1)).toMatchObject({ success: false })
+        expect(jsonLines(cmd).at(-1).error).toContain('nope')
+        // The account may belong to another identity: say how to get there.
+        expect(jsonLines(cmd).at(-1).error).toContain('npx checkly logout')
+      })
+
+      it('switches without prompting in interactive mode', async () => {
+        vi.mocked(detectCliMode).mockReturnValue('interactive')
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(prompts).not.toHaveBeenCalled()
+        expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
+        expect(loggedLines(cmd).join('\n')).not.toContain('Continuing the login as')
+        expect(loggedLines(cmd).join('\n')).toContain('Switched to account')
+        expect(loggedLines(cmd).join('\n')).toContain('acc-2')
+      })
+
+      it('stays on the current account when the switch cannot be validated', async () => {
+        vi.mocked(api.validateAuthentication).mockRejectedValueOnce(new Error('Service Unavailable'))
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+        expect(config.data.store).toEqual({ accountId: 'acc-1', accountName: 'Acme' })
+        expect(jsonLines(cmd).at(-1)).toMatchObject({ success: false, error: 'Service Unavailable' })
+      })
+
+      it('keeps the stored key and the current account when the key is rejected for the new account', async () => {
+        vi.mocked(api.validateAuthentication).mockRejectedValueOnce(
+          new Error('Authentication failed with account id "acc-2" and API key "...ored"'))
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+        expect(config.auth.delete).not.toHaveBeenCalled()
+        expect(config.data.store).toEqual({ accountId: 'acc-1', accountName: 'Acme' })
+        expect(JSON.stringify(jsonLines(cmd))).not.toContain('cak_stored')
+      })
+
+      it('authenticates again when switching with a key that is no longer accepted, and says so as a login', async () => {
+        vi.mocked(detectCliMode).mockReturnValue('interactive')
+        vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        const output = loggedLines(cmd).join('\n')
+        expect(output).toContain('The stored login is no longer valid')
+        expect(output).toContain('Successfully logged in as Ada Lovelace')
+        expect(output).not.toContain('Switched to account')
+
+        expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
+        expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
+        expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
+      })
+
+      it('reports the existing login when --account-id names the current account', async () => {
+        const cmd = createCommand('--account-id', 'acc-1')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(api.accounts.getAll).not.toHaveBeenCalled()
+        expect(jsonLines(cmd)).toEqual([{ success: true, alreadyLoggedIn: true, accountId: 'acc-1', accountName: 'Acme' }])
+      })
+
+      it('switches accounts in CI too, since no browser is needed', async () => {
+        vi.mocked(detectCliMode).mockReturnValue('ci')
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
+      })
+
+      it('in CI says the stored login was removed when its key is rejected, without a device flow', async () => {
+        vi.mocked(detectCliMode).mockReturnValue('ci')
+        vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+        const cmd = createCommand('--account-id', 'acc-2')
+        await expect(cmd.run()).rejects.toThrow(/no longer valid.*CHECKLY_API_KEY/s)
+
+        expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
+        expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      })
     })
 
     it('prints a JSON error and exits 1 when the login code expires', async () => {
@@ -279,6 +427,28 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow(/CHECKLY_API_KEY/)
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
       expect(prompts).not.toHaveBeenCalled()
+    })
+
+    it('lists the accounts as a plain error when an unfinished login has several and none is given', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      const cmd = createCommand()
+
+      await expect(cmd.run()).rejects.toThrow(/Acme \(acc-1\), Globex \(acc-2\).*--account-id/s)
+      expect(cmd.log).not.toHaveBeenCalled()
+    })
+
+    it('finishes an unfinished login with a still valid stored key, since no browser is needed', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+      vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+      const cmd = createCommand('--account-id', 'acc-1')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
     })
   })
 
@@ -339,7 +509,22 @@ describe('checkly login', () => {
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
       expect(prompts).toHaveBeenCalledTimes(1)
       expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
+      expect(loggedLines(cmd).join('\n')).toContain('Continuing the login as')
+      expect(loggedLines(cmd).join('\n')).toContain('npx checkly logout')
       expect(loggedLines(cmd).join('\n')).toContain('Successfully logged in as Ada Lovelace')
+    })
+
+    it('says so and logs in again when the stored key of an unfinished login is no longer accepted', async () => {
+      vi.mocked(config.getApiKey).mockReturnValue('cak_revoked')
+      vi.mocked(api.user.get).mockRejectedValueOnce(unauthorized())
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
+      expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
+      const output = loggedLines(cmd).join('\n')
+      expect(output).toContain('The stored login is no longer valid')
+      expect(output).not.toContain('Continuing the login as')
     })
 
     it('lets the user keep the current login', async () => {

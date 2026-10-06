@@ -1,9 +1,9 @@
 import chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import config from '../services/config.js'
 import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
 import { selectAccount } from './login.js'
+import { activateAccount } from '../helpers/activate-account.js'
 
 export default class Switch extends AuthCommand {
   static hidden = false
@@ -26,13 +26,18 @@ export default class Switch extends AuthCommand {
     }
 
     if (accountId) {
+      let account
       try {
-        const { data: account } = await api.accounts.get(accountId)
-        config.data.set('accountId', account.id)
-        this.log(`Account switched to ${chalk.bold.cyan(accountId)}`)
-      } catch {
-        throw new Error(`Failed to find an account corresponding to account id ${accountId}`)
+        ({ data: account } = await api.accounts.get(accountId))
+      } catch (err: any) {
+        throw new Error(`Failed to find an account corresponding to account id ${accountId}`, { cause: err })
       }
+      try {
+        await activateAccount(account)
+      } catch (err: any) {
+        throw new Error(`Failed to switch account. ${err.message}`, { cause: err })
+      }
+      this.log(`Account switched to ${chalk.bold.cyan(account.name)} (${account.id})`)
       this.exit(0)
     }
 
@@ -41,12 +46,9 @@ export default class Switch extends AuthCommand {
 
       const selectedAccount = await selectAccount(accounts, { onCancel })
 
-      const { id, name } = selectedAccount
+      await activateAccount(selectedAccount)
 
-      config.data.set('accountId', id)
-      config.data.set('accountName', name)
-
-      this.log(`Account switched to ${chalk.bold.cyan(name)}`)
+      this.log(`Account switched to ${chalk.bold.cyan(selectedAccount.name)}`)
     } catch (err: any) {
       throw new Error(`Failed to switch account. ${err.message}`, { cause: err })
     }
