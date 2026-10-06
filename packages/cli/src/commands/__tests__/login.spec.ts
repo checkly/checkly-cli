@@ -89,9 +89,9 @@ const deviceFlow = {
 }
 
 /** A code an earlier agent-mode run stored; `approved` decides what the next poll sees. */
-function storePendingCode ({ approved }: { approved: boolean }) {
+function storePendingCode ({ approved, expiresInMs = 600_000 }: { approved: boolean, expiresInMs?: number }) {
   vi.mocked(config.auth.get).mockImplementation((key: string) => key === 'pendingDeviceAuthorization'
-    ? { ...authorization, expiresAt: Date.now() + 600_000, authUrl: 'https://auth.checklyhq.com' }
+    ? { ...authorization, expiresAt: Date.now() + expiresInMs, authUrl: 'https://auth.checklyhq.com' }
     : undefined)
   deviceFlow.pollOnce.mockResolvedValue(approved ? { tokens: { accessToken: 'at', idToken: 'idt' } } : {})
 }
@@ -682,6 +682,37 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error', reason: 'no_accounts' })
+    })
+
+    it('shows a new code instead of one about to expire', async () => {
+      storePendingCode({ approved: false, expiresInMs: 30_000 })
+      deviceFlow.requestAuthorization.mockResolvedValueOnce({ ...authorization, userCode: 'NEWC-ODE1', expiresAt: Date.now() + 900_000 })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(deviceFlow.pollOnce).toHaveBeenCalled()
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ reason: 'login_required', user_code: 'NEWC-ODE1' })])
+    })
+
+    it('keeps a code about to expire when the login server could not say whether it was approved', async () => {
+      storePendingCode({ approved: false, expiresInMs: 30_000 })
+      deviceFlow.pollOnce.mockResolvedValue({ failure: 'HTTP 502' })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(config.auth.delete).not.toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ reason: 'login_required', user_code: 'ABCD-EFGH' })])
+    })
+
+    it('still collects an approval for a code about to expire', async () => {
+      storePendingCode({ approved: true, expiresInMs: 30_000 })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+      expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'success' })
     })
 
     it('falls back when the device grant was turned off while a code was pending', async () => {

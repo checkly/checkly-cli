@@ -104,6 +104,10 @@ function errorMessage (error: any): string {
   return error?.message || String(error)
 }
 
+// An agent relays a stored code again only while there is still time to
+// approve it.
+const MIN_RELAY_TIME_MS = 60_000
+
 /** A device code kept between agent-mode runs, with the login server it belongs to. */
 type PendingDeviceAuthorization = DeviceAuthorization & { authUrl: string }
 
@@ -419,7 +423,10 @@ export default class Login extends BaseCommand {
     try {
       const pending = this.#mode === 'agent' ? this.#pendingAuthorization() : undefined
       if (pending) {
-        return await this.#collectPendingAuthorization(deviceFlow, pending)
+        const collected = await this.#collectPendingAuthorization(deviceFlow, pending)
+        if (collected !== 'expiring') {
+          return collected
+        }
       }
       authorization = await deviceFlow.requestAuthorization()
     } catch (error) {
@@ -476,11 +483,12 @@ export default class Login extends BaseCommand {
 
   /**
    * Checks once whether the user has approved the stored code. Still
-   * waiting: show the same code again and return 'pending'.
+   * waiting: show the same code again and return 'pending', or return
+   * 'expiring' when it is about to expire.
    */
   async #collectPendingAuthorization (
     deviceFlow: DeviceFlow, pending: DeviceAuthorization,
-  ): Promise<Credentials | 'pending' | 'stored'> {
+  ): Promise<Credentials | 'pending' | 'stored' | 'expiring'> {
     let result
     try {
       result = await deviceFlow.pollOnce(pending)
@@ -494,6 +502,14 @@ export default class Login extends BaseCommand {
     }
 
     if (!result.tokens) {
+      // The login server says it is not approved, and too little time is left
+      // for the agent to relay it and the user to approve: the caller requests
+      // a new code. After a failed request the code is kept, since it may
+      // have been approved.
+      if (!result.failure && pending.expiresAt - Date.now() < MIN_RELAY_TIME_MS) {
+        config.auth.delete('pendingDeviceAuthorization')
+        return 'expiring'
+      }
       // Without this, an agent whose user has already approved would be told
       // to run the command again with nothing to suggest that it was the
       // login server, not the user, that has not answered yet.
