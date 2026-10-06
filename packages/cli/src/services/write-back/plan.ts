@@ -278,7 +278,8 @@ const GRPC_REQUEST_KEYS = ['url', 'port', 'ipFamily', 'skipSSL', 'timeout'] as c
 // `metadata` is never written — the account blanks every metadata value —
 // but with a rule the refusal names that reason rather than a generic one.
 const GRPC_CONFIG_KEYS = [
-  'mode', 'tls', 'metadata', 'serviceDefinition', 'method', 'protoContent', 'message', 'service',
+  'mode', 'tls', 'metadata', 'encoding', 'serviceDefinition', 'method', 'protoContent', 'bfbsContent', 'message',
+  'service',
 ] as const satisfies readonly (keyof GrpcConfig)[]
 const TRACEROUTE_REQUEST_KEYS = [
   'url', 'protocol', 'port', 'ipFamily', 'maxHops', 'maxUnknownHops', 'ptrLookup', 'timeout',

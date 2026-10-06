@@ -160,6 +160,107 @@ describe('GrpcMonitor', () => {
   })
 
   describe('validation', () => {
+    it('accepts a FlatBuffers request with bfbsContent', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          grpcConfig: {
+            mode: 'BEHAVIOR',
+            encoding: 'FLATBUFFERS',
+            bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ==',
+            method: 'example.Greeter/Greet',
+          },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('requires bfbsContent for FlatBuffers requests', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          grpcConfig: { ...request.grpcConfig, encoding: 'FLATBUFFERS' },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('"bfbsContent" is required') }),
+      ]))
+    })
+
+    it('rejects FlatBuffers encoding in HEALTH mode without requesting bfbsContent', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          grpcConfig: {
+            mode: 'HEALTH',
+            encoding: 'FLATBUFFERS',
+          },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          property: 'request.grpcConfig.encoding',
+          message: expect.stringContaining('gRPC health checks use Protobuf'),
+        }),
+      ]))
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('"bfbsContent" is required') }),
+      ]))
+    })
+
+    it.each([
+      ['serviceDefinition', { serviceDefinition: 'REFLECTION' as const }],
+      ['protoContent', { protoContent: 'syntax = "proto3";' }],
+    ])('rejects %s for FlatBuffers requests', async (_, incompatibleConfig) => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          grpcConfig: {
+            mode: 'BEHAVIOR',
+            encoding: 'FLATBUFFERS',
+            bfbsContent: 'RkxBVF9CVUZGRVJTX1NDSEVNQQ==',
+            method: 'example.Greeter/Greet',
+            ...incompatibleConfig,
+          },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('cannot be used') }),
+      ]))
+    })
+
+    it('rejects bfbsContent for Protobuf requests', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request: {
+          ...request,
+          grpcConfig: { ...request.grpcConfig, encoding: 'PROTOBUF', bfbsContent: 'schema' },
+        },
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({ message: expect.stringContaining('can only be used') }),
+      ]))
+    })
+
     it('should error if degradedResponseTime is above 180000', async () => {
       setupProject()
       const check = new GrpcMonitor('test-check', {

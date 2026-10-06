@@ -1215,15 +1215,8 @@ new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example
           type: 'check',
           logicalId: 'grpc',
           action: 'UPDATE',
-          changes: [
-            { path: '/request/grpcConfig/encoding', origin: 'remote', before: 'PROTOBUF', after: 'FLATBUFFERS' },
-            { path: '/request/grpcConfig/metadata', origin: 'remote', secret: true },
-          ],
-          before: {
-            checkType: 'GRPC',
-            name: 'Grpc',
-            request: { url: 'grpc.example.com', port: 443, grpcConfig: { encoding: 'FLATBUFFERS', metadata: [{ key: 'k', value: '' }] } },
-          },
+          changes: [{ path: '/request/grpcConfig/metadata', origin: 'remote', secret: true }],
+          before: { checkType: 'GRPC', name: 'Grpc', request: { url: 'grpc.example.com', port: 443, grpcConfig: { metadata: [{ key: 'k', value: '' }] } } },
           redactions: metadataRedactions,
         },
         {
@@ -1263,7 +1256,6 @@ new DnsMonitor('dns', { name: 'Dns', request: { recordType: 'A', query: 'example
     })
     expect(plan.applied).toEqual([])
     expect(plan.skipped.map(describeSkip)).toEqual([
-      'check grpc /request/grpcConfig/encoding: not a property this tool can update',
       'check grpc /request/grpcConfig/metadata: a secret changed; Checkly does not return its value',
       'check grpc2 request.grpcConfig.metadata: contains a locked or secret value that Checkly does not return',
       'check ssl request.sslConfig.securityBaseline: Checkly reported two different current values',

@@ -11,3 +11,27 @@
 - **Plan-gated properties:** `retryStrategy`, `runParallel`, and higher frequencies are not available on all plans. Check entitlements matching `UPTIME_CHECKS_*` before using these. Omit any property whose entitlement is disabled. See `npx checkly skills manage` for details.
 
 <!-- EXAMPLE: GRPC_MONITOR -->
+
+## FlatBuffers services
+
+Only applies when the service uses FlatBuffers instead of Protobuf. Protobuf is the default; omit `grpcConfig.encoding` otherwise.
+
+- FlatBuffers requires `BEHAVIOR` mode; `HEALTH` mode always uses Protobuf.
+- Compile the `.fbs` source schema to a binary `.bfbs` schema with `flatc -b --schema --bfbs-builtins schema.fbs`. `--bfbs-builtins` preserves attributes used for streaming and nested FlatBuffers fields.
+- Set `grpcConfig.encoding` to `'FLATBUFFERS'` and load the compiled schema as base64 into `bfbsContent`. Do not set `serviceDefinition` or `protoContent`; FlatBuffers has no server reflection.
+
+```typescript
+import { readFileSync } from 'node:fs'
+
+request: {
+  url: 'grpc.example.com',
+  port: 443,
+  grpcConfig: {
+    mode: 'BEHAVIOR',
+    encoding: 'FLATBUFFERS',
+    bfbsContent: readFileSync('schema.bfbs').toString('base64'),
+    method: 'example.Greeter/Greet',
+    message: JSON.stringify({ name: 'Checkly' }),
+  },
+}
+```
