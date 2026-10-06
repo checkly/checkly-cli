@@ -90,9 +90,15 @@ const deviceFlow = {
 
 /** A code an earlier agent-mode run stored; `approved` decides what the next poll sees. */
 function storePendingCode ({ approved, expiresInMs = 600_000 }: { approved: boolean, expiresInMs?: number }) {
-  vi.mocked(config.auth.get).mockImplementation((key: string) => key === 'pendingDeviceAuthorization'
-    ? { ...authorization, expiresAt: Date.now() + expiresInMs, authUrl: 'https://auth.checklyhq.com' }
-    : undefined)
+  let stored: object | undefined = {
+    ...authorization, expiresAt: Date.now() + expiresInMs, authUrl: 'https://auth.checklyhq.com',
+  }
+  vi.mocked(config.auth.get).mockImplementation((key: string) => key === 'pendingDeviceAuthorization' ? stored : undefined)
+  vi.mocked(config.auth.delete).mockImplementation((key: string) => {
+    if (key === 'pendingDeviceAuthorization') {
+      stored = undefined
+    }
+  })
   deviceFlow.pollOnce.mockResolvedValue(approved ? { tokens: { accessToken: 'at', idToken: 'idt' } } : {})
 }
 
@@ -125,7 +131,8 @@ beforeEach(() => {
   vi.clearAllMocks()
   process.stdin.isTTY = true
   for (const mock of [
-    config.data.get, config.auth.get, api.user.get, api.accounts.getAll, api.accounts.get, api.validateAuthentication,
+    config.data.get, config.auth.get, config.auth.delete,
+    api.user.get, api.accounts.getAll, api.accounts.get, api.validateAuthentication,
     deviceFlow.requestAuthorization, deviceFlow.pollForTokens, deviceFlow.pollOnce, open, prompts,
   ]) {
     vi.mocked(mock).mockReset()
@@ -682,6 +689,22 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error', reason: 'no_accounts' })
+    })
+
+    it('shows the code a parallel run stored meanwhile instead of its own', async () => {
+      let reads = 0
+      vi.mocked(config.auth.get).mockImplementation((key: string) => {
+        if (key !== 'pendingDeviceAuthorization') return undefined
+        // Nothing stored when this run starts; another run's code by the time it stores its own.
+        return reads++ === 0
+          ? undefined
+          : { ...authorization, userCode: 'FIRS-TONE', expiresAt: Date.now() + 600_000, authUrl: 'https://auth.checklyhq.com' }
+      })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(config.auth.set).not.toHaveBeenCalledWith('pendingDeviceAuthorization', expect.anything())
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ reason: 'login_required', user_code: 'FIRS-TONE' })])
     })
 
     it('shows a new code instead of one about to expire', async () => {

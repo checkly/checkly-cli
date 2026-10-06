@@ -443,15 +443,24 @@ export default class Login extends BaseCommand {
       // Agents usually show a command's output only once it exits, so
       // waiting here would hide the code until it expired. Keep the code and
       // return; the next login (or authenticated command) collects it.
-      const stored: PendingDeviceAuthorization = { ...authorization, authUrl: config.getAuthUrl() }
-      config.auth.set('pendingDeviceAuthorization', stored)
+      // Commands an agent runs in parallel before it knows it is logged out
+      // each get here; the first code stored wins, so the user approves the
+      // one code every later run collects.
+      const storedMeanwhile = this.#pendingAuthorization()
+      if (storedMeanwhile) {
+        authorization = storedMeanwhile
+      } else {
+        const stored: PendingDeviceAuthorization = { ...authorization, authUrl: config.getAuthUrl() }
+        config.auth.set('pendingDeviceAuthorization', stored)
+      }
     }
 
     this.#announceDeviceCode(authorization)
     // A login an agent's command starts on its own (often just a `whoami`
     // check) must not pop up a browser tab the user did not ask for; the
-    // agent relays the URL instead. An explicit `checkly login` opens it when
-    // it requests a new code (not when it shows a stored one again).
+    // agent relays the URL instead. An explicit `checkly login` opens it for
+    // a code this run shows for the first time, whether it requested it or
+    // took it over from a parallel run (not when it shows a stored one again).
     if (!(this.#mode === 'agent' && this.#inline)) {
       await this.#tryOpenBrowser(authorization.verificationUriComplete)
     }
