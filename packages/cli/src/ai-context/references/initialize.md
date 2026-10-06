@@ -115,7 +115,7 @@ If the user is logged in, verify the information and if it's the correct account
 
 If the user is NOT logged in, run the login yourself unless the user prefers API keys:
 
-- **Option A: `npx checkly login`** — Works for agents. It prints a JSON `action_required` line with a URL and a short code: give both to the user and wait for their approval; the command keeps polling. With several accounts it stops at a `select_account` line listing them; ask the user which one and run `npx checkly login --account-id <id>`. Details are in the skill's "Logging in as an agent" section. Any authenticated command starts this flow on its own when no credentials are stored.
+- **Option A: `npx checkly login`** — Works for agents. It prints a JSON `action_required` line with a URL and a short code and exits: give both to the user, and once they have approved, run it again. With several accounts it stops at a `select_account` line listing them; ask the user which one and run `npx checkly login --account-id <id>`. Details are in the skill's "Logging in as an agent" section. Any authenticated command starts this flow on its own when no credentials are stored.
 - **Option B: Environment variables** — For CI/CD, or when the user prefers keys: they set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` (API keys are created at https://app.checklyhq.com/accounts/settings/user/api-keys). Once both are set, re-run `npx checkly whoami` to verify.
 
 #### Step 6: Summarize and test the new monitoring configuration
