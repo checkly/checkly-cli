@@ -46,26 +46,11 @@ export function onlyUnmanagedChanges (entry: DiffEntry): boolean {
 }
 
 /**
- * True for a resource the deploy writes although no difference was found in
- * it. Checkly had no earlier planned deploy to compare it with (the project's
- * first plan, or the first after a deploy without one), compared the code with
- * the deployed resource instead, and writes it once more so that later plans
- * have something to compare against. It is a write, so it is confirmed like
- * one, but not a change worth a row of its own.
- *
- * Relations the project does not manage are reported on the resource without
- * being a difference in it, so a resource with only those still counts.
- */
-export function isBaselineRewrite (entry: DiffEntry): boolean {
-  return entry.action === 'UPDATE' && entry.basis === 'live'
-    && (entry.changes ?? []).every(change => change.origin === 'unmanaged')
-}
-
-/**
  * Entries worth showing: a resource the deploy touches. An `UNCHANGED` entry
  * with no changes of its own is the converged case and says nothing, a relation
  * folded into its parent is already reported there, and a resource whose only
- * reported changes are unmanaged relations is not written either.
+ * reported changes are unmanaged relations is not written either, unless the
+ * deploy writes it to set the baseline for later plans.
  */
 function reportable (entry: DiffEntry, { foldedTypes }: PlanSummaryOptions): boolean {
   // A relation the deploy would delete is reported on its own entry, folded
@@ -77,13 +62,12 @@ function reportable (entry: DiffEntry, { foldedTypes }: PlanSummaryOptions): boo
   if (entry.foldedInto !== undefined || foldedTypes.includes(entry.type)) {
     return false
   }
-  // Written whatever was found, so it is never "nothing to apply".
-  if (isBaselineRewrite(entry)) {
-    return true
-  }
   // Whether or not the relations are pruned, the resource they hang off is not
   // written: with `--prune-relations` the relation's own entry carries the line.
-  if (onlyUnmanagedChanges(entry)) {
+  // Except when Checkly had no usable state from an earlier planned deploy and
+  // compared the resource with what is deployed (`basis: 'live'`): the deploy
+  // writes it whatever was found, so it is never "nothing to apply".
+  if (onlyUnmanagedChanges(entry) && entry.basis !== 'live') {
     return false
   }
   return entry.action !== 'UNCHANGED' || (entry.changes?.length ?? 0) > 0
@@ -113,8 +97,7 @@ export function planChangeLines (diff: DiffEntry[], options: PlanSummaryOptions)
   // `DETACHED` is what an API older than the deploy diff calls the same thing.
   const detached = (entry: DiffEntry) => entry.action === 'DETACH' || entry.action === 'DETACHED'
   const detachments = shown.filter(detached)
-  const rewrites = shown.filter(isBaselineRewrite)
-  const rest = shown.filter(entry => entry.action !== 'DELETE' && !detached(entry) && !isBaselineRewrite(entry))
+  const rest = shown.filter(entry => entry.action !== 'DELETE' && !detached(entry))
 
   const lines = [
     ...deletions.map(entry => (isPrunedRelation(entry)
@@ -138,14 +121,6 @@ export function planChangeLines (diff: DiffEntry[], options: PlanSummaryOptions)
   if (hidden > 0) {
     lines.push(`Create or update ${hidden} more resource(s); run with --preview to see them all`)
   }
-  // One line for all of them: a line per resource would bury the changes
-  // above. It says what was found and what was not looked at, since this line
-  // is all an agent or a CI log shows of these resources.
-  if (rewrites.length > 0) {
-    lines.push(`Write ${rewrites.length} resource(s) again in which no difference from what is live was found; `
-      + 'a value set only in Checkly may be reset')
-  }
-
   return lines
 }
 

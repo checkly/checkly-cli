@@ -9,7 +9,7 @@ import {
 import { padColumn, visWidth } from '../../formatters/render.js'
 import type { DeployResourceSync, DiffEntry } from '../../rest/projects.js'
 import { physicalIdsFromPlan } from './import-shape.js'
-import { isBaselineRewrite, isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges } from './plan-summary.js'
+import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges } from './plan-summary.js'
 import { renderResourceDiff, type RenderedLine } from './render.js'
 import { SourceIndex } from './source-index.js'
 import { constructVariableNames } from './variable-names.js'
@@ -125,11 +125,9 @@ export function formatPreview (input: PreviewOutputInput): string {
   const pruning: Listed[] = []
   const unmanaged: Listed[] = []
   let unchanged = 0
-  // Resources written again although no difference was found (`isBaselineRewrite`).
-  let rewriting = 0
-  // Resources Checkly compared with what is deployed, for want of an earlier
-  // planned deploy: the ones the note under the overview is about.
-  let comparedWithLive = 0
+  // Updates Checkly compared with what is deployed, for want of an earlier
+  // planned deploy; the note under the overview counts them.
+  let baseline = 0
   for (const change of diff) {
     const { type, logicalId, physicalId, action, changes } = change
     if (NON_REPORTED_TYPES.some(t => t === type)) {
@@ -150,17 +148,7 @@ export function formatPreview (input: PreviewOutputInput): string {
       continue
     }
     if (change.basis === 'live') {
-      comparedWithLive++
-    }
-    if (isBaselineRewrite(change)) {
-      // Counted, not listed: the deploy writes what is deployed already, and a
-      // row per resource would read as a change to each of them. Relations
-      // the project does not manage still get their warning.
-      rewriting++
-      if (!pruneRelations && onlyUnmanagedChanges(change)) {
-        unmanaged.push({ resourceType: type, logicalId })
-      }
-      continue
+      baseline++
     }
     // Relations the project does not manage are reported on their owning
     // check or group whether or not they would be deleted. Without
@@ -170,11 +158,15 @@ export function formatPreview (input: PreviewOutputInput): string {
     // check or group it hangs off. With --prune-relations the relation's own
     // entry is already listed as pruned, so the resource needs no line of
     // its own — and advising the flag the user just passed would be absurd.
+    // A resource written to set the baseline is the exception: that write
+    // happens whatever was found, so it keeps its row next to the warning.
     if (onlyUnmanagedChanges(change)) {
       if (!pruneRelations) {
         unmanaged.push({ resourceType: type, logicalId })
       }
-      continue
+      if (change.basis !== 'live') {
+        continue
+      }
     }
     // A type this CLI version does not know (a newer CLI deployed it) has no
     // slot in the project. Such an entry has no construct, and a created or
@@ -234,7 +226,7 @@ export function formatPreview (input: PreviewOutputInput): string {
 
   if (!sortedCreating.length && !sortedDeleting.length && !sortedDetaching.length
     && !sortedUpdating.length && !sortedPruning.length && !sortedUnmanaged.length
-    && !unchanged && !rewriting && !skipping.length) {
+    && !unchanged && !skipping.length) {
     return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
   }
 
@@ -335,16 +327,12 @@ export function formatPreview (input: PreviewOutputInput): string {
     output.push('')
     return output.join('\n')
   }
-  const writtenAgain = `${done ? 'written again' : 'to write again'} with no difference found`
-  if (rewriting) {
-    output.push(`    ${chalk.dim(`${rewriting} ${writtenAgain}`)}`)
-  }
   if (unchanged) {
     output.push(`    ${chalk.dim(`${unchanged} unchanged`)}`)
   }
   output.push('')
-  if (comparedWithLive > 0) {
-    output.push(...comparedWithLiveNote(comparedWithLive, done), '')
+  if (baseline > 0) {
+    output.push(chalk.dim(baselineNote(baseline, done)), '')
   }
 
   if (rendering !== undefined) {
@@ -358,6 +346,12 @@ export function formatPreview (input: PreviewOutputInput): string {
       // itself or the deploy that carried it out.
       const planned = rendering.plan.find(entry => entry.type === resourceType && entry.logicalId === logicalId)
       if (planned === undefined || planned.before === undefined) {
+        continue
+      }
+      // Listed for the write that sets its baseline, not for a change: a diff
+      // would show its unmanaged relations as removed, which the deploy does
+      // not do without --prune-relations. The `!` row says what there is to say.
+      if (onlyUnmanagedChanges(planned) && !pruneRelations) {
         continue
       }
       const lines = renderResourceDiff({
@@ -381,9 +375,6 @@ export function formatPreview (input: PreviewOutputInput): string {
         // The legend explains `-` and `+` lines, so it is printed where
         // there are some: a resource reported by notes alone has no sides.
         ...(lines.some(hasSide) ? diffLegend(done) : []),
-        ...(planned.basis === 'live'
-          ? [`    ${chalk.dim(`compared with what ${done ? 'was' : 'is'} live in Checkly, not with an earlier plan`)}`]
-          : []),
       )
       // A hunk boundary is shown as the gap between two hunks of the same
       // diff, so the first hunk of the construct diff, and the first of a
@@ -409,7 +400,6 @@ export function formatPreview (input: PreviewOutputInput): string {
   output.push([
     ...counted(sortedCreating.length, done ? 'created' : 'to create', chalk.green),
     ...counted(sortedUpdating.length, done ? 'updated' : 'to update', chalk.yellow),
-    ...counted(rewriting, writtenAgain, chalk.dim),
     ...counted(sortedDeleting.length, done ? 'deleted' : 'to delete', chalk.red),
     ...counted(sortedDetaching.length, 'kept in your account', chalk.yellow),
     ...counted(sortedPruning.length, sortedPruning.length === 1 ? 'relation pruned' : 'relations pruned', chalk.red),
@@ -426,32 +416,19 @@ export function formatPreview (input: PreviewOutputInput): string {
 }
 
 /**
- * Why some resources are written although little or nothing differs, and what
- * their diffs do not show. Checkly compares a resource with the state its last
- * planned deploy left; one without such a state (the project's first plan, or
- * the first after a deploy without one) is compared with what is deployed
- * instead, and written whatever that comparison finds. A value the deployed
- * resource holds on a property the code does not set is not part of that
- * comparison, and the write may reset it.
+ * Why a plan lists resources as updates in which nothing differs. Checkly
+ * compares a resource with the state its last planned deploy left; one without
+ * such a state (the project's first plan, the first after a deploy without
+ * `--plan`, a resource added with `checkly import`) is compared with what is
+ * deployed instead and written whatever that finds, so that the next plan has
+ * a baseline. The note counts them and names no cause: the plan does not say
+ * which of these it was, and a sentence about "the first plan" would be wrong
+ * for the others.
  */
-const NEXT_PLAN = 'From the next deploy with --plan on, a plan shows only what changed.'
-
-function comparedWithLiveNote (count: number, done: boolean): string[] {
+function baselineNote (count: number, done: boolean): string {
   const resources = count === 1 ? '1 resource' : `${count} resources`
-  const lines = done
-    ? [
-        `${resources} had no earlier planned deploy to compare with (none yet, or a deploy without --plan ran since).`,
-        `${count === 1 ? 'It was' : 'They were'} compared with what was live in Checkly and written once.`,
-        'A value set only in Checkly, on a property your code does not set, may have been reset.',
-        NEXT_PLAN,
-      ]
-    : [
-        `${resources} ${count === 1 ? 'has' : 'have'} no earlier planned deploy to compare with (none yet, or a deploy without --plan ran since).`,
-        `${count === 1 ? 'It is' : 'They are'} compared with what is live in Checkly, and this deploy writes ${count === 1 ? 'it' : 'each of them'} once.`,
-        'A value set only in Checkly, on a property your code does not set, may be reset.',
-        NEXT_PLAN,
-      ]
-  return lines.map(line => chalk.dim(line))
+  const verb = done ? (count === 1 ? 'was' : 'were') : (count === 1 ? 'is' : 'are')
+  return `${resources} ${verb} updated to set a baseline for --plan. Later deploys with --plan show only what changed.`
 }
 
 /**

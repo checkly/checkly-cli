@@ -1623,25 +1623,21 @@ describe('deploy of a plan with nothing to apply', () => {
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
   })
 
-  describe('when Checkly compared the resources with what is live', () => {
+  describe('when the plan sets the baseline', () => {
     // No earlier planned deploy to compare with: the deploy writes each of
     // them whatever was found, so a plan with no difference is still a write.
-    const WRITTEN_AGAIN: DiffEntry = { ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }
+    const SETS_BASELINE: DiffEntry = { ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }
 
-    it('asks for confirmation, with one line that says what was found and what may be reset', async () => {
-      nothingToApply([WRITTEN_AGAIN])
+    it('asks for confirmation, listing the resource as an update', async () => {
+      nothingToApply([SETS_BASELINE])
       const ctx = createCommandContext()
 
       await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
       const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
       expect(output.status).toBe('confirmation_required')
-      expect(output.changes).toContain(
-        'Write 1 resource(s) again in which no difference from what is live was found; '
-        + 'a value set only in Checkly may be reset',
-      )
-      expect(output.changes).not.toContain('Update AlertChannel: ops')
-      expect(output.preview.diff).toEqual([WRITTEN_AGAIN])
+      expect(output.changes).toContain('Update AlertChannel: ops')
+      expect(output.preview.diff).toEqual([SETS_BASELINE])
       expect(api.projects.deploy).not.toHaveBeenCalled()
     })
 
@@ -1658,16 +1654,18 @@ describe('deploy of a plan with nothing to apply', () => {
       await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
     })
 
-    it('reports the deploy as one that wrote, with the count, under --output', async () => {
-      nothingToApply([WRITTEN_AGAIN])
+    it('reports the deploy as one that wrote, with the note, under --output', async () => {
+      nothingToApply([SETS_BASELINE])
       const ctx = createCommandContext({ force: true, output: true })
 
       await Deploy.prototype.run.call(ctx as any)
 
       const printed = ctx.logged.join('\n')
       expect(printed).not.toContain('No changes.')
-      expect(printed).toContain('\n1 written again with no difference found, 0 unchanged\n')
-      expect(printed).toContain('1 resource had no earlier planned deploy to compare with')
+      expect(printed).toContain('\n1 updated, 0 unchanged\n')
+      expect(printed).toContain(
+        '1 resource was updated to set a baseline for --plan. Later deploys with --plan show only what changed.',
+      )
       expect(ctx.logged[ctx.logged.length - 1])
         .toBe('Successfully deployed project "My Project" to account "Test Account".')
     })
