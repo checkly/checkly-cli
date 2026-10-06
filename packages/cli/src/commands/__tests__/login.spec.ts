@@ -893,6 +893,36 @@ describe('checkly login', () => {
       expect(lines.map(line => line.status)).toEqual(['action_required', 'success'])
     })
 
+    it('does not open a browser for a login an agent\'s command started on its own', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      const cmd = createCommand()
+
+      await expect(cmd.login({ inline: true })).resolves.toBe(false)
+
+      expect(open).not.toHaveBeenCalled()
+      expect(JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls[0]![0])))
+        .toMatchObject({ status: 'action_required', user_code: 'ABCD-EFGH' })
+    })
+
+    it('still opens a browser for an interactive inline login', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      const cmd = createCommand()
+
+      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+
+      expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
+    })
+
+    it('still opens a browser for the localhost fallback an agent\'s command started, which needs it', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      deviceFlow.requestAuthorization.mockRejectedValueOnce(new DeviceFlowNotAllowedError('not allowed'))
+      const cmd = createCommand()
+
+      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+
+      expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/authorize?client_id=x')
+    })
+
     it('writes the failure line to stderr as well', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
       storePendingCode({ approved: false })

@@ -340,7 +340,13 @@ export default class Login extends BaseCommand {
     }
 
     this.#announceDeviceCode(authorization)
-    await this.#tryOpenBrowser(authorization.verificationUriComplete)
+    // A login an agent's command starts on its own (often just a `whoami`
+    // check) must not pop up a browser tab the user did not ask for; the
+    // agent relays the URL instead. An explicit `checkly login` opens it when
+    // it requests a new code (not when it shows a stored one again).
+    if (!(this.#mode === 'agent' && this.#inline)) {
+      await this.#tryOpenBrowser(authorization.verificationUriComplete)
+    }
 
     if (this.#mode === 'agent') {
       return 'pending'
