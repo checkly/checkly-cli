@@ -169,6 +169,7 @@ export default class Login extends BaseCommand {
 
       if (this.#mode === 'agent') {
         this.#print(JSON.stringify({
+          status: 'success',
           success: true,
           user: userName,
           accountId: account.id,
@@ -186,7 +187,7 @@ export default class Login extends BaseCommand {
       if (this.#mode !== 'agent') {
         throw error
       }
-      this.#print(JSON.stringify({ success: false, error: error.message || String(error) }))
+      this.#print(JSON.stringify({ status: 'error', success: false, error: error.message || String(error) }))
       return false
     }
   }
@@ -239,7 +240,7 @@ export default class Login extends BaseCommand {
 
     if (this.#mode !== 'interactive') {
       if (this.#mode === 'agent') {
-        this.#print(JSON.stringify({ success: true, alreadyLoggedIn: true, accountId, accountName }))
+        this.#print(JSON.stringify({ status: 'success', success: true, alreadyLoggedIn: true, accountId, accountName }))
       } else {
         this.#print(`Already logged in to "${accountName}".`)
       }

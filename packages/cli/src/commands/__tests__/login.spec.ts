@@ -177,6 +177,7 @@ describe('checkly login', () => {
 
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
       expect(jsonLines(cmd)).toEqual([{
+        status: 'success',
         success: true,
         user: 'Ada Lovelace',
         accountId: 'acc-1',
@@ -223,7 +224,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
-      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'User denied' }])
+      expect(jsonLines(cmd)).toEqual([{ status: 'error', success: false, error: 'User denied' }])
     })
 
     it('continues with the key another run stored with the same code', async () => {
@@ -248,7 +249,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(api.accounts.getAll).not.toHaveBeenCalled()
-      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'The login code was already used. Please run the login again.' }])
+      expect(jsonLines(cmd)).toEqual([{ status: 'error', success: false, error: 'The login code was already used. Please run the login again.' }])
     })
 
     it('forgets an approved code whose key exchange failed, so the next run starts over', async () => {
@@ -259,7 +260,7 @@ describe('checkly login', () => {
 
       // The device code is single-use: once its tokens were issued it cannot be collected again.
       expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
-      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'Request failed with status code 500' }])
+      expect(jsonLines(cmd)).toEqual([{ status: 'error', success: false, error: 'Request failed with status code 500' }])
     })
 
     it('opens the browser as a best effort and keeps going when that fails', async () => {
@@ -321,6 +322,7 @@ describe('checkly login', () => {
       expect(config.auth.set).not.toHaveBeenCalled()
       expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-2')
       expect(jsonLines(cmd)).toEqual([{
+        status: 'success',
         success: true,
         user: 'Ada Lovelace',
         accountId: 'acc-2',
@@ -382,7 +384,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
-      expect(jsonLines(cmd)).toEqual([{ success: true, alreadyLoggedIn: true, accountId: 'acc-1', accountName: 'Acme' }])
+      expect(jsonLines(cmd)).toEqual([{ status: 'success', success: true, alreadyLoggedIn: true, accountId: 'acc-1', accountName: 'Acme' }])
     })
 
     describe('already logged in', () => {
@@ -472,7 +474,7 @@ describe('checkly login', () => {
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
         expect(api.accounts.getAll).not.toHaveBeenCalled()
-        expect(jsonLines(cmd)).toEqual([{ success: true, alreadyLoggedIn: true, accountId: 'acc-1', accountName: 'Acme' }])
+        expect(jsonLines(cmd)).toEqual([{ status: 'success', success: true, alreadyLoggedIn: true, accountId: 'acc-1', accountName: 'Acme' }])
       })
 
       it('switches accounts in CI too, since no browser is needed', async () => {
@@ -500,7 +502,7 @@ describe('checkly login', () => {
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
-      expect(jsonLines(cmd)).toEqual([{ success: false, error: 'The login code expired.' }])
+      expect(jsonLines(cmd)).toEqual([{ status: 'error', success: false, error: 'The login code expired.' }])
     })
 
     it('falls back to the browser-callback flow when the device grant is not enabled, still without prompts', async () => {
@@ -742,7 +744,8 @@ describe('checkly login', () => {
       }
       const lines = [first, second].flatMap(cmd =>
         vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => JSON.parse(String(line))))
-      expect(lines.map(line => line.status ?? line.success)).toEqual(['action_required', true])
+      // Every agent line carries a status, so one field tells them apart.
+      expect(lines.map(line => line.status)).toEqual(['action_required', 'success'])
     })
 
     it('writes the failure line to stderr as well', async () => {
