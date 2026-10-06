@@ -253,22 +253,46 @@ describe('DeviceFlow', () => {
       expect(error.message).toContain('ENOTFOUND')
     })
 
-    it('fails on a client error without an OAuth error code', async () => {
-      post.mockResolvedValueOnce({ status: 400, data: 'Bad Request' })
+    const approved = { status: 200, data: { access_token: 'at', id_token: 'idt' } }
+    const proxyPage = { status: 407, data: '<html>Proxy Authentication Required</html>' }
+    const noTokens = { status: 200, data: '<html>Please sign in to the Wi-Fi</html>' }
+    const pending = { status: 403, data: { error: 'authorization_pending' } }
 
-      const error = await flow.pollForTokens(auth).catch(e => e)
+    it('keeps polling through answers that did not come from the login server', async () => {
+      post.mockResolvedValueOnce(proxyPage).mockResolvedValueOnce(noTokens).mockResolvedValueOnce(approved)
 
-      expect(error).toBeInstanceOf(DeviceFlowError)
-      expect(error.code).toBe('token_request_failed')
+      await expect(flow.pollForTokens(auth)).resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
     })
 
-    it('fails when the server returns a success status without tokens', async () => {
-      post.mockResolvedValueOnce({ status: 200, data: { token_type: 'Bearer' } })
+    it('gives up with a network hint after five such answers in a row', async () => {
+      post.mockResolvedValue(proxyPage)
 
       const error = await flow.pollForTokens(auth).catch(e => e)
 
       expect(error).toBeInstanceOf(DeviceFlowError)
       expect(error.code).toBe('invalid_response')
+      expect(error.message).toContain('proxy')
+      expect(post).toHaveBeenCalledTimes(5)
+    })
+
+    it('counts only answers in a row', async () => {
+      const unavailable = { status: 503, data: 'Service Unavailable' }
+      for (const response of [proxyPage, noTokens, proxyPage, noTokens, pending, proxyPage, proxyPage, proxyPage,
+        unavailable, proxyPage, noTokens, proxyPage, proxyPage]) {
+        post.mockResolvedValueOnce(response)
+      }
+      post.mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
+      post.mockResolvedValueOnce(proxyPage).mockResolvedValueOnce(approved)
+
+      await expect(flow.pollForTokens(auth)).resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
+    })
+
+    it('still fails at once on an OAuth error from the login server', async () => {
+      post.mockResolvedValueOnce({ status: 400, data: { error: 'invalid_grant', error_description: 'Used.' } })
+
+      const error = await flow.pollForTokens(auth).catch(e => e)
+
+      expect(error.code).toBe('invalid_grant')
     })
   })
 
@@ -310,6 +334,18 @@ describe('DeviceFlow', () => {
       post.mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
 
       await expect(flow.pollOnce(auth)).resolves.toEqual({ failure: 'ECONNRESET' })
+    })
+
+    it.each([
+      ['a proxy page', { status: 407, data: '<html>Proxy Authentication Required</html>' }, 'HTTP 407'],
+      ['a success status without tokens', { status: 200, data: { token_type: 'Bearer' } }, 'a response without tokens'],
+    ])('reports %s as a failure with a network hint and keeps the code usable', async (_, response, what) => {
+      post.mockResolvedValueOnce(response)
+
+      const { failure } = await flow.pollOnce(auth)
+
+      expect(failure).toContain(what)
+      expect(failure).toContain('proxy settings')
     })
 
     it('never names the failure by an error message, which can carry proxy credentials', async () => {

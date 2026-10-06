@@ -694,8 +694,7 @@ describe('checkly login', () => {
     })
 
     it('reports invalid_response when the login server answers unexpectedly', async () => {
-      storePendingCode({ approved: true })
-      deviceFlow.pollOnce.mockRejectedValue(
+      deviceFlow.requestAuthorization.mockRejectedValueOnce(
         new DeviceFlowError('invalid_response', 'The login server returned an unexpected response.'))
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_1')

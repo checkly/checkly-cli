@@ -16,6 +16,9 @@ const AUTH0_SCOPES = 'openid profile email'
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 const DEFAULT_INTERVAL_MS = 5_000
 const SLOW_DOWN_STEP_MS = 5_000
+// A proxy or captive portal answering every poll in place of the login
+// server would otherwise keep a waiting login silent until the code expires.
+const MAX_UNEXPECTED_RESPONSES = 5
 const REQUEST_TIMEOUT_MS = 30_000
 
 export interface DeviceAuthorization {
@@ -34,8 +37,9 @@ export interface DeviceTokens {
 }
 
 type TokenRequestResult =
-  | { state: 'approved', tokens: DeviceTokens, failure?: undefined }
-  | { state: 'pending' | 'slow_down', failure?: string }
+  | { state: 'approved', tokens: DeviceTokens, failure?: undefined, unexpected?: undefined }
+  // `unexpected`: an answer that did not come from the login server (no OAuth body).
+  | { state: 'pending' | 'slow_down', failure?: string, unexpected?: boolean }
 
 export interface OAuthResponse {
   status: number
@@ -89,6 +93,15 @@ function errorFrom (data: any, fallback: string): DeviceFlowError {
   return new DeviceFlowError(code, message)
 }
 
+function notFromLoginServer (what: string): string {
+  return `${what} that did not come from the login server; check your network or proxy settings`
+}
+
+function unexpectedResponseError (): DeviceFlowError {
+  return new DeviceFlowError('invalid_response',
+    'The login server returned an unexpected response. Check your network or proxy settings and try again.')
+}
+
 /**
  * Names a failed request by its error code only: error messages can carry
  * request or proxy URLs, credentials included.
@@ -131,12 +144,9 @@ export class DeviceFlow {
     // A proxy or captive portal can answer in place of the login server, with
     // an HTML page and any status; without these checks the user would see an
     // unhelpful error or "undefined" for the URL and the code.
-    const unexpectedResponse = () => new DeviceFlowError('invalid_response',
-      'The login server returned an unexpected response. Check your network or proxy settings and try again.')
-
     if (status < 200 || status >= 300) {
       if (typeof data?.error !== 'string') {
-        throw unexpectedResponse()
+        throw unexpectedResponseError()
       }
       throw errorFrom(data, 'device_authorization_failed')
     }
@@ -144,7 +154,7 @@ export class DeviceFlow {
     const isText = (value: unknown) => typeof value === 'string' && value !== ''
     if (!isText(data?.device_code) || !isText(data?.user_code) || !isText(data?.verification_uri)
       || !(Number.isFinite(data?.expires_in) && data.expires_in > 0)) {
-      throw unexpectedResponse()
+      throw unexpectedResponseError()
     }
 
     const intervalSeconds = typeof data.interval === 'number' ? data.interval : DEFAULT_INTERVAL_MS / 1000
@@ -165,12 +175,17 @@ export class DeviceFlow {
     const params = tokenParams(auth)
     let intervalMs = auth.intervalMs
     let lastFailure: string | undefined
+    let unexpectedInARow = 0
 
     while (this.#deps.now() + intervalMs <= auth.expiresAt) {
       await this.#deps.sleep(intervalMs)
 
       const result = await this.#requestTokens(params)
       lastFailure = result.failure
+      unexpectedInARow = result.unexpected ? unexpectedInARow + 1 : 0
+      if (unexpectedInARow >= MAX_UNEXPECTED_RESPONSES) {
+        throw unexpectedResponseError()
+      }
       if (result.state === 'slow_down') {
         intervalMs += SLOW_DOWN_STEP_MS
       } else if (result.state === 'approved') {
@@ -200,8 +215,10 @@ export class DeviceFlow {
   /**
    * One token request. Polling can last as long as the code is valid, often
    * after the user has already approved it in the browser, so a network
-   * failure or a server-side error counts as "try again" rather than ending
-   * the login; only an OAuth error from the server is final.
+   * failure, a server-side error or an answer that did not come from the
+   * login server (e.g. a proxy's or captive portal's page) counts as "try
+   * again" rather than ending the login; only an OAuth error from the server
+   * is final.
    */
   async #requestTokens (params: URLSearchParams): Promise<TokenRequestResult> {
     let response: OAuthResponse
@@ -214,11 +231,13 @@ export class DeviceFlow {
 
     if (status >= 200 && status < 300) {
       if (!data?.access_token || !data?.id_token) {
-        throw new DeviceFlowError('invalid_response', 'The token response did not include the expected tokens.')
+        return { state: 'pending', failure: notFromLoginServer('a response without tokens'), unexpected: true }
       }
       return { state: 'approved', tokens: { accessToken: data.access_token, idToken: data.id_token } }
     }
 
+    // Not counted as unexpected: an outage of the login server itself is
+    // worth waiting out for as long as the code is valid.
     if (status >= 500) {
       return { state: 'pending', failure: `HTTP ${status}` }
     }
@@ -227,6 +246,9 @@ export class DeviceFlow {
     }
     if (data?.error === 'authorization_pending') {
       return { state: 'pending' }
+    }
+    if (typeof data?.error !== 'string') {
+      return { state: 'pending', failure: notFromLoginServer(`HTTP ${status}`), unexpected: true }
     }
     throw errorFrom(data, 'token_request_failed')
   }
