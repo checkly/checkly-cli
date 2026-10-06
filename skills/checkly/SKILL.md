@@ -32,7 +32,7 @@ Two rules that survive any fallback:
 
 - `{"status":"action_required","reason":"login","verification_uri_complete":…,"user_code":…,"expires_in":…}` — a human must approve. Give the user the URL and the code (valid for `expires_in` seconds). Once they say they are done, run the same command again: it picks up the approval. Running it earlier only shows the same code again. Until the login is done, don't run several Checkly commands in parallel.
   - If the line carries no `user_code`, the URL must be opened on the same machine as the CLI, and the command waits for it instead of exiting: run it in the background so you can relay the URL.
-- `{"status":"action_required","reason":"select_account","accounts":[…],"next":[…]}` — the key is stored, but the user belongs to several accounts. Ask which one (or use an id the user already gave you) and run `npx checkly login --account-id <id>`. There is no second browser step. The same command switches accounts later.
+- `{"status":"action_required","reason":"select_account","accounts":[…],"next":[…]}` — the key is stored, but the user belongs to several accounts. Ask the user which one (or use an id they already gave you) and run `npx checkly login --account-id <id>`. Never pick one yourself, even if you cannot ask: stop and say which accounts are available. There is no second browser step. The same command switches accounts later.
 - `{"status":"success","accountId":…,"accountName":…}` — done. Tell the user which account you are on.
 - `{"status":"error","error":…}` — report the error; do not retry in a loop. To log in as a different user, run `npx checkly logout` first.
 
