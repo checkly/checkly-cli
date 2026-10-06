@@ -456,7 +456,9 @@ export default class Login extends BaseCommand {
       this.#print(chalk.dim('Waiting for you to finish in the browser...'))
     }
 
-    const tokens = await deviceFlow.pollForTokens(authorization)
+    const tokens = await deviceFlow.pollForTokens(authorization, {
+      onUnexpectedAnswers: failure => this.#print(`Still waiting: the last answer was ${failure}.`),
+    })
     return credentialsFromTokens(tokens)
   }
 

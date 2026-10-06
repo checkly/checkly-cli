@@ -264,15 +264,44 @@ describe('DeviceFlow', () => {
       await expect(flow.pollForTokens(auth)).resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
     })
 
-    it('gives up with a network hint after five such answers in a row', async () => {
+    it.each([
+      [4, 0],
+      [5, 1],
+      [12, 1],
+    ])('after %i such answers in a row reports them %i time(s) and keeps waiting', async (count, reports) => {
+      for (let i = 0; i < count; i++) {
+        post.mockResolvedValueOnce(proxyPage)
+      }
+      post.mockResolvedValueOnce(approved)
+      const onUnexpectedAnswers = vi.fn()
+
+      await expect(flow.pollForTokens(auth, { onUnexpectedAnswers }))
+        .resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
+
+      expect(onUnexpectedAnswers).toHaveBeenCalledTimes(reports)
+      if (reports) {
+        expect(onUnexpectedAnswers.mock.calls[0][0]).toContain('proxy settings')
+      }
+    })
+
+    it('reports a new run of such answers after the login server answered again', async () => {
+      for (const response of [...Array(5).fill(proxyPage), pending, ...Array(5).fill(proxyPage), approved]) {
+        post.mockResolvedValueOnce(response)
+      }
+      const onUnexpectedAnswers = vi.fn()
+
+      await flow.pollForTokens(auth, { onUnexpectedAnswers })
+
+      expect(onUnexpectedAnswers).toHaveBeenCalledTimes(2)
+    })
+
+    it('names the proxy answer when the code expires while they keep coming', async () => {
       post.mockResolvedValue(proxyPage)
 
-      const error = await flow.pollForTokens(auth).catch(e => e)
+      const error = await flow.pollForTokens({ ...auth, expiresAt: now + 30_000 }).catch(e => e)
 
-      expect(error).toBeInstanceOf(DeviceFlowError)
-      expect(error.code).toBe('invalid_response')
-      expect(error.message).toContain('proxy')
-      expect(post).toHaveBeenCalledTimes(5)
+      expect(error.code).toBe('expired_token')
+      expect(error.message).toContain('HTTP 407')
     })
 
     it('counts only answers in a row', async () => {
@@ -284,7 +313,10 @@ describe('DeviceFlow', () => {
       post.mockRejectedValueOnce(Object.assign(new Error('socket hang up'), { code: 'ECONNRESET' }))
       post.mockResolvedValueOnce(proxyPage).mockResolvedValueOnce(approved)
 
-      await expect(flow.pollForTokens(auth)).resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
+      const onUnexpectedAnswers = vi.fn()
+      await expect(flow.pollForTokens(auth, { onUnexpectedAnswers }))
+        .resolves.toEqual({ accessToken: 'at', idToken: 'idt' })
+      expect(onUnexpectedAnswers).not.toHaveBeenCalled()
     })
 
     it('still fails at once on an OAuth error from the login server', async () => {

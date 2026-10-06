@@ -916,6 +916,17 @@ describe('checkly login', () => {
       expect(error.oclif).toMatchObject({ exit: 1 })
     })
 
+    it('says so while waiting when the answers keep coming from something other than the login server', async () => {
+      deviceFlow.pollForTokens.mockImplementationOnce((_auth: unknown, { onUnexpectedAnswers }: any) => {
+        onUnexpectedAnswers('HTTP 407 that did not come from the login server; check your network or proxy settings')
+        return Promise.resolve({ accessToken: 'at', idToken: 'idt' })
+      })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(loggedLines(cmd).join('\n')).toContain('Still waiting: the last answer was HTTP 407')
+    })
+
     it('rethrows unexpected errors unchanged', async () => {
       const unexpected = new TypeError('boom')
       deviceFlow.pollForTokens.mockRejectedValueOnce(unexpected)

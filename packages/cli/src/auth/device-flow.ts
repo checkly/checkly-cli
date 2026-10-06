@@ -16,8 +16,8 @@ const AUTH0_SCOPES = 'openid profile email'
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 const DEFAULT_INTERVAL_MS = 5_000
 const SLOW_DOWN_STEP_MS = 5_000
-// A proxy or captive portal answering every poll in place of the login
-// server would otherwise keep a waiting login silent until the code expires.
+// How many answers in a row that did not come from the login server (a proxy
+// or captive portal) a waiting login takes before it reports them.
 const MAX_UNEXPECTED_RESPONSES = 5
 const REQUEST_TIMEOUT_MS = 30_000
 
@@ -171,7 +171,17 @@ export class DeviceFlow {
     }
   }
 
-  async pollForTokens (auth: DeviceAuthorization): Promise<DeviceTokens> {
+  /**
+   * Polls until the user approves or the code expires. When the answers keep
+   * coming from something other than the login server (a proxy or captive
+   * portal), `onUnexpectedAnswers` is called once per such run with the latest one, and
+   * polling goes on: the user may still be getting past a captive portal,
+   * and the code stays valid.
+   */
+  async pollForTokens (
+    auth: DeviceAuthorization,
+    { onUnexpectedAnswers }: { onUnexpectedAnswers?: (failure: string) => void } = {},
+  ): Promise<DeviceTokens> {
     const params = tokenParams(auth)
     let intervalMs = auth.intervalMs
     let lastFailure: string | undefined
@@ -183,8 +193,8 @@ export class DeviceFlow {
       const result = await this.#requestTokens(params)
       lastFailure = result.failure
       unexpectedInARow = result.unexpected ? unexpectedInARow + 1 : 0
-      if (unexpectedInARow >= MAX_UNEXPECTED_RESPONSES) {
-        throw unexpectedResponseError()
+      if (unexpectedInARow === MAX_UNEXPECTED_RESPONSES) {
+        onUnexpectedAnswers?.(result.failure!)
       }
       if (result.state === 'slow_down') {
         intervalMs += SLOW_DOWN_STEP_MS
