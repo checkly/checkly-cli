@@ -16,6 +16,12 @@ const AUTH0_SCOPES = 'openid profile email'
 const DEVICE_CODE_GRANT = 'urn:ietf:params:oauth:grant-type:device_code'
 const DEFAULT_INTERVAL_MS = 5_000
 const SLOW_DOWN_STEP_MS = 5_000
+// Upper bound for the time between polls, from the server's interval or
+// after backing off: a delay beyond setTimeout's range would fire at once,
+// and a long one would notice an approval late. Deliberately departs from
+// RFC 8628's "add 5 seconds on every slow_down" once reached; no login server
+// we use needs a minute between polls.
+const MAX_INTERVAL_MS = 60_000
 // How many answers in a row that did not come from the login server (a proxy
 // or captive portal) a waiting login takes before it reports them.
 const MAX_UNEXPECTED_RESPONSES = 5
@@ -157,10 +163,9 @@ export class DeviceFlow {
       throw unexpectedResponseError()
     }
 
-    // Between a second and a minute, whatever the response says: a delay
-    // beyond setTimeout's range would fire at once and poll in a tight loop.
+    // At least a second and at most MAX_INTERVAL_MS, whatever the response says.
     const intervalSeconds = Number.isFinite(data.interval) && data.interval > 0
-      ? Math.min(60, Math.max(1, data.interval))
+      ? Math.min(MAX_INTERVAL_MS / 1000, Math.max(1, data.interval))
       : DEFAULT_INTERVAL_MS / 1000
 
     return {
@@ -201,7 +206,7 @@ export class DeviceFlow {
         onUnexpectedAnswers?.(result.failure!)
       }
       if (result.state === 'slow_down') {
-        intervalMs += SLOW_DOWN_STEP_MS
+        intervalMs = Math.min(MAX_INTERVAL_MS, intervalMs + SLOW_DOWN_STEP_MS)
       } else if (result.state === 'approved') {
         return result.tokens
       }

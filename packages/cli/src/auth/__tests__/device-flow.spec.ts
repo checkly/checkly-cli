@@ -247,6 +247,17 @@ describe('DeviceFlow', () => {
       expect(sleep).toHaveBeenNthCalledWith(4, 5_000)
     })
 
+    it('never backs off beyond a minute between polls', async () => {
+      for (let i = 0; i < 15; i++) {
+        post.mockResolvedValueOnce({ status: 429, data: 'Too Many Requests' })
+      }
+      post.mockResolvedValueOnce({ status: 200, data: { access_token: 'at', id_token: 'idt' } })
+
+      await flow.pollForTokens(auth)
+
+      expect(Math.max(...sleep.mock.calls.map(([ms]) => ms))).toBe(60_000)
+    })
+
     it.each([
       ['without an OAuth error', 'Too Many Requests'],
       ['with an OAuth error other than slow_down', { error: 'too_many_requests' }],
