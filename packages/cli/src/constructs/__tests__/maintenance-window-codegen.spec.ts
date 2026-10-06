@@ -78,6 +78,12 @@ describe('MaintenanceWindowCodegen', () => {
     expect(source).not.toContain('silenceAllAlerts')
   })
 
+  it('omits the UTC timezone, which is what an omitted timezone means', async () => {
+    const source = await generate({ ...baseResource, timezone: 'UTC' })
+
+    expect(source).not.toContain('timezone')
+  })
+
   it('omits an empty tag list', async () => {
     const source = await generate({ ...baseResource, tags: [], pauseAllChecks: true })
 

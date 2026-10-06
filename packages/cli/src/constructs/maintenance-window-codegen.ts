@@ -69,7 +69,8 @@ export class MaintenanceWindowCodegen extends Codegen<MaintenanceWindowResource>
             builder.value('repeatEndsAt', valueForDate(resource.repeatEndsAt))
           }
 
-          if (resource.timezone) {
+          // UTC is what an omitted timezone means, so it is left out like the other defaults.
+          if (resource.timezone && resource.timezone !== 'UTC') {
             builder.string('timezone', resource.timezone)
           }
 
