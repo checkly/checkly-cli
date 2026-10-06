@@ -112,8 +112,23 @@ export class DeviceFlow {
 
     const { status, data } = await this.#deps.post(deviceCodeUrl(), params)
 
+    // A proxy or captive portal can answer in place of the login server, with
+    // an HTML page and any status; without these checks the user would see an
+    // unhelpful error or "undefined" for the URL and the code.
+    const unexpectedResponse = () => new DeviceFlowError('invalid_response',
+      'The login server returned an unexpected response. Check your network or proxy settings and try again.')
+
     if (status < 200 || status >= 300) {
+      if (typeof data?.error !== 'string') {
+        throw unexpectedResponse()
+      }
       throw errorFrom(data, 'device_authorization_failed')
+    }
+
+    const isText = (value: unknown) => typeof value === 'string' && value !== ''
+    if (!isText(data?.device_code) || !isText(data?.user_code) || !isText(data?.verification_uri)
+      || !(Number.isFinite(data?.expires_in) && data.expires_in > 0)) {
+      throw unexpectedResponse()
     }
 
     const intervalSeconds = typeof data.interval === 'number' ? data.interval : DEFAULT_INTERVAL_MS / 1000
@@ -122,7 +137,9 @@ export class DeviceFlow {
       deviceCode: data.device_code,
       userCode: data.user_code,
       verificationUri: data.verification_uri,
-      verificationUriComplete: data.verification_uri_complete,
+      verificationUriComplete: isText(data.verification_uri_complete)
+        ? data.verification_uri_complete
+        : data.verification_uri,
       expiresAt: this.#deps.now() + data.expires_in * 1000,
       intervalMs: intervalSeconds * 1000,
     }

@@ -71,6 +71,38 @@ describe('DeviceFlow', () => {
       expect(auth.intervalMs).toBe(5_000)
     })
 
+    it.each([
+      ['an HTML page', '<html>Please sign in to the Wi-Fi</html>'],
+      ['a body without a user code', { ...authorizationResponse, user_code: undefined }],
+      ['a non-positive lifetime', { ...authorizationResponse, expires_in: 0 }],
+      ['a non-numeric lifetime', { ...authorizationResponse, expires_in: '900' }],
+    ])('rejects a success response with %s', async (_, data) => {
+      post.mockResolvedValueOnce({ status: 200, data })
+
+      const error = await flow.requestAuthorization().catch(e => e)
+
+      expect(error).toBeInstanceOf(DeviceFlowError)
+      expect(error.code).toBe('invalid_response')
+    })
+
+    it('points at the network when an error response is not from the login server', async () => {
+      post.mockResolvedValueOnce({ status: 407, data: '<html>Proxy Authentication Required</html>' })
+
+      const error = await flow.requestAuthorization().catch(e => e)
+
+      expect(error.code).toBe('invalid_response')
+      expect(error.message).toContain('proxy')
+    })
+
+    it('falls back to the plain verification URL when the server omits the complete one', async () => {
+      const withoutCompleteUri = { ...authorizationResponse, verification_uri_complete: undefined }
+      post.mockResolvedValueOnce({ status: 200, data: withoutCompleteUri })
+
+      const auth = await flow.requestAuthorization()
+
+      expect(auth.verificationUriComplete).toBe('https://auth.checklyhq.com/activate')
+    })
+
     it('throws DeviceFlowNotAllowedError when the grant is not enabled for the client', async () => {
       post.mockResolvedValueOnce({
         status: 403,
