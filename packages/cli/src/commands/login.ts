@@ -500,6 +500,10 @@ export default class Login extends BaseCommand {
     return credentialsFromTokens(result.tokens)
   }
 
+  // The login pages also offer sign-up, and logging in with a new identity
+  // creates the Checkly user (see exchangeAccessTokenForApiKey()).
+  static readonly #signUpHint = 'New to Checkly? You can sign up on the same page.'
+
   #announceDeviceCode (authorization: DeviceAuthorization, problem?: string): void {
     this.#announce({
       status: 'action_required',
@@ -507,7 +511,7 @@ export default class Login extends BaseCommand {
       userActionRequired: true,
       message: `Open ${authorization.verificationUri} in a browser on any device and enter the code `
         + `${authorization.userCode}. Once the user has approved, run this command again.`
-        + (problem ? ` ${problem}` : ''),
+        + (problem ? ` ${problem}` : '') + ` ${Login.#signUpHint}`,
       verification_uri: authorization.verificationUri,
       verification_uri_complete: authorization.verificationUriComplete,
       user_code: authorization.userCode,
@@ -515,6 +519,7 @@ export default class Login extends BaseCommand {
     }, [
       `Visit ${chalk.bold(authorization.verificationUri)} and enter the code ${chalk.bold(authorization.userCode)}`,
       chalk.dim(`Or open ${authorization.verificationUriComplete}`),
+      chalk.dim(Login.#signUpHint),
     ])
   }
 
@@ -548,7 +553,7 @@ export default class Login extends BaseCommand {
         reason: 'login_required',
         userActionRequired: true,
         message: 'Ask the user to open the URL in a browser on the same machine as this CLI '
-          + '(it completes through a local callback).',
+          + `(it completes through a local callback). ${Login.#signUpHint}`,
         verification_uri: authContext.authenticationUrl,
       }, [])
       await this.#tryOpenBrowser(authContext.authenticationUrl)

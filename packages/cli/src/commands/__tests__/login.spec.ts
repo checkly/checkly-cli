@@ -172,6 +172,7 @@ describe('checkly login', () => {
       })
       expect(actionRequired.message).toContain('ABCD-EFGH')
       expect(actionRequired.message).toContain('run this command again')
+      expect(actionRequired.message).toContain('sign up on the same page')
       expect(actionRequired.expires_in).toBeGreaterThan(0)
 
       // Waiting would hide the code from an agent until the command exits.
@@ -702,6 +703,7 @@ describe('checkly login', () => {
       })
       expect(actionRequired.user_code).toBeUndefined()
       expect(actionRequired.message).toContain('same machine')
+      expect(actionRequired.message).toContain('sign up on the same page')
       expect(success).toMatchObject({ status: 'success', reason: 'logged_in', accountId: 'acc-1' })
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_pkce')
     })
@@ -842,6 +844,7 @@ describe('checkly login', () => {
       const output = loggedLines(cmd).join('\n')
       expect(output).toContain('https://auth.checklyhq.com/activate')
       expect(output).toContain('ABCD-EFGH')
+      expect(output).toContain('New to Checkly? You can sign up on the same page.')
       expect(output).toContain('Successfully logged in as')
       expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
       // No login/sign-up menu, no "open a browser?" question, single account => no account prompt.
