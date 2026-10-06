@@ -27,6 +27,8 @@ interface FakeServers {
   seen: Seen[]
   /** Whether the user has approved the device code; the token endpoint answers pending until then. */
   approved: boolean
+  /** How many device codes have been issued; each gets its own user code. */
+  issuedCodes: number
   close: () => Promise<void>
 }
 
@@ -43,12 +45,18 @@ function startFakeServers (): Promise<FakeServers> {
     const base = `http://127.0.0.1:${(server.address() as { port: number }).port}`
 
     if (req.method === 'POST' && url === '/oauth/device/code') {
+      // A new code for every request, as the real server does, so a test
+      // notices when the CLI asks for a new code instead of reusing its own.
+      // Auth0's 15-minute lifetime: slow CI runners take well over a minute
+      // for the several CLI runs a test makes against one code.
+      fake.issuedCodes += 1
+      const userCode = `WXYZ-${1000 + fake.issuedCodes}`
       return json(200, {
-        device_code: 'device-e2e',
-        user_code: 'WXYZ-1234',
+        device_code: `device-e2e-${fake.issuedCodes}`,
+        user_code: userCode,
         verification_uri: `${base}/activate`,
-        verification_uri_complete: `${base}/activate?user_code=WXYZ-1234`,
-        expires_in: 60,
+        verification_uri_complete: `${base}/activate?user_code=${userCode}`,
+        expires_in: 900,
         interval: 1,
       })
     }
@@ -72,6 +80,7 @@ function startFakeServers (): Promise<FakeServers> {
     baseUrl: '',
     seen,
     approved: false,
+    issuedCodes: 0,
     close: () => new Promise(done => server.close(() => done())),
   }
   return new Promise(resolve => {
@@ -168,13 +177,14 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(started.exitCode).toBe(1)
     const [actionRequired] = jsonLines(started.stdout)
     expect(jsonLines(started.stdout)).toHaveLength(1)
+    const userCode = actionRequired.user_code
+    expect(userCode).toMatch(/^WXYZ-\d{4}$/)
     expect(actionRequired).toMatchObject({
       status: 'action_required',
       reason: 'login',
       userActionRequired: true,
-      user_code: 'WXYZ-1234',
       verification_uri: `${fake.baseUrl}/activate`,
-      verification_uri_complete: `${fake.baseUrl}/activate?user_code=WXYZ-1234`,
+      verification_uri_complete: `${fake.baseUrl}/activate?user_code=${userCode}`,
     })
     expect(fake.seen.map(s => `${s.method} ${s.url}`)).not.toContain('POST /oauth/token')
 
@@ -182,7 +192,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     fake.seen.length = 0
     const waiting = await runLoginInHome(home, ['login'], { CHECKLY_CLI_MODE: 'agent' })
     expect(waiting.exitCode).toBe(1)
-    expect(jsonLines(waiting.stdout)).toEqual([expect.objectContaining({ status: 'action_required', user_code: 'WXYZ-1234' })])
+    expect(jsonLines(waiting.stdout)).toEqual([expect.objectContaining({ status: 'action_required', user_code: userCode })])
     expect(fake.seen.map(s => `${s.method} ${s.url}`)).not.toContain('POST /oauth/device/code')
 
     // The user approves; the next run stores the key and, with two accounts
@@ -227,7 +237,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(stderr).toBe('')
     expect(exitCode).toBe(0)
     expect(stdout).toContain(`${fake.baseUrl}/activate`)
-    expect(stdout).toContain('WXYZ-1234')
+    expect(stdout).toMatch(/enter the code WXYZ-\d{4}/)
     expect(stdout).toContain('Successfully logged in as Ada Lovelace')
     expect(stdout).not.toContain('Do you want to')
     await rm(home, { recursive: true, force: true })
@@ -241,7 +251,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     // Inline, the login writes to stderr: stdout belongs to the command.
     expect(started.stdout).toBe('')
     expect(jsonLines(started.stderr)).toEqual([
-      expect.objectContaining({ status: 'action_required', reason: 'login', user_code: 'WXYZ-1234' }),
+      expect.objectContaining({ status: 'action_required', reason: 'login', user_code: expect.stringMatching(/^WXYZ-\d{4}$/) }),
     ])
     expect(started.exitCode).toBe(1)
 
