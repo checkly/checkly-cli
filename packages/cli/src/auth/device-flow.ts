@@ -171,13 +171,14 @@ export class DeviceFlow {
   }
 
   /**
-   * A single token request without waiting: the tokens once the user has
-   * approved, undefined while they have not (or while the login server
-   * cannot be reached). Lets a caller check a stored code and return at once.
+   * A single token request without waiting, so a caller can check a stored
+   * code and return at once. `tokens` once the user has approved; otherwise
+   * `failure` says why the login server could not answer, if it could not
+   * (the user may then have approved without the CLI seeing it yet).
    */
-  async pollOnce (auth: DeviceAuthorization): Promise<DeviceTokens | undefined> {
+  async pollOnce (auth: DeviceAuthorization): Promise<{ tokens?: DeviceTokens, failure?: string }> {
     const result = await this.#requestTokens(tokenParams(auth))
-    return result.state === 'approved' ? result.tokens : undefined
+    return result.state === 'approved' ? { tokens: result.tokens } : { failure: result.failure }
   }
 
   /**

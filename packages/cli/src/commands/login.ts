@@ -373,9 +373,9 @@ export default class Login extends BaseCommand {
   async #collectPendingAuthorization (
     deviceFlow: DeviceFlow, pending: DeviceAuthorization,
   ): Promise<Credentials | 'pending' | 'stored'> {
-    let tokens
+    let result
     try {
-      tokens = await deviceFlow.pollOnce(pending)
+      result = await deviceFlow.pollOnce(pending)
     } catch (error) {
       // Denied, expired or already used: the code is done either way.
       config.auth.delete('pendingDeviceAuthorization')
@@ -385,22 +385,30 @@ export default class Login extends BaseCommand {
       throw error
     }
 
-    if (!tokens) {
-      this.#announceDeviceCode(pending)
+    if (!result.tokens) {
+      // Without this, an agent whose user has already approved would be told
+      // to run the command again with nothing to suggest that it was the
+      // login server, not the user, that has not answered yet.
+      const problem = result.failure
+        ? `The last request to the login server failed (${result.failure}), so an approval may not have been seen yet; `
+        + 'run this command again in a moment.'
+        : undefined
+      this.#announceDeviceCode(pending, problem)
       return 'pending'
     }
 
     config.auth.delete('pendingDeviceAuthorization')
-    return credentialsFromTokens(tokens)
+    return credentialsFromTokens(result.tokens)
   }
 
-  #announceDeviceCode (authorization: DeviceAuthorization): void {
+  #announceDeviceCode (authorization: DeviceAuthorization, problem?: string): void {
     this.#announce({
       status: 'action_required',
       reason: 'login',
       userActionRequired: true,
       message: `Open ${authorization.verificationUri} in a browser on any device and enter the code `
-        + `${authorization.userCode}. Once the user has approved, run this command again.`,
+        + `${authorization.userCode}. Once the user has approved, run this command again.`
+        + (problem ? ` ${problem}` : ''),
       verification_uri: authorization.verificationUri,
       verification_uri_complete: authorization.verificationUriComplete,
       user_code: authorization.userCode,

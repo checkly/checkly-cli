@@ -91,7 +91,7 @@ function storePendingCode ({ approved }: { approved: boolean }) {
   vi.mocked(config.auth.get).mockImplementation((key: string) => key === 'pendingDeviceAuthorization'
     ? { ...authorization, expiresAt: Date.now() + 600_000, authUrl: 'https://auth.checklyhq.com' }
     : undefined)
-  deviceFlow.pollOnce.mockResolvedValue(approved ? { accessToken: 'at', idToken: 'idt' } : undefined)
+  deviceFlow.pollOnce.mockResolvedValue(approved ? { tokens: { accessToken: 'at', idToken: 'idt' } } : {})
 }
 
 const unauthorized = () => new UnauthorizedError({ statusCode: 401, error: 'Unauthorized', message: 'Unauthorized' } as any)
@@ -208,6 +208,18 @@ describe('checkly login', () => {
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
       expect(deviceFlow.pollForTokens).not.toHaveBeenCalled()
       expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'action_required', user_code: 'ABCD-EFGH' })])
+      expect(config.auth.delete).not.toHaveBeenCalledWith('pendingDeviceAuthorization')
+    })
+
+    it('says when the login server could not be reached, since the user may already have approved', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockResolvedValue({ failure: 'ECONNRESET' })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      const [line] = jsonLines(cmd)
+      expect(line).toMatchObject({ status: 'action_required', user_code: 'ABCD-EFGH' })
+      expect(line.message).toContain('The last request to the login server failed (ECONNRESET)')
       expect(config.auth.delete).not.toHaveBeenCalledWith('pendingDeviceAuthorization')
     })
 
