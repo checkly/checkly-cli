@@ -39,6 +39,11 @@ describe('MaintenanceWindow', () => {
       expect(window.synthesize()).toHaveProperty('timezone', 'Europe/Berlin')
     })
 
+    it('sends a null repeatEndsAt when none is set, so a removed end date is cleared', () => {
+      const window = new MaintenanceWindow('maintenance-window', baseProps)
+      expect(window.synthesize()).toHaveProperty('repeatEndsAt', null)
+    })
+
     it('sends the pause and silence scope', () => {
       const window = new MaintenanceWindow('maintenance-window', {
         ...baseProps,

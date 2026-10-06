@@ -148,7 +148,8 @@ export class MaintenanceWindow extends Construct {
       endsAt: this.endsAt,
       repeatInterval: this.repeatInterval,
       repeatUnit: this.repeatUnit,
-      repeatEndsAt: this.repeatEndsAt,
+      // An omitted end date keeps the stored one on update, so null is sent to clear it.
+      repeatEndsAt: this.repeatEndsAt ?? null,
       // An omitted timezone keeps the stored value on update, so null is sent to reset it to UTC.
       timezone: this.timezone ?? null,
       pauseAllChecks: this.pauseAllChecks,
