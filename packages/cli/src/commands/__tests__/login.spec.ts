@@ -49,6 +49,7 @@ const mockConfig = {
 function createCommand (...argv: string[]) {
   const cmd = new Login(argv, mockConfig)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   cmd.warn = vi.fn() as any
   cmd.exit = vi.fn((code: number) => {
     throw new Error(`EXIT_${code}`)
@@ -382,6 +383,41 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(open).toHaveBeenCalled()
+    })
+  })
+
+  describe('inline login from another command', () => {
+    it('writes every line to stderr so the command\'s stdout stays clean', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      const cmd = createCommand()
+
+      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+
+      expect(cmd.log).not.toHaveBeenCalled()
+      const lines = vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => JSON.parse(String(line)))
+      expect(lines.map(line => line.status ?? line.success)).toEqual(['action_required', true])
+    })
+
+    it('writes the failure line to stderr as well', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      deviceFlow.pollForTokens.mockRejectedValueOnce(new DeviceFlowError('access_denied', 'User denied'))
+      const cmd = createCommand()
+
+      await expect(cmd.login({ inline: true })).resolves.toBe(false)
+
+      expect(cmd.log).not.toHaveBeenCalled()
+      const last = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
+      expect(last).toMatchObject({ success: false, error: 'User denied' })
+    })
+
+    it('writes the interactive lines to stderr too', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      const cmd = createCommand()
+
+      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+
+      expect(cmd.log).not.toHaveBeenCalled()
+      expect(vi.mocked(cmd.logToStderr).mock.calls.join('\n')).toContain('ABCD-EFGH')
     })
   })
 

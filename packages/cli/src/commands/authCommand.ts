@@ -34,10 +34,10 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
   }
 
   if (mode === 'interactive') {
-    command.log('No Checkly credentials found. Let\'s log in first.\n')
+    command.logToStderr('No Checkly credentials found. Let\'s log in first.\n')
   }
 
-  const ok = await new Login([], command.config).login()
+  const ok = await new Login([], command.config).login({ inline: true })
   if (!ok) {
     return command.exit(1)
   }

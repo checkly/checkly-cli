@@ -63,6 +63,7 @@ export default class Login extends BaseCommand {
 
   #mode: CliMode = 'interactive'
   #openBrowser = true
+  #inline = false
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
@@ -74,10 +75,13 @@ export default class Login extends BaseCommand {
    * Runs the whole login flow for the detected CLI mode and stores the
    * credentials. Returns false when the flow did not complete in agent mode
    * (the JSON error line has already been printed); throws otherwise.
-   * Other commands call this to log the user in inline.
+   * Other commands call this with `inline: true` to log the user in before
+   * they run; the login then writes to stderr so the command's own stdout
+   * (e.g. `--output json`) stays clean.
    */
-  async login (options: { accountId?: string, openBrowser?: boolean } = {}): Promise<boolean> {
+  async login (options: { accountId?: string, openBrowser?: boolean, inline?: boolean } = {}): Promise<boolean> {
     this.#mode = detectCliMode()
+    this.#inline = options.inline ?? false
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
@@ -114,7 +118,7 @@ export default class Login extends BaseCommand {
 
       if (!account) {
         // Agent mode, several accounts, none requested: do not guess.
-        this.log(JSON.stringify({
+        this.#print(JSON.stringify({
           status: 'action_required',
           reason: 'select_account',
           userActionRequired: false,
@@ -133,7 +137,7 @@ export default class Login extends BaseCommand {
       await api.validateAuthentication()
 
       if (this.#mode === 'agent') {
-        this.log(JSON.stringify({
+        this.#print(JSON.stringify({
           success: true,
           user: userName,
           accountId: account.id,
@@ -141,16 +145,24 @@ export default class Login extends BaseCommand {
           accounts: accountSummaries,
         }))
       } else {
-        this.log(`Successfully logged in as ${chalk.cyan.bold(userName)}`)
-        this.log('Welcome to the Checkly CLI')
+        this.#print(`Successfully logged in as ${chalk.cyan.bold(userName)}`)
+        this.#print('Welcome to the Checkly CLI')
       }
       return true
     } catch (error: any) {
       if (this.#mode !== 'agent') {
         throw error
       }
-      this.log(JSON.stringify({ success: false, error: error.message || String(error) }))
+      this.#print(JSON.stringify({ success: false, error: error.message || String(error) }))
       return false
+    }
+  }
+
+  #print (line: string): void {
+    if (this.#inline) {
+      this.logToStderr(line)
+    } else {
+      this.log(line)
     }
   }
 
@@ -162,9 +174,9 @@ export default class Login extends BaseCommand {
 
     if (this.#mode !== 'interactive') {
       if (this.#mode === 'agent') {
-        this.log(JSON.stringify({ success: true, alreadyLoggedIn: true, accountId, accountName }))
+        this.#print(JSON.stringify({ success: true, alreadyLoggedIn: true, accountId, accountName }))
       } else {
-        this.log(`Already logged in to "${accountName}".`)
+        this.#print(`Already logged in to "${accountName}".`)
       }
       return false
     }
@@ -208,7 +220,7 @@ export default class Login extends BaseCommand {
     await this.#tryOpenBrowser(authorization.verificationUriComplete)
 
     if (this.#mode === 'interactive') {
-      this.log(chalk.dim('Waiting for you to finish in the browser...'))
+      this.#print(chalk.dim('Waiting for you to finish in the browser...'))
     }
 
     const tokens = await deviceFlow.pollForTokens(authorization)
@@ -237,7 +249,7 @@ export default class Login extends BaseCommand {
       if (openUrl) {
         await open(authContext.authenticationUrl)
       } else {
-        this.log(`Please open the following URL in your browser: \n\n${chalk.cyan(authContext.authenticationUrl)}`)
+        this.#print(`Please open the following URL in your browser: \n\n${chalk.cyan(authContext.authenticationUrl)}`)
       }
     } else {
       this.#announce({
@@ -256,11 +268,11 @@ export default class Login extends BaseCommand {
 
   #announce (payload: ActionRequired, interactiveLines: string[]): void {
     if (this.#mode === 'agent') {
-      this.log(JSON.stringify(payload))
+      this.#print(JSON.stringify(payload))
       return
     }
     for (const line of interactiveLines) {
-      this.log(line)
+      this.#print(line)
     }
   }
 

@@ -209,7 +209,9 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     fake.seen.length = 0
     const { stdout, stderr, exitCode } = await runLogin(['whoami'], { CHECKLY_CLI_MODE: 'agent' })
 
-    const lines = stdout.split('\n').filter(line => line.trim() !== '')
+    // Inline, the login writes to stderr: stdout belongs to the command.
+    expect(stdout).toBe('')
+    const lines = stderr.split('\n').filter(line => line.trim() !== '')
     expect(JSON.parse(lines[0]!)).toMatchObject({ status: 'action_required', reason: 'login', user_code: 'WXYZ-1234' })
     expect(JSON.parse(lines[1]!)).toMatchObject({ status: 'action_required', reason: 'select_account' })
     expect(lines, stderr).toHaveLength(2)

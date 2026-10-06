@@ -30,6 +30,7 @@ const loginInstance = { login: vi.fn() }
 function createCommand () {
   const cmd = new Probe([], mockConfig)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   cmd.exit = vi.fn((code: number) => {
     throw new Error(`EXIT_${code}`)
   }) as any
@@ -69,10 +70,11 @@ describe('AuthCommand.init without stored credentials', () => {
     await cmd.init()
 
     expect(Login).toHaveBeenCalledWith([], mockConfig)
-    expect(loginInstance.login).toHaveBeenCalledTimes(1)
+    // Inline: login writes to stderr, keeping the command's stdout machine-readable.
+    expect(loginInstance.login).toHaveBeenCalledWith({ inline: true })
     expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
-    // Agent output must stay machine-readable: login itself prints the JSON lines.
     expect(cmd.log).not.toHaveBeenCalled()
+    expect(cmd.logToStderr).not.toHaveBeenCalled()
     expect(cmd.account).toMatchObject({ id: 'acc-1' })
   })
 
@@ -82,8 +84,9 @@ describe('AuthCommand.init without stored credentials', () => {
 
     await cmd.init()
 
-    expect(loginInstance.login).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(cmd.log).mock.calls.join('\n')).toMatch(/log in/i)
+    expect(loginInstance.login).toHaveBeenCalledWith({ inline: true })
+    expect(cmd.log).not.toHaveBeenCalled()
+    expect(vi.mocked(cmd.logToStderr).mock.calls.join('\n')).toMatch(/log in/i)
     expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
   })
 
@@ -105,6 +108,7 @@ describe('AuthCommand.init without stored credentials', () => {
     await expect(cmd.init()).rejects.toThrow('CHECKLY_API_KEY')
     expect(loginInstance.login).not.toHaveBeenCalled()
     expect(cmd.log).not.toHaveBeenCalled()
+    expect(cmd.logToStderr).not.toHaveBeenCalled()
   })
 
   it('starts the login flow in agent mode without a terminal', async () => {
