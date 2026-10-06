@@ -415,17 +415,16 @@ export default class Login extends BaseCommand {
   async #authenticate (): Promise<Credentials | 'pending' | 'stored'> {
     const deviceFlow = new DeviceFlow()
 
-    if (this.#mode === 'agent') {
-      const pending = this.#pendingAuthorization()
-      if (pending) {
-        return this.#collectPendingAuthorization(deviceFlow, pending)
-      }
-    }
-
     let authorization: DeviceAuthorization
     try {
+      const pending = this.#mode === 'agent' ? this.#pendingAuthorization() : undefined
+      if (pending) {
+        return await this.#collectPendingAuthorization(deviceFlow, pending)
+      }
       authorization = await deviceFlow.requestAuthorization()
     } catch (error) {
+      // The device grant is not enabled, or was turned off (rolled back)
+      // after a stored code was issued; that code is gone either way.
       if (error instanceof DeviceFlowNotAllowedError) {
         return this.#authenticateWithBrowserCallback()
       }

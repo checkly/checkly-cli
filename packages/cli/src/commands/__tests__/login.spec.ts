@@ -684,6 +684,18 @@ describe('checkly login', () => {
       expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error', reason: 'no_accounts' })
     })
 
+    it('falls back when the device grant was turned off while a code was pending', async () => {
+      storePendingCode({ approved: false })
+      deviceFlow.pollOnce.mockRejectedValueOnce(new DeviceFlowNotAllowedError('not allowed'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+      expect(AuthContext).toHaveBeenCalledWith('any')
+      expect(jsonLines(cmd)[0]).toMatchObject({ status: 'action_required', reason: 'login_required' })
+      expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'success' })
+    })
+
     it('reports network_error when the login server cannot be reached for a new code', async () => {
       deviceFlow.requestAuthorization.mockRejectedValueOnce(
         new DeviceFlowError('network_error', 'Could not reach the login server (ENOTFOUND).'))
