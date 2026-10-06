@@ -114,4 +114,25 @@ describe('AuthContext callback server', () => {
       await release(state)
     }
   })
+
+  it('gives up after the timeout, also dropping connections the browser keeps open', async () => {
+    const context = new AuthContext('login', { timeoutMs: 300 })
+    const state = new URL(context.authenticationUrl).searchParams.get('state')!
+
+    const credentials = context.getAuth0Credentials()
+    credentials.catch(() => {})
+    try {
+      await waitForListening(credentials)
+      // An idle connection a browser would keep alive after loading the login page.
+      const socket = net.connect(4242, 'localhost')
+      const socketClosed = new Promise(resolve => socket.once('close', resolve))
+      socket.on('error', () => {})
+
+      await expect(credentials).rejects.toThrow('The login was not completed in time')
+      await socketClosed
+      expect(await isListening()).toBe(false)
+    } finally {
+      await release(state)
+    }
+  })
 })

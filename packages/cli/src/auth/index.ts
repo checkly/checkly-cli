@@ -18,6 +18,8 @@ const authorizationUrl = () => `${config.getAuthUrl()}/authorize`
 const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const AUTH0_CALLBACK_URL = 'http://localhost:4242'
+// Auth0's default device-code lifetime, so both login flows give up after a similar wait.
+const LOGIN_TIMEOUT_MS = 15 * 60 * 1000
 
 function escapeHtml (value: string | null): string {
   return (value ?? '').replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`)
@@ -53,8 +55,10 @@ export class AuthContext {
 
   #accessToken?: string
   #idToken?: string
+  #timeoutMs: number
 
-  constructor (private mode: AuthMode) {
+  constructor (private mode: AuthMode, { timeoutMs = LOGIN_TIMEOUT_MS }: { timeoutMs?: number } = {}) {
+    this.#timeoutMs = timeoutMs
     const { codeChallenge, codeVerifier } = generatePKCE()
     this.#codeChallenge = codeChallenge
     this.#codeVerifier = codeVerifier
@@ -101,6 +105,19 @@ export class AuthContext {
       // the login closes its connection instead of keeping it alive for the
       // browser's next request, and the server stops listening.
       const server = http.createServer()
+      // Nobody may ever finish the login in the browser; without a deadline
+      // the process (and an authenticated command logging in inline) would
+      // wait forever. No response carries `Connection: close` in that case,
+      // so connections the browser keeps alive are dropped explicitly.
+      const timer = setTimeout(() => {
+        server.close()
+        server.closeAllConnections()
+        reject(new Error('The login was not completed in time. Please run the login again.'))
+      }, this.#timeoutMs)
+      const stop = () => {
+        clearTimeout(timer)
+        server.close()
+      }
       server.on('request', (req, res) => {
         if (req.url?.endsWith('.svg')) {
           fs.readFile(path.join(__dirname, `.${req.url}`), 'utf8', (err, data) => {
@@ -166,7 +183,7 @@ export class AuthContext {
         </body>
         </html>
       `)
-            server.close()
+            stop()
             resolve(code)
           } else {
             res.write(`
@@ -182,7 +199,7 @@ export class AuthContext {
         </html>
       `)
             if (settles) {
-              server.close()
+              stop()
               reject(new Error(`Login failed: ${errorDescription || error}`))
             }
           }
@@ -192,6 +209,7 @@ export class AuthContext {
       })
 
       server.listen(4242).on('error', (err: any) => {
+        clearTimeout(timer)
         if (err.code === 'EADDRINUSE') {
           reject(new Error('Unable to start a local server on port 4242.'
             + ' Please check that `checkly login` isn\'t already running in a separate tab.'
