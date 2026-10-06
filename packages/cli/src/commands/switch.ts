@@ -4,6 +4,7 @@ import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
 import { selectAccount } from './login.js'
 import { activateAccount } from '../helpers/activate-account.js'
+import { detectCliMode } from '../helpers/cli-mode.js'
 
 export default class Switch extends AuthCommand {
   static hidden = false
@@ -39,6 +40,15 @@ export default class Switch extends AuthCommand {
       }
       this.log(`Account switched to ${chalk.bold.cyan(account.name)} (${account.id})`)
       this.exit(0)
+    }
+
+    // The login this run just did already chose the account (asking when
+    // there were several) and, in agent mode, reported it as JSON.
+    if (this.loggedInInline) {
+      if (detectCliMode() !== 'agent') {
+        this.log(`Logged in to ${chalk.bold.cyan(this.account.name)}. Run \`npx checkly switch\` to change accounts.`)
+      }
+      return
     }
 
     try {

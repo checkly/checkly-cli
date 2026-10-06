@@ -5,10 +5,12 @@ vi.mock('../../rest/api', () => ({
 }))
 vi.mock('../../helpers/activate-account', () => ({ activateAccount: vi.fn() }))
 vi.mock('prompts', () => ({ default: vi.fn() }))
+vi.mock('../../helpers/cli-mode', () => ({ detectCliMode: vi.fn(() => 'interactive') }))
 
 import prompts from 'prompts'
 import * as api from '../../rest/api.js'
 import { activateAccount } from '../../helpers/activate-account.js'
+import { detectCliMode } from '../../helpers/cli-mode.js'
 import Switch from '../switch.js'
 
 const mockConfig = {
@@ -48,6 +50,36 @@ describe('checkly switch', () => {
 
     await expect(cmd.run()).rejects.toThrow('Failed to switch account. Service Unavailable')
     expect(cmd.log).not.toHaveBeenCalled()
+  })
+
+  describe('right after the login this run did', () => {
+    function loggedInCommand () {
+      const cmd = createCommand()
+      ;(cmd as any).loggedInInline = true
+      Object.defineProperty(cmd, 'account', { get: () => ({ id: 'acc-1', name: 'Acme' }) })
+      return cmd
+    }
+
+    it('names the account the login chose instead of asking again', async () => {
+      const cmd = loggedInCommand()
+
+      await cmd.run()
+
+      expect(prompts).not.toHaveBeenCalled()
+      expect(api.accounts.getAll).not.toHaveBeenCalled()
+      expect(activateAccount).not.toHaveBeenCalled()
+      expect(vi.mocked(cmd.log).mock.calls.join('\n')).toContain('Acme')
+    })
+
+    it('stays quiet in agent mode, where the login already reported the account', async () => {
+      vi.mocked(detectCliMode).mockReturnValueOnce('agent')
+      const cmd = loggedInCommand()
+
+      await cmd.run()
+
+      expect(prompts).not.toHaveBeenCalled()
+      expect(cmd.log).not.toHaveBeenCalled()
+    })
   })
 
   it('says when the account does not exist', async () => {

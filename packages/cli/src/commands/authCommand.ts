@@ -19,25 +19,26 @@ import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/comm
  * without a TTY): nobody would see the login code, and the flow would wait
  * for it until it expires. Credentials from the environment, even incomplete
  * ones, skip it too: login refuses to run while they are set.
+ * Returns whether it logged the user in.
  */
-async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
+async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
   if (process.env.CHECKLY_SKIP_AUTH === '1' || config.hasValidCredentials()) {
-    return
+    return false
   }
 
   // Credentials from the environment mean the user chose API keys; login
   // would refuse to run, and authentication names what is missing.
   if (config.hasEnvVarsConfigured()) {
-    return
+    return false
   }
 
   const mode = detectCliMode()
   if (mode === 'ci') {
-    return
+    return false
   }
 
   if (mode === 'interactive' && !canLogInInline()) {
-    return
+    return false
   }
 
   if (mode === 'interactive') {
@@ -48,12 +49,16 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<void> {
   if (!ok) {
     return command.exit(1)
   }
+  return true
 }
 
 export abstract class AuthCommand extends BaseCommand {
   static hidden = true
 
   #account?: Account
+
+  /** Whether this run logged the user in (and had them pick an account) before the command started. */
+  protected loggedInInline = false
 
   get account (): Account {
     if (this.#account === undefined) {
@@ -65,7 +70,7 @@ export abstract class AuthCommand extends BaseCommand {
 
   protected async init (): Promise<any> {
     await super.init()
-    await loginInlineIfNeeded(this)
+    this.loggedInInline = await loginInlineIfNeeded(this)
     this.#account = await api.validateAuthentication()
     // Constructs validate against account-specific limits and have no access to
     // the command instance.

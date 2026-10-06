@@ -21,6 +21,10 @@ import { AuthCommand } from '../authCommand.js'
 
 class Probe extends AuthCommand {
   async run (): Promise<void> {}
+
+  get didLogInInline (): boolean {
+    return this.loggedInInline
+  }
 }
 
 const mockConfig = {
@@ -80,6 +84,7 @@ describe('AuthCommand.init without stored credentials', () => {
     expect(cmd.log).not.toHaveBeenCalled()
     expect(cmd.logToStderr).not.toHaveBeenCalled()
     expect(cmd.account).toMatchObject({ id: 'acc-1' })
+    expect(cmd.didLogInInline).toBe(true)
   })
 
   it('tells a human what is happening and starts the login flow in interactive mode', async () => {
@@ -156,6 +161,7 @@ describe('AuthCommand.init with credentials', () => {
 
     expect(loginInstance.login).not.toHaveBeenCalled()
     expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
+    expect(cmd.didLogInInline).toBe(false)
   })
 
   it('skips the login flow when CHECKLY_SKIP_AUTH is set', async () => {
