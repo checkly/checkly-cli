@@ -994,6 +994,15 @@ describe('checkly login', () => {
       expect(loggedLines(cmd).join('\n')).toContain('Still waiting: the last answer was HTTP 407')
     })
 
+    it('reports any other login server error as a plain error', async () => {
+      deviceFlow.pollForTokens.mockRejectedValueOnce(new DeviceFlowError('unauthorized_client', 'Grant type not allowed.'))
+      const cmd = createCommand()
+      const error = await cmd.run().catch(error => error)
+
+      expect(error.message).toBe('The login server refused the login: Grant type not allowed. (unauthorized_client)')
+      expect(error.oclif).toMatchObject({ exit: 1 })
+    })
+
     it('rethrows unexpected errors unchanged', async () => {
       const unexpected = new TypeError('boom')
       deviceFlow.pollForTokens.mockRejectedValueOnce(unexpected)

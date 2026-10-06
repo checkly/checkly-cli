@@ -101,6 +101,12 @@ function errorMessage (error: any): string {
     && error.message === AUTH0_CANCELLED_MESSAGE) {
     return 'The login was cancelled in the browser.'
   }
+  // An OAuth error without a reason of its own: name its code, the only
+  // thing that identifies it for support.
+  if (error instanceof DeviceFlowError && errorReason(error) === 'login_failed'
+    && !error.message.includes(`(${error.code})`)) {
+    return `The login server refused the login: ${error.message} (${error.code})`
+  }
   return error?.message || String(error)
 }
 
@@ -296,9 +302,10 @@ export default class Login extends BaseCommand {
       return true
     } catch (error: any) {
       if (this.#mode !== 'agent') {
-        // Expected login failures get a plain message; anything else keeps
-        // its stack for debugging.
-        if (errorReason(error) !== 'login_failed') {
+        // Expected login failures, including any answer from the login
+        // server, get a plain message; anything else keeps its stack for
+        // debugging.
+        if (error instanceof DeviceFlowError || errorReason(error) !== 'login_failed') {
           this.error(errorMessage(error), { exit: 1 })
         }
         throw error
