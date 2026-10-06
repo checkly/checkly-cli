@@ -414,8 +414,10 @@ const DASHBOARD_RULES: Rule[] = [
 // from the ISO string the account reports. The repeat settings only mean
 // something together: an interval written without its unit, or without
 // the date the repetition ends on, would be a different schedule.
-const MAINTENANCE_WINDOW_KEYS = ['name'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
-const MAINTENANCE_WINDOW_SET_KEYS = ['tags'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const MAINTENANCE_WINDOW_KEYS = [
+  'name', 'timezone', 'pauseAllChecks', 'silenceAllAlerts',
+] as const satisfies readonly (keyof MaintenanceWindowProps)[]
+const MAINTENANCE_WINDOW_SET_KEYS = ['tags', 'silenceAlertsTags'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
 const MAINTENANCE_WINDOW_DATE_KEYS = ['startsAt', 'endsAt'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
 const REPEAT_KEYS = ['repeatInterval', 'repeatUnit'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
 const REPEAT_DATE_KEYS = ['repeatEndsAt'] as const satisfies readonly (keyof MaintenanceWindowProps)[]
