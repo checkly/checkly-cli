@@ -552,7 +552,12 @@ describe('checkly login', () => {
           await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
           expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
-          expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'action_required', reason: 'login_required' })])
+          expect(jsonLines(cmd)).toEqual([expect.objectContaining({
+            status: 'action_required',
+            reason: 'login_required',
+            // The agent can tell the user why a working login needs approval again.
+            message: expect.stringMatching(/^Account "Acme" is no longer available with the stored login\. Open /),
+          })])
         })
 
         it('in CI says the stored login was removed', async () => {

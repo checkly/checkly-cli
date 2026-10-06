@@ -159,6 +159,9 @@ export default class Login extends BaseCommand {
   #mode: CliMode = 'interactive'
   #openBrowser = true
   #inline = false
+  // Why a stored login stopped working, for the agent to pass on with the
+  // next step (a new code, account selection or success).
+  #notice?: string
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
@@ -177,6 +180,7 @@ export default class Login extends BaseCommand {
   async login (options: { accountId?: string, openBrowser?: boolean, inline?: boolean } = {}): Promise<boolean> {
     this.#mode = detectCliMode()
     this.#inline = options.inline ?? false
+    this.#notice = undefined
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
@@ -201,16 +205,15 @@ export default class Login extends BaseCommand {
       // A stored login is only kept as it is while it still works. Dropping an
       // unusable account sends the flow below into the stored-key resume path:
       // account selection with a working key, a new login otherwise.
-      let notice: string | undefined
       if (config.hasValidCredentials() && !switchingAccount) {
         const storedAccount = await this.#checkStoredAccount()
         if (storedAccount.usable && !await this.#wantsToReplaceLogin(storedAccount.name)) {
           return true
         }
         if (!storedAccount.usable) {
-          notice = `Account "${storedAccount.name}" is no longer available with the stored login.`
+          this.#notice = `Account "${storedAccount.name}" is no longer available with the stored login.`
           if (this.#mode !== 'agent') {
-            this.#print(notice)
+            this.#print(this.#notice)
           }
         }
       }
@@ -250,7 +253,7 @@ export default class Login extends BaseCommand {
           this.#storeNewKey(result.key)
           userName = result.name
         }
-      } else if (this.#mode === 'interactive' && !switchingAccount && !notice) {
+      } else if (this.#mode === 'interactive' && !switchingAccount && !this.#notice) {
         this.#print(`Continuing the login as ${chalk.bold(userName)}. `
           + 'Run `npx checkly logout` first to log in as someone else.')
       }
@@ -267,7 +270,7 @@ export default class Login extends BaseCommand {
           status: 'action_required',
           reason: 'select_account',
           userActionRequired: true,
-          message: (notice ? `${notice} ` : '')
+          message: (this.#notice ? `${this.#notice} ` : '')
             + 'Logged in, but this user belongs to several accounts. Ask the user which one to use, then run '
             + '`npx checkly login --account-id <id>`'
             + (this.#inline ? ' and run the original command again' : '')
@@ -286,7 +289,7 @@ export default class Login extends BaseCommand {
         this.#print(JSON.stringify({
           status: 'success',
           reason: switched ? 'account_switched' : 'logged_in',
-          message: (notice ? `${notice} ` : '') + (switched
+          message: (this.#notice ? `${this.#notice} ` : '') + (switched
             ? `Switched to account "${account.name}".`
             : `Logged in as ${userName} to account "${account.name}".`),
           user: userName,
@@ -551,7 +554,8 @@ export default class Login extends BaseCommand {
       status: 'action_required',
       reason: 'login_required',
       userActionRequired: true,
-      message: `Open ${authorization.verificationUri} in a browser on any device and enter the code `
+      message: (this.#notice ? `${this.#notice} ` : '')
+        + `Open ${authorization.verificationUri} in a browser on any device and enter the code `
         + `${authorization.userCode}. Once the user has approved, run this command again.`
         + (problem ? ` ${problem}` : '') + ` ${Login.#signUpHint}`,
       verification_uri: authorization.verificationUri,
