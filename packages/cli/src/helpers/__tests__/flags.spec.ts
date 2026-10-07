@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { normalizeFlagAliases } from '../flags.js'
+import { normalizeFlagAliases, parseScheduleOnDeployThreshold } from '../flags.js'
 
 describe('normalizeFlagAliases', () => {
   const aliases = [
@@ -50,5 +50,17 @@ describe('normalizeFlagAliases', () => {
 
     expect(normalized).toEqual(argv)
     expect(normalized).not.toBe(argv)
+  })
+})
+
+describe('parseScheduleOnDeployThreshold', () => {
+  it('accepts auto and non-negative whole numbers', () => {
+    expect(parseScheduleOnDeployThreshold('auto')).toBe('auto')
+    expect(parseScheduleOnDeployThreshold('0')).toBe(0)
+    expect(parseScheduleOnDeployThreshold('500')).toBe(500)
+  })
+
+  it.each(['-1', '1.5', 'abc', '', '1e3'])('rejects %j', input => {
+    expect(() => parseScheduleOnDeployThreshold(input)).toThrow('Expected a non-negative whole number or "auto"')
   })
 })

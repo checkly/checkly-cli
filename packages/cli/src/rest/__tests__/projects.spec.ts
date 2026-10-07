@@ -84,7 +84,7 @@ describe('Projects.deploy', () => {
       expect.objectContaining({ responseType: 'stream', headers: { Accept: 'text/event-stream' } }),
     )
     expect(onProgress).toHaveBeenCalledWith(40)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
   })
 
   it('throws ProjectDeployFailedError when the terminal event is not SUCCEEDED', async () => {
@@ -132,7 +132,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: false })
 
     expect(api.get).toHaveBeenCalledTimes(2)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
   })
 
   it('reconnects after a socket error before a terminal event', async () => {
@@ -144,7 +144,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: false })
 
     expect(api.get).toHaveBeenCalledTimes(2)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
   })
 
   it('propagates a typed connect error without reconnecting', async () => {
@@ -217,7 +217,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     const cancelCalls = vi.mocked(api.post).mock.calls.filter(([url]) => String(url).includes('/cancel'))
     expect(cancelCalls).toHaveLength(0)
     expect(deployPosts).toBe(2)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
     expect(onStatus).toHaveBeenCalled()
   })
 
@@ -249,7 +249,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     // the initial collision and a single re-POST after the predecessor was final.
     expect(completionPolls).toBe(3)
     expect(deployPosts).toBe(2)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
   })
 
   it('cancels the in-flight deployment, waits, and retries when cancelInProgress is set', async () => {
@@ -280,7 +280,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     )
     expect(onStatus).toHaveBeenCalled()
     expect(deployPosts).toBe(2)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
   })
 
   it('proceeds with the retry when the in-flight deployment is already gone (404 on cancel)', async () => {
@@ -303,7 +303,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     const { data } = await projects.deploy(sync, { cancelInProgress: true })
 
     expect(deployPosts).toBe(2)
-    expect(data).toEqual(applied)
+    expect(data).toEqual({ ...applied, scheduled: true })
   })
 
   it('awaitDeploymentCompletion does a single long-poll and returns the final deployment', async () => {

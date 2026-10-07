@@ -91,7 +91,7 @@ This matters when the local project isn't the whole picture — a partial checko
 
 ### Confirmation
 
-`deploy` is a write command: without `--force` it returns exit code 2 and a `confirmation_required` envelope. Present its `changes` to the user and run the `confirmCommand` verbatim only after they approve. The one exception is a `checkly deploy --plan` whose plan has nothing to create, update, delete or detach and no relation to prune: it asks for no confirmation, prints `No changes.`, and completes with exit code 0. That run still records the deployment and schedules the checks unless `--no-schedule-on-deploy` is passed; its last line says whether it did.
+`deploy` is a write command: without `--force` it returns exit code 2 and a `confirmation_required` envelope. Present its `changes` to the user and run the `confirmCommand` verbatim only after they approve. The one exception is a `checkly deploy --plan` whose plan has nothing to create, update, delete or detach and no relation to prune: it asks for no confirmation, prints `No changes.`, and completes with exit code 0. That run still records the deployment and schedules the checks unless `--no-schedule-on-deploy` is passed or there are more of them than the scheduling threshold allows (`--schedule-on-deploy-threshold`, by default set by Checkly); its last line says whether it did.
 
 The confirmation happens **after** the project has been parsed. Unless the run passed `--preserve-resources`, Checkly has also been asked what the deploy would delete, and every resource to be deleted is named in `changes`. Show the user the deletions before you run the `confirmCommand`. Nothing has been written or uploaded at that point.
 
