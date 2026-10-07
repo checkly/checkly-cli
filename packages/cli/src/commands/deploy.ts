@@ -391,20 +391,15 @@ export default class Deploy extends AuthCommand {
     const heartbeats = project.getHeartbeatLogicalIds()
     const schedulableChecks = Object.keys(projectBundle.data.check)
       .filter(logicalId => !heartbeats.includes(logicalId)).length
-    // With `auto` only Checkly knows the threshold; with a number the outcome
-    // is known here already.
-    const schedulingLine = !scheduleOnDeploy
-      ? 'Checks will NOT be scheduled after deploy'
-      : scheduleThreshold === 'auto'
-        ? 'Schedule checks after deploy, unless it would schedule more checks than Checkly\'s scheduling threshold allows'
-        : schedulableChecks > scheduleThreshold
-          ? `Checks will NOT be scheduled after deploy: ${schedulableChecks} checks, more than the threshold of ${scheduleThreshold}`
-          : 'Schedule checks after deploy'
     // What the deploy does whatever it finds, worded as the confirmation
-    // prompt words it. The plan's own lines follow these.
+    // prompt words it. The plan's own lines follow these. The scheduling
+    // threshold is left out: few deploys reach it, and the deploy reports it
+    // when one does.
     const optionLines = [
       `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
-      schedulingLine,
+      scheduleOnDeploy
+        ? 'Schedule checks after deploy'
+        : 'Checks will NOT be scheduled after deploy',
       preserveResources
         ? 'Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app'
         : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead',

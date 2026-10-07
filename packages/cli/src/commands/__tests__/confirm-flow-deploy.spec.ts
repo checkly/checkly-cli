@@ -1522,41 +1522,18 @@ describe('deploy of a plan with nothing to apply', () => {
   })
 
   describe('scheduling threshold', () => {
-    it('leaves the threshold to Checkly by default, and says so in the confirmation', async () => {
-      nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
-      const ctx = createCommandContext()
-
-      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
-
-      const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
-      expect(output.changes).toContain(
-        'Schedule checks after deploy, unless it would schedule more checks than Checkly\'s scheduling threshold allows',
-      )
-      expect(output.confirmCommand).not.toContain('--schedule-on-deploy-threshold')
-    })
-
     it('sends a threshold the user set, and echoes it in the confirm command', async () => {
       nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
       const asked = createCommandContext({ 'schedule-on-deploy-threshold': 20 })
       await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
+      // The confirmation does not go into the threshold; the deploy reports it.
       expect(output.changes).toContain('Schedule checks after deploy')
       expect(output.confirmCommand).toContain('--schedule-on-deploy-threshold="20"')
 
       const forced = createCommandContext({ 'force': true, 'schedule-on-deploy-threshold': 20 })
       await Deploy.prototype.run.call(forced as any)
       expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployThreshold: 20 })
-    })
-
-    it('says in the confirmation that a threshold the project exceeds schedules nothing', async () => {
-      declareProjectWithCheck()
-      nothingToApply([{ ...UNCHANGED_CHECK, action: 'UPDATE', basis: 'live' }])
-      const ctx = createCommandContext({ 'schedule-on-deploy-threshold': 0 })
-
-      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
-
-      const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
-      expect(output.changes).toContain('Checks will NOT be scheduled after deploy: 1 checks, more than the threshold of 0')
     })
 
     it('sends no threshold when the user left it to Checkly', async () => {
