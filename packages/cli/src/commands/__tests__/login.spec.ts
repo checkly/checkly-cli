@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('open', () => ({ default: vi.fn() }))
+vi.mock('@oclif/core', async importOriginal => {
+  const actual = await importOriginal<typeof import('@oclif/core')>()
+  return { ...actual, ux: { ...actual.ux, action: { start: vi.fn(), stop: vi.fn(), status: undefined } } }
+})
 vi.mock('prompts', () => ({ default: vi.fn() }))
 vi.mock('../../helpers/cli-mode', async importOriginal => ({
   ...await importOriginal<typeof import('../../helpers/cli-mode.js')>(),
@@ -45,6 +49,7 @@ vi.mock('../../auth/api-key', () => ({ credentialsFromTokens: vi.fn() }))
 vi.mock('../../auth/index', () => ({ AuthContext: vi.fn() }))
 
 import open from 'open'
+import { ux } from '@oclif/core'
 import prompts from 'prompts'
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import * as api from '../../rest/api.js'
@@ -122,14 +127,27 @@ function jsonLines (cmd: Login): any[] {
 
 const originalStdinIsTTY = process.stdin.isTTY
 
+const originalStdoutIsTTY = process.stdout.isTTY
+let platformSpy: { mockRestore: () => void } | undefined
+
 afterEach(() => {
   process.stdin.isTTY = originalStdinIsTTY
+  process.stdout.isTTY = originalStdoutIsTTY
   delete process.env.CHECKLY_CLI_MODE
+  vi.unstubAllEnvs()
+  platformSpy?.mockRestore()
+  platformSpy = undefined
 })
 
 beforeEach(() => {
   vi.clearAllMocks()
   process.stdin.isTTY = true
+  // Plain output by default (as when piped); the spinner tests turn it on.
+  process.stdout.isTTY = false as any
+  // A local desktop session, so an opened browser counts as opened.
+  vi.stubEnv('SSH_CONNECTION', '')
+  vi.stubEnv('SSH_TTY', '')
+  vi.stubEnv('DISPLAY', ':0')
   for (const mock of [
     config.data.get, config.auth.get, config.auth.delete,
     api.user.get, api.accounts.getAll, api.accounts.get, api.validateAuthentication,
@@ -646,7 +664,7 @@ describe('checkly login', () => {
 
         const output = loggedLines(cmd).join('\n')
         expect(output).toContain('The stored login is no longer valid')
-        expect(output).toContain('Successfully logged in as Ada Lovelace')
+        expect(output).toContain('Logged in as Ada Lovelace to')
         expect(output).not.toContain('Switched to account')
 
         expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
@@ -951,11 +969,12 @@ describe('checkly login', () => {
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-      const output = loggedLines(cmd).join('\n')
-      expect(output).toContain('https://auth.checklyhq.com/activate')
-      expect(output).toContain('ABCD-EFGH')
-      expect(output).toContain('New to Checkly? You can sign up on the same page.')
-      expect(output).toContain('Successfully logged in as')
+      expect(loggedLines(cmd)).toEqual([
+        'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
+        '',
+        'Waiting for you to finish in the browser…',
+        'Logged in as Ada Lovelace to Acme.',
+      ])
       expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
       // No login/sign-up menu, no "open a browser?" question, single account => no account prompt.
       expect(prompts).not.toHaveBeenCalled()
@@ -1016,6 +1035,70 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toBe(unexpected)
     })
 
+    it.each([
+      ['--no-browser is set', () => {}, ['--no-browser']],
+      ['opening it fails', () => vi.mocked(open).mockRejectedValueOnce(new Error('no browser')), []],
+      ['the session is remote', () => vi.stubEnv('SSH_CONNECTION', '10.0.0.1 22 10.0.0.2 22'), []],
+      ['Linux has no desktop', () => {
+        vi.stubEnv('DISPLAY', '')
+        vi.stubEnv('WAYLAND_DISPLAY', '')
+        platformSpy = vi.spyOn(process, 'platform', 'get').mockReturnValue('linux')
+      }, []],
+    ])('shows the pre-filled link when no browser can be assumed opened: %s', async (_, arrange, argv) => {
+      arrange()
+      const cmd = createCommand(...argv)
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(loggedLines(cmd).slice(0, 3)).toEqual([
+        'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
+        'Or open https://auth.checklyhq.com/activate?user_code=ABCD-EFGH',
+        '',
+      ])
+    })
+
+    describe('on a terminal', () => {
+      beforeEach(() => {
+        process.stdout.isTTY = true
+      })
+
+      it('waits behind a spinner and marks it done', async () => {
+        const cmd = createCommand()
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(ux.action.start).toHaveBeenCalledWith('Waiting for you to finish in the browser', undefined, { stdout: true })
+        expect(ux.action.stop).toHaveBeenCalledWith(expect.stringContaining('✔'))
+        expect(loggedLines(cmd)).not.toContain('Waiting for you to finish in the browser…')
+      })
+
+      it('shows notes while waiting in the spinner', async () => {
+        deviceFlow.pollForTokens.mockImplementationOnce((_auth: unknown, { onUnexpectedAnswers }: any) => {
+          onUnexpectedAnswers('HTTP 407 that did not come from the login server')
+          return Promise.resolve({ accessToken: 'at', idToken: 'idt' })
+        })
+        const cmd = createCommand()
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(ux.action.status).toBe('Still waiting: the last answer was HTTP 407 that did not come from the login server.')
+      })
+
+      it('marks the spinner failed when the login fails', async () => {
+        deviceFlow.pollForTokens.mockRejectedValueOnce(new DeviceFlowError('expired_token', 'The login code expired.'))
+        const cmd = createCommand()
+        await expect(cmd.run()).rejects.toThrow('The login code expired.')
+
+        expect(ux.action.stop).toHaveBeenCalledWith(expect.stringContaining('✖'))
+      })
+
+      it('prints plain lines when fancy output is off', async () => {
+        const cmd = createCommand()
+        cmd.fancy = false
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(ux.action.start).not.toHaveBeenCalled()
+        expect(loggedLines(cmd)).toContain('Waiting for you to finish in the browser…')
+      })
+    })
+
     it('asks which account to use when there are several', async () => {
       vi.mocked(api.accounts.getAll).mockResolvedValue({
         data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
@@ -1067,7 +1150,7 @@ describe('checkly login', () => {
       expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
       expect(loggedLines(cmd).join('\n')).toContain('Continuing the login as')
       expect(loggedLines(cmd).join('\n')).toContain('Run `npx checkly logout` first')
-      expect(loggedLines(cmd).join('\n')).toContain('Successfully logged in as Ada Lovelace')
+      expect(loggedLines(cmd).join('\n')).toContain('Logged in as Ada Lovelace to')
     })
 
     it('says so and logs in again when the stored key of an unfinished login is no longer accepted', async () => {

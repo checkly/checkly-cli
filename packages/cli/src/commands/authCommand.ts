@@ -45,7 +45,10 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
     command.logToStderr('No Checkly credentials found. Let\'s log in first.\n')
   }
 
-  const ok = await new Login([], command.config).login({ inline: true })
+  const login = new Login([], command.config)
+  // It never runs init(), which is where CHECKLY_E2E_DISABLE_FANCY_OUTPUT applies.
+  login.fancy = command.fancy
+  const ok = await login.login({ inline: true })
   if (!ok) {
     return command.exit(1)
   }

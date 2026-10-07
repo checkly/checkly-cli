@@ -241,9 +241,9 @@ describe('login with the device flow (fake Auth0 + API)', () => {
 
     expect(stderr).toBe('')
     expect(exitCode).toBe(0)
-    expect(stdout).toContain(`${fake.baseUrl}/activate`)
-    expect(stdout).toMatch(/enter the code WXYZ-\d{4}/)
-    expect(stdout).toContain('Successfully logged in as Ada Lovelace')
+    expect(stdout).toContain(`Visit ${fake.baseUrl.replace(/^https?:\/\//, '')}/activate and enter WXYZ-`)
+    expect(stdout).toMatch(/enter WXYZ-\d{4}/)
+    expect(stdout).toContain('Logged in as Ada Lovelace to ')
     expect(stdout).not.toContain('Do you want to')
     await rm(home, { recursive: true, force: true })
   }, 180_000)

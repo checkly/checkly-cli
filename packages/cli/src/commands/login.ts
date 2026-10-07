@@ -1,6 +1,6 @@
 import open from 'open'
 import chalk from 'chalk'
-import { Flags } from '@oclif/core'
+import { Flags, ux } from '@oclif/core'
 import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
@@ -86,6 +86,11 @@ function errorReason (error: unknown): ErrorReason {
     return 'api_error'
   }
   return 'login_failed'
+}
+
+/** `https://auth.checklyhq.com/activate` as `auth.checklyhq.com/activate`. */
+function withoutScheme (url: string): string {
+  return url.replace(/^https?:\/\//, '')
 }
 
 /** What Auth0 says when the user cancels on the activation page. */
@@ -299,8 +304,7 @@ export default class Login extends BaseCommand {
       } else if (switched) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
       } else {
-        this.#print(`Successfully logged in as ${chalk.cyan.bold(userName)}`)
-        this.#print('Welcome to the Checkly CLI')
+        this.#print(`Logged in as ${chalk.cyan.bold(userName)} to ${chalk.cyan.bold(account.name)}.`)
       }
       return true
     } catch (error: any) {
@@ -465,26 +469,23 @@ export default class Login extends BaseCommand {
       }
     }
 
-    this.#announceDeviceCode(authorization)
     // A login an agent's command starts on its own (often just a `whoami`
     // check) must not pop up a browser tab the user did not ask for; the
     // agent relays the URL instead. An explicit `checkly login` opens it for
     // a code this run shows for the first time, whether it requested it or
     // took it over from a parallel run (not when it shows a stored one again).
-    if (!(this.#mode === 'agent' && this.#inline)) {
-      await this.#tryOpenBrowser(authorization.verificationUriComplete)
-    }
+    const browserOpened = !(this.#mode === 'agent' && this.#inline)
+      && await this.#tryOpenBrowser(authorization.verificationUriComplete)
+    this.#announceDeviceCode(authorization, undefined, browserOpened)
 
     if (this.#mode === 'agent') {
       return 'pending'
     }
-    if (this.#mode === 'interactive') {
-      this.#print(chalk.dim('Waiting for you to finish in the browser...'))
-    }
 
-    const tokens = await deviceFlow.pollForTokens(authorization, {
-      onUnexpectedAnswers: failure => this.#print(`Still waiting: the last answer was ${failure}.`),
-    })
+    const tokens = await this.#whileWaiting('Waiting for you to finish in the browser', report =>
+      deviceFlow.pollForTokens(authorization, {
+        onUnexpectedAnswers: failure => report(`Still waiting: the last answer was ${failure}.`),
+      }))
     return credentialsFromTokens(tokens)
   }
 
@@ -549,7 +550,11 @@ export default class Login extends BaseCommand {
   // creates the Checkly user (see exchangeAccessTokenForApiKey()).
   static readonly #signUpHint = 'New to Checkly? You can sign up on the same page.'
 
-  #announceDeviceCode (authorization: DeviceAuthorization, problem?: string): void {
+  /**
+   * `browserOpened` only shapes the interactive lines: the pre-filled link is
+   * shown when no browser was opened, for the user to open themselves.
+   */
+  #announceDeviceCode (authorization: DeviceAuthorization, problem?: string, browserOpened = false): void {
     this.#announce({
       status: 'action_required',
       reason: 'login_required',
@@ -563,9 +568,11 @@ export default class Login extends BaseCommand {
       user_code: authorization.userCode,
       expires_in: Math.max(0, Math.round((authorization.expiresAt - Date.now()) / 1000)),
     }, [
-      `Visit ${chalk.bold(authorization.verificationUri)} and enter the code ${chalk.bold(authorization.userCode)}`,
-      chalk.dim(`Or open ${authorization.verificationUriComplete}`),
-      chalk.dim(Login.#signUpHint),
+      `Visit ${chalk.bold.underline(withoutScheme(authorization.verificationUri))} and enter `
+      + chalk.bold(authorization.userCode),
+      // Keeps its scheme: this is the link to click or copy.
+      ...browserOpened ? [] : [chalk.dim(`Or open ${authorization.verificationUriComplete}`)],
+      '',
     ])
   }
 
@@ -639,14 +646,51 @@ export default class Login extends BaseCommand {
     }
   }
 
-  async #tryOpenBrowser (url: string): Promise<void> {
+  /**
+   * Opens the URL in a browser as a best effort. Returns whether one can be
+   * assumed to have opened on the user's screen: `open` resolves as soon as
+   * it starts a launcher, also in a remote session or on a Linux machine
+   * without a desktop, where nothing appears.
+   */
+  async #tryOpenBrowser (url: string): Promise<boolean> {
     if (!this.#openBrowser) {
-      return
+      return false
     }
     try {
       await open(url)
     } catch {
-      // Best effort: the URL and code are already on screen.
+      return false
+    }
+    const remote = Boolean(process.env.SSH_CONNECTION || process.env.SSH_TTY)
+    const noDesktop = process.platform === 'linux' && !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY
+    return !remote && !noDesktop
+  }
+
+  /**
+   * Runs `wait` behind a spinner when a person watches the output on a
+   * terminal; otherwise prints `message` as a plain line, so a piped or
+   * redirected output gets no animation frames. `report` shows a note while
+   * waiting.
+   */
+  async #whileWaiting<T> (message: string, wait: (report: (note: string) => void) => Promise<T>): Promise<T> {
+    // oclif chooses between spinner and plain output from stderr alone.
+    const toTerminal = this.#inline ? process.stderr.isTTY : process.stdout.isTTY
+    if (this.#mode !== 'interactive' || !this.fancy || !toTerminal) {
+      if (this.#mode === 'interactive') {
+        this.#print(chalk.dim(`${message}…`))
+      }
+      return wait(note => this.#print(note))
+    }
+    ux.action.start(message, undefined, { stdout: !this.#inline })
+    try {
+      const result = await wait(note => {
+        ux.action.status = note
+      })
+      ux.action.stop(chalk.green('✔'))
+      return result
+    } catch (error) {
+      ux.action.stop(chalk.red('✖'))
+      throw error
     }
   }
 

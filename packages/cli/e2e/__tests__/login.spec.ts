@@ -115,7 +115,7 @@ describe('login', () => {
       },
     })
 
-    expect(stdout).toContain('Visit https://auth.checklyhq.com/activate and enter the code')
+    expect(stdout).toContain('Visit auth.checklyhq.com/activate and enter ')
     expect(stdout).toMatch(/[A-Z0-9]{4}-[A-Z0-9]{4}/)
     expect(stdout).toContain('Waiting for you to finish in the browser')
     expect(stdout).not.toContain('Do you want to log in or sign up')
