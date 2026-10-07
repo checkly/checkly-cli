@@ -1553,7 +1553,7 @@ describe('deploy of a plan with nothing to apply', () => {
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
       expect(ctx.style.longWarning).toHaveBeenCalledWith(
-        'Checks were not scheduled: this deploy has 1 checks, more than the scheduling threshold allows.',
+        'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
         expect.stringContaining('--schedule-on-deploy-threshold'),
       )
     })

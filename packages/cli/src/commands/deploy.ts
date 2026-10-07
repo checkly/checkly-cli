@@ -385,12 +385,6 @@ export default class Deploy extends AuthCommand {
       destructive: Deploy.destructive,
       idempotent: Deploy.idempotent,
     }
-    // The checks a deploy can schedule: a testOnly check is in the project
-    // but not in the deploy, and a heartbeat monitor waits for pings instead
-    // of running. Checkly counts them the same way against the threshold.
-    const heartbeats = project.getHeartbeatLogicalIds()
-    const schedulableChecks = Object.keys(projectBundle.data.check)
-      .filter(logicalId => !heartbeats.includes(logicalId)).length
     // What the deploy does whatever it finds, worded as the confirmation
     // prompt words it. The plan's own lines follow these. The scheduling
     // threshold is left out: few deploys reach it, and the deploy reports it
@@ -714,7 +708,12 @@ export default class Deploy extends AuthCommand {
       await setTimeout(500)
       if (wroteNothing) {
         // Scheduling is the one thing such a deploy visibly does, so it is said.
-        const scheduled = (data.scheduled ?? scheduleOnDeploy) && schedulableChecks > 0
+        // Counted on what was sent and can be scheduled: a testOnly check is
+        // in the project but not in the deploy, and a heartbeat monitor waits
+        // for pings instead of running.
+        const heartbeats = project.getHeartbeatLogicalIds()
+        const scheduled = (data.scheduled ?? scheduleOnDeploy)
+          && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
         this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
@@ -723,15 +722,15 @@ export default class Deploy extends AuthCommand {
       // threshold allows, so the checks wait for their next scheduled run.
       if (scheduleOnDeploy && data.scheduled === false) {
         this.style.longWarning(
-          `Checks were not scheduled: this deploy has ${schedulableChecks} checks, `
-          + 'more than the scheduling threshold allows.',
+          'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
           'They run at their next scheduled time. Pass --schedule-on-deploy-threshold to change the threshold, '
           + 'up to the maximum Checkly allows.',
         )
       }
 
       // Print the ping URL for heartbeat checks.
-      const heartbeatCheckIds = data.diff.filter(check => heartbeats.includes(check.logicalId))
+      const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
+      const heartbeatCheckIds = data.diff.filter(check => heartbeatLogicalIds.includes(check.logicalId))
         .map(check => check?.physicalId)
 
       heartbeatCheckIds.forEach(async id => {
