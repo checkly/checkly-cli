@@ -385,15 +385,26 @@ export default class Deploy extends AuthCommand {
       destructive: Deploy.destructive,
       idempotent: Deploy.idempotent,
     }
+    // The checks a deploy can schedule: a testOnly check is in the project
+    // but not in the deploy, and a heartbeat monitor waits for pings instead
+    // of running. Checkly counts them the same way against the threshold.
+    const heartbeats = project.getHeartbeatLogicalIds()
+    const schedulableChecks = Object.keys(projectBundle.data.check)
+      .filter(logicalId => !heartbeats.includes(logicalId)).length
+    // With `auto` only Checkly knows the threshold; with a number the outcome
+    // is known here already.
+    const schedulingLine = !scheduleOnDeploy
+      ? 'Checks will NOT be scheduled after deploy'
+      : scheduleThreshold === 'auto'
+        ? 'Schedule checks after deploy, unless it would schedule more checks than Checkly\'s scheduling threshold allows'
+        : schedulableChecks > scheduleThreshold
+          ? `Checks will NOT be scheduled after deploy: ${schedulableChecks} checks, more than the threshold of ${scheduleThreshold}`
+          : 'Schedule checks after deploy'
     // What the deploy does whatever it finds, worded as the confirmation
     // prompt words it. The plan's own lines follow these.
     const optionLines = [
       `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
-      scheduleOnDeploy
-        ? scheduleThreshold === 'auto'
-          ? 'Schedule checks after deploy, unless it would schedule more checks than Checkly\'s scheduling threshold allows'
-          : `Schedule checks after deploy, unless it would schedule more than ${scheduleThreshold} checks`
-        : 'Checks will NOT be scheduled after deploy',
+      schedulingLine,
       preserveResources
         ? 'Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app'
         : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead',
@@ -706,12 +717,6 @@ export default class Deploy extends AuthCommand {
         }))
       }
       await setTimeout(500)
-      // The checks a deploy can schedule: a testOnly check is in the project
-      // but not in the deploy, and a heartbeat monitor waits for pings
-      // instead of running.
-      const heartbeats = project.getHeartbeatLogicalIds()
-      const schedulableChecks = Object.keys(projectBundle.data.check)
-        .filter(logicalId => !heartbeats.includes(logicalId)).length
       if (wroteNothing) {
         // Scheduling is the one thing such a deploy visibly does, so it is said.
         const scheduled = (data.scheduled ?? scheduleOnDeploy) && schedulableChecks > 0
@@ -731,8 +736,7 @@ export default class Deploy extends AuthCommand {
       }
 
       // Print the ping URL for heartbeat checks.
-      const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
-      const heartbeatCheckIds = data.diff.filter(check => heartbeatLogicalIds.includes(check.logicalId))
+      const heartbeatCheckIds = data.diff.filter(check => heartbeats.includes(check.logicalId))
         .map(check => check?.physicalId)
 
       heartbeatCheckIds.forEach(async id => {
