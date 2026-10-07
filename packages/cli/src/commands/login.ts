@@ -28,6 +28,7 @@ import { activateAccount } from '../helpers/activate-account.js'
 import commonMessages from '../messages/common-messages.js'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
+import { shellQuote } from '../services/shell.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
@@ -156,7 +157,7 @@ interface ActionRequired {
   verification_uri_complete?: string
   user_code?: string
   expires_in?: number
-  next?: Array<{ command: string }>
+  next?: Array<{ command: string, when?: string }>
 }
 
 export default class Login extends BaseCommand {
@@ -189,6 +190,8 @@ export default class Login extends BaseCommand {
   // Whether the interactive output so far ends with an empty line, so the
   // next block is separated by exactly one.
   #atBlankLine = false
+  // `--account-id` as given, so the command to run after approval keeps it.
+  #requestedAccountId?: string
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
@@ -208,6 +211,7 @@ export default class Login extends BaseCommand {
     this.#mode = detectCliMode()
     this.#inline = options.inline ?? false
     this.#notice = undefined
+    this.#requestedAccountId = options.accountId
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
@@ -599,6 +603,17 @@ export default class Login extends BaseCommand {
       verification_uri_complete: authorization.verificationUriComplete,
       user_code: authorization.userCode,
       expires_in: Math.max(0, Math.round((authorization.expiresAt - Date.now()) / 1000)),
+      // The step after the user approves, spelled out: no other CLI logs in
+      // over two runs, so agents won't expect it. Left out when another
+      // command started the login: running that command again is the step,
+      // and its arguments aren't known here.
+      next: this.#inline
+        ? undefined
+        : [{
+            command: 'npx checkly login'
+              + (this.#requestedAccountId ? ` --account-id ${shellQuote(this.#requestedAccountId)}` : ''),
+            when: 'after the user has approved in the browser',
+          }],
     }, [
       `Visit ${chalk.bold.underline(withoutScheme(authorization.verificationUri))} and enter `
       + chalk.bold(authorization.userCode),

@@ -188,6 +188,25 @@ describe('checkly login', () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
     })
 
+    it('leaves next out when another command started the login, which is what to run again', async () => {
+      const cmd = createCommand()
+      await expect(cmd.login({ inline: true })).resolves.toBe(false)
+
+      const line = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
+      expect(line.reason).toBe('login_required')
+      expect(line.next).toBeUndefined()
+    })
+
+    it('keeps --account-id in the command to run after approval', async () => {
+      const cmd = createCommand('--account-id', 'acc-2')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(jsonLines(cmd)[0].next).toEqual([{
+        command: 'npx checkly login --account-id acc-2',
+        when: 'after the user has approved in the browser',
+      }])
+    })
+
     it('shows the code and returns at once, keeping the code for the next run', async () => {
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
@@ -202,6 +221,7 @@ describe('checkly login', () => {
         verification_uri: 'https://auth.checklyhq.com/activate',
         verification_uri_complete: 'https://auth.checklyhq.com/activate?user_code=ABCD-EFGH',
         user_code: 'ABCD-EFGH',
+        next: [{ command: 'npx checkly login', when: 'after the user has approved in the browser' }],
       })
       expect(actionRequired.message).toContain('ABCD-EFGH')
       expect(actionRequired.message).toContain('run this command again')
