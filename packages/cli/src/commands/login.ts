@@ -26,6 +26,8 @@ import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
 import { isPersonAtTerminal, detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
 import { activateAccount } from '../helpers/activate-account.js'
 import commonMessages from '../messages/common-messages.js'
+import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
+import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
@@ -86,6 +88,23 @@ function errorReason (error: unknown): ErrorReason {
     return 'api_error'
   }
   return 'login_failed'
+}
+
+/**
+ * What to do after logging in, in the current directory's package manager:
+ * run the checks of a Checkly project, or set one up. Undefined when that
+ * cannot be worked out; the hint is never worth failing a login over.
+ */
+async function nextStepHint (): Promise<string | undefined> {
+  try {
+    const packageManager = await detectPackageManager(process.cwd())
+    const command = (subcommand: string) => packageManager.execCommand(['checkly', subcommand]).unsafeDisplayCommand
+    return await getChecklyConfigFile()
+      ? `To run your checks, run \`${command('test')}\`.`
+      : `To create checks for a project, run \`${command('init')}\`.`
+  } catch {
+    return undefined
+  }
 }
 
 /** `https://auth.checklyhq.com/activate` as `auth.checklyhq.com/activate`. */
@@ -305,6 +324,12 @@ export default class Login extends BaseCommand {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
       } else {
         this.#print(`Logged in as ${chalk.cyan.bold(userName)} to ${chalk.cyan.bold(account.name)}.`)
+        // A login another command started goes straight on to that command.
+        const hint = this.#mode === 'interactive' && !this.#inline ? await nextStepHint() : undefined
+        if (hint) {
+          this.#print('')
+          this.#print(hint)
+        }
       }
       return true
     } catch (error: any) {

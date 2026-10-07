@@ -47,6 +47,8 @@ vi.mock('../../auth/device-flow', async importOriginal => {
 })
 vi.mock('../../auth/api-key', () => ({ credentialsFromTokens: vi.fn() }))
 vi.mock('../../auth/index', () => ({ AuthContext: vi.fn() }))
+vi.mock('../../services/check-parser/package-files/package-manager', () => ({ detectPackageManager: vi.fn() }))
+vi.mock('../../services/checkly-config-loader', () => ({ getChecklyConfigFile: vi.fn() }))
 
 import open from 'open'
 import { ux } from '@oclif/core'
@@ -60,6 +62,8 @@ import { AuthContext } from '../../auth/index.js'
 import {
   ForbiddenError, MissingResponseError, NotFoundError, ProxyConnectionError, ServerError, UnauthorizedError,
 } from '../../rest/errors.js'
+import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
+import { getChecklyConfigFile } from '../../services/checkly-config-loader.js'
 import Login from '../login.js'
 
 const mockConfig = {
@@ -157,6 +161,10 @@ beforeEach(() => {
   }
   config.data.store = {} as any
   vi.mocked(DeviceFlow).mockImplementation(() => deviceFlow as any)
+  vi.mocked(detectPackageManager).mockResolvedValue({
+    execCommand: (args: string[]) => ({ unsafeDisplayCommand: ['pnpm', ...args].join(' ') }),
+  } as any)
+  vi.mocked(getChecklyConfigFile).mockResolvedValue(undefined)
   vi.mocked(AuthContext).mockImplementation(() => authContext as any)
   deviceFlow.requestAuthorization.mockResolvedValue({ ...authorization, expiresAt: Date.now() + 900_000 })
   deviceFlow.pollForTokens.mockResolvedValue({ accessToken: 'at', idToken: 'idt' })
@@ -974,6 +982,8 @@ describe('checkly login', () => {
         '',
         'Waiting for you to finish in the browser…',
         'Logged in as Ada Lovelace to Acme.',
+        '',
+        'To create checks for a project, run `pnpm checkly init`.',
       ])
       expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
       // No login/sign-up menu, no "open a browser?" question, single account => no account prompt.
@@ -1097,6 +1107,29 @@ describe('checkly login', () => {
         expect(ux.action.start).not.toHaveBeenCalled()
         expect(loggedLines(cmd)).toContain('Waiting for you to finish in the browser…')
       })
+    })
+
+    it('suggests running the checks in a Checkly project, with its package manager', async () => {
+      vi.mocked(getChecklyConfigFile).mockResolvedValue({ checklyConfig: '', fileName: 'checkly.config.ts' })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(loggedLines(cmd).at(-1)).toBe('To run your checks, run `pnpm checkly test`.')
+    })
+
+    it('still logs in when the next step cannot be worked out', async () => {
+      vi.mocked(detectPackageManager).mockRejectedValueOnce(new Error('EACCES'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(loggedLines(cmd).at(-1)).toBe('Logged in as Ada Lovelace to Acme.')
+    })
+
+    it('suggests no next step for a login another command started', async () => {
+      const cmd = createCommand()
+      await expect(cmd.login({ inline: true })).resolves.toBe(true)
+
+      expect(detectPackageManager).not.toHaveBeenCalled()
     })
 
     it('asks which account to use when there are several', async () => {
