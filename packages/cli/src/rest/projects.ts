@@ -692,6 +692,7 @@ class Projects {
       dryRun = false,
       scheduleOnDeploy = true,
       scheduleOnDeployThreshold,
+      scheduleOnDeployMinFrequency,
       preserveResources = false,
       plan = false,
       pruneRelations = false,
@@ -707,6 +708,11 @@ class Projects {
        * Without it Checkly applies its own threshold.
        */
       scheduleOnDeployThreshold?: number
+      /**
+       * Leave out of scheduling the checks that run more often than every this
+       * many minutes. Without it Checkly applies its own minimum.
+       */
+      scheduleOnDeployMinFrequency?: number
       /**
        * Keep resources removed from code (and their run history) in the account
        * instead of deleting them.
@@ -755,6 +761,7 @@ class Projects {
           dryRun,
           scheduleOnDeploy,
           scheduleOnDeployThreshold,
+          scheduleOnDeployMinFrequency,
           preserveResources,
           plan,
           pruneRelations,
@@ -796,6 +803,7 @@ class Projects {
       dryRun,
       scheduleOnDeploy,
       scheduleOnDeployThreshold,
+      scheduleOnDeployMinFrequency,
       preserveResources,
       plan,
       pruneRelations,
@@ -805,6 +813,7 @@ class Projects {
       dryRun: boolean
       scheduleOnDeploy: boolean
       scheduleOnDeployThreshold?: number
+      scheduleOnDeployMinFrequency?: number
       preserveResources: boolean
       plan: boolean
       pruneRelations: boolean
@@ -815,18 +824,22 @@ class Projects {
     // Only send preserveResources when the user opted in. The endpoint rejects
     // unknown query params, and preserveResources=false is the default (delete)
     // behavior, so omitting it keeps default deploys backwards compatible.
-    // plan, pruneRelations, planToken and scheduleOnDeployThreshold are omitted
-    // for the same reason: an older API knows none of them.
+    // plan, pruneRelations, planToken, scheduleOnDeployThreshold and
+    // scheduleOnDeployMinFrequency are omitted for the same reason: an older
+    // API knows none of them.
     const thresholdParam = scheduleOnDeployThreshold === undefined
       ? ''
       : `&scheduleOnDeployThreshold=${scheduleOnDeployThreshold}`
+    const minFrequencyParam = scheduleOnDeployMinFrequency === undefined
+      ? ''
+      : `&scheduleOnDeployMinFrequency=${scheduleOnDeployMinFrequency}`
     const preserveParam = preserveResources ? '&preserveResources=true' : ''
     const planParam = plan ? '&plan=true' : ''
     const pruneParam = pruneRelations ? '&pruneRelations=true' : ''
     const tokenParam = planToken ? `&planToken=${encodeURIComponent(planToken)}` : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
       `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`
-      + `${thresholdParam}${preserveParam}${planParam}${pruneParam}${tokenParam}`,
+      + `${thresholdParam}${minFrequencyParam}${preserveParam}${planParam}${pruneParam}${tokenParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )

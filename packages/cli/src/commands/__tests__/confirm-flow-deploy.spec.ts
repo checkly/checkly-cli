@@ -136,6 +136,7 @@ const DEFAULT_FLAGS = {
   'config': undefined,
   'schedule-on-deploy': true,
   'schedule-on-deploy-threshold': 'auto',
+  'schedule-on-deploy-min-frequency': 'auto',
   'preserve-resources': false,
   'cancel-in-progress-deployment': false,
   'verify-runtime-dependencies': true,
@@ -152,6 +153,7 @@ const DEFAULT_METADATA = {
   'verbose': { setFromDefault: true },
   'schedule-on-deploy': { setFromDefault: true },
   'schedule-on-deploy-threshold': { setFromDefault: true },
+  'schedule-on-deploy-min-frequency': { setFromDefault: true },
   'preserve-resources': { setFromDefault: true },
   'cancel-in-progress-deployment': { setFromDefault: true },
   'verify-runtime-dependencies': { setFromDefault: true },
@@ -1181,6 +1183,7 @@ describe('deploy confirmCommand', () => {
       ['--preserve-resources'],
       ['--no-schedule-on-deploy'],
       ['--schedule-on-deploy-threshold', '20'],
+      ['--schedule-on-deploy-min-frequency', '0'],
       ['--verbose'],
       ['--plan'],
       ['--no-plan'],
@@ -1513,7 +1516,8 @@ describe('deploy of a plan with nothing to apply', () => {
     const scheduling = createCommandContext()
     await Deploy.prototype.run.call(scheduling as any)
     expect(scheduling.logged[scheduling.logged.length - 1])
-      .toBe('Project "My Project" is up to date. Checks were scheduled to run.')
+      .toBe('Project "My Project" is up to date. Checks were scheduled to run, '
+        + 'except those that run more often than Checkly\'s minimum frequency for deploys allows.')
 
     declareProjectWithCheck()
     const notScheduling = createCommandContext({ 'schedule-on-deploy': false })
@@ -1567,6 +1571,40 @@ describe('deploy of a plan with nothing to apply', () => {
       await Deploy.prototype.run.call(ctx as any)
 
       expect(ctx.style.longWarning).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('scheduling minimum frequency', () => {
+    it('sends a minimum the user set and keeps the confirmation plain', async () => {
+      nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
+      const asked = createCommandContext({ 'schedule-on-deploy-min-frequency': 15 })
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      const output = JSON.parse(asked.logged[asked.logged.length - 1])
+      expect(output.changes).toContain('Schedule checks after deploy')
+      expect(output.confirmCommand).toContain('--schedule-on-deploy-min-frequency="15"')
+
+      const forced = createCommandContext({ 'force': true, 'schedule-on-deploy-min-frequency': 15 })
+      await Deploy.prototype.run.call(forced as any)
+      expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployMinFrequency: 15 })
+    })
+
+    it('sends no minimum when the user left it to Checkly', async () => {
+      await Deploy.prototype.run.call(createCommandContext() as any)
+      expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployMinFrequency: undefined })
+    })
+
+    it.each([
+      [15, 'Checks that run every 15 minutes or less often were scheduled to run.'],
+      [1, 'Checks that run every minute or less often were scheduled to run.'],
+      [0, 'Checks were scheduled to run.'],
+    ])('says which checks were scheduled with a minimum of %s', async (minimum, note) => {
+      declareProjectWithCheck()
+      nothingToApply([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+      const ctx = createCommandContext({ 'schedule-on-deploy-min-frequency': minimum })
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.logged[ctx.logged.length - 1]).toBe(`Project "My Project" is up to date. ${note}`)
     })
   })
 

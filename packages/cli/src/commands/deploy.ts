@@ -9,7 +9,7 @@ import { Session } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation, getGitRepoRoot } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
-import { dryRunFlag, forceFlag, scheduleOnDeployThresholdFlag } from '../helpers/flags.js'
+import { autoOrWholeNumberFlag, dryRunFlag, forceFlag } from '../helpers/flags.js'
 import {
   formatPreview,
   NON_REPORTED_TYPES,
@@ -144,9 +144,16 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
-    'schedule-on-deploy-threshold': scheduleOnDeployThresholdFlag({
+    'schedule-on-deploy-threshold': autoOrWholeNumberFlag({
       description: 'Schedule no checks after the deploy if it would schedule more than this many. '
         + '"auto" leaves the threshold to Checkly, which also caps the number you can set.',
+      default: 'auto',
+    }),
+    'schedule-on-deploy-min-frequency': autoOrWholeNumberFlag({
+      description: 'After the deploy, schedule only the checks that run every this many minutes or less often; '
+        + 'more frequent checks wait for their next scheduled run. Goes by the frequency Checkly resolves for each '
+        + 'check, its defaults included. 0 schedules every check. "auto" leaves the minimum to Checkly, which also '
+        + 'caps the number you can set.',
       default: 'auto',
     }),
     'preserve-resources': Flags.boolean({
@@ -211,6 +218,7 @@ export default class Deploy extends AuthCommand {
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
       'schedule-on-deploy-threshold': scheduleThreshold,
+      'schedule-on-deploy-min-frequency': scheduleMinFrequency,
       'preserve-resources': preserveResources,
       output: outputFlag,
       verbose,
@@ -648,6 +656,7 @@ export default class Deploy extends AuthCommand {
     const runDeploy = () => deployOrRetryLegacy({
       scheduleOnDeploy,
       scheduleOnDeployThreshold: scheduleThreshold === 'auto' ? undefined : scheduleThreshold,
+      scheduleOnDeployMinFrequency: scheduleMinFrequency === 'auto' ? undefined : scheduleMinFrequency,
       preserveResources,
       pruneRelations,
       // Read when the deploy is sent, so that a run which planned again after
@@ -714,7 +723,15 @@ export default class Deploy extends AuthCommand {
         const heartbeats = project.getHeartbeatLogicalIds()
         const scheduled = (data.scheduled ?? scheduleOnDeploy)
           && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
-        this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
+        // Worded so that it stays true when the minimum frequency left some
+        // or all of them out.
+        const scheduledNote = scheduleMinFrequency === 0
+          ? ' Checks were scheduled to run.'
+          : scheduleMinFrequency === 'auto'
+            ? ' Checks were scheduled to run, except those that run more often than Checkly\'s minimum frequency '
+            + 'for deploys allows.'
+            : ` Checks that run every ${pluralizeMinutes(scheduleMinFrequency)} or less often were scheduled to run.`
+        this.log(`Project "${project.name}" is up to date.${scheduled ? scheduledNote : ''}`)
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
@@ -724,7 +741,7 @@ export default class Deploy extends AuthCommand {
         this.style.longWarning(
           'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
           'They run at their next scheduled time. Pass --schedule-on-deploy-threshold to change the threshold, '
-          + 'up to the maximum Checkly allows.',
+          + 'up to the maximum Checkly allows, or a higher --schedule-on-deploy-min-frequency to schedule fewer checks.',
         )
       }
 
@@ -808,4 +825,8 @@ export default class Deploy extends AuthCommand {
         a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
       )
   }
+}
+
+function pluralizeMinutes (minutes: number): string {
+  return minutes === 1 ? 'minute' : `${minutes} minutes`
 }

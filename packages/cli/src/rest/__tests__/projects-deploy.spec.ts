@@ -64,6 +64,15 @@ describe('Projects.deploy scheduling threshold', () => {
     expect(post.mock.calls[1][0]).toContain('&scheduleOnDeployThreshold=0')
   })
 
+  it('sends the minimum frequency only when one is given', async () => {
+    const { projects, post } = createProjects()
+    await projects.deploy(resources)
+    expect(post.mock.calls[0][0]).not.toContain('scheduleOnDeployMinFrequency')
+
+    await projects.deploy(resources, { scheduleOnDeployMinFrequency: 15 })
+    expect(post.mock.calls[1][0]).toContain('&scheduleOnDeployMinFrequency=15')
+  })
+
   it('reports that the checks were not scheduled when the deployment says so', async () => {
     const { projects } = createProjects({ scheduleOnDeploy: false })
     const { data } = await projects.deploy(resources)
