@@ -981,6 +981,7 @@ describe('checkly login', () => {
         'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
         '',
         'Waiting for you to finish in the browser…',
+        '',
         'Logged in as Ada Lovelace to Acme.',
         '',
         'To create checks for a project, run `pnpm checkly init`.',

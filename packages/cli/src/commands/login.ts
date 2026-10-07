@@ -323,6 +323,9 @@ export default class Login extends BaseCommand {
       } else if (switched) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
       } else {
+        if (this.#mode === 'interactive') {
+          this.#print('')
+        }
         this.#print(`Logged in as ${chalk.cyan.bold(userName)} to ${chalk.cyan.bold(account.name)}.`)
         // A login another command started goes straight on to that command.
         const hint = this.#mode === 'interactive' && !this.#inline ? await nextStepHint() : undefined
