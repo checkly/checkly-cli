@@ -61,3 +61,21 @@ export function planIdFlag () {
     description: 'Target a specific import plan by ID, skipping interactive plan selection.',
   })
 }
+
+/**
+ * A non-negative whole number, or `auto` for "let Checkly decide". There is no
+ * numeric default on purpose: the backend owns the threshold and its maximum.
+ */
+export function parseScheduleOnDeployThreshold (input: string): number | 'auto' {
+  if (input === 'auto') {
+    return 'auto'
+  }
+  if (!/^\d+$/.test(input)) {
+    throw new Error(`Expected a non-negative whole number or "auto", got "${input}".`)
+  }
+  return Number(input)
+}
+
+export const scheduleOnDeployThresholdFlag = Flags.custom<number | 'auto'>({
+  parse: input => Promise.resolve(parseScheduleOnDeployThreshold(input)),
+})

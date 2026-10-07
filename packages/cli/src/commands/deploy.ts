@@ -9,7 +9,7 @@ import { Session } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation, getGitRepoRoot } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
-import { dryRunFlag, forceFlag } from '../helpers/flags.js'
+import { dryRunFlag, forceFlag, scheduleOnDeployThresholdFlag } from '../helpers/flags.js'
 import {
   formatPreview,
   NON_REPORTED_TYPES,
@@ -144,6 +144,11 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
+    'schedule-on-deploy-threshold': scheduleOnDeployThresholdFlag({
+      description: 'Schedule no checks after the deploy if it would schedule more than this many. '
+        + '"auto" leaves the threshold to Checkly, which also caps the number you can set.',
+      default: 'auto',
+    }),
     'preserve-resources': Flags.boolean({
       description: 'Keep resources removed from code (and their run history) in your Checkly account instead of deleting them.',
       default: false,
@@ -205,6 +210,7 @@ export default class Deploy extends AuthCommand {
       'prune-relations': pruneRelations,
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
+      'schedule-on-deploy-threshold': scheduleThreshold,
       'preserve-resources': preserveResources,
       output: outputFlag,
       verbose,
@@ -380,7 +386,9 @@ export default class Deploy extends AuthCommand {
       idempotent: Deploy.idempotent,
     }
     // What the deploy does whatever it finds, worded as the confirmation
-    // prompt words it. The plan's own lines follow these.
+    // prompt words it. The plan's own lines follow these. The scheduling
+    // threshold is left out: few deploys reach it, and the deploy reports it
+    // when one does.
     const optionLines = [
       `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
       scheduleOnDeploy
@@ -639,6 +647,7 @@ export default class Deploy extends AuthCommand {
 
     const runDeploy = () => deployOrRetryLegacy({
       scheduleOnDeploy,
+      scheduleOnDeployThreshold: scheduleThreshold === 'auto' ? undefined : scheduleThreshold,
       preserveResources,
       pruneRelations,
       // Read when the deploy is sent, so that a run which planned again after
@@ -703,11 +712,20 @@ export default class Deploy extends AuthCommand {
         // in the project but not in the deploy, and a heartbeat monitor waits
         // for pings instead of running.
         const heartbeats = project.getHeartbeatLogicalIds()
-        const scheduled = scheduleOnDeploy
+        const scheduled = (data.scheduled ?? scheduleOnDeploy)
           && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
         this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
+      }
+      // Checkly declines to schedule a deploy with more checks than the
+      // threshold allows, so the checks wait for their next scheduled run.
+      if (scheduleOnDeploy && data.scheduled === false) {
+        this.style.longWarning(
+          'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
+          'They run at their next scheduled time. Pass --schedule-on-deploy-threshold to change the threshold, '
+          + 'up to the maximum Checkly allows.',
+        )
       }
 
       // Print the ping URL for heartbeat checks.

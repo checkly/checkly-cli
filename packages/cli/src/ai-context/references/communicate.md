@@ -24,7 +24,7 @@ Write commands (`incidents create`, `incidents update`, `incidents resolve`, `de
 3. This applies to **every** write command, not just the first one. Incident updates and resolutions also require confirmation.
 4. Use `--dry-run` to preview what a command will do without executing or prompting.
 5. Read-only commands (`incidents list`, `status-pages list`) execute immediately without confirmation.
-6. A `checkly deploy --plan` whose plan has no changes is the one write command that returns no envelope: it prints `No changes.`, records the deployment, schedules the checks unless `--no-schedule-on-deploy` is passed, and exits with code 0.
+6. A `checkly deploy --plan` whose plan has no changes is the one write command that returns no envelope: it prints `No changes.`, records the deployment, schedules the checks unless `--no-schedule-on-deploy` is passed or there are more of them than the scheduling threshold allows (`--schedule-on-deploy-threshold`, by default set by Checkly), and exits with code 0.
 
 The `confirmCommand` omits flags left at their default, so a bare `npx checkly deploy` confirms as `npx checkly deploy --force` rather than echoing back every boolean the parser filled in. Treat every flag you see there as deliberate.
 

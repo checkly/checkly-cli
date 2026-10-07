@@ -223,6 +223,13 @@ export interface DeployedProject extends Project {
 export interface ProjectDeployResponse {
   project: DeployedProject
   diff: Array<DiffEntry>
+  /**
+   * Whether Checkly scheduled the deployed checks to run. Set by `deploy()`
+   * from the deployment; false when it was asked not to, and when the deploy
+   * had more checks than the scheduling threshold allows. Absent from an API
+   * that predates the threshold.
+   */
+  scheduled?: boolean
 }
 
 export type ProjectDeploymentStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED'
@@ -237,6 +244,12 @@ export interface ProjectDeployment {
   error: { code: string, message: string } | null
   /** The applied { project, diff }; present once the deployment has succeeded. */
   result: ProjectDeployResponse | null
+  /**
+   * Whether the deploy schedules its checks. False when it was sent with
+   * scheduleOnDeploy=false, and when it had more checks than the scheduling
+   * threshold allows. Absent from an API that predates the threshold.
+   */
+  scheduleOnDeploy?: boolean
   createdAt: string
   startedAt: string | null
   endedAt: string | null
@@ -678,6 +691,7 @@ class Projects {
     {
       dryRun = false,
       scheduleOnDeploy = true,
+      scheduleOnDeployThreshold,
       preserveResources = false,
       plan = false,
       pruneRelations = false,
@@ -688,6 +702,11 @@ class Projects {
     }: {
       dryRun?: boolean
       scheduleOnDeploy?: boolean
+      /**
+       * Schedule no checks if the deploy would schedule more than this many.
+       * Without it Checkly applies its own threshold.
+       */
+      scheduleOnDeployThreshold?: number
       /**
        * Keep resources removed from code (and their run history) in the account
        * instead of deleting them.
@@ -735,6 +754,7 @@ class Projects {
         return await this.submitDeployment(resources, {
           dryRun,
           scheduleOnDeploy,
+          scheduleOnDeployThreshold,
           preserveResources,
           plan,
           pruneRelations,
@@ -772,9 +792,19 @@ class Projects {
 
   private async submitDeployment (
     resources: ProjectSync,
-    { dryRun, scheduleOnDeploy, preserveResources, plan, pruneRelations, planToken, onProgress }: {
+    {
+      dryRun,
+      scheduleOnDeploy,
+      scheduleOnDeployThreshold,
+      preserveResources,
+      plan,
+      pruneRelations,
+      planToken,
+      onProgress,
+    }: {
       dryRun: boolean
       scheduleOnDeploy: boolean
+      scheduleOnDeployThreshold?: number
       preserveResources: boolean
       plan: boolean
       pruneRelations: boolean
@@ -785,15 +815,18 @@ class Projects {
     // Only send preserveResources when the user opted in. The endpoint rejects
     // unknown query params, and preserveResources=false is the default (delete)
     // behavior, so omitting it keeps default deploys backwards compatible.
-    // plan, pruneRelations and planToken are omitted for the same reason: an
-    // older API knows none of them.
+    // plan, pruneRelations, planToken and scheduleOnDeployThreshold are omitted
+    // for the same reason: an older API knows none of them.
+    const thresholdParam = scheduleOnDeployThreshold === undefined
+      ? ''
+      : `&scheduleOnDeployThreshold=${scheduleOnDeployThreshold}`
     const preserveParam = preserveResources ? '&preserveResources=true' : ''
     const planParam = plan ? '&plan=true' : ''
     const pruneParam = pruneRelations ? '&pruneRelations=true' : ''
     const tokenParam = planToken ? `&planToken=${encodeURIComponent(planToken)}` : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
       `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`
-      + `${preserveParam}${planParam}${pruneParam}${tokenParam}`,
+      + `${thresholdParam}${preserveParam}${planParam}${pruneParam}${tokenParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )
@@ -824,7 +857,9 @@ class Projects {
       throw new ProjectDeployFailedError(completed.error?.message ?? 'The deployment did not complete successfully.')
     }
 
-    return { data: completed.result }
+    // An API from before the scheduling threshold does not report the outcome;
+    // it scheduled as asked.
+    return { data: { ...completed.result, scheduled: completed.scheduleOnDeploy ?? scheduleOnDeploy } }
   }
 
   /**
