@@ -87,16 +87,6 @@ describe('AuthCommand.init without stored credentials', () => {
     expect(cmd.didLogInInline).toBe(true)
   })
 
-  it('passes the command\'s fancy-output setting to the inline login', async () => {
-    vi.mocked(detectCliMode).mockReturnValue('agent')
-    const cmd = createCommand()
-    cmd.fancy = false
-
-    await cmd.init()
-
-    expect((loginInstance as any).fancy).toBe(false)
-  })
-
   it('tells a human what is happening and starts the login flow in interactive mode', async () => {
     vi.mocked(detectCliMode).mockReturnValue('interactive')
     const cmd = createCommand()

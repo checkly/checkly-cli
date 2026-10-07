@@ -1077,8 +1077,38 @@ describe('checkly login', () => {
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
         expect(ux.action.start).toHaveBeenCalledWith('Waiting for you to finish in the browser', undefined, { stdout: true })
-        expect(ux.action.stop).toHaveBeenCalledWith(expect.stringContaining('✔'))
+        expect(ux.action.stop).toHaveBeenCalledWith('✅')
         expect(loggedLines(cmd)).not.toContain('Waiting for you to finish in the browser…')
+        // The spinner line itself is drawn by oclif, between the two empty
+        // lines; actionSuccess's empty line separates the result, no second one.
+        expect(loggedLines(cmd)).toEqual([
+          'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
+          '',
+          '',
+          'Logged in as Ada Lovelace to Acme.',
+          '',
+          'To create checks for a project, run `pnpm checkly init`.',
+        ])
+      })
+
+      it('separates the result from the account prompt with one empty line', async () => {
+        vi.mocked(api.accounts.getAll).mockResolvedValue({
+          data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+        } as any)
+        vi.mocked(prompts).mockResolvedValueOnce({ selectedAccount: { id: 'acc-2', name: 'Globex' } })
+        const cmd = createCommand()
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        const lines = loggedLines(cmd)
+        expect(lines[lines.indexOf('Logged in as Ada Lovelace to Globex.') - 1]).toBe('')
+      })
+
+      it('keeps a login another command started off the spinner, which writes to stdout', async () => {
+        const cmd = createCommand()
+        await expect(cmd.login({ inline: true })).resolves.toBe(true)
+
+        expect(ux.action.start).not.toHaveBeenCalled()
+        expect(cmd.log).not.toHaveBeenCalled()
       })
 
       it('shows notes while waiting in the spinner', async () => {
@@ -1097,7 +1127,7 @@ describe('checkly login', () => {
         const cmd = createCommand()
         await expect(cmd.run()).rejects.toThrow('The login code expired.')
 
-        expect(ux.action.stop).toHaveBeenCalledWith(expect.stringContaining('✖'))
+        expect(ux.action.stop).toHaveBeenCalledWith('❌')
       })
 
       it('prints plain lines when fancy output is off', async () => {

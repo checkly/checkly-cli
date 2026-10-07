@@ -1,6 +1,6 @@
 import open from 'open'
 import chalk from 'chalk'
-import { Flags, ux } from '@oclif/core'
+import { Flags } from '@oclif/core'
 import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
@@ -186,6 +186,9 @@ export default class Login extends BaseCommand {
   // Why a stored login stopped working, for the agent to pass on with the
   // next step (a new code, account selection or success).
   #notice?: string
+  // Whether the interactive output so far ends with an empty line, so the
+  // next block is separated by exactly one.
+  #atBlankLine = false
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
@@ -323,7 +326,7 @@ export default class Login extends BaseCommand {
       } else if (switched) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
       } else {
-        if (this.#mode === 'interactive') {
+        if (this.#mode === 'interactive' && !this.#atBlankLine) {
           this.#print('')
         }
         this.#print(`Logged in as ${chalk.cyan.bold(userName)} to ${chalk.cyan.bold(account.name)}.`)
@@ -383,6 +386,7 @@ export default class Login extends BaseCommand {
   }
 
   #print (line: string): void {
+    this.#atBlankLine = line === ''
     if (this.#inline) {
       this.logToStderr(line)
     } else {
@@ -695,29 +699,28 @@ export default class Login extends BaseCommand {
   }
 
   /**
-   * Runs `wait` behind a spinner when a person watches the output on a
-   * terminal; otherwise prints `message` as a plain line, so a piped or
-   * redirected output gets no animation frames. `report` shows a note while
-   * waiting.
+   * Runs `wait` behind the CLI's usual spinner when a person watches the
+   * command's own output on a terminal; otherwise prints `message` as a plain
+   * line, so piped output gets no animation frames and a login another
+   * command started keeps its output on stderr (the spinner writes to
+   * stdout). `report` shows a note while waiting.
    */
   async #whileWaiting<T> (message: string, wait: (report: (note: string) => void) => Promise<T>): Promise<T> {
-    // oclif chooses between spinner and plain output from stderr alone.
-    const toTerminal = this.#inline ? process.stderr.isTTY : process.stdout.isTTY
-    if (this.#mode !== 'interactive' || !this.fancy || !toTerminal) {
+    if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stdout.isTTY) {
       if (this.#mode === 'interactive') {
         this.#print(chalk.dim(`${message}…`))
       }
       return wait(note => this.#print(note))
     }
-    ux.action.start(message, undefined, { stdout: !this.#inline })
+    this.style.actionStart(message)
     try {
-      const result = await wait(note => {
-        ux.action.status = note
-      })
-      ux.action.stop(chalk.green('✔'))
+      const result = await wait(note => this.style.actionStatus(note))
+      this.style.actionSuccess()
+      // actionSuccess ends with an empty line.
+      this.#atBlankLine = true
       return result
     } catch (error) {
-      ux.action.stop(chalk.red('✖'))
+      this.style.actionFailure()
       throw error
     }
   }
@@ -781,6 +784,7 @@ export default class Login extends BaseCommand {
       return undefined
     }
 
+    this.#atBlankLine = false
     const selected = await selectAccount(accounts, {
       onCancel: () => this.error('Command cancelled.\n'),
     })
