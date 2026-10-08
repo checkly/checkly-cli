@@ -1628,7 +1628,7 @@ describe('deploy of a plan with nothing to apply', () => {
         'The checks will run at their next scheduled time.\n'
         + '\n'
         + 'Not scheduled:\n'
-        + '- 1 check that runs more often than the minimum frequency allows.',
+        + '- 1 check that runs more often than the minimum frequency allows',
       )
     })
 
@@ -1654,7 +1654,7 @@ describe('deploy of a plan with nothing to apply', () => {
       expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
         'Some checks were not scheduled',
-        expect.stringContaining('\n- 2 checks that run more often than the minimum frequency allows.'),
+        expect.stringMatching(/\n- 2 checks that run more often than the minimum frequency allows$/),
       )
     })
 
@@ -1708,7 +1708,7 @@ describe('deploy of a plan with nothing to apply', () => {
         'The checks will run at their next scheduled time.\n'
         + '\n'
         + 'Not scheduled:\n'
-        + '- 1 check that runs more often than the minimum frequency allows.\n'
+        + '- 1 check that runs more often than the minimum frequency allows\n'
         + '- 2 checks for another reason (MOON_PHASE)\n'
         + '- 1 check for another reason (TIDE)',
       )
