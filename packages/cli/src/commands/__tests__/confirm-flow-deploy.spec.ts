@@ -135,6 +135,7 @@ const DEFAULT_FLAGS = {
   'verbose': false,
   'config': undefined,
   'schedule-on-deploy': true,
+  'schedule-on-deploy-threshold': 'auto',
   'preserve-resources': false,
   'cancel-in-progress-deployment': false,
   'verify-runtime-dependencies': true,
@@ -150,6 +151,7 @@ const DEFAULT_METADATA = {
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
   'schedule-on-deploy': { setFromDefault: true },
+  'schedule-on-deploy-threshold': { setFromDefault: true },
   'preserve-resources': { setFromDefault: true },
   'cancel-in-progress-deployment': { setFromDefault: true },
   'verify-runtime-dependencies': { setFromDefault: true },
@@ -1178,6 +1180,7 @@ describe('deploy confirmCommand', () => {
       [],
       ['--preserve-resources'],
       ['--no-schedule-on-deploy'],
+      ['--schedule-on-deploy-threshold', '20'],
       ['--verbose'],
       ['--plan'],
       ['--no-plan'],
@@ -1516,6 +1519,55 @@ describe('deploy of a plan with nothing to apply', () => {
     const notScheduling = createCommandContext({ 'schedule-on-deploy': false })
     await Deploy.prototype.run.call(notScheduling as any)
     expect(notScheduling.logged[notScheduling.logged.length - 1]).toBe('Project "My Project" is up to date.')
+  })
+
+  describe('scheduling threshold', () => {
+    it('sends a threshold the user set, and echoes it in the confirm command', async () => {
+      nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
+      const asked = createCommandContext({ 'schedule-on-deploy-threshold': 20 })
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      const output = JSON.parse(asked.logged[asked.logged.length - 1])
+      // The confirmation does not go into the threshold; the deploy reports it.
+      expect(output.changes).toContain('Schedule checks after deploy')
+      expect(output.confirmCommand).toContain('--schedule-on-deploy-threshold="20"')
+
+      const forced = createCommandContext({ 'force': true, 'schedule-on-deploy-threshold': 20 })
+      await Deploy.prototype.run.call(forced as any)
+      expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployThreshold: 20 })
+    })
+
+    it('sends no threshold when the user left it to Checkly', async () => {
+      await Deploy.prototype.run.call(createCommandContext() as any)
+      expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployThreshold: undefined })
+    })
+
+    it('warns when Checkly did not schedule the checks', async () => {
+      declareProjectWithCheck()
+      planResolves([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: { project: {} as any, diff: [UNCHANGED_CHANNEL, UNCHANGED_CHECK], scheduled: false },
+      })
+      const ctx = createCommandContext()
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+      expect(ctx.style.longWarning).toHaveBeenCalledWith(
+        'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
+        expect.stringContaining('--schedule-on-deploy-threshold'),
+      )
+    })
+
+    it('does not warn when the user asked for no scheduling', async () => {
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: { project: {} as any, diff: [UNCHANGED_CHANNEL], scheduled: false },
+      })
+      const ctx = createCommandContext({ 'schedule-on-deploy': false })
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.style.longWarning).not.toHaveBeenCalled()
+    })
   })
 
   it('still warns about relations the project does not manage, without asking', async () => {
