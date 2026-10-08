@@ -746,10 +746,12 @@ export default class Deploy extends AuthCommand {
       const tooFrequent = markedChecks.filter(entry => entry.scheduleSkippedReason === 'MIN_FREQUENCY').length
       if (tooFrequent > 0) {
         this.style.longInfo(
+          tooFrequent === 1 ? '1 check was not scheduled.' : `${tooFrequent} checks were not scheduled.`,
           tooFrequent === 1
-            ? '1 check was not scheduled: it runs more often than the minimum frequency for scheduling on deploy.'
-            : `${tooFrequent} checks were not scheduled: they run more often than the minimum frequency for scheduling on deploy.`,
-          'They run at their next scheduled time. Pass --schedule-on-deploy-min-frequency to change the minimum.',
+            ? 'It runs more often than the minimum frequency for scheduling on deploy, so it runs at its next '
+            + 'scheduled time instead. Pass --schedule-on-deploy-min-frequency to change the minimum.'
+            : 'They run more often than the minimum frequency for scheduling on deploy, so they run at their next '
+              + 'scheduled time instead. Pass --schedule-on-deploy-min-frequency to change the minimum.',
         )
       }
 

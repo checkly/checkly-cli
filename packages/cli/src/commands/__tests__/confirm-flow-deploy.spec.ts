@@ -1611,8 +1611,8 @@ describe('deploy of a plan with nothing to apply', () => {
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date. Checks were scheduled to run.')
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
-        '1 check was not scheduled: it runs more often than the minimum frequency for scheduling on deploy.',
-        expect.stringContaining('--schedule-on-deploy-min-frequency'),
+        '1 check was not scheduled.',
+        expect.stringMatching(/^It runs more often than the minimum frequency.*--schedule-on-deploy-min-frequency/),
       )
     })
 
@@ -1635,8 +1635,8 @@ describe('deploy of a plan with nothing to apply', () => {
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
-        '2 checks were not scheduled: they run more often than the minimum frequency for scheduling on deploy.',
-        expect.any(String),
+        '2 checks were not scheduled.',
+        expect.stringMatching(/^They run more often than the minimum frequency.*--schedule-on-deploy-min-frequency/),
       )
     })
 
