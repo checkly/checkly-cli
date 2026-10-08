@@ -1554,11 +1554,21 @@ describe('deploy of a plan with nothing to apply', () => {
 
       await Deploy.prototype.run.call(ctx as any)
 
+      // A blank line sets the warning apart from the line before it.
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
-      expect(ctx.style.longWarning).toHaveBeenCalledWith(
-        'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
-        expect.stringContaining('--schedule-on-deploy-threshold'),
-      )
+      // The last thing logged is the blank line before the warning or notice.
+      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
+      expect(ctx.style.longWarning).toHaveBeenCalledTimes(1)
+      const [title, message] = vi.mocked(ctx.style.longWarning).mock.calls[0]
+      expect(title).toBe('Checks were not scheduled')
+      expect(message).toMatch(/^This deploy would have scheduled more checks than the scheduling threshold allows\.\n/)
+      for (const option of [
+        '--no-schedule-on-deploy',
+        '--schedule-on-deploy-threshold=<number>',
+        '--schedule-on-deploy-min-frequency=<number>',
+      ]) {
+        expect(message).toContain(`\n  ${option}\n`)
+      }
     })
 
     it('does not warn when the user asked for no scheduling', async () => {
@@ -1610,9 +1620,14 @@ describe('deploy of a plan with nothing to apply', () => {
       await Deploy.prototype.run.call(ctx as any)
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date. Checks were scheduled to run.')
+      // The last thing logged is the blank line before the warning or notice.
+      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
-        '1 check was not scheduled.',
-        expect.stringMatching(/^It runs more often than the minimum frequency.*--schedule-on-deploy-min-frequency/),
+        'Some checks were not scheduled',
+        'The checks will run at their next scheduled time.\n'
+        + '\n'
+        + 'Not scheduled:\n'
+        + '- 1 check that runs more often than the minimum frequency allows.',
       )
     })
 
@@ -1634,9 +1649,11 @@ describe('deploy of a plan with nothing to apply', () => {
       await Deploy.prototype.run.call(ctx as any)
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+      // The last thing logged is the blank line before the warning or notice.
+      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
-        '2 checks were not scheduled.',
-        expect.stringMatching(/^They run more often than the minimum frequency.*--schedule-on-deploy-min-frequency/),
+        'Some checks were not scheduled',
+        expect.stringContaining('\n- 2 checks that run more often than the minimum frequency allows.'),
       )
     })
 
@@ -1651,16 +1668,49 @@ describe('deploy of a plan with nothing to apply', () => {
       expect(ctx.style.longInfo).not.toHaveBeenCalled()
     })
 
-    it('leaves a deploy the threshold stopped to the threshold warning', async () => {
+    it('only warns about a deploy the threshold stopped, whatever else left checks out', async () => {
       vi.mocked(api.projects.deploy).mockResolvedValue({
-        data: { project: {} as any, diff: [UNCHANGED_CHANNEL, marked(false, 'THRESHOLD')], scheduled: false },
+        data: {
+          project: {} as any,
+          diff: [UNCHANGED_CHANNEL, marked(false, 'THRESHOLD'), { ...marked(false, 'MIN_FREQUENCY'), logicalId: 'often' }],
+          scheduled: false,
+        },
       })
       const ctx = createCommandContext()
 
       await Deploy.prototype.run.call(ctx as any)
 
-      expect(ctx.style.longWarning).toHaveBeenCalled()
+      expect(ctx.style.longWarning).toHaveBeenCalledTimes(1)
       expect(ctx.style.longInfo).not.toHaveBeenCalled()
+    })
+
+    it('lists a reason it does not know yet as another reason', async () => {
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: {
+          project: {} as any,
+          diff: [UNCHANGED_CHANNEL, marked(true), { ...marked(false, 'MOON_PHASE' as any), logicalId: 'moon' }],
+        },
+      })
+      const ctx = createCommandContext()
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.style.longInfo).toHaveBeenCalledWith(
+        'Some checks were not scheduled',
+        expect.stringContaining('\n- 1 check for another reason (MOON_PHASE).'),
+      )
+    })
+
+    it('says nothing about checks left out when the deploy asked for no scheduling', async () => {
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: { project: {} as any, diff: [UNCHANGED_CHANNEL, marked(false, 'NOT_REQUESTED')], scheduled: false },
+      })
+      const ctx = createCommandContext({ 'schedule-on-deploy': false })
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.style.longInfo).not.toHaveBeenCalled()
+      expect(ctx.style.longWarning).not.toHaveBeenCalled()
     })
   })
 

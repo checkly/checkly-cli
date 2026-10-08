@@ -732,27 +732,44 @@ export default class Deploy extends AuthCommand {
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
-      // Checkly declines to schedule a deploy with more checks than the
-      // threshold allows, so the checks wait for their next scheduled run.
+      // Checkly schedules none of a deploy's checks when there are more than
+      // the threshold allows, which is worth a warning. Otherwise it may still
+      // leave some out, such as the ones that already run often; a notice
+      // lists those, kept short so that it does not push people into relaxing
+      // the limits. A deploy that asked for no scheduling hears about neither.
+      const notScheduled = scheduleOnDeploy
+        ? markedChecks.filter(entry => entry.scheduled === false && entry.scheduleSkippedReason !== 'NOT_REQUESTED')
+        : []
       if (scheduleOnDeploy && data.scheduled === false) {
-        this.style.longWarning(
-          'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
-          'They run at their next scheduled time. Pass --schedule-on-deploy-threshold to change the threshold, '
-          + 'up to the maximum Checkly allows, or a higher --schedule-on-deploy-min-frequency to schedule fewer checks.',
-        )
-      }
-      // Checks that already run often are left out of the scheduling, and the
-      // rest still run.
-      const tooFrequent = markedChecks.filter(entry => entry.scheduleSkippedReason === 'MIN_FREQUENCY').length
-      if (tooFrequent > 0) {
-        this.style.longInfo(
-          tooFrequent === 1 ? '1 check was not scheduled.' : `${tooFrequent} checks were not scheduled.`,
-          tooFrequent === 1
-            ? 'It runs more often than the minimum frequency for scheduling on deploy, so it runs at its next '
-            + 'scheduled time instead. Pass --schedule-on-deploy-min-frequency to change the minimum.'
-            : 'They run more often than the minimum frequency for scheduling on deploy, so they run at their next '
-              + 'scheduled time instead. Pass --schedule-on-deploy-min-frequency to change the minimum.',
-        )
+        // Set apart from the line above, which ends without one.
+        this.log()
+        this.style.longWarning('Checks were not scheduled', [
+          'This deploy would have scheduled more checks than the scheduling threshold allows.',
+          '',
+          'The checks will run at their next scheduled time.',
+          '',
+          'Helpful options:',
+          '  --no-schedule-on-deploy',
+          '    Disable automatic check scheduling after a deploy. Removes the warning.',
+          '',
+          '  --schedule-on-deploy-threshold=<number>',
+          '    Change the threshold to a suitable number of checks.',
+          '',
+          '  --schedule-on-deploy-min-frequency=<number>',
+          '    Only schedule checks that run less often than the specified frequency',
+          '    (in minutes), reducing the number of scheduled checks.',
+          '',
+          '  For a full list of options, pass --help.',
+        ].join('\n'))
+      } else if (notScheduled.length > 0) {
+        this.log()
+        this.style.longInfo('Some checks were not scheduled', [
+          'The checks will run at their next scheduled time.',
+          '',
+          'Not scheduled:',
+          ...Object.entries(countBy(notScheduled, entry => entry.scheduleSkippedReason ?? 'UNKNOWN'))
+            .map(([reason, count]) => `- ${describeNotScheduled(reason, count)}`),
+        ].join('\n'))
       }
 
       // Print the ping URL for heartbeat checks.
@@ -834,5 +851,25 @@ export default class Deploy extends AuthCommand {
       .sort((a, b) =>
         a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
       )
+  }
+}
+
+function countBy<T> (items: T[], key: (item: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const item of items) {
+    counts[key(item)] = (counts[key(item)] ?? 0) + 1
+  }
+  return counts
+}
+
+/** One line of the not-scheduled notice: how many checks a skip reason left out. */
+function describeNotScheduled (reason: string, count: number): string {
+  const checks = count === 1 ? '1 check' : `${count} checks`
+  switch (reason) {
+    case 'MIN_FREQUENCY':
+      return `${checks} that ${count === 1 ? 'runs' : 'run'} more often than the minimum frequency allows.`
+    default:
+      // A reason this CLI does not know yet, from a newer Checkly API.
+      return `${checks} for another reason (${reason}).`
   }
 }
