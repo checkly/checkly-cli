@@ -852,4 +852,15 @@ export abstract class RepairableRuntimeCheck extends RuntimeCheck {
     super(logicalId, props)
     this.aiAutoRepairEnabled = props.aiAutoRepairEnabled
   }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+    if (this.aiAutoRepairEnabled !== undefined && this.aiAutoRepairEnabled !== null
+      && typeof this.aiAutoRepairEnabled !== 'boolean') {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'aiAutoRepairEnabled',
+        new Error('"aiAutoRepairEnabled" must be a boolean or null (inherit the account setting).'),
+      ))
+    }
+  }
 }
