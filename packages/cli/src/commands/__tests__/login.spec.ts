@@ -195,6 +195,8 @@ describe('checkly login', () => {
       const line = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
       expect(line.reason).toBe('login_required')
       expect(line.next).toBeUndefined()
+      // Says why a command that was asked for something else shows a code.
+      expect(line.message).toMatch(/^Not logged in to Checkly, so this command needs a login first\. Open /)
     })
 
     it('keeps --account-id in the command to run after approval', async () => {

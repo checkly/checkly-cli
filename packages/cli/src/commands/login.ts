@@ -596,6 +596,10 @@ export default class Login extends BaseCommand {
       reason: 'login_required',
       userActionRequired: true,
       message: (this.#notice ? `${this.#notice} ` : '')
+        // A command that started a login on its own (e.g. `whoami`) prints
+        // this instead of what was asked for; say so, or the line reads as a
+        // plain "not logged in" error and the code goes unused.
+        + (this.#inline ? 'Not logged in to Checkly, so this command needs a login first. ' : '')
         + `Open ${authorization.verificationUri} in a browser on any device and enter the code `
         + `${authorization.userCode}. Once the user has approved, run this command again.`
         + (problem ? ` ${problem}` : '') + ` ${Login.#signUpHint}`,
