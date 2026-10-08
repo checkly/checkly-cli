@@ -113,6 +113,19 @@ export interface DiffEntry extends Change {
    * the write may reset it.
    */
   basis?: 'live'
+  /**
+   * On a check the deploy created, updated or kept, other than a heartbeat
+   * monitor: whether Checkly selected it to run right after the deploy. Only on
+   * a deploy's result, never on a preview or a dry run, and absent from an API
+   * that predates it.
+   */
+  scheduled?: boolean
+  /**
+   * Why `scheduled` is false: the deploy did not ask for scheduling, it had
+   * more checks than the scheduling threshold allows, or the check runs more
+   * often than the minimum frequency for scheduling on deploy.
+   */
+  scheduleSkippedReason?: 'NOT_REQUESTED' | 'THRESHOLD' | 'MIN_FREQUENCY'
 }
 
 /** How much of each change a preview reports. */

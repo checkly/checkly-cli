@@ -715,23 +715,20 @@ export default class Deploy extends AuthCommand {
         }))
       }
       await setTimeout(500)
+      // The checks Checkly marked with whether it scheduled them; none from an
+      // API that predates the marks.
+      const markedChecks = data.diff.filter(entry => entry.scheduled !== undefined)
       if (wroteNothing) {
         // Scheduling is the one thing such a deploy visibly does, so it is said.
-        // Counted on what was sent and can be scheduled: a testOnly check is
-        // in the project but not in the deploy, and a heartbeat monitor waits
-        // for pings instead of running.
+        // Without marks it is counted on what was sent and can be scheduled: a
+        // testOnly check is in the project but not in the deploy, and a
+        // heartbeat monitor waits for pings instead of running.
         const heartbeats = project.getHeartbeatLogicalIds()
-        const scheduled = (data.scheduled ?? scheduleOnDeploy)
-          && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
-        // Worded so that it stays true when the minimum frequency left some
-        // or all of them out.
-        const scheduledNote = scheduleMinFrequency === 0
-          ? ' Checks were scheduled to run.'
-          : scheduleMinFrequency === 'auto'
-            ? ' Checks were scheduled to run, except those that run more often than Checkly\'s minimum frequency '
-            + 'for deploys allows.'
-            : ` Checks that run every ${pluralizeMinutes(scheduleMinFrequency)} or less often were scheduled to run.`
-        this.log(`Project "${project.name}" is up to date.${scheduled ? scheduledNote : ''}`)
+        const scheduled = markedChecks.length > 0
+          ? markedChecks.some(entry => entry.scheduled)
+          : (data.scheduled ?? scheduleOnDeploy)
+            && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
+        this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
@@ -742,6 +739,17 @@ export default class Deploy extends AuthCommand {
           'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
           'They run at their next scheduled time. Pass --schedule-on-deploy-threshold to change the threshold, '
           + 'up to the maximum Checkly allows, or a higher --schedule-on-deploy-min-frequency to schedule fewer checks.',
+        )
+      }
+      // Checks that already run often are left out of the scheduling, and the
+      // rest still run.
+      const tooFrequent = markedChecks.filter(entry => entry.scheduleSkippedReason === 'MIN_FREQUENCY').length
+      if (tooFrequent > 0) {
+        this.style.longInfo(
+          tooFrequent === 1
+            ? '1 check was not scheduled: it runs more often than the minimum frequency for scheduling on deploy.'
+            : `${tooFrequent} checks were not scheduled: they run more often than the minimum frequency for scheduling on deploy.`,
+          'They run at their next scheduled time. Pass --schedule-on-deploy-min-frequency to change the minimum.',
         )
       }
 
@@ -825,8 +833,4 @@ export default class Deploy extends AuthCommand {
         a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
       )
   }
-}
-
-function pluralizeMinutes (minutes: number): string {
-  return minutes === 1 ? 'minute' : `${minutes} minutes`
 }

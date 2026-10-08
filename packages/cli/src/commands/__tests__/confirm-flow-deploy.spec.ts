@@ -1516,8 +1516,7 @@ describe('deploy of a plan with nothing to apply', () => {
     const scheduling = createCommandContext()
     await Deploy.prototype.run.call(scheduling as any)
     expect(scheduling.logged[scheduling.logged.length - 1])
-      .toBe('Project "My Project" is up to date. Checks were scheduled to run, '
-        + 'except those that run more often than Checkly\'s minimum frequency for deploys allows.')
+      .toBe('Project "My Project" is up to date. Checks were scheduled to run.')
 
     declareProjectWithCheck()
     const notScheduling = createCommandContext({ 'schedule-on-deploy': false })
@@ -1593,18 +1592,75 @@ describe('deploy of a plan with nothing to apply', () => {
       expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployMinFrequency: undefined })
     })
 
-    it.each([
-      [15, 'Checks that run every 15 minutes or less often were scheduled to run.'],
-      [1, 'Checks that run every minute or less often were scheduled to run.'],
-      [0, 'Checks were scheduled to run.'],
-    ])('says which checks were scheduled with a minimum of %s', async (minimum, note) => {
+    // What the deploy marks on its checks, the way Checkly reports it.
+    const marked = (scheduled: boolean, scheduleSkippedReason?: DiffEntry['scheduleSkippedReason']) =>
+      ({ ...UNCHANGED_CHECK, scheduled, ...scheduleSkippedReason ? { scheduleSkippedReason } : {} })
+
+    it('says the checks were scheduled when Checkly scheduled any of them', async () => {
       declareProjectWithCheck()
-      nothingToApply([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
-      const ctx = createCommandContext({ 'schedule-on-deploy-min-frequency': minimum })
+      planResolves([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: {
+          project: {} as any,
+          diff: [UNCHANGED_CHANNEL, marked(true), { ...marked(false, 'MIN_FREQUENCY'), logicalId: 'frequent' }],
+        },
+      })
+      const ctx = createCommandContext()
 
       await Deploy.prototype.run.call(ctx as any)
 
-      expect(ctx.logged[ctx.logged.length - 1]).toBe(`Project "My Project" is up to date. ${note}`)
+      expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date. Checks were scheduled to run.')
+      expect(ctx.style.longInfo).toHaveBeenCalledWith(
+        '1 check was not scheduled: it runs more often than the minimum frequency for scheduling on deploy.',
+        expect.stringContaining('--schedule-on-deploy-min-frequency'),
+      )
+    })
+
+    it('does not say the checks were scheduled when the minimum left out every one', async () => {
+      declareProjectWithCheck()
+      planResolves([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: {
+          project: {} as any,
+          diff: [
+            UNCHANGED_CHANNEL,
+            marked(false, 'MIN_FREQUENCY'),
+            { ...marked(false, 'MIN_FREQUENCY'), logicalId: 'frequent' },
+          ],
+        },
+      })
+      const ctx = createCommandContext()
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+      expect(ctx.style.longInfo).toHaveBeenCalledWith(
+        '2 checks were not scheduled: they run more often than the minimum frequency for scheduling on deploy.',
+        expect.any(String),
+      )
+    })
+
+    it('says nothing about the minimum when it left no check out', async () => {
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: { project: {} as any, diff: [UNCHANGED_CHANNEL, marked(true)] },
+      })
+      const ctx = createCommandContext()
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.style.longInfo).not.toHaveBeenCalled()
+    })
+
+    it('leaves a deploy the threshold stopped to the threshold warning', async () => {
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: { project: {} as any, diff: [UNCHANGED_CHANNEL, marked(false, 'THRESHOLD')], scheduled: false },
+      })
+      const ctx = createCommandContext()
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.style.longWarning).toHaveBeenCalled()
+      expect(ctx.style.longInfo).not.toHaveBeenCalled()
     })
   })
 
