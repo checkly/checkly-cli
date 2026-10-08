@@ -9,7 +9,7 @@ import { Session } from '../constructs/index.js'
 import chalk from 'chalk'
 import { splitConfigFilePath, getGitInformation, getGitRepoRoot } from '../services/util.js'
 import commonMessages from '../messages/common-messages.js'
-import { dryRunFlag, forceFlag, scheduleOnDeployThresholdFlag } from '../helpers/flags.js'
+import { autoOrWholeNumberFlag, dryRunFlag, forceFlag } from '../helpers/flags.js'
 import {
   formatPreview,
   NON_REPORTED_TYPES,
@@ -144,9 +144,16 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
-    'schedule-on-deploy-threshold': scheduleOnDeployThresholdFlag({
+    'schedule-on-deploy-threshold': autoOrWholeNumberFlag({
       description: 'Schedule no checks after the deploy if it would schedule more than this many. '
         + '"auto" leaves the threshold to Checkly, which also caps the number you can set.',
+      default: 'auto',
+    }),
+    'schedule-on-deploy-min-frequency': autoOrWholeNumberFlag({
+      description: 'After the deploy, schedule only the checks that run every this many minutes or less often; '
+        + 'more frequent checks wait for their next scheduled run. Goes by the frequency Checkly resolves for each '
+        + 'check, its defaults included. 0 schedules every check. "auto" leaves the minimum to Checkly, which also '
+        + 'caps the number you can set.',
       default: 'auto',
     }),
     'preserve-resources': Flags.boolean({
@@ -211,6 +218,7 @@ export default class Deploy extends AuthCommand {
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
       'schedule-on-deploy-threshold': scheduleThreshold,
+      'schedule-on-deploy-min-frequency': scheduleMinFrequency,
       'preserve-resources': preserveResources,
       output: outputFlag,
       verbose,
@@ -648,6 +656,7 @@ export default class Deploy extends AuthCommand {
     const runDeploy = () => deployOrRetryLegacy({
       scheduleOnDeploy,
       scheduleOnDeployThreshold: scheduleThreshold === 'auto' ? undefined : scheduleThreshold,
+      scheduleOnDeployMinFrequency: scheduleMinFrequency === 'auto' ? undefined : scheduleMinFrequency,
       preserveResources,
       pruneRelations,
       // Read when the deploy is sent, so that a run which planned again after
@@ -706,26 +715,61 @@ export default class Deploy extends AuthCommand {
         }))
       }
       await setTimeout(500)
+      // The checks Checkly marked with whether it scheduled them; none from an
+      // API that predates the marks.
+      const markedChecks = data.diff.filter(entry => entry.scheduled !== undefined)
       if (wroteNothing) {
         // Scheduling is the one thing such a deploy visibly does, so it is said.
-        // Counted on what was sent and can be scheduled: a testOnly check is
-        // in the project but not in the deploy, and a heartbeat monitor waits
-        // for pings instead of running.
+        // Without marks it is counted on what was sent and can be scheduled: a
+        // testOnly check is in the project but not in the deploy, and a
+        // heartbeat monitor waits for pings instead of running.
         const heartbeats = project.getHeartbeatLogicalIds()
-        const scheduled = (data.scheduled ?? scheduleOnDeploy)
-          && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
+        const scheduled = markedChecks.length > 0
+          ? markedChecks.some(entry => entry.scheduled)
+          : (data.scheduled ?? scheduleOnDeploy)
+            && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
         this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
-      // Checkly declines to schedule a deploy with more checks than the
-      // threshold allows, so the checks wait for their next scheduled run.
+      // Checkly schedules none of a deploy's checks when there are more than
+      // the threshold allows, which is worth a warning. Otherwise it may still
+      // leave some out, such as the ones that already run often; a notice
+      // lists those, kept short so that it does not push people into relaxing
+      // the limits. A deploy that asked for no scheduling hears about neither.
+      const notScheduled = scheduleOnDeploy
+        ? markedChecks.filter(entry => entry.scheduled === false && entry.scheduleSkippedReason !== 'NOT_REQUESTED')
+        : []
       if (scheduleOnDeploy && data.scheduled === false) {
-        this.style.longWarning(
-          'Checks were not scheduled: this deploy has more checks than the scheduling threshold allows.',
-          'They run at their next scheduled time. Pass --schedule-on-deploy-threshold to change the threshold, '
-          + 'up to the maximum Checkly allows.',
-        )
+        // Set apart from the line above, which ends without one.
+        this.log()
+        this.style.longWarning('Checks were not scheduled', [
+          'This deploy would have scheduled more checks than the scheduling threshold allows.',
+          '',
+          'All checks will run at their next scheduled time.',
+          '',
+          'Helpful options:',
+          '  --no-schedule-on-deploy',
+          '    Disable automatic check scheduling after a deploy. Removes the warning.',
+          '',
+          '  --schedule-on-deploy-threshold=<number>',
+          '    Change the threshold to a suitable number of checks.',
+          '',
+          '  --schedule-on-deploy-min-frequency=<number>',
+          '    Only schedule checks that run less often than the specified frequency',
+          '    (in minutes), reducing the number of scheduled checks.',
+          '',
+          '  For a full list of options, pass --help.',
+        ].join('\n'))
+      } else if (notScheduled.length > 0) {
+        this.log()
+        this.style.longInfo('Some checks were not scheduled', [
+          'The checks will run at their next scheduled time.',
+          '',
+          'Not scheduled:',
+          ...Object.entries(countBy(notScheduled, entry => entry.scheduleSkippedReason ?? 'UNKNOWN'))
+            .map(([reason, count]) => `- ${describeNotScheduled(reason, count)}`),
+        ].join('\n'))
       }
 
       // Print the ping URL for heartbeat checks.
@@ -807,5 +851,26 @@ export default class Deploy extends AuthCommand {
       .sort((a, b) =>
         a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
       )
+  }
+}
+
+function countBy<T> (items: T[], key: (item: T) => string): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const item of items) {
+    counts[key(item)] = (counts[key(item)] ?? 0) + 1
+  }
+  return counts
+}
+
+/** One line of the not-scheduled notice: how many checks a skip reason left out. */
+function describeNotScheduled (reason: string, count: number): string {
+  const checks = count === 1 ? '1 check' : `${count} checks`
+  switch (reason) {
+    case 'MIN_FREQUENCY':
+      return `${checks} that ${count === 1 ? 'runs' : 'run'} more often than the minimum frequency allows`
+    default:
+      // A reason this CLI does not know yet, from a newer Checkly API: named
+      // as the API reports it.
+      return `${checks} for another reason (${reason})`
   }
 }
