@@ -746,7 +746,7 @@ export default class Deploy extends AuthCommand {
         this.style.longWarning('Checks were not scheduled', [
           'This deploy would have scheduled more checks than the scheduling threshold allows.',
           '',
-          'The checks will run at their next scheduled time.',
+          'All checks will run at their next scheduled time.',
           '',
           'Helpful options:',
           '  --no-schedule-on-deploy',

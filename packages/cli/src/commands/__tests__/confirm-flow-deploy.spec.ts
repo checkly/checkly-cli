@@ -1562,6 +1562,7 @@ describe('deploy of a plan with nothing to apply', () => {
       const [title, message] = vi.mocked(ctx.style.longWarning).mock.calls[0]
       expect(title).toBe('Checks were not scheduled')
       expect(message).toMatch(/^This deploy would have scheduled more checks than the scheduling threshold allows\.\n/)
+      expect(message).toContain('\nAll checks will run at their next scheduled time.\n')
       for (const option of [
         '--no-schedule-on-deploy',
         '--schedule-on-deploy-threshold=<number>',
