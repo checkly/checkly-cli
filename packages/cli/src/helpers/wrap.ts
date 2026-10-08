@@ -14,7 +14,7 @@ export function wrap (
   let trim = 0
 
   const prefixTrim = trimPrefix
-    ? (prefix.match(/[ \t]$/) ?? [''])[0].length
+    ? (prefix.match(/[ \t]+$/) ?? [''])[0].length
     : 0
 
   for (const token of tokens) {
