@@ -871,6 +871,6 @@ function describeNotScheduled (reason: string, count: number): string {
     default:
       // A reason this CLI does not know yet, from a newer Checkly API: named
       // as the API reports it.
-      return `${checks} that ${count === 1 ? 'reports' : 'report'} the reason as: ${reason}`
+      return `${checks} for another reason (${reason})`
   }
 }

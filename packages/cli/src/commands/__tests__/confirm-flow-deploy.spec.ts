@@ -1709,8 +1709,8 @@ describe('deploy of a plan with nothing to apply', () => {
         + '\n'
         + 'Not scheduled:\n'
         + '- 1 check that runs more often than the minimum frequency allows.\n'
-        + '- 2 checks that report the reason as: MOON_PHASE\n'
-        + '- 1 check that reports the reason as: TIDE',
+        + '- 2 checks for another reason (MOON_PHASE)\n'
+        + '- 1 check for another reason (TIDE)',
       )
     })
 
