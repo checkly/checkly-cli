@@ -117,6 +117,9 @@ Source in `src/ai-context/`, built during `prepare`. Generates examples from fix
 - `CHECKLY_ENV` — target environment (`production`, `staging`, `development`, `local`)
 - `CHECKLY_API_URL` — override API base URL (used when `CHECKLY_ENV=local`)
 - `CHECKLY_E2E_CLI_VERSION` — e2e/local-development override of the version the CLI reports to the API (`x-checkly-cli-version` header); for `create-checkly` it also selects the banner version and the template git tag. It never changes which CLI version runs
+- `CHECKLY_AUTH_URL` — override the Auth0 host used by `checkly login` (only when `CHECKLY_ENV=local`; e2e tests point it at a fake)
+- `CHECKLY_CLI_MODE` — force the CLI mode (`interactive`, `agent` or `ci`) instead of detecting it; an explicit `interactive` also lets `checkly login` show its code without a detected terminal (e2e harness, terminals Node doesn't recognise)
+- `CHECKLY_NO_BROWSER` — set to `1` so `checkly login` prints the login URL without trying to open a browser
 - `CHECKLY_CACHE_DIR` — override the CLI's cache directory (embedded-package tarball downloads)
 - `CHECKLY_SKIP_NODE_VERSION_CHECK` — set to `1` to bypass the bin's hard Node version preflight (unsupported Node may then fail in unexpected ways); must be set in the shell environment — the preflight runs before `.env` is loaded
 - `CHECKLY_LOCKFILE_PRUNE` — set to `0` to disable pruning the bundled lockfile to the code bundle's contents; when a lockfile is bundled this also disables `bundle.packages.prune` (the manifest rewrite rolls back)

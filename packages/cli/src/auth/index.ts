@@ -1,22 +1,31 @@
-import axios, { type AxiosError } from 'axios'
-import * as os from 'os'
+import axios from 'axios'
 import * as http from 'http'
 import * as crypto from 'crypto'
-import { jwtDecode } from 'jwt-decode'
-import { getDefaults as getApiDefaults } from '../rest/api.js'
-import { assignProxy } from '../services/proxy.js'
 import * as fs from 'fs'
 import * as path from 'path'
 import { fileURLToPath } from 'node:url'
+import { credentialsFromTokens } from './api-key.js'
+import { assignProxy } from '../services/proxy.js'
+import config from '../services/config.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
-export type AuthMode = 'signup' | 'login'
+/** 'any' leaves both login and sign-up enabled on the hosted page. */
+export type AuthMode = 'signup' | 'login' | 'any'
 
 const AUTH0_CLIENT_ID = 'mBtwLFVm39GVZ1HpSRBSdRiLFucYxmMb'
-const AUTH0_AUTHORIZATION_URL = 'https://auth.checklyhq.com/authorize'
+const authorizationUrl = () => `${config.getAuthUrl()}/authorize`
+const tokenUrl = () => `${config.getAuthUrl()}/oauth/token`
 const AUTH0_SCOPES = 'openid profile email'
 const AUTH0_CALLBACK_URL = 'http://localhost:4242'
+// Long enough to sign up (which can include confirming an email address),
+// short enough not to block an inline login for long; within what other CLIs
+// use for a browser login (AWS CLI and Heroku wait 10 minutes).
+const LOGIN_TIMEOUT_MS = 10 * 60 * 1000
+
+function escapeHtml (value: string | null): string {
+  return (value ?? '').replace(/[&<>"']/g, char => `&#${char.charCodeAt(0)};`)
+}
 
 export function generatePKCE () {
   const codeVerifier = crypto
@@ -48,8 +57,10 @@ export class AuthContext {
 
   #accessToken?: string
   #idToken?: string
+  #timeoutMs: number
 
-  constructor (private mode: AuthMode) {
+  constructor (private mode: AuthMode, { timeoutMs = LOGIN_TIMEOUT_MS }: { timeoutMs?: number } = {}) {
+    this.#timeoutMs = timeoutMs
     const { codeChallenge, codeVerifier } = generatePKCE()
     this.#codeChallenge = codeChallenge
     this.#codeVerifier = codeVerifier
@@ -65,18 +76,11 @@ export class AuthContext {
         + 'support@checklyhq.com if this problem persists')
     }
 
-    const { name } = jwtDecode<any>(this.#idToken)
-
-    const { key } = await this.#getApiKey()
-
-    return {
-      name,
-      key,
-    }
+    return credentialsFromTokens({ accessToken: this.#accessToken, idToken: this.#idToken })
   }
 
   #generateAuthenticationUrl () {
-    const url = new URL(AUTH0_AUTHORIZATION_URL)
+    const url = new URL(authorizationUrl())
 
     const params = new URLSearchParams({
       client_id: AUTH0_CLIENT_ID,
@@ -88,7 +92,7 @@ export class AuthContext {
       state: this.#codeVerifier,
       mode: this.mode === 'signup' ? 'signUp' : '',
       allowLogin: this.mode === 'signup' ? 'false' : 'true',
-      allowSignUp: this.mode === 'signup' ? 'true' : 'false',
+      allowSignUp: this.mode === 'login' ? 'false' : 'true',
     })
 
     url.search = params.toString()
@@ -97,17 +101,38 @@ export class AuthContext {
 
   #startServer (): Promise<string> {
     return new Promise((resolve, reject) => {
+      // The CLI may keep running after the login (an authenticated command
+      // logging in inline), so nothing here may keep the process alive
+      // afterwards: every request gets an answer, the response that settles
+      // the login closes its connection instead of keeping it alive for the
+      // browser's next request, and the server stops listening.
       const server = http.createServer()
+      // Nobody may ever finish the login in the browser; without a deadline
+      // the process (and an authenticated command logging in inline) would
+      // wait forever. No response carries `Connection: close` in that case,
+      // so connections the browser keeps alive are dropped explicitly.
+      const timer = setTimeout(() => {
+        server.close()
+        server.closeAllConnections()
+        reject(new Error('The login was not completed in time. Please run the login again.'))
+      }, this.#timeoutMs)
+      const stop = () => {
+        clearTimeout(timer)
+        server.close()
+      }
       server.on('request', (req, res) => {
         if (req.url?.endsWith('.svg')) {
-          res.writeHead(200, { 'Content-Type': 'image/svg+xml' })
-
           fs.readFile(path.join(__dirname, `.${req.url}`), 'utf8', (err, data) => {
-            if (!err) res.end(data)
+            if (err) {
+              res.writeHead(404).end()
+            } else {
+              res.writeHead(200, { 'Content-Type': 'image/svg+xml' }).end(data)
+            }
           })
-
+        } else if (req.url?.includes('favicon.ico')) {
+          res.writeHead(404).end()
         // `req.url` has a '/' char at the beginning which needs removed to be valid searchParams input
-        } else if (!req.url?.includes('favicon.ico')) {
+        } else {
           const responseParams = new URLSearchParams(req.url?.substring(1))
           const code = responseParams.get('code')
           const state = responseParams.get('state')
@@ -115,7 +140,15 @@ export class AuthContext {
           const error = responseParams.get('error')
           const errorDescription = responseParams.get('error_description')
 
-          if (code && state === this.#codeVerifier) {
+          // A code or an error that answers this login (the state matches)
+          // settles it, as the device flow does; anything else, such as a
+          // stray request, leaves the server waiting for the real callback.
+          const settles = state === this.#codeVerifier && Boolean(code || error)
+          if (settles) {
+            res.setHeader('Connection', 'close')
+          }
+
+          if (code && settles) {
             res.write(`
         <html>
             <style>
@@ -152,34 +185,33 @@ export class AuthContext {
         </body>
         </html>
       `)
+            stop()
             resolve(code)
           } else {
             res.write(`
         <html>
         <body>
           <div style="height:100%;width:100%;inset:0;position:absolute;display:grid;place-items:center;background-color:#EFF2F7;text-align:center;font-family:Inter;">
-            <h3 style="font-weight:200;">Login failed, please try again!</h3>
+            <h3 style="font-weight:200;">${settles ? 'Login failed. Go back to your terminal; you can close this tab.' : 'Login failed, please try again!'}</h3>
             <p>
-              <b>${error}</b>: ${errorDescription}
+              <b>${escapeHtml(error)}</b>: ${escapeHtml(errorDescription)}
             </p>
           </div>
         </body>
         </html>
       `)
+            if (settles) {
+              stop()
+              reject(new Error(`Login failed: ${errorDescription || error}`))
+            }
           }
 
           res.end()
         }
       })
 
-      const signals = ['SIGTERM', 'SIGHUP', 'SIGINT']
-
-      signals.forEach(signal => process.on(signal, () => {
-        server.close()
-        process.exitCode = 1
-      }))
-
       server.listen(4242).on('error', (err: any) => {
+        clearTimeout(timer)
         if (err.code === 'EADDRINUSE') {
           reject(new Error('Unable to start a local server on port 4242.'
             + ' Please check that `checkly login` isn\'t already running in a separate tab.'
@@ -202,64 +234,20 @@ export class AuthContext {
       redirect_uri: AUTH0_CALLBACK_URL,
     })
 
-    const tokenResponse = await this.#axiosInstance.post(
-      'https://auth.checklyhq.com/oauth/token',
+    const tokenResponse = await axios.post(
+      tokenUrl(),
       tokenParams,
-      {
+      assignProxy(tokenUrl(), {
         headers: {
           'Content-Type': 'application/x-www-form-urlencoded',
           'Accept-Encoding': '*',
         },
-      },
+      }),
     )
 
     const { access_token: accessToken, id_token: idToken } = tokenResponse.data
 
     this.#accessToken = accessToken
     this.#idToken = idToken
-  }
-
-  async #getApiKey () {
-    try {
-      await this.#fetchUser()
-    } catch (error: unknown) {
-      if ((error as AxiosError).response?.status === 401) {
-        await this.#registerUser()
-      } else {
-        throw error
-      }
-    }
-
-    const apiKeyName = `CLI User Key (${os.hostname()})`
-
-    const { data } = await this.#axiosInstance.post(`/users/me/api-keys?name=${apiKeyName}`)
-
-    return data
-  }
-
-  async #fetchUser () {
-    const { data } = await this.#axiosInstance.get('/users/me')
-
-    return data
-  }
-
-  async #registerUser () {
-    const { data } = await this.#axiosInstance.post('/users/', { accessToken: this.#accessToken })
-
-    return data
-  }
-
-  get #axiosInstance () {
-    // Keep axios instance stateless
-    const { baseURL } = getApiDefaults()
-    const axiosConf = assignProxy(baseURL, {
-      baseURL,
-      headers: {
-        Accept: 'application/json, text/plain, */*',
-        Authorization: `Bearer ${this.#accessToken}`,
-      },
-    })
-
-    return axios.create(axiosConf)
   }
 }

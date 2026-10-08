@@ -17,14 +17,27 @@ Before your first command that talks to the Checkly API, establish your path:
 1. **No shell access** (chat-only session): stop following this skill and use the Checkly MCP tools if they're connected; if not, tell the user you need either a shell or the Checkly MCP server to work with Checkly.
 2. **Shell access**: run `npx checkly whoami` once.
    - **Succeeds** → use the CLI for everything and keep following this skill, even when Checkly MCP tools are also connected.
-   - **Fails with an auth error** → route by task:
-     - *Authoring, testing, or deploying checks*: MCP cannot do this. Ask the user to authenticate — `npx checkly login`, or `CHECKLY_API_KEY` + `CHECKLY_ACCOUNT_ID` in the environment or `.env` — then re-run `whoami`. Don't work around a missing login.
-     - *Live account work* (status, results, test sessions, RCA, triggering, incidents): fall back to the Checkly MCP tools if they're connected. Call the MCP `whoami` tool first and tell the user which account you're operating on. If MCP isn't connected either, ask the user to authenticate the CLI as above.
+   - **Fails with an auth error, or prints an `action_required` login line** (not logged in) → route by task:
+     - *Authoring, testing, or deploying checks*: MCP cannot do this. Log in through the CLI yourself (see "Logging in as an agent" below), or, when the user prefers keys, ask for `CHECKLY_API_KEY` + `CHECKLY_ACCOUNT_ID` in the environment or `.env`. Then re-run `whoami`. Don't work around a missing login.
+     - *Live account work* (status, results, test sessions, RCA, triggering, incidents): fall back to the Checkly MCP tools if they're connected; ignore the login code. Call the MCP `whoami` tool first and tell the user which account you're operating on. If MCP isn't connected either, ask the user to authenticate the CLI as above.
 
 Two rules that survive any fallback:
 
 - **Account parity.** CLI auth and the MCP session can point at different accounts — users often belong to several. Never mix CLI and MCP results in one task without confirming both use the same account ID, and always name the account after a fallback.
 - **Writes still need confirmation.** The CLI's confirmation protocol (below) does not travel with you to MCP. If you fall back for a write action (e.g. creating an incident), present the intended change and get the user's approval before calling the tool.
+
+## Logging in as an agent
+
+`npx checkly login` needs no terminal, and any command that requires authentication starts it for you when no credentials are stored, so you rarely run it by hand. It prints one JSON line and exits; when another command started it, the line goes to stderr. Relay what it says; never guess:
+
+- `{"status":"action_required","reason":"login_required","verification_uri_complete":…,"user_code":…,"expires_in":…}` — a human must approve. Give the user the URL and the code (valid for `expires_in` seconds). Users without a Checkly account can sign up on the same page. Once they say they are done, run the same command again: it picks up the approval. (When another command started the login, run that command again; it picks up the approval and does its work.) Running it earlier shows the code again (or a new one when the old one is about to expire); always relay the latest `user_code`. Until the login is done, don't run several Checkly commands in parallel.
+  - If the line has a `verification_uri` but no `user_code`, the URL must be opened on the same machine as the CLI, and the command waits for it instead of exiting: run it in the background so you can relay the URL.
+  - If it has no URL and its `next` has no `when`, run that command now, in the background, relay what it prints, and run the original command again once the user is done (running it earlier only repeats this line).
+- `{"status":"action_required","reason":"select_account","choices":[…],"next":[…]}` — the key is stored, but the user belongs to several accounts. Ask the user which one (or use an id they already gave you) and run `npx checkly login --account-id <id>`. Never pick one yourself, even if you cannot ask: stop and say which accounts are available. There is no second browser step. The same command switches accounts later.
+- `{"status":"success","reason":…,"message":…,"accountId":…,"accountName":…}` — done. Tell the user which account you are on.
+- `{"status":"error","reason":…,"message":…}` — report the message; do not retry in a loop. `reason` is one of `access_denied`, `expired_token`, `code_used` (run the login again for a new code), `account_not_found`, `no_accounts`, `invalid_response`, `network_error` (the login server could not be reached), `api_error`, `env_credentials` (credentials are set in the environment; the user must remove them to log in) or `login_failed`. To log in as a different user, run `npx checkly logout` first.
+
+On a host without a browser set `CHECKLY_NO_BROWSER=1` so the CLI does not try to open one; the URL and code are printed regardless. The flag forms are `--account-id` and `--no-browser`.
 
 ## Always load the current action list first
 

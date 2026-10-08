@@ -3,6 +3,7 @@ import { Flags } from '@oclif/core'
 import config from '../services/config.js'
 import { BaseCommand } from './baseCommand.js'
 import commonMessages from '../messages/common-messages.js'
+import { detectCliMode, isPersonAtTerminal } from '../helpers/cli-mode.js'
 
 export default class Logout extends BaseCommand {
   static hidden = false
@@ -21,7 +22,13 @@ export default class Logout extends BaseCommand {
     const { force } = flags
     const accountName = config.data.get('accountName')
 
-    if (!force) {
+    // Only a person at a terminal can answer the confirmation. Elsewhere (an
+    // agent, CI, a script) the prompt would get no answer and the command
+    // would exit without logging out, so it logs out directly: that only
+    // clears the local session, which `checkly login` restores.
+    const canConfirm = detectCliMode() === 'interactive' && isPersonAtTerminal()
+
+    if (!force && canConfirm) {
       const message = `You are about to clear your local session ${accountName
         ? ' of "' + accountName + '"'
         : ''}, do you want to continue?`

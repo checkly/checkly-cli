@@ -4,15 +4,61 @@ import * as api from '../rest/api.js'
 import { Account } from '../rest/accounts.js'
 import { Session } from '../constructs/session.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
-import { detectCliMode } from '../helpers/cli-mode.js'
+import { canLogInInline, detectCliMode } from '../helpers/cli-mode.js'
+import config from '../services/config.js'
+import Login from './login.js'
 import type { Project } from '../constructs/project.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
 import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview.js'
+
+/**
+ * Without stored credentials an interactive user or an agent gets the login
+ * flow right here instead of an error telling them to run it. CI keeps the
+ * error: it should be configured through environment variables. So does an
+ * unattended run that is not recognised as CI (cron, a script, a container
+ * without a TTY): nobody would see the login code, and the flow would wait
+ * for it until it expires. Credentials from the environment, even incomplete
+ * ones, skip it too: login refuses to run while they are set.
+ * Returns whether it logged the user in.
+ */
+async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
+  if (process.env.CHECKLY_SKIP_AUTH === '1' || config.hasValidCredentials()) {
+    return false
+  }
+
+  // Credentials from the environment mean the user chose API keys; login
+  // would refuse to run, and authentication names what is missing.
+  if (config.hasEnvVarsConfigured()) {
+    return false
+  }
+
+  const mode = detectCliMode()
+  if (mode === 'ci') {
+    return false
+  }
+
+  if (mode === 'interactive' && !canLogInInline()) {
+    return false
+  }
+
+  if (mode === 'interactive') {
+    command.logToStderr('No Checkly credentials found. Let\'s log in first.\n')
+  }
+
+  const ok = await new Login([], command.config).login({ inline: true })
+  if (!ok) {
+    return command.exit(1)
+  }
+  return true
+}
 
 export abstract class AuthCommand extends BaseCommand {
   static hidden = true
 
   #account?: Account
+
+  /** Whether this run logged the user in (and had them pick an account) before the command started. */
+  protected loggedInInline = false
 
   get account (): Account {
     if (this.#account === undefined) {
@@ -24,6 +70,7 @@ export abstract class AuthCommand extends BaseCommand {
 
   protected async init (): Promise<any> {
     await super.init()
+    this.loggedInInline = await loginInlineIfNeeded(this)
     this.#account = await api.validateAuthentication()
     // Constructs validate against account-specific limits and have no access to
     // the command instance.

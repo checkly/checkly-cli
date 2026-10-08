@@ -7,6 +7,9 @@ const dataSchema = {
 
 const authSchema = {
   apiKey: { type: 'string' },
+  // A device code an agent-mode login handed to the user and has not
+  // collected yet; see `checkly login`.
+  pendingDeviceAuthorization: { type: 'object' },
 }
 
 const projectSuffix = process.env.CHECKLY_ENV ?? ''
@@ -20,7 +23,7 @@ enum Env {
 }
 
 class ChecklyConfig {
-  private _auth?: Conf<{ apiKey: unknown }>
+  private _auth?: Conf<{ apiKey: unknown, pendingDeviceAuthorization: unknown }>
   private _data?: Conf<{ accountId: unknown, accountName: unknown }>
 
   // Accessing auth or data will cause a config file to be created.
@@ -83,6 +86,18 @@ class ChecklyConfig {
       development: 'https://api-dev.checklyhq.com',
       staging: 'https://api-test.checklyhq.com',
       production: 'https://api.checklyhq.com',
+    }
+    return environments[this.getEnv()]!
+  }
+
+  getAuthUrl (): string {
+    const environments = {
+      // Overridable for local development and tests that stand in for Auth0,
+      // mirroring how CHECKLY_API_URL overrides the API.
+      local: process.env.CHECKLY_AUTH_URL || 'https://auth.checklyhq.com',
+      development: 'https://auth.checklyhq.com',
+      staging: 'https://auth.checklyhq.com',
+      production: 'https://auth.checklyhq.com',
     }
     return environments[this.getEnv()]!
   }

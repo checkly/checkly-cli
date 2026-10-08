@@ -35,9 +35,15 @@ const GENERIC_AGENT_VALUES: ReadonlySet<string> = new Set(['1', 'true', 'yes', '
 const RESERVED_OPERATOR_NAMES: ReadonlySet<string> = new Set(['manual'])
 const VALID_OPERATOR_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/
 
-function normalizeExplicitAgent (value: string | undefined): string | undefined {
+/** True for a set environment flag: any value except empty or an explicit off (0, false, no, off). */
+export function isEnvFlagSet (value: string | undefined): boolean {
   const normalized = value?.trim().toLowerCase()
-  if (!normalized || DISABLED_AGENT_VALUES.has(normalized)) return undefined
+  return !!normalized && !DISABLED_AGENT_VALUES.has(normalized)
+}
+
+function normalizeExplicitAgent (value: string | undefined): string | undefined {
+  if (!isEnvFlagSet(value)) return undefined
+  const normalized = value!.trim().toLowerCase()
   if (GENERIC_AGENT_VALUES.has(normalized)) return 'agent'
   if (RESERVED_OPERATOR_NAMES.has(normalized) || !VALID_OPERATOR_NAME.test(normalized)) return 'agent'
   return EXPLICIT_AGENT_ALIASES[normalized] ?? normalized.replaceAll('_', '-')
@@ -135,6 +141,30 @@ export function platformForOperator (operator: string): string | undefined {
     .sort((a, b) => b.length - a.length)[0]
 
   return prefix ? OPERATOR_TO_PLATFORM[prefix] : undefined
+}
+
+// Interactive mode is the fallback when no agent or CI is detected, so it also
+// covers cron jobs and scripts. Two checks tell whether a person is there:
+
+/**
+ * For commands a person runs directly, such as `checkly login` showing its
+ * code or `checkly logout` asking for confirmation: a terminal on stdin (stdout
+ * may still be piped, e.g. into `tee`), or CHECKLY_CLI_MODE=interactive set
+ * explicitly, for terminals Node does not recognise as one (e.g. mintty) and
+ * for wrappers and tests that answer through pipes.
+ */
+export function isPersonAtTerminal (): boolean {
+  return Boolean(process.stdin.isTTY) || process.env.CHECKLY_CLI_MODE === 'interactive'
+}
+
+/**
+ * For a login an authenticated command starts on its own: only with terminals
+ * on both stdin and stdout. Anything less (pipes, redirects, an explicit mode
+ * included) fails fast with the hint to log in, so an unattended run never
+ * waits on a code nobody sees.
+ */
+export function canLogInInline (): boolean {
+  return Boolean(process.stdin.isTTY && process.stdout.isTTY)
 }
 
 export function detectCliMode (fileExists: (path: string) => boolean = existsSync): CliMode {
