@@ -1685,11 +1685,18 @@ describe('deploy of a plan with nothing to apply', () => {
       expect(ctx.style.longInfo).not.toHaveBeenCalled()
     })
 
-    it('lists a reason it does not know yet as another reason', async () => {
+    it('lists a reason it does not know yet by its code, after the known ones', async () => {
       vi.mocked(api.projects.deploy).mockResolvedValue({
         data: {
           project: {} as any,
-          diff: [UNCHANGED_CHANNEL, marked(true), { ...marked(false, 'MOON_PHASE' as any), logicalId: 'moon' }],
+          diff: [
+            UNCHANGED_CHANNEL,
+            marked(true),
+            { ...marked(false, 'MIN_FREQUENCY'), logicalId: 'often' },
+            { ...marked(false, 'MOON_PHASE' as any), logicalId: 'moon-1' },
+            { ...marked(false, 'MOON_PHASE' as any), logicalId: 'moon-2' },
+            { ...marked(false, 'TIDE' as any), logicalId: 'tide' },
+          ],
         },
       })
       const ctx = createCommandContext()
@@ -1698,7 +1705,12 @@ describe('deploy of a plan with nothing to apply', () => {
 
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
         'Some checks were not scheduled',
-        expect.stringContaining('\n- 1 check for another reason (MOON_PHASE).'),
+        'The checks will run at their next scheduled time.\n'
+        + '\n'
+        + 'Not scheduled:\n'
+        + '- 1 check that runs more often than the minimum frequency allows.\n'
+        + '- 2 checks that report the reason as: MOON_PHASE\n'
+        + '- 1 check that reports the reason as: TIDE',
       )
     })
 

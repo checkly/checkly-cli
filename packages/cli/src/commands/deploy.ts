@@ -869,7 +869,8 @@ function describeNotScheduled (reason: string, count: number): string {
     case 'MIN_FREQUENCY':
       return `${checks} that ${count === 1 ? 'runs' : 'run'} more often than the minimum frequency allows.`
     default:
-      // A reason this CLI does not know yet, from a newer Checkly API.
-      return `${checks} for another reason (${reason}).`
+      // A reason this CLI does not know yet, from a newer Checkly API: named
+      // as the API reports it.
+      return `${checks} that ${count === 1 ? 'reports' : 'report'} the reason as: ${reason}`
   }
 }
