@@ -91,9 +91,3 @@ export class HeartbeatMonitor extends Monitor {
     }
   }
 }
-
-// Aliases for backwards compatibility.
-export {
-  HeartbeatMonitorProps as HeartbeatCheckProps,
-  HeartbeatMonitor as HeartbeatCheck,
-}
