@@ -32,7 +32,6 @@ import Logout from '../logout.js'
 import Whoami from '../whoami.js'
 import Switch from '../switch.js'
 import Runtimes from '../runtimes.js'
-import Rules from '../rules.js'
 import ImportPlan from '../import/plan.js'
 import ImportApply from '../import/apply.js'
 import ImportCommit from '../import/commit.js'
@@ -93,7 +92,6 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['whoami', Whoami],
   ['switch', Switch],
   ['runtimes', Runtimes],
-  ['rules', Rules],
   ['import plan', ImportPlan],
   ['import apply', ImportApply],
   ['import commit', ImportCommit],
