@@ -699,11 +699,23 @@ export const WRITTEN_BY_CLASS: ReadonlyMap<ConstructClass, readonly string[]> =
     [StatusPageV3Component, COMPONENT_WRITTEN], [StatusPageV3AutomationRule, AUTOMATION_RULE_WRITTEN],
   ])
 
-/** Paths that name another resource or a relation rather than a value of this one. */
-const REFERENCE_PREFIXES = [
-  'alertChannels', 'privateLocations', 'alertChannelSubscriptions', 'privateLocationAssignments', 'groupId',
-  'statusPageId', 'parentId', 'components',
-]
+/**
+ * Paths that name another resource or a relation rather than a value of this
+ * one, by the property the construct spells them as. A refused reference is
+ * reported under that property, since the plan above the note names it that
+ * way too: Checkly reports a check's group as `groupId`, the construct takes
+ * `group`.
+ */
+const REFERENCE_PROPERTIES: ReadonlyMap<string, string> = new Map([
+  ['alertChannels', 'alertChannels'],
+  ['privateLocations', 'privateLocations'],
+  ['alertChannelSubscriptions', 'alertChannelSubscriptions'],
+  ['privateLocationAssignments', 'privateLocationAssignments'],
+  ['groupId', 'group'],
+  ['statusPageId', 'statusPage'],
+  ['parentId', 'parent'],
+  ['components', 'components'],
+])
 
 /** Properties a remote change to is reported rather than written, with the reason. */
 const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
@@ -807,7 +819,7 @@ function refusal (change: DiffChange, segments: readonly string[]): string | und
   if (change.secret === true) {
     return 'a secret changed; Checkly does not return its value'
   }
-  if (REFERENCE_PREFIXES.some(prefix => segments[0] === prefix)) {
+  if (REFERENCE_PROPERTIES.has(segments[0])) {
     return 'references another resource'
   }
   const notWritten = NOT_WRITTEN.get(segments[0])
@@ -818,6 +830,15 @@ function refusal (change: DiffChange, segments: readonly string[]): string | und
     return 'the intent is ordered by the author; edit it by hand'
   }
   return undefined
+}
+
+/**
+ * The property a refused change is reported under: a reference as the
+ * construct spells it, anything else as the path Checkly reports.
+ */
+function refusedProperty (change: DiffChange, segments: readonly string[]): string {
+  const reference = REFERENCE_PROPERTIES.get(segments[0])
+  return reference === undefined ? change.path : [reference, ...segments.slice(1)].join('.')
 }
 
 class EntryContext {
@@ -855,7 +876,7 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
     }
     const reason = refusal(change, segments)
     if (reason !== undefined) {
-      context.skip(reason, change.path)
+      context.skip(reason, refusedProperty(change, segments))
       continue
     }
     const rule = ruleFor(segments)

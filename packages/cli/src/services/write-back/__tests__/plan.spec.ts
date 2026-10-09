@@ -368,7 +368,7 @@ describe('planWriteBack', () => {
     ])
     expect(plan.imports).toEqual([{ file: 'api.check.ts', names: ['RetryStrategyBuilder'] }])
     expect(plan.skipped.map(describeSkip)).toEqual([
-      'check api /groupId: references another resource',
+      'check api group: references another resource',
       'check api /script: not a property this tool can update',
       'check api /environmentVariables: a secret changed; Checkly does not return its value',
       'check api /codeBundle: a new code bundle: content, not a property',
@@ -1531,9 +1531,9 @@ new StatusPageV3AutomationRule('rule', {
       'dashboard dash /customCSS: a stylesheet, not a property; edit the file or the content by hand',
       'status-page v2 /cards/0/name: cards hold status page services; edit them by hand',
       'status-page v3 /version: fixed by the construct; it cannot be changed in the code',
-      'status-page-component comp /statusPageId: references another resource',
-      'status-page-component comp /parentId: references another resource',
-      'status-page-automation-rule rule /components/x: references another resource',
+      'status-page-component comp statusPage: references another resource',
+      'status-page-component comp parent: references another resource',
+      'status-page-automation-rule rule components.x: references another resource',
       'maintenance-window mw5 repeatInterval: written together with repeatEndsAt',
       'maintenance-window mw5 repeatEndsAt: Checkly has no value for repeatEndsAt; edit the property by hand',
       'maintenance-window mw2 repeatInterval: written together with repeatUnit',

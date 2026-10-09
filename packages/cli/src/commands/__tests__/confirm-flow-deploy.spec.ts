@@ -1420,8 +1420,8 @@ new ApiCheck('api', {
     const notUpdated = printed.indexOf('Not updated · edit these by hand')
     expect(updated).toBeGreaterThan(-1)
     expect(notUpdated).toBeGreaterThan(updated)
-    // The path Checkly reports is shown the way the code names the property.
-    expect(printed).toContain('\n    groupId  references another resource\n')
+    // The reference Checkly reports as groupId is shown as the construct spells it.
+    expect(printed).toContain('\n    group  references another resource\n')
     expect(printed.indexOf('Nothing was deployed.')).toBeGreaterThan(notUpdated)
   })
 
