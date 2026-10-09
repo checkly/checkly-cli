@@ -120,7 +120,7 @@ To publish an experimental build of a branch, dispatch the release workflow on t
 gh workflow run release.yml --ref <branch>
 ```
 
-Pass `-f tag=<dist-tag>` to use a dist-tag other than the default `experimental`; the job refuses `latest` and `prerelease`, which belong to real releases. The same thing can be done from the Actions UI: open "Publish Package to npmjs", click "Run workflow" and pick the branch. The run shows up as `Canary build - <branch>`.
+Pass `-f tag=<dist-tag>` to use a dist-tag other than the default `experimental`; the job refuses `latest`, `next` and `prerelease`, which belong to real releases. The same thing can be done from the Actions UI: open "Publish Package to npmjs", click "Run workflow" and pick the branch. The run shows up as `Canary build - <branch>`.
 
 The `canary` job publishes both `checkly` and `create-checkly` as `0.0.0-canary.<short-sha>` under the chosen dist-tag. The run summary shows the exact version and the install commands.
 
@@ -166,6 +166,14 @@ To release packages to NPM:
 If you notice an issue when testing the prerelease you can still roll everything back. Simply delete the GitHub release, and delete the corresponding tags from the GitHub UI (both `#.#.#` and `v#.#.#`).
 
 After resolving the issues, you can create another GitHub release and go through the process again.
+
+### Release candidates
+
+To publish a release candidate, follow the same steps with a tag of the form `#.#.#-rc.#` (e.g. `10.0.0-rc.1`; use `rc.1`, not `rc1`, so that `rc.10` sorts after `rc.9`) and check **Set as a pre-release**. The workflow refuses an RC tag without the pre-release flag, and a stable tag with it.
+
+Release candidates are published under the `next` dist-tag (`npm install checkly@next`), so `latest` keeps pointing at the newest stable release, and the GitHub Release is never marked as latest. A scaffolded project still pins `checkly@latest`; to test the RC inside it, set `"checkly": "10.0.0-rc.1"` in its `package.json`.
+
+When generating release notes for an RC, or for the stable release that follows it, set **Previous tag** to the last stable release. Shipping the stable release does not move `next`; it keeps pointing at the last RC until the next one is published.
 
 ## Style Guide
 
