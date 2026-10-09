@@ -136,6 +136,7 @@ const DEFAULT_FLAGS = {
   'verbose': false,
   'config': undefined,
   'schedule-on-deploy': true,
+  'schedule-on-deploy-scope': 'changed',
   'schedule-on-deploy-threshold': 'auto',
   'schedule-on-deploy-min-frequency': 'auto',
   'preserve-resources': false,
@@ -153,6 +154,7 @@ const DEFAULT_METADATA = {
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
   'schedule-on-deploy': { setFromDefault: true },
+  'schedule-on-deploy-scope': { setFromDefault: true },
   'schedule-on-deploy-threshold': { setFromDefault: true },
   'schedule-on-deploy-min-frequency': { setFromDefault: true },
   'preserve-resources': { setFromDefault: true },
@@ -1529,12 +1531,19 @@ describe('deploy of a plan with nothing to apply', () => {
   })
 
   it('says whether the checks were scheduled', async () => {
+    // Without marks from Checkly: an up-to-date deploy schedules its checks
+    // only under the `all` scope.
     declareProjectWithCheck()
     nothingToApply([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
-    const scheduling = createCommandContext()
+    const scheduling = createCommandContext({ 'schedule-on-deploy-scope': 'all' })
     await Deploy.prototype.run.call(scheduling as any)
     expect(scheduling.logged[scheduling.logged.length - 1])
       .toBe('Project "My Project" is up to date. Checks were scheduled to run.')
+
+    declareProjectWithCheck()
+    const changedOnly = createCommandContext()
+    await Deploy.prototype.run.call(changedOnly as any)
+    expect(changedOnly.logged[changedOnly.logged.length - 1]).toBe('Project "My Project" is up to date.')
 
     declareProjectWithCheck()
     const notScheduling = createCommandContext({ 'schedule-on-deploy': false })
@@ -1549,7 +1558,7 @@ describe('deploy of a plan with nothing to apply', () => {
       await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
       // The confirmation does not go into the threshold; the deploy reports it.
-      expect(output.changes).toContain('Schedule checks after deploy')
+      expect(output.changes).toContain('Schedule changed checks after deploy')
       expect(output.confirmCommand).toContain('--schedule-on-deploy-threshold="20"')
 
       const forced = createCommandContext({ 'force': true, 'schedule-on-deploy-threshold': 20 })
@@ -1608,7 +1617,7 @@ describe('deploy of a plan with nothing to apply', () => {
       const asked = createCommandContext({ 'schedule-on-deploy-min-frequency': 15 })
       await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
-      expect(output.changes).toContain('Schedule checks after deploy')
+      expect(output.changes).toContain('Schedule changed checks after deploy')
       expect(output.confirmCommand).toContain('--schedule-on-deploy-min-frequency="15"')
 
       const forced = createCommandContext({ 'force': true, 'schedule-on-deploy-min-frequency': 15 })
@@ -1619,6 +1628,68 @@ describe('deploy of a plan with nothing to apply', () => {
     it('sends no minimum when the user left it to Checkly', async () => {
       await Deploy.prototype.run.call(createCommandContext() as any)
       expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployMinFrequency: undefined })
+    })
+  })
+
+  describe('scheduling scope', () => {
+    it('sends the scope the user typed, names it in the confirmation and echoes it in the command', async () => {
+      nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
+      const asked = createCommandContext({ 'schedule-on-deploy-scope': 'all' })
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      const output = JSON.parse(asked.logged[asked.logged.length - 1])
+      expect(output.changes).toContain('Schedule all checks after deploy')
+      expect(output.confirmCommand).toContain('--schedule-on-deploy-scope="all"')
+
+      const forced = createCommandContext({ 'force': true, 'schedule-on-deploy-scope': 'all' })
+      await Deploy.prototype.run.call(forced as any)
+      expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployScope: 'all' })
+    })
+
+    it('sends the default scope when the user left it alone, and names it in the confirmation', async () => {
+      nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
+      const asked = createCommandContext()
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      const output = JSON.parse(asked.logged[asked.logged.length - 1])
+      expect(output.changes).toContain('Schedule changed checks after deploy')
+      expect(output.confirmCommand).not.toContain('--schedule-on-deploy-scope')
+
+      await Deploy.prototype.run.call(createCommandContext({ force: true }) as any)
+      expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ scheduleOnDeployScope: 'changed' })
+    })
+
+    it('says nothing about the checks the deploy left unchanged, and that none were scheduled', async () => {
+      declareProjectWithCheck()
+      planResolves([UNCHANGED_CHANNEL, UNCHANGED_CHECK])
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: {
+          project: {} as any,
+          diff: [UNCHANGED_CHANNEL, { ...UNCHANGED_CHECK, scheduled: false, scheduleSkippedReason: 'UNCHANGED' }],
+        },
+      })
+      const ctx = createCommandContext()
+
+      await Deploy.prototype.run.call(ctx as any)
+
+      expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
+      expect(ctx.style.longInfo).not.toHaveBeenCalled()
+      expect(ctx.style.longWarning).not.toHaveBeenCalled()
+    })
+
+    it('suggests narrowing the scope when the threshold stopped a deploy that scheduled every check', async () => {
+      vi.mocked(api.projects.deploy).mockResolvedValue({
+        data: {
+          project: {} as any,
+          diff: [UNCHANGED_CHANNEL, { ...UNCHANGED_CHECK, scheduled: false, scheduleSkippedReason: 'THRESHOLD' }],
+          scheduled: false,
+        },
+      })
+      const all = createCommandContext({ 'schedule-on-deploy-scope': 'all' })
+      await Deploy.prototype.run.call(all as any)
+      expect(vi.mocked(all.style.longWarning).mock.calls[0][1]).toContain('\n  --schedule-on-deploy-scope=changed\n')
+
+      const changed = createCommandContext()
+      await Deploy.prototype.run.call(changed as any)
+      expect(vi.mocked(changed.style.longWarning).mock.calls[0][1]).not.toContain('--schedule-on-deploy-scope')
     })
 
     // What the deploy marks on its checks, the way Checkly reports it.

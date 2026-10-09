@@ -46,7 +46,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: true })
 
     expect(api.post).toHaveBeenCalledWith(
-      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true',
+      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&scheduleOnDeployScope=changed',
       sync,
       expect.objectContaining({ transformRequest: expect.any(Function) }),
     )
@@ -59,11 +59,11 @@ describe('Projects.deploy', () => {
     vi.mocked(api.post).mockResolvedValue({ data: preview })
 
     await projects.deploy(sync, { dryRun: true })
-    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true')
+    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&scheduleOnDeployScope=changed')
 
     await projects.deploy(sync, { dryRun: true, preserveResources: true })
     expect(vi.mocked(api.post).mock.calls[1][0]).toBe(
-      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&preserveResources=true',
+      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&scheduleOnDeployScope=changed&preserveResources=true',
     )
   })
 
