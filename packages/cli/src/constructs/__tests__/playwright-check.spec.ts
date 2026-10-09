@@ -154,6 +154,63 @@ describe('PlaywrightCheck', () => {
     }
   }, DEFAULT_TEST_TIMEOUT)
 
+  it('should attach playwrightChecks config entries to groups declared in the config', async () => {
+    const fixt = await FixtureSandbox.create({
+      template: 'playwright',
+      source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-group-in-config'),
+    })
+
+    try {
+      const output = await parseProject(fixt)
+
+      expect(output).toEqual(expect.objectContaining({
+        diagnostics: expect.objectContaining({
+          fatal: false,
+        }),
+        payload: expect.objectContaining({
+          resources: expect.arrayContaining([
+            expect.objectContaining({
+              logicalId: 'config-group',
+              type: 'check-group',
+              member: true,
+              payload: expect.objectContaining({
+                name: 'Config Group',
+              }),
+            }),
+            expect.objectContaining({
+              logicalId: 'check',
+              type: 'check',
+              member: true,
+              payload: expect.objectContaining({
+                groupId: {
+                  ref: 'config-group',
+                },
+              }),
+            }),
+            expect.objectContaining({
+              logicalId: 'check-group-123',
+              type: 'check-group',
+              physicalId: 123,
+              member: false,
+            }),
+            expect.objectContaining({
+              logicalId: 'check-existing-group',
+              type: 'check',
+              member: true,
+              payload: expect.objectContaining({
+                groupId: {
+                  ref: 'check-group-123',
+                },
+              }),
+            }),
+          ]),
+        }),
+      }))
+    } finally {
+      await fixt.destroy()
+    }
+  }, DEFAULT_TEST_TIMEOUT)
+
   describe('validation', () => {
     it('should error if a playwrightChecks config entry sets groupName', async () => {
       const fixt = await FixtureSandbox.create({
