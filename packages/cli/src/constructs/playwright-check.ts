@@ -3,9 +3,8 @@ import fs from 'node:fs/promises'
 import { shellQuote } from '../services/shell.js'
 import { RuntimeCheck, RuntimeCheckProps } from './check.js'
 import {
-  ConflictingPropertyDiagnostic,
-  DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  RemovedPropertyDiagnostic,
   SubstitutedPropertyValueDiagnostic,
   UnsatisfiedLocalPrerequisitesDiagnostic,
   UnsupportedPropertyDiagnostic,
@@ -13,7 +12,6 @@ import {
 import { Diagnostics, WarningDiagnostic } from './diagnostics.js'
 import { PlaywrightCheckBundle } from './playwright-check-bundle.js'
 import { Session } from './session.js'
-import { Ref } from './ref.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
@@ -96,18 +94,6 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, Playwright
    * @example ["fixtures/**\/*.json", "docs/**\/*.md"]
    */
   include?: string | string[]
-
-  /**
-   * Name of the check group to assign this check to.
-   * The group must exist in your project configuration.
-   *
-   * @deprecated Use {@link group} instead. Depending on load order, group
-   * defaults may not work correctly when using {@link groupName} to attach the
-   * check to a group.
-   * @example "E2E Tests"
-   * @example "Critical User Flows"
-   */
-  groupName?: string
 }
 
 /**
@@ -137,7 +123,7 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, Playwright
  *   // `include` is for non-code assets read via `fs` at runtime;
  *   // imported files are bundled automatically.
  *   include: ['fixtures/**\/*.json'],
- *   groupName: 'E2E Tests',
+ *   group: e2eGroup,
  *   frequency: Frequency.EVERY_5M
  * })
  * ```
@@ -154,8 +140,7 @@ export class PlaywrightCheck extends RuntimeCheck {
   pwTags: string[]
   include: string[]
   engine?: Engine
-  /** @deprecated Use {@link groupId} instead. Kept for compatibility with earlier versions. */
-  groupName?: string
+  #removedGroupNameSet: boolean
 
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
@@ -174,7 +159,10 @@ export class PlaywrightCheck extends RuntimeCheck {
       ? (Array.isArray(config.include) ? config.include : [config.include])
       : []
     this.testCommand = config.testCommand
-    this.groupName = config.groupName
+    // The props type no longer has `groupName`, but plain JavaScript, a
+    // type assertion or a `playwrightChecks` entry in the Checkly config
+    // can still pass it; validate() reports it.
+    this.#removedGroupNameSet = (props as { groupName?: unknown }).groupName !== undefined
     this.playwrightConfigPath = this.resolveContentFilePath(config.playwrightConfigPath)
     Session.registerConstruct(this)
     this.addSubscriptions()
@@ -186,45 +174,14 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   protected configDefaultsGetter (props: PlaywrightCheckProps): ConfigDefaultsGetter<CheckConfigDefaults> {
-    const group = PlaywrightCheck.#resolveGroupFromProps(props)
-
     return makeConfigDefaultsGetter(
-      group?.getCheckDefaults(),
+      props.group?.getCheckDefaults(),
       {
         ...Session.checkDefaults,
         // Not supported by Playwright checks; exclude from defaults.
         retryStrategy: undefined,
       },
     )
-  }
-
-  static #resolveGroupFromProps (props: PlaywrightCheckProps) {
-    // Check the preferred 'group' property first
-    if (props.group) {
-      return props.group
-    }
-
-    // Fall back to deprecated groupId
-    if (props.groupId) {
-      return PlaywrightCheck.#findGroupByRef(props.groupId)
-    }
-
-    // Fall back to deprecated groupName
-    if (props.groupName) {
-      return PlaywrightCheck.#findGroupByName(props.groupName)
-    }
-
-    return undefined
-  }
-
-  static #findGroupByRef (groupRef: Ref | string) {
-    const ref = typeof groupRef === 'string' ? groupRef : groupRef.ref
-    return Session.project?.data?.['check-group']?.[ref]
-  }
-
-  static #findGroupByName (groupName: string) {
-    return Object.values(Session.project?.data?.['check-group'] ?? {})
-      .find(group => group.name === groupName)
   }
 
   // eslint-disable-next-line require-await
@@ -440,30 +397,14 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   #validateGroupReferences (diagnostics: Diagnostics): void {
-    if (this.groupName) {
-      diagnostics.add(new DeprecatedPropertyDiagnostic(
+    if (this.#removedGroupNameSet) {
+      diagnostics.add(new RemovedPropertyDiagnostic(
         'groupName',
         new Error(
-          `Use the "group" property instead. Depending on load order, `
-          + 'group defaults may not work correctly when using "groupName".',
+          `Use the "group" property with the group construct instead, e.g. `
+          + `replace "groupName: 'My Group'" with "group: myGroup".`,
         ),
       ))
-
-      if (this.groupId) {
-        diagnostics.add(new ConflictingPropertyDiagnostic(
-          'groupName',
-          'group',
-          new Error(`Prefer the "group" property over "groupName".`),
-        ))
-      }
-
-      const checkGroup = PlaywrightCheck.#findGroupByName(this.groupName)
-      if (!checkGroup) {
-        diagnostics.add(new InvalidPropertyValueDiagnostic(
-          'groupName',
-          new Error(`No such group "${this.groupName}".`),
-        ))
-      }
     }
   }
 
@@ -481,12 +422,6 @@ export class PlaywrightCheck extends RuntimeCheck {
   }
 
   async bundle (bundler: Bundler): Promise<PlaywrightCheckBundle> {
-    // Prefer the standard groupId but fall back to the deprecated groupName
-    // if available.
-    const groupId = this.groupName && !this.groupId
-      ? PlaywrightCheck.#findGroupByName(this.groupName)?.ref()
-      : this.groupId
-
     const {
       browsers,
       playwrightVersion,
@@ -505,7 +440,7 @@ export class PlaywrightCheck extends RuntimeCheck {
     )
 
     return new PlaywrightCheckBundle(this, {
-      groupId,
+      groupId: this.groupId,
       codeBundlePath: bundler.marker,
       codeBundleSha256: bundler.codeBundleSha256,
       browsers,

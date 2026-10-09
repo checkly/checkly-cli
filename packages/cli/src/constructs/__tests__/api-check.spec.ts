@@ -244,39 +244,6 @@ describe('ApiCheck', () => {
     }))
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should support setting groups with `groupId`', async () => {
-    const output = await parseProject(
-      fixt,
-      '--config',
-      fixt.abspath('test-cases/test-groupId-mapping/checkly.config.js'),
-    )
-
-    expect(output).toEqual(expect.objectContaining({
-      diagnostics: expect.objectContaining({
-        fatal: false,
-      }),
-      payload: expect.objectContaining({
-        resources: expect.arrayContaining([
-          expect.objectContaining({
-            logicalId: 'test-group',
-            type: 'check-group',
-            member: true,
-          }),
-          expect.objectContaining({
-            logicalId: 'check',
-            type: 'check',
-            member: true,
-            payload: expect.objectContaining({
-              groupId: {
-                ref: 'test-group',
-              },
-            }),
-          }),
-        ]),
-      }),
-    }))
-  }, DEFAULT_TEST_TIMEOUT)
-
   it('should support setting groups with `group`', async () => {
     const output = await parseProject(
       fixt,

@@ -19,7 +19,7 @@ const group = new CheckGroupV2('check-group-1', {
 new BrowserCheck('group-browser-check-1', {
   name: 'Check with group',
   activated: false,
-  groupId: group.ref(),
+  group,
   code: {
     content: 'throw new Error("Failing Check Result")',
   },

@@ -512,11 +512,11 @@ const AUTOMATION_RULE_WRITTEN = [...AUTOMATION_RULE_KEYS, ...AUTOMATION_RULE_SET
  * written list fails `_everyPropIsListed`.
  */
 /** Names another resource; refused as `references another resource`. */
-type ReferenceKey = 'alertChannels' | 'privateLocations' | 'group' | 'groupId'
+type ReferenceKey = 'alertChannels' | 'privateLocations' | 'group'
 /** Script or bundle content, which the plan reports with a cause rather than a value. */
 type ContentKey = 'code' | 'setupScript' | 'tearDownScript' | 'localSetupScript' | 'localTearDownScript'
 /** Reaches the account only through the Playwright code bundle. */
-type BundleKey = 'playwrightConfigPath' | 'installCommand' | 'testCommand' | 'pwProjects' | 'pwTags' | 'include' | 'groupName'
+type BundleKey = 'playwrightConfigPath' | 'installCommand' | 'testCommand' | 'pwProjects' | 'pwTags' | 'include'
 /** Never sent to the account. */
 type LocalOnlyKey = 'testOnly'
 /** Reported with the reason `NOT_WRITTEN` or `refusal` gives. */

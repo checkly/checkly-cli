@@ -40,24 +40,6 @@ describe('DnsMonitor', () => {
     expect(check).toMatchObject({ tags: ['test check'] })
   })
 
-  it('should support setting groups with `groupId`', async () => {
-    Session.project = new Project('project-id', {
-      name: 'Test Project',
-      repoUrl: 'https://github.com/checkly/checkly-cli',
-    })
-    const group = new CheckGroup('main-group', { name: 'Main Group', locations: [] })
-    const check = new DnsMonitor('main-check', {
-      name: 'Main Check',
-      request,
-      groupId: group.ref(),
-    })
-    const bundler = await Bundler.create({
-      cacheHash: 'foo',
-    })
-    const bundle = await check.bundle(bundler)
-    expect(bundle.synthesize()).toMatchObject({ groupId: { ref: 'main-group' } })
-  })
-
   it('should support setting groups with `group`', async () => {
     Session.project = new Project('project-id', {
       name: 'Test Project',
