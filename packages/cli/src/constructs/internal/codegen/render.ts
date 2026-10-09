@@ -4,7 +4,7 @@ import { Context } from './context.js'
 
 /**
  * A construct could not be rendered on its own. Callers that render for a
- * reader — the diff `checkly deploy --plan --preview` prints — treat this as "show
+ * reader — the diff `checkly deploy --preview` prints — treat this as "show
  * the coarser listing instead", never as a failure of the command.
  */
 export class ConstructRenderError extends Error {

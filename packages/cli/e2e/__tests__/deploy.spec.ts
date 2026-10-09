@@ -239,8 +239,8 @@ describe('deploy', { timeout: 45_000 }, () => {
         .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
     })
 
-    it('deploys with a plan under --plan', async () => {
-      const { stderr, stdout } = await runDeploy(fixt, ['--plan', '--force'], {
+    it('deploys without a plan under --no-plan', async () => {
+      const { stderr, stdout } = await runDeploy(fixt, ['--no-plan', '--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
@@ -248,14 +248,10 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
       expect(stderr).toBe('')
-      // Against an API that makes plans, a deploy of what is already deployed
-      // has nothing to write and says so; against one that does not, the
-      // deploy writes every resource as before.
-      if (stdout.includes('No changes.')) {
-        expect(stdout).toMatch(/Project ".*" is up to date\./)
-      } else {
-        expect(stdout).toContain('Successfully deployed project')
-      }
+      // Without a plan the deploy writes every resource, whether or not it
+      // changed, so a deploy of what is already deployed is never "up to date".
+      expect(stdout).not.toContain('No changes.')
+      expect(stdout).toContain('Successfully deployed project')
     })
 
     it('Simple project should deploy successfully', async () => {
@@ -428,14 +424,20 @@ describe('deploy', { timeout: 45_000 }, () => {
       // The check should only be listed under "Delete" and not "Skip".
       expect(stdout).toMatch(tableRows([['-', 'Check', 'testonly-true-check']], 'permanently deleted, run history lost'))
       expect(stdout).not.toContain('skipped (testOnly)')
-      // The two surviving checks are unchanged between the deploys, and a
-      // deploy without a plan writes them all the same: they are listed as
-      // updates, and nothing is counted as unchanged.
-      expect(stdout).toMatch(tableRows([
-        ['~', 'ApiCheck', 'not-testonly-default-check'],
-        ['~', 'ApiCheck', 'not-testonly-false-check'],
-      ]))
-      expect(stdout).not.toMatch(/^ {4}\d+ unchanged$/m)
+      // The two surviving checks are unchanged between the deploys, and the
+      // plan the deploy works from by default leaves them alone: they are
+      // counted as unchanged rather than listed as updates. Against an API
+      // without the preview endpoint, or one that has plans switched off,
+      // the deploy falls back to writing every resource and says so.
+      if (stdout.includes('for the deploy preview endpoint') || stdout.includes('deploy plans switched off')) {
+        expect(stdout).toMatch(tableRows([
+          ['~', 'ApiCheck', 'not-testonly-default-check'],
+          ['~', 'ApiCheck', 'not-testonly-false-check'],
+        ]))
+      } else {
+        expect(stdout).toMatch(/^ {4}2 unchanged$/m)
+        expect(stdout).not.toMatch(tableRows([['~', 'ApiCheck', 'not-testonly-default-check']]))
+      }
       // --output without --verbose should not show name or id
       expect(stdout).not.toContain('name:')
       expect(stdout).not.toContain('id:')
@@ -515,17 +517,17 @@ describe('deploy', { timeout: 45_000 }, () => {
 
     // A deployed suite first: the preview renders a construct diff only for
     // an updated resource, and only against a deploy that planned, since a
-    // deploy without a plan records nothing to compare the next one with.
+    // deploy with --no-plan records nothing to compare the next one with.
     // Both runs bundle the Playwright project, which is what takes the time;
     // the enclosing suite's budget is smaller than one deploy's own.
     it('Should render a renamed Playwright check suite as a construct diff', async () => {
-      await runDeploy(fixt, ['--plan', '--force'], {
+      await runDeploy(fixt, ['--force'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
-      const { stdout } = await runDeploy(fixt, ['--plan', '--preview'], {
+      const { stdout } = await runDeploy(fixt, ['--preview'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           SUITE_NAME: 'Renamed suite',
