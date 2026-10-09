@@ -122,11 +122,18 @@ export interface DiffEntry extends Change {
   scheduled?: boolean
   /**
    * Why `scheduled` is false: the deploy did not ask for scheduling, it had
-   * more checks than the scheduling threshold allows, or the check runs more
+   * more checks than the scheduling threshold allows, it left the check
+   * unchanged while scheduling changed checks only, or the check runs more
    * often than the minimum frequency for scheduling on deploy.
    */
-  scheduleSkippedReason?: 'NOT_REQUESTED' | 'THRESHOLD' | 'MIN_FREQUENCY'
+  scheduleSkippedReason?: 'NOT_REQUESTED' | 'THRESHOLD' | 'UNCHANGED' | 'MIN_FREQUENCY'
 }
+
+/**
+ * Which checks a deploy schedules: the ones it created or updated, or every
+ * check it deployed, the unchanged ones included.
+ */
+export type ScheduleOnDeployScope = 'changed' | 'all'
 
 /** How much of each change a preview reports. */
 export type ProjectPreviewDetail = 'summary' | 'changes' | 'full'
@@ -260,7 +267,9 @@ export interface ProjectDeployment {
   /**
    * Whether the deploy schedules its checks. False when it was sent with
    * scheduleOnDeploy=false, and when it had more checks than the scheduling
-   * threshold allows. Absent from an API that predates the threshold.
+   * threshold allows, which is decided from the applied diff: until the
+   * deployment has finished it is the request. Absent from an API that
+   * predates the threshold.
    */
   scheduleOnDeploy?: boolean
   createdAt: string
@@ -704,6 +713,7 @@ class Projects {
     {
       dryRun = false,
       scheduleOnDeploy = true,
+      scheduleOnDeployScope = 'changed',
       scheduleOnDeployThreshold,
       scheduleOnDeployMinFrequency,
       preserveResources = false,
@@ -716,8 +726,11 @@ class Projects {
     }: {
       dryRun?: boolean
       scheduleOnDeploy?: boolean
+      /** Which checks to schedule: the changed ones, or every deployed check. */
+      scheduleOnDeployScope?: ScheduleOnDeployScope
       /**
-       * Schedule no checks if the deploy would schedule more than this many.
+       * Schedule no checks if the deploy would schedule more than this many,
+       * not counting the ones the scope and the minimum frequency leave out.
        * Without it Checkly applies its own threshold.
        */
       scheduleOnDeployThreshold?: number
@@ -773,6 +786,7 @@ class Projects {
         return await this.submitDeployment(resources, {
           dryRun,
           scheduleOnDeploy,
+          scheduleOnDeployScope,
           scheduleOnDeployThreshold,
           scheduleOnDeployMinFrequency,
           preserveResources,
@@ -815,6 +829,7 @@ class Projects {
     {
       dryRun,
       scheduleOnDeploy,
+      scheduleOnDeployScope,
       scheduleOnDeployThreshold,
       scheduleOnDeployMinFrequency,
       preserveResources,
@@ -825,6 +840,7 @@ class Projects {
     }: {
       dryRun: boolean
       scheduleOnDeploy: boolean
+      scheduleOnDeployScope: ScheduleOnDeployScope
       scheduleOnDeployThreshold?: number
       scheduleOnDeployMinFrequency?: number
       preserveResources: boolean
@@ -839,7 +855,9 @@ class Projects {
     // behavior, so omitting it keeps default deploys backwards compatible.
     // plan, pruneRelations, planToken, scheduleOnDeployThreshold and
     // scheduleOnDeployMinFrequency are omitted for the same reason: an older
-    // API knows none of them.
+    // API knows none of them. The scope is always sent: it decides which
+    // checks run after the deploy, whatever the API's own default.
+    const scopeParam = `&scheduleOnDeployScope=${scheduleOnDeployScope}`
     const thresholdParam = scheduleOnDeployThreshold === undefined
       ? ''
       : `&scheduleOnDeployThreshold=${scheduleOnDeployThreshold}`
@@ -852,7 +870,7 @@ class Projects {
     const tokenParam = planToken ? `&planToken=${encodeURIComponent(planToken)}` : ''
     const { data } = await this.api.post<ProjectDeployResponse | ProjectDeployment>(
       `/v1/projects/deploy?dryRun=${dryRun}&scheduleOnDeploy=${scheduleOnDeploy}`
-      + `${thresholdParam}${minFrequencyParam}${preserveParam}${planParam}${pruneParam}${tokenParam}`,
+      + `${scopeParam}${thresholdParam}${minFrequencyParam}${preserveParam}${planParam}${pruneParam}${tokenParam}`,
       resources,
       { transformRequest: compressJSONPayload },
     )

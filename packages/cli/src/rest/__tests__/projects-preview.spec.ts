@@ -171,7 +171,7 @@ describe('Projects.deploy with a plan token', () => {
     await projects.deploy(sync, { plan: true, planToken: 'v1.token+slash/value', pruneRelations: true })
 
     expect(api.post).toHaveBeenCalledWith(
-      '/v1/projects/deploy?dryRun=false&scheduleOnDeploy=true&plan=true&pruneRelations=true'
+      '/v1/projects/deploy?dryRun=false&scheduleOnDeploy=true&scheduleOnDeployScope=changed&plan=true&pruneRelations=true'
       + '&planToken=v1.token%2Bslash%2Fvalue',
       sync,
       expect.anything(),
@@ -186,7 +186,7 @@ describe('Projects.deploy with a plan token', () => {
     await projects.deploy(sync)
 
     expect(api.post).toHaveBeenCalledWith(
-      '/v1/projects/deploy?dryRun=false&scheduleOnDeploy=true',
+      '/v1/projects/deploy?dryRun=false&scheduleOnDeploy=true&scheduleOnDeployScope=changed',
       sync,
       expect.anything(),
     )

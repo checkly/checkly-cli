@@ -26,6 +26,7 @@ import {
   ProjectPreviewNotSupportedError,
   ProjectPreviewResponse,
   ProjectSync,
+  ScheduleOnDeployScope,
 } from '../rest/projects.js'
 import { ConflictError, ValidationError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
@@ -143,8 +144,15 @@ export default class Deploy extends AuthCommand {
       default: true,
       allowNo: true,
     }),
+    'schedule-on-deploy-scope': Flags.string({
+      description: 'Which checks to schedule after the deploy: "changed" schedules the checks the deploy created or '
+        + 'updated, "all" also the ones it left unchanged.',
+      options: ['changed', 'all'],
+      default: 'changed',
+    }),
     'schedule-on-deploy-threshold': autoOrWholeNumberFlag({
-      description: 'Schedule no checks after the deploy if it would schedule more than this many. '
+      description: 'Schedule no checks after the deploy if it would schedule more than this many, not counting the '
+        + 'ones --schedule-on-deploy-scope and --schedule-on-deploy-min-frequency leave out. '
         + '"auto" leaves the threshold to Checkly, which also caps the number you can set.',
       default: 'auto',
     }),
@@ -217,6 +225,7 @@ export default class Deploy extends AuthCommand {
       'prune-relations': pruneRelations,
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
+      'schedule-on-deploy-scope': scheduleScope,
       'schedule-on-deploy-threshold': scheduleThreshold,
       'schedule-on-deploy-min-frequency': scheduleMinFrequency,
       'preserve-resources': preserveResources,
@@ -401,7 +410,7 @@ export default class Deploy extends AuthCommand {
     const optionLines = [
       `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
       scheduleOnDeploy
-        ? 'Schedule checks after deploy'
+        ? `Schedule ${scheduleScope} checks after deploy`
         : 'Checks will NOT be scheduled after deploy',
       preserveResources
         ? 'Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app'
@@ -656,6 +665,7 @@ export default class Deploy extends AuthCommand {
 
     const runDeploy = () => deployOrRetryLegacy({
       scheduleOnDeploy,
+      scheduleOnDeployScope: scheduleScope as ScheduleOnDeployScope,
       scheduleOnDeployThreshold: scheduleThreshold === 'auto' ? undefined : scheduleThreshold,
       scheduleOnDeployMinFrequency: scheduleMinFrequency === 'auto' ? undefined : scheduleMinFrequency,
       preserveResources,
@@ -722,12 +732,14 @@ export default class Deploy extends AuthCommand {
       if (wroteNothing) {
         // Scheduling is the one thing such a deploy visibly does, so it is said.
         // Without marks it is counted on what was sent and can be scheduled: a
+        // deploy that changed nothing schedules only under the `all` scope, a
         // testOnly check is in the project but not in the deploy, and a
         // heartbeat monitor waits for pings instead of running.
         const heartbeats = project.getHeartbeatLogicalIds()
         const scheduled = markedChecks.length > 0
           ? markedChecks.some(entry => entry.scheduled)
           : (data.scheduled ?? scheduleOnDeploy)
+            && scheduleScope === 'all'
             && Object.keys(projectBundle.data.check).some(logicalId => !heartbeats.includes(logicalId))
         this.log(`Project "${project.name}" is up to date.${scheduled ? ' Checks were scheduled to run.' : ''}`)
       } else {
@@ -737,9 +749,15 @@ export default class Deploy extends AuthCommand {
       // the threshold allows, which is worth a warning. Otherwise it may still
       // leave some out, such as the ones that already run often; a notice
       // lists those, kept short so that it does not push people into relaxing
-      // the limits. A deploy that asked for no scheduling hears about neither.
+      // the limits. A deploy that asked for no scheduling hears about neither,
+      // and the checks a deploy left unchanged are what the scope leaves out
+      // by design, not something to report.
       const notScheduled = scheduleOnDeploy
-        ? markedChecks.filter(entry => entry.scheduled === false && entry.scheduleSkippedReason !== 'NOT_REQUESTED')
+        ? markedChecks.filter(entry =>
+            entry.scheduled === false
+            && entry.scheduleSkippedReason !== 'NOT_REQUESTED'
+            && entry.scheduleSkippedReason !== 'UNCHANGED',
+          )
         : []
       if (scheduleOnDeploy && data.scheduled === false) {
         // Set apart from the line above, which ends without one.
@@ -753,6 +771,13 @@ export default class Deploy extends AuthCommand {
           '  --no-schedule-on-deploy',
           '    Disable automatic check scheduling after a deploy. Removes the warning.',
           '',
+          ...scheduleScope === 'all'
+            ? [
+                '  --schedule-on-deploy-scope=changed',
+                '    Only schedule the checks the deploy changed.',
+                '',
+              ]
+            : [],
           '  --schedule-on-deploy-threshold=<number>',
           '    Change the threshold to a suitable number of checks.',
           '',
