@@ -186,9 +186,3 @@ export class TcpMonitor extends Monitor {
     }
   }
 }
-
-// Aliases for backwards compatibility.
-export {
-  TcpMonitorProps as TcpCheckProps,
-  TcpMonitor as TcpCheck,
-}

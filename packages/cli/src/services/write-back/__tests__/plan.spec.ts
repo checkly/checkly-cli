@@ -430,8 +430,8 @@ describe('planWriteBack', () => {
     ])
   })
 
-  it('finds groups and monitors through their exported aliases and mapped paths', async () => {
-    await declare('group.check.ts', `import { CheckGroup, HeartbeatCheck, UrlMonitor, TcpMonitor } from 'checkly/constructs'
+  it('finds groups and monitors through their mapped paths', async () => {
+    await declare('group.check.ts', `import { CheckGroup, HeartbeatMonitor, UrlMonitor, TcpMonitor } from 'checkly/constructs'
 
 export const group = new CheckGroup('grp', {
   name: 'Group',
@@ -439,7 +439,7 @@ export const group = new CheckGroup('grp', {
   apiCheckDefaults: { url: 'https://example.com' },
 })
 
-new HeartbeatCheck('beat', { name: 'Beat', period: 1, periodUnit: 'hours', grace: 5, graceUnit: 'minutes' })
+new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: 'hours', grace: 5, graceUnit: 'minutes' })
 
 new UrlMonitor('url', { name: 'Url', request: { url: 'https://example.com' } })
 
@@ -506,7 +506,7 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'example.com', port: 4
       ['tcp', 'request.hostname', '\'other.example.com\''],
     ])
     expect(plan.files).toHaveLength(1)
-    expect(plan.files[0].text).toBe(`import { CheckGroup, HeartbeatCheck, UrlMonitor, TcpMonitor } from 'checkly/constructs'
+    expect(plan.files[0].text).toBe(`import { CheckGroup, HeartbeatMonitor, UrlMonitor, TcpMonitor } from 'checkly/constructs'
 
 export const group = new CheckGroup('grp', {
   name: 'Group',
@@ -514,7 +514,7 @@ export const group = new CheckGroup('grp', {
   apiCheckDefaults: { url: 'https://api.example.com' },
 })
 
-new HeartbeatCheck('beat', { name: 'Beat', period: 2, periodUnit: 'hours', grace: 5, graceUnit: 'minutes' })
+new HeartbeatMonitor('beat', { name: 'Beat', period: 2, periodUnit: 'hours', grace: 5, graceUnit: 'minutes' })
 
 new UrlMonitor('url', { name: 'Url', request: { url: 'https://www.example.com' }, maxResponseTime: 20000 })
 
