@@ -93,7 +93,7 @@ export function formatWriteBackUpdated ({ writeBack, project }: WriteBackOutputI
 /**
  * A skipped property as the reader's code names it. A change refused before
  * it was matched to a construct property is known by the path Checkly reports
- * (`/alertChannels/7`), which is shown dotted like the others.
+ * (`/runParallel`), which is shown dotted like the others.
  */
 function propertyName (property: string): string {
   if (!property.startsWith('/')) {

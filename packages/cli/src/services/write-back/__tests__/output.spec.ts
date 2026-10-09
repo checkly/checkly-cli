@@ -178,8 +178,10 @@ describe('formatWriteBackSkipped', () => {
     const writeBack: WriteBackPlan = {
       ...empty,
       skipped: [
-        { type: 'check-group', logicalId: 'grp', property: '/alertChannels/7', reason: 'references another resource' },
+        { type: 'check-group', logicalId: 'grp', property: '/runParallel', reason: 'not a property this tool can update' },
         { type: 'check', logicalId: 'api', property: 'tags', reason: 'your code also changed it since the last deploy; merge by hand' },
+        // A refused reference is recorded as the construct spells it, not as Checkly reports it.
+        { type: 'check', logicalId: 'api', property: 'group', reason: 'references another resource' },
         { type: 'check-group', logicalId: 'grp', property: 'name', reason: 'name is the variable title, not a plain literal' },
         // A reason about the whole resource has no property.
         { type: 'check', logicalId: 'api', reason: 'src/api.check.ts: its options are not a plain object literal' },
@@ -192,11 +194,12 @@ describe('formatWriteBackSkipped', () => {
       '',
       '! CheckGroupV2 grp  src/groups.ts',
       // A path Checkly reports is shown dotted, like a property of the code.
-      `    ${'alertChannels.7'.padEnd(15)}  references another resource`,
-      `    ${'name'.padEnd(15)}  name is the variable title, not a plain literal`,
+      `    ${'runParallel'.padEnd(11)}  not a property this tool can update`,
+      `    ${'name'.padEnd(11)}  name is the variable title, not a plain literal`,
       '',
       '! ApiCheck api  src/api.check.ts',
-      '    tags  your code also changed it since the last deploy; merge by hand',
+      `    ${'tags'.padEnd(5)}  your code also changed it since the last deploy; merge by hand`,
+      '    group  references another resource',
       '    src/api.check.ts: its options are not a plain object literal',
       '',
       '! Dashboard gone',
