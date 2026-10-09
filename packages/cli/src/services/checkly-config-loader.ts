@@ -47,7 +47,7 @@ export type CheckConfigDefaults =
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
   | 'muted' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'alertEscalationPolicy'
-  | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'group' | 'groupName' | 'runParallel'
+  | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'group' | 'runParallel'
   | 'engine'> & { logicalId: string, playwrightConfigPath?: string }
 
 export type ChecklyConfig<UpstreamName extends string = string> = {

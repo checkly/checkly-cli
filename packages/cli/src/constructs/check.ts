@@ -22,7 +22,11 @@ import { IncidentTrigger } from './incident.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
-import { InvalidPropertyValueDiagnostic, UnsupportedPropertyDiagnostic } from './construct-diagnostics.js'
+import {
+  InvalidPropertyValueDiagnostic,
+  RemovedPropertyDiagnostic,
+  UnsupportedPropertyDiagnostic,
+} from './construct-diagnostics.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 
 type FrequencyLike = {
@@ -247,11 +251,6 @@ export interface CheckProps {
    * ```
    */
   frequency?: number | Frequency
-  /**
-   * The id of the check group this check is part of. Set this by calling `someGroup.ref()`
-   * @deprecated Use {@link group} instead.
-   */
-  groupId?: Ref
 
   /**
    * The CheckGroup that this check is part of.
@@ -380,6 +379,7 @@ export abstract class Check extends Construct {
   __checkFilePath?: string
   #intent?: CheckIntent | null
   #aiAutoRepairEnabled?: boolean | null
+  #removedGroupIdSet: boolean
 
   static readonly __checklyType = 'check'
 
@@ -405,9 +405,10 @@ export abstract class Check extends Construct {
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
     this.alertChannels = config.alertChannels ?? []
-    // Prefer the `group` parameter, but support groupId for backwards compatibility.
-    this.groupId = config.group?.ref() ?? config.groupId
-    // alertSettings, useGlobalAlertSettings, groupId, groupOrder
+    this.groupId = config.group?.ref()
+    // The props types no longer have `groupId`, but plain JavaScript or a
+    // type assertion can still pass it; validate() reports it.
+    this.#removedGroupIdSet = (props as { groupId?: unknown }).groupId !== undefined
 
     this.testOnly = config.testOnly ?? false
     this.retryStrategy = config.retryStrategy
@@ -464,6 +465,18 @@ export abstract class Check extends Construct {
       diagnostics.add(new UnsupportedPropertyDiagnostic(
         'shouldFail',
         new Error(`This property is only available in the ApiCheck, UrlMonitor and TcpMonitor constructs.`),
+      ))
+    }
+  }
+
+  protected validateRemovedGroupId (diagnostics: Diagnostics): void {
+    if (this.#removedGroupIdSet) {
+      diagnostics.add(new RemovedPropertyDiagnostic(
+        'groupId',
+        new Error(
+          `Use the "group" property with the group construct instead, e.g. `
+          + `replace "groupId: myGroup.ref()" with "group: myGroup".`,
+        ),
       ))
     }
   }
@@ -639,6 +652,7 @@ export abstract class Check extends Construct {
     await this.validateDoubleCheck(diagnostics)
     await this.validateRetryStrategyOnlyOn(diagnostics)
     this.validateShouldFail(diagnostics)
+    this.validateRemovedGroupId(diagnostics)
     this.validateIntent(diagnostics)
   }
 

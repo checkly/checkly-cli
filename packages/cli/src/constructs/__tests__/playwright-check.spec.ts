@@ -116,47 +116,6 @@ function expectNoSymlinkHasChildren (entries: TarEntry[]): void {
 const DEFAULT_TEST_TIMEOUT = 180_000
 
 describe('PlaywrightCheck', () => {
-  it('should synthesize groupName', async () => {
-    const fixt = await FixtureSandbox.create({
-      template: 'playwright',
-      source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-mapping'),
-    })
-
-    try {
-      const output = await parseProject(fixt)
-
-      expect(output).toEqual(expect.objectContaining({
-        diagnostics: expect.objectContaining({
-          fatal: false,
-        }),
-        payload: expect.objectContaining({
-          resources: expect.arrayContaining([
-            expect.objectContaining({
-              logicalId: 'group',
-              type: 'check-group',
-              member: true,
-              payload: expect.objectContaining({
-                name: 'b801a908-8d3c-4a94-92ab-cf15f58a59b4',
-              }),
-            }),
-            expect.objectContaining({
-              logicalId: 'check',
-              type: 'check',
-              member: true,
-              payload: expect.objectContaining({
-                groupId: {
-                  ref: 'group',
-                },
-              }),
-            }),
-          ]),
-        }),
-      }))
-    } finally {
-      await fixt.destroy()
-    }
-  }, DEFAULT_TEST_TIMEOUT)
-
   it('should synthesize group', async () => {
     const fixt = await FixtureSandbox.create({
       template: 'playwright',
@@ -195,74 +154,11 @@ describe('PlaywrightCheck', () => {
     }
   }, DEFAULT_TEST_TIMEOUT)
 
-  it('should synthesize groupId', async () => {
-    const fixt = await FixtureSandbox.create({
-      template: 'playwright',
-      source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupId-mapping'),
-    })
-
-    try {
-      const output = await parseProject(fixt)
-
-      expect(output).toEqual(expect.objectContaining({
-        diagnostics: expect.objectContaining({
-          fatal: false,
-        }),
-        payload: expect.objectContaining({
-          resources: expect.arrayContaining([
-            expect.objectContaining({
-              logicalId: 'group',
-              type: 'check-group',
-              member: true,
-            }),
-            expect.objectContaining({
-              logicalId: 'check',
-              type: 'check',
-              member: true,
-              payload: expect.objectContaining({
-                groupId: {
-                  ref: 'group',
-                },
-              }),
-            }),
-          ]),
-        }),
-      }))
-    } finally {
-      await fixt.destroy()
-    }
-  }, DEFAULT_TEST_TIMEOUT)
-
   describe('validation', () => {
-    it('should warn that groupName is deprecated', async () => {
+    it('should error if a playwrightChecks config entry sets groupName', async () => {
       const fixt = await FixtureSandbox.create({
         template: 'playwright',
-        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-mapping'),
-      })
-
-      try {
-        const output = await parseProject(fixt)
-
-        expect(output).toEqual(expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            fatal: false,
-            benign: false,
-            observations: expect.arrayContaining([
-              expect.objectContaining({
-                message: expect.stringContaining('Property "groupName" is deprecated and will eventually be removed.'),
-              }),
-            ]),
-          }),
-        }))
-      } finally {
-        await fixt.destroy()
-      }
-    }, DEFAULT_TEST_TIMEOUT)
-
-    it('should error if groupName is not found', async () => {
-      const fixt = await FixtureSandbox.create({
-        template: 'playwright',
-        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-not-found'),
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-removed'),
       })
 
       try {
@@ -271,60 +167,9 @@ describe('PlaywrightCheck', () => {
         expect(output).toEqual(expect.objectContaining({
           diagnostics: expect.objectContaining({
             fatal: true,
-            benign: false,
             observations: expect.arrayContaining([
               expect.objectContaining({
-                message: expect.stringContaining('The value provided for property "groupName" is not valid.'),
-              }),
-            ]),
-          }),
-        }))
-      } finally {
-        await fixt.destroy()
-      }
-    }, DEFAULT_TEST_TIMEOUT)
-
-    it('should error if both group and groupName are set', async () => {
-      const fixt = await FixtureSandbox.create({
-        template: 'playwright',
-        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-with-group-conflict'),
-      })
-
-      try {
-        const output = await parseProject(fixt)
-
-        expect(output).toEqual(expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            fatal: true,
-            benign: false,
-            observations: expect.arrayContaining([
-              expect.objectContaining({
-                message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
-              }),
-            ]),
-          }),
-        }))
-      } finally {
-        await fixt.destroy()
-      }
-    }, DEFAULT_TEST_TIMEOUT)
-
-    it('should error if both groupId and groupName are set', async () => {
-      const fixt = await FixtureSandbox.create({
-        template: 'playwright',
-        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-groupName-with-groupId-conflict'),
-      })
-
-      try {
-        const output = await parseProject(fixt)
-
-        expect(output).toEqual(expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            fatal: true,
-            benign: false,
-            observations: expect.arrayContaining([
-              expect.objectContaining({
-                message: expect.stringContaining('Property "groupName" cannot be set when "group" is set.'),
+                message: expect.stringContaining('Property "groupName" has been removed.'),
               }),
             ]),
           }),

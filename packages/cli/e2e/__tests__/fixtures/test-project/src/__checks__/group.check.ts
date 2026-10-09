@@ -22,7 +22,7 @@ const group = new CheckGroupV2('check-group-1', {
 const browserCheck = new BrowserCheck('group-browser-check-1', {
   name: 'Check with group',
   activated: false,
-  groupId: group.ref(),
+  group,
   code: {
     content: 'console.info(process.env.NODE_ENV);',
   },
