@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises'
 
-import { RuntimeCheck, RuntimeCheckProps } from './check.js'
+import { RuntimeCheck, RuntimeCheckProps, ShouldFailProps } from './check.js'
 import { HttpHeader } from './http-header.js'
 import { BasicAuth, Request } from './api-request.js'
 import { Session, SharedFileRef } from './session.js'
@@ -31,7 +31,7 @@ export type ApiCheckDefaultConfig = {
   assertions?: Array<Assertion>
 }
 
-export interface ApiCheckProps extends RuntimeCheckProps {
+export interface ApiCheckProps extends RuntimeCheckProps, ShouldFailProps {
   /**
    *  Determines the request that the check is going to run.
    */
@@ -180,6 +180,10 @@ export class ApiCheck extends RuntimeCheck {
   }
 
   protected supportsOnlyOnNetworkErrorRetryStrategy (): boolean {
+    return true
+  }
+
+  protected supportsShouldFail (): boolean {
     return true
   }
 

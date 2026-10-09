@@ -98,6 +98,12 @@ export interface BuildCheckPropsOptions {
   includeAutomaticCheckRepair?: boolean
 
   /**
+   * Emit `shouldFail` for constructs that support it. ApiCheck, UrlMonitor
+   * and TcpMonitor are the only current consumers.
+   */
+  includeShouldFail?: boolean
+
+  /**
    * The locations a construct of this type gives itself when neither the
    * props nor the project config name any (an agentic check falls back to a
    * single region). A row holding exactly these is generated without them.
@@ -112,7 +118,7 @@ export interface BuildCheckPropsOptions {
   omit?: readonly OmittableCheckProp[]
 }
 
-export type OmittableCheckProp = 'shouldFail' | 'privateLocations' | 'runParallel' | 'retryStrategy'
+export type OmittableCheckProp = 'privateLocations' | 'runParallel' | 'retryStrategy'
 
 /**
  * The project-level defaults a construct of the given check type falls back
@@ -210,7 +216,7 @@ export function buildCheckProps (
   }
 
   if (
-    !omitted.has('shouldFail')
+    options.includeShouldFail
     && resource.shouldFail !== undefined
     && (resource.shouldFail !== (defaults('shouldFail') ?? false) || context.spelledOut('shouldFail'))
   ) {

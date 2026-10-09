@@ -53,7 +53,7 @@ export class TcpMonitorCodegen extends Codegen<TcpMonitorResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildMonitorProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context, { includeShouldFail: true })
 
           builder.object('request', builder => {
             builder.string('hostname', resource.request.hostname)

@@ -7,7 +7,7 @@ import { AgenticCheck, type AgenticCheckProps } from '../../constructs/agentic-c
 import { ApiCheck, type ApiCheckDefaultConfig, type ApiCheckProps } from '../../constructs/api-check.js'
 import type { Request } from '../../constructs/api-request.js'
 import { BrowserCheck, type BrowserCheckProps } from '../../constructs/browser-check.js'
-import type { CheckProps, RuntimeCheckProps } from '../../constructs/check.js'
+import type { CheckProps, RuntimeCheckProps, ShouldFailProps } from '../../constructs/check.js'
 import { CheckGroupV1, type CheckGroupV1Props } from '../../constructs/check-group-v1.js'
 import { CheckGroupV2, type CheckGroupV2Props } from '../../constructs/check-group-v2.js'
 import type { Construct } from '../../constructs/construct.js'
@@ -234,7 +234,7 @@ const alertRules = (policy: AlertPolicyHolder): Rule[] => [
 // The keys each class writes are `as const` lists typed against the class's
 // props, so that `_everyPropIsListed` below can hold the build to them: a
 // key added to a props type has to be written or named as left out.
-const CHECK_KEYS = ['name', 'description', 'activated', 'muted', 'shouldFail'] as const satisfies readonly (keyof CheckProps)[]
+const CHECK_KEYS = ['name', 'description', 'activated', 'muted'] as const satisfies readonly (keyof CheckProps)[]
 const CHECK_SET_KEYS = ['tags', 'locations'] as const satisfies readonly (keyof CheckProps)[]
 const CHECK_HELPER_KEYS = ['frequency', 'retryStrategy', 'alertEscalationPolicy'] as const satisfies readonly (keyof CheckProps)[]
 const CHECK_WRITTEN = [...CHECK_KEYS, ...CHECK_SET_KEYS, ...CHECK_HELPER_KEYS] as const
@@ -252,6 +252,9 @@ const omit = <K extends string, O extends string>(keys: readonly K[], omitted: r
 // variables; a monitor or an agentic check would drop them when synthesized.
 const RUNTIME_CHECK_KEYS = ['runtimeId', 'environmentVariables'] as const satisfies readonly (keyof RuntimeCheckProps)[]
 const RUNTIME_CHECK_RULES: Rule[] = RUNTIME_CHECK_KEYS.map(key => identity(key))
+// Only ApiCheck, UrlMonitor and TcpMonitor take `shouldFail`.
+const SHOULD_FAIL_KEYS = ['shouldFail'] as const satisfies readonly (keyof ShouldFailProps)[]
+const SHOULD_FAIL_RULES: Rule[] = SHOULD_FAIL_KEYS.map(key => identity(key))
 const RESPONSE_TIME_KEYS = ['degradedResponseTime', 'maxResponseTime'] as const satisfies readonly (keyof ApiCheckProps)[]
 const RESPONSE_TIME_RULES: Rule[] = RESPONSE_TIME_KEYS.map(key => identity(key))
 const PACKET_LOSS_KEYS = [
@@ -477,13 +480,14 @@ const AUTOMATION_RULE_RULES: Rule[] = [
 
 // What each class writes, at the top level of its props. `request`,
 // `apiCheckDefaults` and `themeColors` stand for every rule under them.
-const API_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...RESPONSE_TIME_KEYS, 'request'] as const
+const API_WRITTEN = [...CHECK_WRITTEN, ...SHOULD_FAIL_KEYS, ...RUNTIME_CHECK_KEYS, ...RESPONSE_TIME_KEYS, 'request'] as const
 const BROWSER_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...BROWSER_KEYS] as const
 const MULTI_STEP_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...MULTI_STEP_KEYS] as const
 const PLAYWRIGHT_WRITTEN = [...omit(CHECK_WRITTEN, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_KEYS] as const
 const AGENTIC_WRITTEN = [...omit(CHECK_WRITTEN, AGENTIC_CHECK_OMITTED_PROPS), ...AGENTIC_KEYS] as const
 // The monitors with a request and response-time thresholds share one list.
 const MONITOR_WRITTEN = [...CHECK_WRITTEN, ...RESPONSE_TIME_KEYS, 'request'] as const
+const SHOULD_FAIL_MONITOR_WRITTEN = [...MONITOR_WRITTEN, ...SHOULD_FAIL_KEYS] as const
 const ICMP_WRITTEN = [...CHECK_WRITTEN, ...PACKET_LOSS_KEYS, 'request'] as const
 const HEARTBEAT_WRITTEN = [...CHECK_WRITTEN, ...HEARTBEAT_KEYS] as const
 const GROUP_WRITTEN = [...GROUP_KEYS, ...GROUP_SET_KEYS, ...GROUP_HELPER_KEYS] as const
@@ -555,8 +559,8 @@ const _everyPropIsListed: [
   Exact<MultiStepCheckProps, typeof MULTI_STEP_WRITTEN[number], CheckLeftOut | ContentKey | 'playwrightConfig'>,
   Exact<PlaywrightCheckProps, typeof PLAYWRIGHT_WRITTEN[number], CheckLeftOut | BundleKey | 'engine'>,
   Exact<AgenticCheckProps, typeof AGENTIC_WRITTEN[number], CheckLeftOut | 'agentRuntime'>,
-  Exact<UrlMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
-  Exact<TcpMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<UrlMonitorProps, typeof SHOULD_FAIL_MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<TcpMonitorProps, typeof SHOULD_FAIL_MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<DnsMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<GrpcMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<SslMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
@@ -616,9 +620,9 @@ const _everyResourcePropIsListed: [
  *
  * Keyed by the exact class, not by `instanceof`: a class this table does not
  * name gets nothing rather than a base class's rules, so a construct that
- * omits one of them (`AgenticCheck` takes no `shouldFail` or
- * `retryStrategy`, `PlaywrightCheck` no `retryStrategy`, as their codegens'
- * omitted props say) can never be handed it. The spec checks that every
+ * omits one of them (`AgenticCheck` takes no `retryStrategy`,
+ * `PlaywrightCheck` no `retryStrategy`, as their codegens' omitted props
+ * say) can never be handed it. The spec checks that every
  * construct class `checkly/constructs` exports is listed here or excluded
  * on purpose, and that the omitted props are absent.
  */
@@ -627,7 +631,7 @@ export type ConstructClass = abstract new (...args: any[]) => Construct
 
 export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new Map<ConstructClass, readonly Rule[]>([
   [ApiCheck, [
-    ...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...RESPONSE_TIME_RULES,
+    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RUNTIME_CHECK_RULES, ...RESPONSE_TIME_RULES,
     ...under('request', API_REQUEST_KEYS), assertions('AssertionBuilder', 'request'),
   ]],
   [BrowserCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...BROWSER_KEYS.map(key => identity(key))]],
@@ -635,10 +639,10 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
   [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_RULES]],
   [AgenticCheck, [...omitting(CHECK_RULES, AGENTIC_CHECK_OMITTED_PROPS), ...AGENTIC_KEYS.map(key => identity(key))]],
   [UrlMonitor, [
-    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
+    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
   ]],
   [TcpMonitor, [
-    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', TCP_REQUEST_KEYS), assertions('TcpAssertionBuilder', 'request'),
+    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RESPONSE_TIME_RULES, ...under('request', TCP_REQUEST_KEYS), assertions('TcpAssertionBuilder', 'request'),
   ]],
   [DnsMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, ...DNS_REQUEST_RULES, assertions('DnsAssertionBuilder', 'request')]],
   [GrpcMonitor, [
@@ -686,7 +690,7 @@ export const WRITTEN_BY_CLASS: ReadonlyMap<ConstructClass, readonly string[]> =
   new Map<ConstructClass, readonly string[]>([
     [ApiCheck, API_WRITTEN], [BrowserCheck, BROWSER_WRITTEN], [MultiStepCheck, MULTI_STEP_WRITTEN],
     [PlaywrightCheck, PLAYWRIGHT_WRITTEN], [AgenticCheck, AGENTIC_WRITTEN],
-    [UrlMonitor, MONITOR_WRITTEN], [TcpMonitor, MONITOR_WRITTEN], [DnsMonitor, MONITOR_WRITTEN],
+    [UrlMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [TcpMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [DnsMonitor, MONITOR_WRITTEN],
     [GrpcMonitor, MONITOR_WRITTEN], [SslMonitor, MONITOR_WRITTEN], [TracerouteMonitor, MONITOR_WRITTEN],
     [IcmpMonitor, ICMP_WRITTEN],
     [HeartbeatMonitor, HEARTBEAT_WRITTEN], [CheckGroupV1, GROUP_WRITTEN], [CheckGroupV2, GROUP_WRITTEN],

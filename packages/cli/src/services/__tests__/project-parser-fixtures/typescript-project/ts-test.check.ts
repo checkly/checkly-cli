@@ -6,7 +6,6 @@ export default function createCheck () {
     muted: false,
     activated: true,
     doubleCheck: false,
-    shouldFail: false,
     runtimeId: '2022.10',
     locations: ['eu-central-1'],
     frequency: 10,

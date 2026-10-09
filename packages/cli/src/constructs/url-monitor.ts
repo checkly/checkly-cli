@@ -2,7 +2,7 @@ import { Diagnostics } from './diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 import { Monitor, MonitorProps } from './monitor.js'
-import { CheckIntent, CheckIntentProps } from './check.js'
+import { CheckIntent, CheckIntentProps, ShouldFailProps } from './check.js'
 import { Session } from './session.js'
 import { UrlRequest } from './url-request.js'
 
@@ -10,7 +10,7 @@ import { UrlRequest } from './url-request.js'
  * Configuration properties for UrlMonitor.
  * Extends MonitorProps with URL-specific settings.
  */
-export interface UrlMonitorProps extends MonitorProps, CheckIntentProps {
+export interface UrlMonitorProps extends MonitorProps, CheckIntentProps, ShouldFailProps {
   /**
    * Determines the request that the monitor is going to run.
    * Defines the URL and validation rules for the HTTP check.
@@ -140,6 +140,10 @@ export class UrlMonitor extends Monitor {
   }
 
   protected supportsOnlyOnNetworkErrorRetryStrategy (): boolean {
+    return true
+  }
+
+  protected supportsShouldFail (): boolean {
     return true
   }
 

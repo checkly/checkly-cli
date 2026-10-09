@@ -42,8 +42,8 @@ export interface AgentRuntime {
  *
  * Agentic checks intentionally expose only the subset of options that the
  * Checkly platform currently supports for them. Properties such as
- * `privateLocations`, `runParallel`, `retryStrategy`, `shouldFail`,
- * `doubleCheck`, `triggerIncident` and `groupId` are omitted because the
+ * `privateLocations`, `runParallel`, `retryStrategy`, `doubleCheck`,
+ * `triggerIncident` and `groupId` are omitted because the
  * platform does not yet honor them for agentic checks. They will be added back
  * as additive, non-breaking changes once support lands.
  */
@@ -52,7 +52,6 @@ export type AgenticCheckOmittedProp =
   | 'privateLocations'
   | 'runParallel'
   | 'retryStrategy'
-  | 'shouldFail'
   | 'doubleCheck'
   | 'triggerIncident'
   | 'groupId'
@@ -131,7 +130,6 @@ export class AgenticCheck extends Check {
     this.privateLocations = undefined
     this.runParallel = false
     this.retryStrategy = undefined
-    this.shouldFail = undefined
     this.doubleCheck = undefined
     this.triggerIncident = undefined
 

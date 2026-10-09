@@ -966,6 +966,7 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
 
   it('gives each class the props its codegen does not omit, and frequency and a policy to every check', () => {
     const has = (rules: readonly Rule[], target: string) => rules.some(rule => rule.target.join('.') === target && rule.companion === undefined)
+    const shouldFailClasses: readonly ConstructClass[] = [ApiCheck, UrlMonitor, TcpMonitor]
     for (const [cls, rules] of RULES_BY_CLASS) {
       const isGroup = cls === CheckGroupV1 || cls === CheckGroupV2
       if (!isGroup && !(cls.prototype instanceof Check)) {
@@ -977,9 +978,8 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
       for (const prop of omitted) {
         expect(has(rules, prop), `${cls.name} ${prop}`).toBe(false)
       }
-      for (const prop of ['retryStrategy', 'shouldFail']) {
-        expect(has(rules, prop), `${cls.name} ${prop}`).toBe(!omitted.includes(prop) && !(isGroup && prop === 'shouldFail'))
-      }
+      expect(has(rules, 'retryStrategy'), `${cls.name} retryStrategy`).toBe(!omitted.includes('retryStrategy'))
+      expect(has(rules, 'shouldFail'), `${cls.name} shouldFail`).toBe(shouldFailClasses.includes(cls))
       expect(has(rules, 'alertEscalationPolicy'), `${cls.name} alertEscalationPolicy`).toBe(true)
       expect(has(rules, 'frequency'), `${cls.name} frequency`).toBe(!isGroup)
       expect(has(rules, 'runtimeId'), `${cls.name} runtimeId`).toBe(isGroup || cls.prototype instanceof RuntimeCheck)

@@ -6,7 +6,7 @@
 - Keep prompts under 10000 characters. The construct will fail validation otherwise.
 - **Frequency is entitlement-gated by the backend.** You can configure the same `frequency` values as other checks, including `Frequency.EVERY_5M` / `5`. The backend enforces the fastest cadence available to the account.
 - **Locations are entitlement-gated by the backend.** You can pass `locations` just like other public checks. The backend enforces the allowed number of regions for the account. `privateLocations` are not supported.
-- **Several common check fields are intentionally omitted** from `AgenticCheckProps`: `runParallel`, `retryStrategy`, `shouldFail`, `doubleCheck`, `triggerIncident`, and `groupId`. The platform does not yet honor these for agentic checks. Setting them in the construct is a TypeScript error.
+- **Several common check fields are intentionally omitted** from `AgenticCheckProps`: `runParallel`, `retryStrategy`, `doubleCheck`, `triggerIncident`, and `groupId`. The platform does not yet honor these for agentic checks. Setting them in the construct is a TypeScript error.
 - **Important:** The target URL must be publicly accessible. Checks run on Checkly's cloud infrastructure, not locally. If the user is developing against localhost, suggest a tunneling tool (ngrok, cloudflare tunnel) or a preview/staging deployment.
 - **Plan-gated:** Agentic checks require the `AGENTIC_CHECKS` entitlement on the account. Run `npx checkly skills manage` to check entitlements before using.
 

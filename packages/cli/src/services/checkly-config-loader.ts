@@ -1,7 +1,7 @@
 import * as path from 'path'
 import fs from 'node:fs/promises'
 import { findPlaywrightConfigPath, getDefaultChecklyConfig, writeChecklyConfigFile } from './util.js'
-import { CheckProps, RuntimeCheckProps } from '../constructs/check.js'
+import { CheckProps, RuntimeCheckProps, ShouldFailProps } from '../constructs/check.js'
 import { PlaywrightCheckProps } from '../constructs/playwright-check.js'
 import { Session } from '../constructs/index.js'
 import { Construct } from '../constructs/construct.js'
@@ -34,9 +34,10 @@ export type CheckConfigDefaults =
   | 'muted'
   | 'privateLocations'
   | 'retryStrategy'
-  | 'shouldFail'
   | 'tags'
   >
+  // Applies only to the check types that support it (see ShouldFailProps).
+  & ShouldFailProps
   & Pick<RuntimeCheckProps,
   | 'environmentVariables'
   | 'runtimeId'
@@ -45,7 +46,7 @@ export type CheckConfigDefaults =
   & { playwrightConfig?: PlaywrightConfig }
 
 export type PlaywrightSlimmedProp = Pick<PlaywrightCheckProps, 'name' | 'activated'
-  | 'muted' | 'shouldFail' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
+  | 'muted' | 'locations' | 'tags' | 'frequency' | 'environmentVariables'
   | 'alertChannels' | 'privateLocations' | 'alertEscalationPolicy'
   | 'pwProjects' | 'pwTags' | 'installCommand' | 'testCommand' | 'group' | 'groupName' | 'runParallel'
   | 'engine'> & { logicalId: string, playwrightConfigPath?: string }
@@ -81,7 +82,7 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
     /**
      * Browser checks default configuration properties.
      */
-    browserChecks?: CheckConfigDefaults & {
+    browserChecks?: Omit<CheckConfigDefaults, 'shouldFail'> & {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
@@ -90,7 +91,7 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
     /**
      * Multistep checks default configuration properties.
      */
-    multiStepChecks?: CheckConfigDefaults & {
+    multiStepChecks?: Omit<CheckConfigDefaults, 'shouldFail'> & {
       /**
        * Glob pattern where the CLI looks for Playwright test files, i.e. all `.spec.ts` files
        */
@@ -525,6 +526,7 @@ export async function loadChecklyConfig (
     validateDependencyCacheVersion(config, diagnostics)
     validateBundle(config, diagnostics)
     validateRunner(config, diagnostics)
+    validateCheckTypeDefaults(config, diagnostics)
 
     if (diagnostics.isFatal()) {
       throw new InvalidConfigError(diagnostics)
@@ -754,6 +756,21 @@ function validateObjectBlock (
   }
 
   return value as Record<string, unknown>
+}
+
+// The browser and multistep check defaults are typed without `shouldFail`,
+// but a plain-JS config or a type assertion can still set it there, where
+// no check would ever take it.
+function validateCheckTypeDefaults (config: ChecklyConfig, diagnostics: Diagnostics): void {
+  for (const section of ['browserChecks', 'multiStepChecks'] as const) {
+    const defaults = config.checks?.[section] as ShouldFailProps | undefined
+    if (defaults?.shouldFail !== undefined) {
+      diagnostics.add(new UnsupportedPropertyDiagnostic(
+        `checks.${section}.shouldFail`,
+        new Error(`"shouldFail" is only available in the ApiCheck, UrlMonitor and TcpMonitor constructs.`),
+      ))
+    }
+  }
 }
 
 function validateRunner (config: ChecklyConfig, diagnostics: Diagnostics): void {

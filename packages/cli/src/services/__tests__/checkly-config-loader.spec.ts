@@ -153,6 +153,12 @@ describe('loadChecklyConfig()', () => {
       ['caching-not-object.js'],
     )).rejects.toThrow(`The value provided for property "caching" is not valid`)
   })
+  it('rejects shouldFail in the browser and multistep check defaults', async () => {
+    const error = await loadInvalidConfig('check-type-defaults-should-fail.js')
+    expect(error.message).toContain('Property "checks.browserChecks.shouldFail" is not supported')
+    expect(error.message).toContain('Property "checks.multiStepChecks.shouldFail" is not supported')
+    expect(error.message).not.toContain('Property "checks.shouldFail"')
+  })
   it('rejects unknown keys in the caching block', async () => {
     await expect(loadChecklyConfig(
       configDir,

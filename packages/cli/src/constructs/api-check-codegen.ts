@@ -103,7 +103,7 @@ export class ApiCheckCodegen extends Codegen<ApiCheckResource> {
             builder.number('maxResponseTime', resource.maxResponseTime)
           }
 
-          buildRuntimeCheckProps(this.program, file, builder, resource, context)
+          buildRuntimeCheckProps(this.program, file, builder, resource, context, { includeShouldFail: true })
 
           builder.value('request', valueForRequest(this.program, file, context, resource.request))
         })

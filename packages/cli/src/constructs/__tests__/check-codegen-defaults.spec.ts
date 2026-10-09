@@ -8,6 +8,7 @@ import { AgenticCheckCodegen, AgenticCheckResource } from '../agentic-check-code
 import { ApiCheckCodegen, ApiCheckResource } from '../api-check-codegen.js'
 import { projectDefaultsFor } from '../check-codegen.js'
 import { Context } from '../internal/codegen/context.js'
+import { DnsMonitorCodegen, DnsMonitorResource } from '../dns-monitor-codegen.js'
 import { EmailAlertChannel } from '../email-alert-channel.js'
 import { PrivateLocation } from '../private-location.js'
 import { Project } from '../project.js'
@@ -233,6 +234,24 @@ describe('buildCheckProps defaults', () => {
       expect(source).not.toContain('shouldFail')
       expect(source).not.toContain('privateLocations')
       expect(source).not.toContain('runParallel')
+    })
+
+    it('generates shouldFail for URL and TCP monitors', async () => {
+      const url: UrlMonitorResource = { id: 'u', checkType: 'URL', name: 'U', shouldFail: true, request: { url: 'https://example.com' } }
+      const tcp: TcpMonitorResource = {
+        id: 't', checkType: 'TCP', name: 'T', shouldFail: true, request: { hostname: 'example.com', port: 443 },
+      }
+      expect(await renderWith(env, program => new UrlMonitorCodegen(program), url)).toContain('shouldFail: true')
+      expect(await renderWith(env, program => new TcpMonitorCodegen(program), tcp)).toContain('shouldFail: true')
+    })
+
+    it('never generates shouldFail for a check type without it, whatever the row or the project sets', async () => {
+      Session.checkDefaults = { shouldFail: false }
+      const dns: DnsMonitorResource = {
+        id: 'dns', checkType: 'DNS', name: 'DNS', shouldFail: true, request: { query: 'example.com', recordType: 'A' },
+      }
+      const source = await renderWith(env, program => new DnsMonitorCodegen(program), dns)
+      expect(source).not.toContain('shouldFail')
     })
   })
 

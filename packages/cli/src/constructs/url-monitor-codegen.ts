@@ -32,7 +32,7 @@ export class UrlMonitorCodegen extends Codegen<UrlMonitorResource> {
       builder.new(builder => {
         builder.string(logicalId)
         builder.object(builder => {
-          buildMonitorProps(this.program, file, builder, resource, context)
+          buildMonitorProps(this.program, file, builder, resource, context, { includeShouldFail: true })
 
           if (resource.degradedResponseTime !== undefined) {
             builder.number('degradedResponseTime', resource.degradedResponseTime)
