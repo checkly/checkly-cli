@@ -140,8 +140,9 @@ export default class Deploy extends AuthCommand {
       default: false,
     }),
     'schedule-on-deploy': Flags.boolean({
-      description: 'Enables automatic check scheduling after a deploy.',
-      default: true,
+      description: 'Schedule checks to run right after the deploy instead of waiting for their next scheduled run. '
+        + 'The other --schedule-on-deploy-* flags refine which checks it schedules.',
+      default: false,
       allowNo: true,
     }),
     'schedule-on-deploy-scope': Flags.string({
@@ -250,6 +251,24 @@ export default class Deploy extends AuthCommand {
         this.style.longError(
           `${needsPlan} applies to a planned deploy only.`,
           `Re-run without --no-plan, or without ${needsPlan}.`,
+        )
+        this.exit(1)
+      }
+    }
+
+    // The flags that refine scheduling mean nothing on a deploy that schedules
+    // no checks. Passing one is taken as having expected scheduling, which is
+    // opt-in, so the deploy stops rather than quietly scheduling nothing.
+    if (!scheduleOnDeploy) {
+      const refiningFlag = [
+        'schedule-on-deploy-scope',
+        'schedule-on-deploy-threshold',
+        'schedule-on-deploy-min-frequency',
+      ].find(name => metadata.flags[name]?.setFromDefault !== true)
+      if (refiningFlag !== undefined) {
+        this.style.longError(
+          `--${refiningFlag} applies only when checks are scheduled after the deploy.`,
+          `Add --schedule-on-deploy to schedule them, or drop --${refiningFlag}.`,
         )
         this.exit(1)
       }
@@ -411,7 +430,8 @@ export default class Deploy extends AuthCommand {
       `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
       scheduleOnDeploy
         ? `Schedule ${scheduleScope} checks after deploy`
-        : 'Checks will NOT be scheduled after deploy',
+        : 'Leave checks to run at their next scheduled time. '
+          + 'Pass --schedule-on-deploy to schedule them right after the deploy instead',
       preserveResources
         ? 'Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app'
         : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead',
@@ -768,9 +788,6 @@ export default class Deploy extends AuthCommand {
           'All checks will run at their next scheduled time.',
           '',
           'Helpful options:',
-          '  --no-schedule-on-deploy',
-          '    Disable automatic check scheduling after a deploy. Removes the warning.',
-          '',
           ...scheduleScope === 'all'
             ? [
                 '  --schedule-on-deploy-scope=changed',
