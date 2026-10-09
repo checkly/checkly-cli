@@ -11,29 +11,8 @@ import {
 } from './alert-escalation-policy.js'
 import { Diagnostics } from './diagnostics.js'
 import { CheckGroupV1, CheckGroupV1Props, GroupRetryStrategy } from './check-group-v1.js'
-import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
 
 export interface CheckGroupV2Props extends Omit<CheckGroupV1Props, 'alertEscalationPolicy'> {
-  /**
-   * This property is no longer supported; use {@link retryStrategy} instead.
-   *
-   * To match the behavior of `doubleCheck: true`, use:
-   *
-   *     retryStrategy: RetryStrategyBuilder.fixedStrategy({
-   *       maxRetries: 1,
-   *       baseBackoffSeconds: 0,
-   *       maxDurationSeconds: 600,
-   *       sameRegion: false,
-   *     })
-   *
-   * To match the behavior of `doubleCheck: false`, use:
-   *
-   *     retryStrategy: RetryStrategyBuilder.noRetries()
-   *
-   * @deprecated Use {@link CheckGroupV2Props.retryStrategy} instead.
-   */
-  doubleCheck?: boolean
-
   /**
    * An array of one or more data center locations where to run the checks.
    *
@@ -152,10 +131,6 @@ export class CheckGroupV2 extends CheckGroupV1 {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   async onBeforeValidate (diagnostics: Diagnostics): Promise<void> {
     // No-op
-  }
-
-  protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
-    await validateRemovedDoubleCheck(diagnostics, this)
   }
 
   synthesize () {

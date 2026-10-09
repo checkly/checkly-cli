@@ -21,7 +21,7 @@ import { AlertEscalation } from './alert-escalation-policy.js'
 import { IncidentTrigger } from './incident.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { Diagnostics } from './diagnostics.js'
-import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics.js'
+import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
 import { InvalidPropertyValueDiagnostic, UnsupportedPropertyDiagnostic } from './construct-diagnostics.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 
@@ -206,13 +206,6 @@ export interface CheckProps {
   muted?: boolean
 
   /**
-   * Setting this to "true" will trigger a retry when a check fails from the failing region and another,
-   * randomly selected region before marking the check as failed.
-   * @deprecated Use {@link retryStrategy} instead.
-   */
-  doubleCheck?: boolean
-
-  /**
    * An array of one or more data center locations where to run this check.
    *
    * @example ['us-east-1', 'eu-west-1', 'ap-southeast-1']
@@ -359,6 +352,11 @@ export abstract class Check extends Construct {
   description?: string | null
   activated?: boolean
   muted?: boolean
+  /**
+   * Not part of the props type, since `retryStrategy` replaces it. Plain
+   * JavaScript or a type assertion can still pass it, which validation
+   * reports as an error.
+   */
   doubleCheck?: boolean
   shouldFail?: boolean
   locations?: Array<keyof Region>
@@ -393,7 +391,7 @@ export abstract class Check extends Construct {
     this.description = config.description
     this.activated = config.activated
     this.muted = config.muted
-    this.doubleCheck = config.doubleCheck
+    this.doubleCheck = (props as { doubleCheck?: boolean }).doubleCheck
     this.shouldFail = config.shouldFail
     this.locations = config.locations
     this.privateLocations = config.privateLocations
@@ -421,7 +419,7 @@ export abstract class Check extends Construct {
   }
 
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
-    await validateDeprecatedDoubleCheck(diagnostics, this)
+    await validateRemovedDoubleCheck(diagnostics, this)
   }
 
   // eslint-disable-next-line require-await
@@ -659,7 +657,6 @@ export abstract class Check extends Construct {
     config.activated ??= defaults('activated')
     config.alertChannels ??= defaults('alertChannels')
     config.alertEscalationPolicy ??= defaults('alertEscalationPolicy')
-    config.doubleCheck ??= defaults('doubleCheck')
     config.frequency ??= defaults('frequency')
     config.locations ??= defaults('locations')
     config.muted ??= defaults('muted')
@@ -780,11 +777,9 @@ export abstract class Check extends Construct {
       retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
         ? null
         : this.retryStrategy,
-      // When `retryStrategy: NO_RETRIES` and `doubleCheck: undefined`, we want to let the user disable all retries.
-      // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
-      doubleCheck: this.doubleCheck === undefined && this.retryStrategy?.type === 'NO_RETRIES'
-        ? false
-        : this.doubleCheck,
+      // The backend still takes the legacy `doubleCheck` flag and defaults it to `true`, which retries
+      // once whenever `retryStrategy` is null. `NO_RETRIES` is sent as null, so it must also turn the flag off.
+      doubleCheck: this.retryStrategy?.type === 'NO_RETRIES' ? false : undefined,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,

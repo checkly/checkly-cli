@@ -13,6 +13,7 @@ import {
   UnsupportedPropertyDiagnostic,
 } from '../constructs/construct-diagnostics.js'
 import { ConfigFileDiagnostics, InvalidConfigError } from './config-diagnostics.js'
+import { validateRemovedDoubleCheck } from '../constructs/internal/common-diagnostics.js'
 import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
@@ -27,7 +28,6 @@ export type CheckConfigDefaults =
   | 'activated'
   | 'alertChannels'
   | 'alertEscalationPolicy'
-  | 'doubleCheck'
   | 'frequency'
   | 'locations'
   | 'muted'
@@ -502,6 +502,7 @@ export async function loadChecklyConfig (
     validateBundle(config, diagnostics)
     validateRunner(config, diagnostics)
     validateCheckTypeDefaults(config, diagnostics)
+    await validateRemovedDoubleCheckDefaults(config, diagnostics)
 
     if (diagnostics.isFatal()) {
       throw new InvalidConfigError(diagnostics)
@@ -704,6 +705,21 @@ function validateCheckTypeDefaults (config: ChecklyConfig, diagnostics: Diagnost
         `checks.${section}.shouldFail`,
         new Error(`"shouldFail" is only available in the ApiCheck, UrlMonitor and TcpMonitor constructs.`),
       ))
+    }
+  }
+}
+
+// `doubleCheck` is not part of the check defaults types, since `retryStrategy`
+// replaces it, but a plain-JS config or a type assertion can still set it.
+async function validateRemovedDoubleCheckDefaults (config: ChecklyConfig, diagnostics: Diagnostics): Promise<void> {
+  const sections = [
+    ['checks', config.checks],
+    ['checks.browserChecks', config.checks?.browserChecks],
+    ['checks.multiStepChecks', config.checks?.multiStepChecks],
+  ] as const
+  for (const [path, defaults] of sections) {
+    if (defaults) {
+      await validateRemovedDoubleCheck(diagnostics, defaults, `${path}.doubleCheck`)
     }
   }
 }

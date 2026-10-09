@@ -28,7 +28,7 @@ export type MonitorRetryStrategy =
   | SingleRetryRetryStrategy
   | NoRetriesRetryStrategy
 
-export interface MonitorProps extends Omit<CheckProps, 'doubleCheck'> {
+export interface MonitorProps extends CheckProps {
   /**
    *  The name of the monitor.
    */

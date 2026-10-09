@@ -24,10 +24,6 @@ function buildCheckConfigDefaults (
     builder.boolean('muted', resource.muted)
   }
 
-  if (resource.doubleCheck !== undefined) {
-    builder.boolean('doubleCheck', resource.doubleCheck)
-  }
-
   if (resource.shouldFail !== undefined) {
     builder.boolean('shouldFail', resource.shouldFail)
   }

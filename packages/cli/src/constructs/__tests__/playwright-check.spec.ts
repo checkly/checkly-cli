@@ -961,37 +961,6 @@ describe('PlaywrightCheck', () => {
         await fixt.destroy()
       }
     }, DEFAULT_TEST_TIMEOUT)
-
-    it('should ignore doubleCheck from session check defaults', async () => {
-      const fixt = await FixtureSandbox.create({
-        template: 'playwright',
-        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-doubleCheck-default-ignored'),
-      })
-
-      try {
-        const output = await parseProject(fixt)
-
-        expect(output).toEqual(expect.objectContaining({
-          diagnostics: expect.objectContaining({
-            fatal: false,
-          }),
-          payload: expect.objectContaining({
-            resources: expect.arrayContaining([
-              expect.objectContaining({
-                logicalId: 'check',
-                type: 'check',
-                member: true,
-                payload: expect.not.objectContaining({
-                  doubleCheck: true,
-                }),
-              }),
-            ]),
-          }),
-        }))
-      } finally {
-        await fixt.destroy()
-      }
-    }, DEFAULT_TEST_TIMEOUT)
   })
 
   describe('bundling', () => {
