@@ -66,6 +66,8 @@ npx checkly account plan --output json
 
 This returns your exact entitlements and available locations. Use only locations where `available` is `true` in the `locations.all` array. A disabled feature may include an `upgradeUrl`; share it only when present. Without one, the feature is unavailable.
 
+Give every check at least one entry in `locations` or `privateLocations`, on the check, on its group, or as a default in `checks.locations` or `checks.privateLocations` of `checkly.config.ts`. A deployed check without any runs in a location chosen by Checkly, and `deploy` and `validate` warn about it.
+
 Run `npx checkly skills manage plan` for the full reference.
 
 ## Testing and Debugging

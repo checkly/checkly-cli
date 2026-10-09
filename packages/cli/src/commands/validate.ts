@@ -64,6 +64,7 @@ export default class Validate extends AuthCommand {
       include: checklyConfig.checks?.include,
       embeddedPackages: checklyConfig.bundle?.packages?.embed,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
+      warnOnMissingCheckLocations: true,
     })
 
     this.style.actionSuccess()

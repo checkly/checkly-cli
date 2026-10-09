@@ -87,6 +87,7 @@ import { parseProject } from '../../services/project-parser.js'
 import { getGitRepoRoot } from '../../services/util.js'
 import { applyWriteBack } from '../../services/write-back/plan.js'
 import { ApiCheck } from '../../constructs/api-check.js'
+import { Diagnostic } from '../../constructs/diagnostics.js'
 import { EmailAlertChannel } from '../../constructs/email-alert-channel.js'
 import { Project } from '../../constructs/project.js'
 import { Session } from '../../constructs/session.js'
@@ -379,6 +380,25 @@ describe('deploy confirmation flow', () => {
     expect(scriptChange.before).toBe('console.log(1)')
     expect(variablesChange.after).toEqual({ $omitted: JSON.stringify(variables).length })
     expect(variablesChange.before).toEqual([])
+  })
+
+  it('warns about a check without a location, and deploys it anyway', async () => {
+    // parseProject is mocked, so the option it is called with does not reach
+    // the Session; set it the way parseProject would.
+    Session.warnOnMissingCheckLocations = true
+    new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    planResolves()
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(parseProject).toHaveBeenCalledWith(expect.objectContaining({ warnOnMissingCheckLocations: true }))
+    const [diagnostics] = vi.mocked(ctx.style.diagnostics).mock.calls[0]
+    expect(diagnostics.isFatal()).toBe(false)
+    expect(diagnostics.observations.map((observation: Diagnostic) => observation.title))
+      .toContain('[ApiCheck:api] Check has no location')
+    expect(ctx.exitCodeValue).toBeUndefined()
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 
   it('deploys the previewed plan, pinned to its token, with --force', async () => {

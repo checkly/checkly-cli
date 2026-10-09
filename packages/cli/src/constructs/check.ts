@@ -24,6 +24,7 @@ import { Diagnostics } from './diagnostics.js'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
 import {
   InvalidPropertyValueDiagnostic,
+  MissingRunLocationDiagnostic,
   RemovedPropertyDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from './construct-diagnostics.js'
@@ -32,6 +33,15 @@ import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 type FrequencyLike = {
   frequency: number
   frequencyOffset?: number
+}
+
+type RunLocations = {
+  locations?: unknown[]
+  privateLocations?: unknown[]
+}
+
+function hasRunLocation ({ locations, privateLocations }: RunLocations): boolean {
+  return Boolean(locations?.length || privateLocations?.length)
 }
 
 function isFrequencyLike (value: unknown): value is FrequencyLike {
@@ -212,6 +222,11 @@ export interface CheckProps {
   /**
    * An array of one or more data center locations where to run this check.
    *
+   * A deployed check without any location or private location, on the
+   * check, its group, or in the `checks` defaults of checkly.config.ts,
+   * runs in a location chosen by Checkly, and deploying it reports a
+   * warning. Test-only checks and heartbeat monitors are exempt.
+   *
    * @example ['us-east-1', 'eu-west-1', 'ap-southeast-1']
    * @see {@link https://www.checklyhq.com/docs/concepts/locations/ | Global Locations}
    */
@@ -380,13 +395,15 @@ export abstract class Check extends Construct {
   #intent?: CheckIntent | null
   #aiAutoRepairEnabled?: boolean | null
   #removedGroupIdSet: boolean
+  #group?: CheckGroupV1 | CheckGroupV2 | CheckGroupRef
 
   static readonly __checklyType = 'check'
 
   protected constructor (logicalId: string, props: CheckProps & ShouldFailProps) {
     super(Check.__checklyType, logicalId)
+    // Properties that are still missing after the defaults are applied are
+    // reported by validate().
     const config = this.applyConfigDefaults(props)
-    // TODO: Throw an error if required properties are still missing after applying the defaults.
     this.name = config.name
     this.description = config.description
     this.activated = config.activated
@@ -405,6 +422,7 @@ export abstract class Check extends Construct {
     // Alert channel subscriptions will be synthesized separately in the Project construct.
     // This is due to the way things are organized on the BE.
     this.alertChannels = config.alertChannels ?? []
+    this.#group = config.group
     this.groupId = config.group?.ref()
     // The props types no longer have `groupId`, but plain JavaScript or a
     // type assertion can still pass it; validate() reports it.
@@ -479,6 +497,24 @@ export abstract class Check extends Construct {
         ),
       ))
     }
+  }
+
+  // Without any location, deploy still accepts a check and it silently runs
+  // in a location Checkly picks. A group's locations apply to its checks,
+  // and test-only checks are never deployed.
+  protected validateRunLocations (diagnostics: Diagnostics): void {
+    if (!Session.warnOnMissingCheckLocations || this.testOnly || hasRunLocation(this)) {
+      return
+    }
+
+    // A group the project only references, such as CheckGroupV2.fromId(),
+    // may have locations the CLI cannot see.
+    const group = this.#group
+    if (group && (!group.member || hasRunLocation(group as RunLocations))) {
+      return
+    }
+
+    diagnostics.add(new MissingRunLocationDiagnostic())
   }
 
   protected get checkIntent (): CheckIntent | null | undefined {
@@ -653,6 +689,7 @@ export abstract class Check extends Construct {
     await this.validateRetryStrategyOnlyOn(diagnostics)
     this.validateShouldFail(diagnostics)
     this.validateRemovedGroupId(diagnostics)
+    this.validateRunLocations(diagnostics)
     this.validateIntent(diagnostics)
   }
 
