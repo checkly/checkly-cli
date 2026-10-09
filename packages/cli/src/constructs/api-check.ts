@@ -7,7 +7,7 @@ import { Session, SharedFileRef } from './session.js'
 import { QueryParam } from './query-param.js'
 import { Content, Entrypoint, isContent, isEntrypoint } from './construct.js'
 import { Diagnostics } from './diagnostics.js'
-import { DeprecatedPropertyDiagnostic, InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { InvalidPropertyValueDiagnostic, RemovedPropertyDiagnostic } from './construct-diagnostics.js'
 import { ApiCheckBundle, ApiCheckBundleProps } from './api-check-bundle.js'
 import { Assertion } from './api-assertion.js'
 import { responseTimeLimits } from './internal/account-features.js'
@@ -38,18 +38,8 @@ export interface ApiCheckProps extends RuntimeCheckProps, ShouldFailProps {
   request: Request
   /**
    * A valid piece of Node.js code to run in the setup phase.
-   * @deprecated use the "setupScript" property instead
-   */
-  localSetupScript?: string
-  /**
-   * A valid piece of Node.js code to run in the setup phase.
    */
   setupScript?: Content | Entrypoint
-  /**
-   * A valid piece of Node.js code to run in the teardown phase.
-   * @deprecated use the "tearDownScript" property instead
-   */
-  localTearDownScript?: string
   /**
    * A valid piece of Node.js code to run in the teardown phase.
    */
@@ -143,12 +133,12 @@ export interface ApiCheckProps extends RuntimeCheckProps, ShouldFailProps {
  */
 export class ApiCheck extends RuntimeCheck {
   readonly request: Request
-  readonly localSetupScript?: string
   readonly setupScript?: Content | Entrypoint
-  readonly localTearDownScript?: string
   readonly tearDownScript?: Content | Entrypoint
   readonly degradedResponseTime?: number
   readonly maxResponseTime?: number
+  #removedLocalSetupScriptSet: boolean
+  #removedLocalTearDownScriptSet: boolean
 
   /**
    * Constructs the API Check instance
@@ -163,9 +153,12 @@ export class ApiCheck extends RuntimeCheck {
     super(logicalId, props)
 
     this.setupScript = props.setupScript
-    this.localSetupScript = props.localSetupScript
     this.tearDownScript = props.tearDownScript
-    this.localTearDownScript = props.localTearDownScript
+    // The props type no longer has `localSetupScript` or `localTearDownScript`,
+    // but plain JavaScript or a type assertion can still pass them; validate()
+    // reports them.
+    this.#removedLocalSetupScriptSet = (props as { localSetupScript?: unknown }).localSetupScript !== undefined
+    this.#removedLocalTearDownScriptSet = (props as { localTearDownScript?: unknown }).localTearDownScript !== undefined
     this.request = props.request
     this.degradedResponseTime = props.degradedResponseTime
     this.maxResponseTime = props.maxResponseTime
@@ -214,10 +207,10 @@ export class ApiCheck extends RuntimeCheck {
       }
     }
 
-    if (this.localSetupScript) {
-      diagnostics.add(new DeprecatedPropertyDiagnostic(
+    if (this.#removedLocalSetupScriptSet) {
+      diagnostics.add(new RemovedPropertyDiagnostic(
         'localSetupScript',
-        new Error(`Use "setupScript" instead.`),
+        new Error(`Use "setupScript" instead, e.g. setupScript: { content: '...' }.`),
       ))
     }
 
@@ -245,10 +238,10 @@ export class ApiCheck extends RuntimeCheck {
       }
     }
 
-    if (this.localTearDownScript) {
-      diagnostics.add(new DeprecatedPropertyDiagnostic(
+    if (this.#removedLocalTearDownScriptSet) {
+      diagnostics.add(new RemovedPropertyDiagnostic(
         'localTearDownScript',
-        new Error(`Use "tearDownScript" instead.`),
+        new Error(`Use "tearDownScript" instead, e.g. tearDownScript: { content: '...' }.`),
       ))
     }
 
@@ -268,10 +261,6 @@ export class ApiCheck extends RuntimeCheck {
   async bundle (bundler: Bundler): Promise<ApiCheckBundle> {
     const props: ApiCheckBundleProps = {}
 
-    if (this.localSetupScript) {
-      props.localSetupScript = this.localSetupScript
-    }
-
     if (this.setupScript) {
       if (isEntrypoint(this.setupScript)) {
         const { script, scriptPath, dependencies } = await ApiCheck.bundle(
@@ -285,10 +274,6 @@ export class ApiCheck extends RuntimeCheck {
       } else {
         props.localSetupScript = this.setupScript.content
       }
-    }
-
-    if (this.localTearDownScript) {
-      props.localTearDownScript = this.localTearDownScript
     }
 
     if (this.tearDownScript) {
@@ -337,8 +322,6 @@ export class ApiCheck extends RuntimeCheck {
       ...super.synthesize(),
       checkType: 'API',
       request: this.request,
-      localSetupScript: this.localSetupScript,
-      localTearDownScript: this.localTearDownScript,
       degradedResponseTime: this.degradedResponseTime,
       maxResponseTime: this.maxResponseTime,
     }
