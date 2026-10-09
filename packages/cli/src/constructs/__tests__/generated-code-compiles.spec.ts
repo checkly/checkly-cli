@@ -6,7 +6,6 @@ import { fileURLToPath } from 'node:url'
 import ts from 'typescript'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
-import { AgenticCheckCodegen, AgenticCheckResource } from '../agentic-check-codegen.js'
 import { ApiCheckCodegen, ApiCheckResource } from '../api-check-codegen.js'
 import { CheckGroupCodegen, CheckGroupResource } from '../check-group-codegen.js'
 import { IncidentioAlertChannelCodegen, IncidentioAlertChannelResource } from '../incidentio-alert-channel-codegen.js'
@@ -72,17 +71,9 @@ describe('generated code compiles', () => {
       frequency: 0,
       frequencyOffset: 15,
     }
-    // A project default the agentic construct's props cannot take must not
+    // A project default the Playwright construct's props cannot take must not
     // make its way into the generated file.
     Session.checkDefaults = { shouldFail: true }
-    const agentic: AgenticCheckResource = {
-      id: 'agentic',
-      checkType: 'AGENTIC',
-      name: 'Agentic',
-      prompt: 'Verify the homepage loads.',
-      locations: [],
-      shouldFail: false,
-    }
     // A Playwright suite's props are unfolded from its test command; the
     // engine is spelled as the construct's own `Engine` for the engines it
     // offers and as a plain object otherwise. A command that cannot be
@@ -141,7 +132,6 @@ describe('generated code compiles', () => {
     channelCodegen.prepare('incidents', channel, context)
     new ApiCheckCodegen(program).gencode('api', apiCheck, context)
     new ApiCheckCodegen(program).gencode('sub-minute', subMinute, context)
-    new AgenticCheckCodegen(program).gencode('agentic', agentic, context)
     new PlaywrightCheckCodegen(program).gencode('suite', suite, context)
     new PlaywrightCheckCodegen(program).gencode('suite-deno', suiteOnUnknownEngine, context)
     groupCodegen.gencode('group', group, context)
@@ -149,7 +139,7 @@ describe('generated code compiles', () => {
     await program.realize()
 
     const generated = program.paths.filter(file => file.endsWith('.ts'))
-    expect(generated.length).toBeGreaterThanOrEqual(7)
+    expect(generated.length).toBeGreaterThanOrEqual(6)
     // TypeScript reports file names with forward slashes on every platform.
     const generatedNames = new Set(generated.map(file => file.replaceAll('\\', '/')))
 

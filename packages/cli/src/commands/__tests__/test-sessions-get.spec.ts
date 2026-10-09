@@ -94,7 +94,6 @@ const testSessionResult: CheckResult = {
   },
   browserCheckResult: null,
   multiStepCheckResult: null,
-  agenticCheckResult: null,
 }
 
 function createCommandContext (parsed: unknown) {

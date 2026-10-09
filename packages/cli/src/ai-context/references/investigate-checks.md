@@ -13,7 +13,7 @@ npx checkly checks list --search "Homepage" --output json
 
 Flags:
 - `-t, --tag <tag>` — filter by tag (repeat for multiple)
-- `--type <type>` — filter by check type (`API`, `BROWSER`, `HEARTBEAT`, `MULTI_STEP`, `PLAYWRIGHT`, `TCP`, `ICMP`, `DNS`, `URL`, `AGENTIC`)
+- `--type <type>` — filter by check type (`API`, `BROWSER`, `HEARTBEAT`, `MULTI_STEP`, `PLAYWRIGHT`, `TCP`, `ICMP`, `DNS`, `URL`)
 - `-s, --search <name>` — filter by name (case-insensitive partial match)
 - `--status <status>` — filter by current status: `passing`, `failing`, or `degraded`
 - `-l, --limit <n>` — max checks to return (1-100, default 25)

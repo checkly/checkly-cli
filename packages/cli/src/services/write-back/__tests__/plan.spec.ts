@@ -19,7 +19,6 @@ import { TcpMonitor } from '../../../constructs/tcp-monitor.js'
 import { UrlMonitor } from '../../../constructs/url-monitor.js'
 import type { DiffChange, DiffEntry, DiffRedaction } from '../../../rest/projects.js'
 import * as constructs from '../../../constructs/index.js'
-import { AgenticCheck } from '../../../constructs/agentic-check.js'
 import { Check, RuntimeCheck, RepairableRuntimeCheck } from '../../../constructs/check.js'
 import { CheckGroupV1 } from '../../../constructs/check-group-v1.js'
 import { GrpcMonitor } from '../../../constructs/grpc-monitor.js'
@@ -32,7 +31,6 @@ import {
 /** A skip as one line: the resource, the property if any, and the reason. */
 const describeSkip = ({ type, logicalId, property, reason }: WriteBackSkip): string =>
   `${type} ${logicalId}${property === undefined ? '' : ` ${property}`}: ${reason}`
-import { AGENTIC_CHECK_OMITTED_PROPS } from '../../../constructs/internal/agentic-check-defaults.js'
 import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../../constructs/playwright-check-codegen.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
 import { PlaywrightCheck } from '../../../constructs/playwright-check.js'
@@ -525,24 +523,24 @@ new TcpMonitor('tcp', { name: 'Tcp', request: { hostname: 'other.example.com', p
   })
 
   it('gives each class only the properties it takes', async () => {
-    await declare('mixed.check.ts', `import { AgenticCheck, GrpcMonitor } from 'checkly/constructs'
-new AgenticCheck('agent', { name: 'Agent', prompt: 'p' })
+    await declare('mixed.check.ts', `import { BrowserCheck, GrpcMonitor } from 'checkly/constructs'
+new BrowserCheck('browser', { name: 'Browser', code: { content: '' } })
 new GrpcMonitor('grpc', { name: 'Grpc', request: { host: 'example.com', port: 443, service: 'S', method: 'M' } })
 `, () => {
-      new AgenticCheck('agent', { name: 'Agent', prompt: 'p' } as any)
+      new BrowserCheck('browser', { name: 'Browser', code: { content: '' } })
       new GrpcMonitor('grpc', { name: 'Grpc', request: { host: 'example.com', port: 443, service: 'S', method: 'M' } } as any)
     })
     const plan = await planWriteBack({
       diff: [
         {
           type: 'check',
-          logicalId: 'agent',
+          logicalId: 'browser',
           action: 'UPDATE',
           changes: [
             { path: '/shouldFail', origin: 'remote', before: false, after: true },
             { path: '/muted', origin: 'remote', before: false, after: true },
           ],
-          before: { checkType: 'AGENTIC', name: 'Agent', shouldFail: true, muted: true },
+          before: { checkType: 'BROWSER', name: 'Browser', shouldFail: true, muted: true },
           redactions: [],
         },
         {
@@ -557,9 +555,9 @@ new GrpcMonitor('grpc', { name: 'Grpc', request: { host: 'example.com', port: 44
       project,
       cwd: dir,
     })
-    expect(plan.skipped.map(describeSkip)).toEqual(['check agent /shouldFail: not a property this tool can update'])
+    expect(plan.skipped.map(describeSkip)).toEqual(['check browser /shouldFail: not a property this tool can update'])
     expect(plan.applied.map(line => [line.logicalId, line.property, line.rendered])).toEqual([
-      ['agent', 'muted', 'true'],
+      ['browser', 'muted', 'true'],
       ['grpc', 'maxResponseTime', '9000'],
     ])
   })
@@ -972,9 +970,7 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
       if (!isGroup && !(cls.prototype instanceof Check)) {
         continue
       }
-      const omitted: readonly string[] = cls === AgenticCheck
-        ? AGENTIC_CHECK_OMITTED_PROPS
-        : cls === PlaywrightCheck ? PLAYWRIGHT_CHECK_OMITTED_PROPS : []
+      const omitted: readonly string[] = cls === PlaywrightCheck ? PLAYWRIGHT_CHECK_OMITTED_PROPS : []
       for (const prop of omitted) {
         expect(has(rules, prop), `${cls.name} ${prop}`).toBe(false)
       }
@@ -996,24 +992,25 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
     expect(WRITTEN_BY_CLASS.size).toBe(RULES_BY_CLASS.size)
   })
 
-  it('writes the literal props of browser, multistep and agentic checks', async () => {
-    await declare('literal.check.ts', `import { AgenticCheck, BrowserCheck, MultiStepCheck } from 'checkly/constructs'
+  it('writes the literal props of browser and multistep checks, keeping a multi-line string a template', async () => {
+    await declare('literal.check.ts', `import { BrowserCheck, MultiStepCheck } from 'checkly/constructs'
 new BrowserCheck('browser', { name: 'Browser', sslCheckDomain: 'example.com', code: { content: '' } })
 new MultiStepCheck('multi', { name: 'Multi', aiAutoRepairEnabled: false, code: { content: '' } })
-new AgenticCheck('short', { name: 'Short', prompt: 'Check the login page' })
-new AgenticCheck('long', {
+new BrowserCheck('short', { name: 'Short', description: 'Check the login page', code: { content: '' } })
+new BrowserCheck('long', {
   name: 'Long',
-  prompt: \`Open the page.
+  description: \`Open the page.
 Log in.\`,
+  code: { content: '' },
 })
-new AgenticCheck('crlf', { name: 'CRLF', prompt: \`one
-two\` })
+new BrowserCheck('crlf', { name: 'CRLF', description: \`one
+two\`, code: { content: '' } })
 `, () => {
       new BrowserCheck('browser', { name: 'Browser', sslCheckDomain: 'example.com', code: { content: '' } })
       new MultiStepCheck('multi', { name: 'Multi', aiAutoRepairEnabled: false, code: { content: '' } })
-      new AgenticCheck('short', { name: 'Short', prompt: 'Check the login page' } as any)
-      new AgenticCheck('long', { name: 'Long', prompt: 'Open the page.\nLog in.' } as any)
-      new AgenticCheck('crlf', { name: 'CRLF', prompt: 'one\ntwo' } as any)
+      new BrowserCheck('short', { name: 'Short', description: 'Check the login page', code: { content: '' } })
+      new BrowserCheck('long', { name: 'Long', description: 'Open the page.\nLog in.', code: { content: '' } })
+      new BrowserCheck('crlf', { name: 'CRLF', description: 'one\ntwo', code: { content: '' } })
     })
     const check = (logicalId: string, checkType: string, changes: DiffEntry['changes'], before: object): DiffEntry =>
       ({ type: 'check', logicalId, action: 'UPDATE', changes, before: { checkType, name: logicalId, ...before }, redactions: [] })
@@ -1027,12 +1024,12 @@ two\` })
         ], { sslCheckDomain: 'www.example.com', aiAutoRepairEnabled: true, playwrightConfig: { use: { baseURL: 'https://example.com' } }, triggerIncident: true }),
         check('multi', 'MULTI_STEP', [{ path: '/aiAutoRepairEnabled', origin: 'remote', before: false, after: true }],
           { aiAutoRepairEnabled: true }),
-        check('short', 'AGENTIC', [{ path: '/prompt', origin: 'remote', before: 'Check the login page', after: 'Check the signup page' }],
-          { prompt: 'Check the signup page' }),
-        check('long', 'AGENTIC', [{ path: '/prompt', origin: 'remote', before: 'Open the page.\nLog in.', after: 'Open `the` ${page}.\nLog in \\ out.' }],
-          { prompt: 'Open `the` ${page}.\nLog in \\ out.' }),
-        check('crlf', 'AGENTIC', [{ path: '/prompt', origin: 'remote', before: 'one\ntwo', after: 'one\r\ntwo' }],
-          { prompt: 'one\r\ntwo' }),
+        check('short', 'BROWSER', [{ path: '/description', origin: 'remote', before: 'Check the login page', after: 'Check the signup page' }],
+          { description: 'Check the signup page' }),
+        check('long', 'BROWSER', [{ path: '/description', origin: 'remote', before: 'Open the page.\nLog in.', after: 'Open `the` ${page}.\nLog in \\ out.' }],
+          { description: 'Open `the` ${page}.\nLog in \\ out.' }),
+        check('crlf', 'BROWSER', [{ path: '/description', origin: 'remote', before: 'one\ntwo', after: 'one\r\ntwo' }],
+          { description: 'one\r\ntwo' }),
       ],
       project,
       cwd: dir,
@@ -1046,16 +1043,17 @@ two\` })
       ['browser', 'sslCheckDomain', '\'www.example.com\''],
       ['browser', 'aiAutoRepairEnabled', 'true'],
       ['multi', 'aiAutoRepairEnabled', 'true'],
-      ['short', 'prompt', '\'Check the signup page\''],
-      // A multi-line prompt over a template literal stays one, escaped; a
+      ['short', 'description', '\'Check the signup page\''],
+      // A multi-line string over a template literal stays one, escaped; a
       // carriage return cannot survive a template, so that one is quoted.
-      ['long', 'prompt', '`Open \\`the\\` \\${page}.\nLog in \\\\ out.`'],
-      ['crlf', 'prompt', '\'one\\r\\ntwo\''],
+      ['long', 'description', '`Open \\`the\\` \\${page}.\nLog in \\\\ out.`'],
+      ['crlf', 'description', '\'one\\r\\ntwo\''],
     ])
-    expect(plan.files[0].text).toContain(`new AgenticCheck('long', {
+    expect(plan.files[0].text).toContain(`new BrowserCheck('long', {
   name: 'Long',
-  prompt: \`Open \\\`the\\\` \\\${page}.
+  description: \`Open \\\`the\\\` \\\${page}.
 Log in \\\\ out.\`,
+  code: { content: '' },
 })`)
   })
 

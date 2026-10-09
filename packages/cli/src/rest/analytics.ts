@@ -7,8 +7,6 @@ export const quickRangeValues: QuickRange[] = [
   'last24Hours', 'last7Days', 'last30Days', 'thisWeek', 'thisMonth', 'lastWeek', 'lastMonth',
 ]
 
-// AGENTIC is intentionally absent: agentic checks have no per-check analytics
-// endpoint, so callers fall through to the `if (!pathSegment)` branch below.
 const checkTypeToPath: Partial<Record<CheckType, string>> = {
   [CheckTypes.API]: 'api-checks',
   [CheckTypes.BROWSER]: 'browser-checks',
@@ -19,7 +17,6 @@ const checkTypeToPath: Partial<Record<CheckType, string>> = {
   [CheckTypes.ICMP]: 'icmp',
   [CheckTypes.DNS]: 'dns',
   [CheckTypes.URL]: 'url-monitors',
-  [CheckTypes.AGENTIC]: 'agentic-checks',
   [CheckTypes.GRPC]: 'grpc-checks',
   [CheckTypes.SSL]: 'ssl',
   [CheckTypes.TRACEROUTE]: 'traceroute',
@@ -39,7 +36,6 @@ const defaultMetrics: Partial<Record<CheckType, string[]>> = {
   [CheckTypes.SSL]: ['availability', 'handshakeTimeMs_avg', 'handshakeTimeMs_p50', 'handshakeTimeMs_p95', 'handshakeTimeMs_p99', 'daysUntilExpiry_avg'],
   [CheckTypes.TRACEROUTE]: ['availability', 'finalHopLatencyAvg_avg', 'finalHopLatencyAvg_p50', 'finalHopLatencyAvg_p95', 'finalHopLatencyAvg_p99', 'totalHops_avg'],
   [CheckTypes.HEARTBEAT]: ['availability'],
-  [CheckTypes.AGENTIC]: ['availability'],
 }
 
 export type GroupBy = 'runLocation' | 'statusCode'

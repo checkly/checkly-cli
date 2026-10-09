@@ -3,7 +3,6 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import { isDeepStrictEqual } from 'node:util'
 
-import { AgenticCheck, type AgenticCheckProps } from '../../constructs/agentic-check.js'
 import { ApiCheck, type ApiCheckDefaultConfig, type ApiCheckProps } from '../../constructs/api-check.js'
 import type { Request } from '../../constructs/api-request.js'
 import { BrowserCheck, type BrowserCheckProps } from '../../constructs/browser-check.js'
@@ -58,7 +57,6 @@ import { UrlMonitor, type UrlMonitorProps } from '../../constructs/url-monitor.j
 import type { UrlRequest } from '../../constructs/url-request.js'
 import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 import { hasEscalationPolicy } from '../../constructs/alert-escalation-policy-codegen.js'
-import { AGENTIC_CHECK_OMITTED_PROPS } from '../../constructs/internal/agentic-check-defaults.js'
 import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../constructs/playwright-check-codegen.js'
 import { blankRedacted, nodeAt, pointerSegments, UnshapeableError } from '../deploy-diff/import-shape.js'
 import { applyEdits, readsBack, type SourceEdit } from './apply-edits.js'
@@ -249,7 +247,7 @@ const omitting = (rules: readonly Rule[], props: readonly string[]): Rule[] =>
 const omit = <K extends string, O extends string>(keys: readonly K[], omitted: readonly O[]): Exclude<K, O>[] =>
   keys.filter((key): key is Exclude<K, O> => !(omitted as readonly string[]).includes(key))
 // Only the classes extending RuntimeCheck take a runtime and environment
-// variables; a monitor or an agentic check would drop them when synthesized.
+// variables; a monitor would drop them when synthesized.
 const RUNTIME_CHECK_KEYS = ['runtimeId', 'environmentVariables'] as const satisfies readonly (keyof RuntimeCheckProps)[]
 const RUNTIME_CHECK_RULES: Rule[] = RUNTIME_CHECK_KEYS.map(key => identity(key))
 // Only ApiCheck, UrlMonitor and TcpMonitor take `shouldFail`.
@@ -262,7 +260,6 @@ const PACKET_LOSS_KEYS = [
 ] as const satisfies readonly (keyof IcmpMonitorProps)[]
 const BROWSER_KEYS = ['sslCheckDomain', 'aiAutoRepairEnabled'] as const satisfies readonly (keyof BrowserCheckProps)[]
 const MULTI_STEP_KEYS = ['aiAutoRepairEnabled'] as const satisfies readonly (keyof MultiStepCheckProps)[]
-const AGENTIC_KEYS = ['prompt'] as const satisfies readonly (keyof AgenticCheckProps)[]
 
 // The keys of each request type the account reports under the same name
 // the construct uses, typed against the construct's interface so a renamed
@@ -484,7 +481,6 @@ const API_WRITTEN = [...CHECK_WRITTEN, ...SHOULD_FAIL_KEYS, ...RUNTIME_CHECK_KEY
 const BROWSER_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...BROWSER_KEYS] as const
 const MULTI_STEP_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...MULTI_STEP_KEYS] as const
 const PLAYWRIGHT_WRITTEN = [...omit(CHECK_WRITTEN, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_KEYS] as const
-const AGENTIC_WRITTEN = [...omit(CHECK_WRITTEN, AGENTIC_CHECK_OMITTED_PROPS), ...AGENTIC_KEYS] as const
 // The monitors with a request and response-time thresholds share one list.
 const MONITOR_WRITTEN = [...CHECK_WRITTEN, ...RESPONSE_TIME_KEYS, 'request'] as const
 const SHOULD_FAIL_MONITOR_WRITTEN = [...MONITOR_WRITTEN, ...SHOULD_FAIL_KEYS] as const
@@ -528,9 +524,9 @@ type NotWrittenKey = 'doubleCheck' | 'runParallel' | 'intent' | 'triggerIncident
 /** A group prop applied to its member checks, never a property of the group resource. */
 type GroupMemberKey = 'frequency' | 'browserChecks' | 'multiStepChecks'
 // Named per class below, writable in principle but not yet (`NOT_WRITTEN`
-// says so): `engine` is one object sent as two leaves, `agentRuntime` holds
-// a set, `playwrightConfig` has credential sections the account blanks to
-// null and is usually inherited from the project config.
+// says so): `engine` is one object sent as two leaves, `playwrightConfig`
+// has credential sections the account blanks to null and is usually
+// inherited from the project config.
 /** What every check class leaves out. */
 type CheckLeftOut = ReferenceKey | LocalOnlyKey | NotWrittenKey
 /** Packed into the Telegram channel's template and URL by the construct. */
@@ -558,7 +554,6 @@ const _everyPropIsListed: [
   Exact<BrowserCheckProps, typeof BROWSER_WRITTEN[number], CheckLeftOut | ContentKey | 'playwrightConfig'>,
   Exact<MultiStepCheckProps, typeof MULTI_STEP_WRITTEN[number], CheckLeftOut | ContentKey | 'playwrightConfig'>,
   Exact<PlaywrightCheckProps, typeof PLAYWRIGHT_WRITTEN[number], CheckLeftOut | BundleKey | 'engine'>,
-  Exact<AgenticCheckProps, typeof AGENTIC_WRITTEN[number], CheckLeftOut | 'agentRuntime'>,
   Exact<UrlMonitorProps, typeof SHOULD_FAIL_MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<TcpMonitorProps, typeof SHOULD_FAIL_MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<DnsMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
@@ -570,7 +565,7 @@ const _everyPropIsListed: [
   Exact<CheckGroupV1Props, typeof GROUP_WRITTEN[number], CheckLeftOut | ContentKey | GroupMemberKey>,
   Exact<CheckGroupV2Props, typeof GROUP_WRITTEN[number], CheckLeftOut | ContentKey | GroupMemberKey>,
   Covers<ApiCheckDefaultConfig, typeof API_DEFAULT_KEYS[number] | 'assertions'>,
-] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
+] = [true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true, true]
 // The same for the other resource types.
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _everyResourcePropIsListed: [
@@ -620,9 +615,8 @@ const _everyResourcePropIsListed: [
  *
  * Keyed by the exact class, not by `instanceof`: a class this table does not
  * name gets nothing rather than a base class's rules, so a construct that
- * omits one of them (`AgenticCheck` takes no `retryStrategy`,
- * `PlaywrightCheck` no `retryStrategy`, as their codegens' omitted props
- * say) can never be handed it. The spec checks that every
+ * omits one of them (`PlaywrightCheck` takes no `retryStrategy`, as its
+ * codegen's omitted props say) can never be handed it. The spec checks that every
  * construct class `checkly/constructs` exports is listed here or excluded
  * on purpose, and that the omitted props are absent.
  */
@@ -637,7 +631,6 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
   [BrowserCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...BROWSER_KEYS.map(key => identity(key))]],
   [MultiStepCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...MULTI_STEP_KEYS.map(key => identity(key))]],
   [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_RULES]],
-  [AgenticCheck, [...omitting(CHECK_RULES, AGENTIC_CHECK_OMITTED_PROPS), ...AGENTIC_KEYS.map(key => identity(key))]],
   [UrlMonitor, [
     ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
   ]],
@@ -689,7 +682,7 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
 export const WRITTEN_BY_CLASS: ReadonlyMap<ConstructClass, readonly string[]> =
   new Map<ConstructClass, readonly string[]>([
     [ApiCheck, API_WRITTEN], [BrowserCheck, BROWSER_WRITTEN], [MultiStepCheck, MULTI_STEP_WRITTEN],
-    [PlaywrightCheck, PLAYWRIGHT_WRITTEN], [AgenticCheck, AGENTIC_WRITTEN],
+    [PlaywrightCheck, PLAYWRIGHT_WRITTEN],
     [UrlMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [TcpMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [DnsMonitor, MONITOR_WRITTEN],
     [GrpcMonitor, MONITOR_WRITTEN], [SslMonitor, MONITOR_WRITTEN], [TracerouteMonitor, MONITOR_WRITTEN],
     [IcmpMonitor, ICMP_WRITTEN],
@@ -722,7 +715,6 @@ const NOT_WRITTEN: ReadonlyMap<string, string> = new Map([
   ['playwrightConfig', 'this tool does not update the Playwright config yet; set it in checkly.config.ts or on the check by hand'],
   ['engine', 'this tool does not update the engine yet; set it by hand'],
   ['engineVersion', 'this tool does not update the engine yet; set it by hand'],
-  ['agentRuntime', 'this tool does not update agentRuntime yet; set it by hand'],
 ])
 
 /** Whether a reported value is one of the API's stand-ins (`{ $hash }`, `{ $masked }`, `{ $json }`, `{ $ref }`) or holds one. */

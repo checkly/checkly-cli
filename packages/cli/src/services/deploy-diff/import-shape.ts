@@ -140,9 +140,6 @@ export const UNRENDERED_KEYS = ['setupSnippetId', 'tearDownSnippetId'] as const
 /** Keys of a deployed row that are not properties of the local payload: its id, and the relation rows it carries. */
 const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
 
-/** A deployed key whose change the plan reports under the deploy payload's own spelling. */
-const REPORTED_AS: Readonly<Record<string, string>> = { '/agenticCheckData': '/agentRuntime' }
-
 const escapeSegment = (segment: string) => segment.replace(/~/g, '~0').replace(/\//g, '~1')
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
@@ -180,7 +177,7 @@ export function fillUnchangedFromBefore (
       const pointer = `${prefix}/${escapeSegment(key)}`
       const current = target[key]
       if (current === undefined) {
-        if (!touched(REPORTED_AS[pointer] ?? pointer)) {
+        if (!touched(pointer)) {
           target[key] = structuredClone(value)
         }
       } else if (isPlainObject(current) && isPlainObject(value)) {
@@ -295,9 +292,7 @@ function groupConstraints (intent: unknown): unknown {
 /**
  * The local payload of one resource, as an import resource: `id` set, every
  * reference a physical id, deploy-only keys dropped, the intent's constraints
- * grouped as stored, and the agentic runtime under the name the codegen reads
- * (`agenticCheckData`, which is how the backend stores what the deploy
- * payload calls `agentRuntime`). No canonicalization of nulls, defaults or
+ * grouped as stored. No canonicalization of nulls, defaults or
  * ordering: the payload has none, and the defaults the deploy would fill
  * are taken from the deployed row by `fillUnchangedFromBefore`.
  *
@@ -322,11 +317,6 @@ export function toImportResource (
   }
   if ('intent' in shaped) {
     shaped.intent = groupConstraints(shaped.intent)
-  }
-  if ('agentRuntime' in shaped) {
-    const runtime = shaped.agentRuntime as { skills?: unknown } | null | undefined
-    shaped.agenticCheckData = runtime && typeof runtime === 'object' ? { skills: runtime.skills ?? null } : null
-    delete shaped.agentRuntime
   }
   shaped.id = id
   return { type, logicalId, payload: shaped }

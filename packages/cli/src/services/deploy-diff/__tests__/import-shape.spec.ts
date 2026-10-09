@@ -90,7 +90,7 @@ describe('fillUnchangedFromBefore', () => {
     degradedResponseTime: 5000,
     frequency: 10,
     request: { url: 'https://example.com', method: 'GET', headers: [], assertions: [{ source: 'STATUS_CODE' }] },
-    agenticCheckData: { skills: [] },
+    alertSettings: { escalationType: 'RUN_BASED', runBasedEscalation: { failedRunThreshold: 1 } },
     alertChannelSubscriptions: [{ id: 1 }],
     privateLocationAssignments: [],
   }
@@ -106,7 +106,7 @@ describe('fillUnchangedFromBefore', () => {
       degradedResponseTime: 5000,
       frequency: 10,
       request: { url: 'https://example.com/v2', method: 'GET', headers: [], assertions: [{ source: 'STATUS_CODE' }] },
-      agenticCheckData: { skills: [] },
+      alertSettings: { escalationType: 'RUN_BASED', runBasedEscalation: { failedRunThreshold: 1 } },
     })
   })
 
@@ -115,12 +115,11 @@ describe('fillUnchangedFromBefore', () => {
     fillUnchangedFromBefore(local, before, [
       { path: '/activated', origin: 'code' },
       { path: '/request', origin: 'code' },
-      { path: '/agentRuntime', origin: 'code' },
+      { path: '/alertSettings/runBasedEscalation', origin: 'code' },
     ])
     expect(local).not.toHaveProperty('activated')
     expect(local.request).toEqual({ url: 'https://example.com' })
-    // Reported under the deploy payload's own spelling.
-    expect(local).not.toHaveProperty('agenticCheckData')
+    expect(local).not.toHaveProperty('alertSettings')
     const nested: Record<string, unknown> = { id: 'check-uuid', request: {} }
     fillUnchangedFromBefore(nested, before, [{ path: '/request/headers/0', origin: 'code', secret: true }])
     expect(nested.request).toEqual({ url: 'https://example.com', method: 'GET', assertions: [{ source: 'STATUS_CODE' }] })
@@ -131,8 +130,8 @@ describe('fillUnchangedFromBefore', () => {
     fillUnchangedFromBefore(local, before, [])
     expect(local.muted).toBeNull()
     expect((local.request as { assertions: unknown[] }).assertions).toEqual([])
-    ;(local.agenticCheckData as { skills: unknown[] }).skills.push('x')
-    expect(before.agenticCheckData.skills).toEqual([])
+    ;(local.alertSettings as typeof before.alertSettings).runBasedEscalation.failedRunThreshold = 2
+    expect(before.alertSettings.runBasedEscalation.failedRunThreshold).toBe(1)
   })
 
   it('never copies the id or the relation rows', () => {
@@ -253,11 +252,6 @@ describe('toImportResource', () => {
       statusPageId: 'page-uuid',
       components: [{ componentId: 'parent-uuid', targetImpact: 'MAJOR' }],
     })
-  })
-
-  it('renames the agentic runtime to what the codegen reads', () => {
-    const shaped = toImportResource('check', 'api', { checkType: 'AGENTIC', agentRuntime: { skills: ['a/b'] } }, ids)
-    expect(shaped.payload).toEqual({ id: 'check-uuid', checkType: 'AGENTIC', agenticCheckData: { skills: ['a/b'] } })
   })
 
   it('refuses a resource the plan has no id for: ids are minted in one place', () => {
