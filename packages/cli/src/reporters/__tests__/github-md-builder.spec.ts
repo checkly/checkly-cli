@@ -66,4 +66,27 @@ describe('GithubMdBuilder', () => {
     expect(markdown).toContain('## Execution Errors')
     expect(markdown).toContain(runError)
   })
+  test('shows the retry count in the status cell of a check that needed retries', () => {
+    const row = (name: string, hasFailures: boolean, numRetries: number) => [`seq-${name}`, {
+      result: { name, sourceFile: 'folder/retry.check.ts', hasFailures, checkType: 'API', responseTime: 10 },
+      titleString: name,
+      numRetries,
+    }] as const
+    const map: checkFilesMap = new Map([
+      ['folder/retry.check.ts', new Map([
+        row('Flaky check', false, 2),
+        row('Broken check', true, 1),
+        row('Clean check', false, 0),
+      ])],
+    ])
+    const markdown = new GithubMdBuilder({
+      testSessionId,
+      numChecks: 3,
+      runLocation,
+      checkFilesMap: map,
+    }).render()
+    expect(markdown).toContain('|✅ Pass (2 retries)|Flaky check|')
+    expect(markdown).toContain('|❌ Fail (1 retry)|Broken check|')
+    expect(markdown).toContain('|✅ Pass|Clean check|')
+  })
 })
