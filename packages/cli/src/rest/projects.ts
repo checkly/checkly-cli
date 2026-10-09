@@ -712,7 +712,7 @@ class Projects {
     resources: ProjectSync,
     {
       dryRun = false,
-      scheduleOnDeploy = true,
+      scheduleOnDeploy = false,
       scheduleOnDeployScope = 'changed',
       scheduleOnDeployThreshold,
       scheduleOnDeployMinFrequency,

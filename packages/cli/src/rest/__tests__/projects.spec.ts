@@ -46,7 +46,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: true })
 
     expect(api.post).toHaveBeenCalledWith(
-      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&scheduleOnDeployScope=changed',
+      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=false&scheduleOnDeployScope=changed',
       sync,
       expect.objectContaining({ transformRequest: expect.any(Function) }),
     )
@@ -59,11 +59,11 @@ describe('Projects.deploy', () => {
     vi.mocked(api.post).mockResolvedValue({ data: preview })
 
     await projects.deploy(sync, { dryRun: true })
-    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&scheduleOnDeployScope=changed')
+    expect(vi.mocked(api.post).mock.calls[0][0]).toBe('/v1/projects/deploy?dryRun=true&scheduleOnDeploy=false&scheduleOnDeployScope=changed')
 
     await projects.deploy(sync, { dryRun: true, preserveResources: true })
     expect(vi.mocked(api.post).mock.calls[1][0]).toBe(
-      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=true&scheduleOnDeployScope=changed&preserveResources=true',
+      '/v1/projects/deploy?dryRun=true&scheduleOnDeploy=false&scheduleOnDeployScope=changed&preserveResources=true',
     )
   })
 
@@ -84,7 +84,7 @@ describe('Projects.deploy', () => {
       expect.objectContaining({ responseType: 'stream', headers: { Accept: 'text/event-stream' } }),
     )
     expect(onProgress).toHaveBeenCalledWith(40)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
   })
 
   it('throws ProjectDeployFailedError when the terminal event is not SUCCEEDED', async () => {
@@ -132,7 +132,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: false })
 
     expect(api.get).toHaveBeenCalledTimes(2)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
   })
 
   it('reconnects after a socket error before a terminal event', async () => {
@@ -144,7 +144,7 @@ describe('Projects.deploy', () => {
     const { data } = await projects.deploy(sync, { dryRun: false })
 
     expect(api.get).toHaveBeenCalledTimes(2)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
   })
 
   it('propagates a typed connect error without reconnecting', async () => {
@@ -217,7 +217,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     const cancelCalls = vi.mocked(api.post).mock.calls.filter(([url]) => String(url).includes('/cancel'))
     expect(cancelCalls).toHaveLength(0)
     expect(deployPosts).toBe(2)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
     expect(onStatus).toHaveBeenCalled()
   })
 
@@ -249,7 +249,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     // the initial collision and a single re-POST after the predecessor was final.
     expect(completionPolls).toBe(3)
     expect(deployPosts).toBe(2)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
   })
 
   it('cancels the in-flight deployment, waits, and retries when cancelInProgress is set', async () => {
@@ -280,7 +280,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     )
     expect(onStatus).toHaveBeenCalled()
     expect(deployPosts).toBe(2)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
   })
 
   it('proceeds with the retry when the in-flight deployment is already gone (404 on cancel)', async () => {
@@ -303,7 +303,7 @@ describe('Projects.deploy cancel-in-progress', () => {
     const { data } = await projects.deploy(sync, { cancelInProgress: true })
 
     expect(deployPosts).toBe(2)
-    expect(data).toEqual({ ...applied, scheduled: true })
+    expect(data).toEqual({ ...applied, scheduled: false })
   })
 
   it('awaitDeploymentCompletion does a single long-poll and returns the final deployment', async () => {

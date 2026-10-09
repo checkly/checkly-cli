@@ -40,16 +40,16 @@ describe('Projects.deploy query params', () => {
     await projects.deploy(resources)
     const url = post.mock.calls[0][0] as string
     expect(url).toContain('dryRun=false')
-    expect(url).toContain('scheduleOnDeploy=true')
+    expect(url).toContain('scheduleOnDeploy=false')
     expect(url).not.toContain('preserveResources')
   })
 
   it('forwards preserveResources=true', async () => {
     const { projects, post } = createProjects()
-    await projects.deploy(resources, { dryRun: true, scheduleOnDeploy: false, preserveResources: true })
+    await projects.deploy(resources, { dryRun: true, scheduleOnDeploy: true, preserveResources: true })
     const url = post.mock.calls[0][0] as string
     expect(url).toContain('dryRun=true')
-    expect(url).toContain('scheduleOnDeploy=false')
+    expect(url).toContain('scheduleOnDeploy=true')
     expect(url).toContain('preserveResources=true')
   })
 })
@@ -90,7 +90,7 @@ describe('Projects.deploy scheduling threshold', () => {
 
   it('reports the requested scheduling when the deployment does not say', async () => {
     const { projects } = createProjects()
-    expect((await projects.deploy(resources)).data.scheduled).toBe(true)
-    expect((await projects.deploy(resources, { scheduleOnDeploy: false })).data.scheduled).toBe(false)
+    expect((await projects.deploy(resources)).data.scheduled).toBe(false)
+    expect((await projects.deploy(resources, { scheduleOnDeploy: true })).data.scheduled).toBe(true)
   })
 })
