@@ -3,6 +3,7 @@ import AbstractCheckRunner, {
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
   DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS,
   Events,
+  MAX_SCHEDULING_DELAY_SECONDS,
   SequenceId,
 } from '../abstract-check-runner.js'
 
@@ -410,12 +411,19 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     }
   }
 
+  // The Playwright check never receives run-start in these tests, so its timer
+  // keeps the 900s scheduling-delay headroom on top of the execution timeout.
+  const PW_NOT_STARTED_TIMEOUT_MS = (DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000
+
   const flush = async () => {
     for (let i = 0; i < 25; i++) await Promise.resolve()
   }
 
   const resultTopic = (sequenceId: string) =>
     `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/result`
+
+  const topic = (sequenceId: string, subtopic: string) =>
+    `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/${subtopic}`
 
   let messageHandler: ((topic: string, raw: string) => void) | undefined
   let events: string[]
@@ -466,6 +474,10 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     await flush()
     expect(messageHandler).toBeDefined()
 
+    // The check is running, so its timer is the plain execution timeout.
+    messageHandler!(topic('seq-api', 'run-start'), JSON.stringify({}))
+    await flush()
+
     // FINAL result with failures -> processMessage awaits assets.getLogs()
     messageHandler!(resultTopic('seq-api'), JSON.stringify({
       result: { hasFailures: true, assets: { logs: 'logs.json' } },
@@ -487,7 +499,7 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     // The Playwright check is still running, so the run must not be finished.
     expect(events.filter(e => e.startsWith(Events.RUN_FINISHED))).toHaveLength(0)
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
     expect(events.filter(e => e === `${Events.CHECK_FINISHED}:pw`)).toHaveLength(1)
     expect(events.filter(e => e.startsWith(Events.RUN_FINISHED))).toHaveLength(1)
@@ -520,7 +532,7 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     const apiEvents = events.filter(e => e.endsWith(':seq-api') || e.endsWith(':api'))
     expect(apiEvents.indexOf(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)).toBe(-1)
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
   })
 
@@ -544,7 +556,7 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
 
     // The check's timeout was cleared, so it does not fire a second terminal event later.
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
     expect(events.filter(e => e === `${Events.CHECK_FAILED}:seq-api`)).toHaveLength(1)
     expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
@@ -561,6 +573,10 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     const run = runner.run()
     await flush()
 
+    // The check is running, so its timer is the plain execution timeout.
+    messageHandler!(topic('seq-api', 'run-start'), JSON.stringify({}))
+    await flush()
+
     // The attempt arrives 1s before the original deadline and its log fetch takes 5s.
     await vi.advanceTimersByTimeAsync((DEFAULT_CHECK_RUN_TIMEOUT_SECONDS - 1) * 1000)
     messageHandler!(resultTopic('seq-api'), JSON.stringify({
@@ -575,7 +591,7 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
     expect(events).toContain(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
   })
 
@@ -596,17 +612,18 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(events).toContain(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)
     expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
   })
-
-  const topic = (sequenceId: string, subtopic: string) =>
-    `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/${subtopic}`
 
   it('restarts the timeout when an ATTEMPT result arrives, so a retry sequence is not cut short', async () => {
     const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
     record(runner)
     const run = runner.run()
+    await flush()
+
+    // The check is running, so its timer is the plain execution timeout.
+    messageHandler!(topic('seq-api', 'run-start'), JSON.stringify({}))
     await flush()
 
     // 500s in, the first attempt fails and the backend has queued a retry.
@@ -630,7 +647,7 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(events).toContain(`${Events.CHECK_SUCCESSFUL}:seq-api`)
     expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
   })
 
@@ -654,7 +671,89 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(events.filter(e => e === `${Events.CHECK_FAILED}:seq-api`)).toHaveLength(1)
     expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
 
-    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await vi.advanceTimersByTimeAsync(PW_NOT_STARTED_TIMEOUT_MS)
     await run
+  })
+})
+
+describe('AbstractCheckRunner — per-check timeouts vs scheduling delay', () => {
+  const TIMEOUT_SECONDS = 60
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  function makeArmedRunner () {
+    const runner = new StubCheckRunner('acc-1', TIMEOUT_SECONDS, false)
+    runner.checks = new Map([['seq-1', { check: {} }]])
+    const failures: string[] = []
+    runner.on(Events.CHECK_FAILED, (_sequenceId, _check, message) => failures.push(message))
+    ;(runner as any).setAllTimeouts()
+    return { runner, failures }
+  }
+
+  it('does not time out a not-yet-started check before the scheduling-delay headroom elapses', async () => {
+    const { runner, failures } = makeArmedRunner()
+
+    // The backend may hold a check in an SQS delay slot for up to 900s on
+    // large staggered sessions: the plain execution timeout alone must not
+    // fail a check that has not started yet.
+    await vi.advanceTimersByTimeAsync((TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000 - 1000)
+    expect(failures).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toContain('did not start')
+    // The scheduling delay is not something --timeout can change.
+    expect(failures[0]).not.toContain('--timeout')
+    expect(failures[0]).toContain('is.checkly.online')
+    ;(runner as any).disableAllTimeouts()
+  })
+
+  it('does not suggest --timeout for a Playwright check that never started', async () => {
+    const runner = new StubCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    runner.checks = new Map([['seq-pw', { check: Object.create(PlaywrightCheck.prototype) }]])
+    const failures: string[] = []
+    runner.on(Events.CHECK_FAILED, (_sequenceId, _check, message) => failures.push(message))
+    ;(runner as any).setAllTimeouts()
+
+    const notStartedTimeoutSeconds = DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS
+    await vi.advanceTimersByTimeAsync(notStartedTimeoutSeconds * 1000)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toContain('did not start')
+    expect(failures[0]).not.toContain('--timeout')
+    expect(failures[0]).toContain('is.checkly.online')
+    ;(runner as any).disableAllTimeouts()
+  })
+
+  it('re-arms to the plain execution timeout once the check starts', async () => {
+    const { runner, failures } = makeArmedRunner()
+
+    await (runner as any).processMessage('seq-1', 'run-start', {})
+
+    await vi.advanceTimersByTimeAsync(TIMEOUT_SECONDS * 1000 - 1000)
+    expect(failures).toHaveLength(0)
+
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(failures).toHaveLength(1)
+    expect(failures[0]).toContain(`Reached timeout of ${TIMEOUT_SECONDS} seconds`)
+    ;(runner as any).disableAllTimeouts()
+  })
+
+  it('a final result before the timeout produces no failure', async () => {
+    const { runner, failures } = makeArmedRunner()
+    const successes: string[] = []
+    runner.on(Events.CHECK_SUCCESSFUL, sequenceId => successes.push(sequenceId))
+
+    await (runner as any).processMessage('seq-1', 'run-start', {})
+    await (runner as any).processMessage('seq-1', 'result', { result: {}, resultType: 'FINAL' })
+
+    await vi.advanceTimersByTimeAsync((TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000)
+    expect(failures).toHaveLength(0)
+    expect(successes).toEqual(['seq-1'])
   })
 })
