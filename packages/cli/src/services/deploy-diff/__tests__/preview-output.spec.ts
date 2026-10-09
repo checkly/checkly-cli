@@ -102,7 +102,7 @@ describe('formatPreview', () => {
       '    2 unchanged',
       '',
       '1 to create, 1 to update, 1 to delete, 1 kept in your account, 1 skipped (testOnly), 2 unchanged',
-      'Deploy exactly this plan: checkly deploy --plan --plan-token v1.token',
+      'Deploy exactly this plan: checkly deploy --plan-token v1.token',
       '',
     ].join('\n'))
   })
@@ -194,7 +194,7 @@ describe('formatPreview', () => {
     const leaving = uncoloured(formatPreview({ diff: [check], project }))
     expect(leaving).toBe([
       '  ! Check  api-health  has alert channels or private locations this project does not manage'
-      + ' (pass --plan --prune-relations to delete them)',
+      + ' (pass --prune-relations to delete them)',
       '',
       'No changes. The 1 resource matches your code.',
       '',
@@ -405,7 +405,7 @@ new ApiCheck('api-health', {
         foldedInto: { type: 'check', logicalId: 'api-health' },
       },
     ]
-    const LATER = 'Later deploys with --plan show only what changed.'
+    const LATER = 'Later deploys show only what changed.'
 
     it('lists every resource as an update and counts them in the note', () => {
       const { local } = scenario()
@@ -428,10 +428,10 @@ new ApiCheck('api-health', {
         '  ~ ApiCheck           signup      src/signup.check.ts',
         '  ~ CheckGroupV2       grp',
         '',
-        `4 resources are updated to set a baseline for --plan. ${LATER}`,
+        `4 resources are updated to set a baseline. ${LATER}`,
         '',
         '4 to update, 0 unchanged',
-        'Deploy exactly this plan: checkly deploy --plan --plan-token v1.token',
+        'Deploy exactly this plan: checkly deploy --plan-token v1.token',
         '',
       ].join('\n'))
       expect(text).not.toContain('No changes.')
@@ -448,7 +448,7 @@ new ApiCheck('api-health', {
       expect(text).toContain([
         '  ~ CheckGroupV2       grp',
         '',
-        `3 resources are updated to set a baseline for --plan. ${LATER}`,
+        `3 resources are updated to set a baseline. ${LATER}`,
         '',
         '~ ApiCheck api-health  src/api-health.check.ts',
         '    - live in Checkly   replaced or removed by this deploy',
@@ -459,7 +459,7 @@ new ApiCheck('api-health', {
       expect(text).toContain('\n4 to update, 0 unchanged\n')
 
       const after = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
-      expect(after).toContain(`\n3 resources were updated to set a baseline for --plan. ${LATER}\n`)
+      expect(after).toContain(`\n3 resources were updated to set a baseline. ${LATER}\n`)
       expect(after).toContain('\n4 updated, 0 unchanged\n')
     })
 
@@ -480,7 +480,7 @@ new ApiCheck('api-health', {
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
       expect(text).toContain('  ~ ApiCheck  signup  src/signup.check.ts\n')
       expect(text).toContain('  ! Check     signup  has alert channels or private locations this project does not manage')
-      expect(text).toContain(`\n1 resource is updated to set a baseline for --plan. ${LATER}\n`)
+      expect(text).toContain(`\n1 resource is updated to set a baseline. ${LATER}\n`)
       expect(text).not.toContain('(absent)')
       expect(text).toContain('\n1 to update, 1 with relations this project does not manage, 1 unchanged\n')
       expect(text).not.toContain('No changes.')
@@ -494,12 +494,12 @@ new ApiCheck('api-health', {
         '  ~ ApiCheck      api-health  src/api-health.check.ts',
         '  ~ CheckGroupV2  grp',
         '',
-        `1 resource was updated to set a baseline for --plan. ${LATER}`,
+        `1 resource was updated to set a baseline. ${LATER}`,
         '',
         '2 updated, 0 unchanged',
       ].join('\n'))
       const all = uncoloured(formatPreview({ diff: [baseline[0], unchangedEntries[1]], project, done: true }))
-      expect(all).toContain(`\n1 resource was updated to set a baseline for --plan. ${LATER}\n`)
+      expect(all).toContain(`\n1 resource was updated to set a baseline. ${LATER}\n`)
     })
 
     it('says nothing of the kind for a plan compared with an earlier one', () => {

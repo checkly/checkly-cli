@@ -128,7 +128,7 @@ const DEFAULT_FLAGS = {
   'force': false,
   'preview': false,
   'dry-run': false,
-  'plan': false,
+  'plan': true,
   'plan-token': undefined,
   'prune-relations': false,
   'output': false,
@@ -162,19 +162,17 @@ const DEFAULT_METADATA = {
 }
 
 /**
- * A `checkly deploy` run with the flags given. Most of this file is about a
- * planned deploy, so the run is one started with `--plan` unless the flags say
- * `plan: false`, which is a run that did not type it.
+ * A `checkly deploy` run with the flags given. A deploy plans by default, so
+ * the run is a planned one unless the flags say `plan: false`, which is a run
+ * started with `--no-plan`.
  */
 function createCommandContext (given: Record<string, unknown> = {}) {
   const logged: string[] = []
   let exitCodeValue: number | undefined
-  const { plan = true, ...rest } = given
-  const flags: Record<string, unknown> = plan === true ? { plan, ...rest } : rest
-  const typed = Object.keys(flags)
+  const typed = Object.keys(given)
   return {
     parse: vi.fn().mockResolvedValue({
-      flags: { ...DEFAULT_FLAGS, ...flags },
+      flags: { ...DEFAULT_FLAGS, ...given },
       // A flag the test passes explicitly is one the user typed, so it is not
       // marked as coming from a default — which is what decides whether the
       // echoed confirmCommand repeats it.
@@ -332,9 +330,9 @@ describe('deploy confirmation flow', () => {
     expect(output.preview.diff).toHaveLength(2)
     expect(output.changes).toContain('Permanently delete Check: gone, losing its run history')
     expect(output.changes).toContain('Update AlertChannel: ops')
-    // Re-running as told deploys the plan that was shown, not a newer one. It
-    // asks for a plan itself, without which the token would be refused.
-    expect(output.confirmCommand).toMatch(/ --plan( |$)/)
+    // Re-running as told deploys the plan that was shown, not a newer one. A
+    // plan is the default, so the command does not spell it out.
+    expect(output.confirmCommand).not.toMatch(/ --plan( |$)/)
     expect(output.confirmCommand).toContain(`--plan-token="${PLAN_TOKEN}"`)
     expect(output.confirmCommand).toContain('--force')
 
@@ -404,7 +402,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     expect(ctx.logged.join('\n')).toContain('Deploy preview · My Project → account Test Account')
-    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan --plan-token ${PLAN_TOKEN}`)
+    expect(ctx.logged.join('\n')).toContain(`checkly deploy --plan-token ${PLAN_TOKEN}`)
     expect(api.projects.deploy).not.toHaveBeenCalled()
     expect(storeBundle).not.toHaveBeenCalled()
   })
@@ -718,7 +716,7 @@ describe('deploy confirmation flow', () => {
 
     const printed = ctx.logged.join('\n')
     expect(printed).toContain('relation on Check chk not managed by this project, deleted by --prune-relations')
-    expect(printed).not.toContain('pass --plan --prune-relations to delete them')
+    expect(printed).not.toContain('pass --prune-relations to delete them')
   })
 
   it('reports an unmanaged relation without advising anything twice when it will not prune', async () => {
@@ -734,7 +732,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('pass --plan --prune-relations to delete them')
+    expect(printed).toContain('pass --prune-relations to delete them')
     expect(printed).not.toMatch(/^ {2}~ /m)
   })
 
@@ -830,7 +828,7 @@ describe('deploy confirmation flow', () => {
       expect.stringContaining('changed while this deploy was being confirmed'),
       // Re-running is the way out: the refused token describes a state the
       // account has left behind, so it must not be sent again.
-      expect.stringContaining('Re-run `checkly deploy --plan`'),
+      expect.stringContaining('Re-run `checkly deploy`'),
     )
   })
 })
@@ -938,7 +936,7 @@ describe('deploy confirmation in a terminal', () => {
   })
 })
 
-describe('deploy without --plan', () => {
+describe('deploy with --no-plan', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(detectCliMode).mockReturnValue('interactive')
@@ -1117,23 +1115,23 @@ describe('deploy without --plan', () => {
     expect(api.projects.deploy).toHaveBeenCalledOnce()
   })
 
-  it('is the default, and --no-plan says so', async () => {
+  it('is off only when --no-plan says so', async () => {
     const parse = async (argv: string[]) =>
       (await Parser.parse(argv, { flags: Deploy.flags, strict: true })).flags.plan
 
-    expect(await parse([])).toBe(false)
+    expect(await parse([])).toBe(true)
     expect(await parse(['--no-plan'])).toBe(false)
     expect(await parse(['--plan'])).toBe(true)
   })
 
-  it('echoes no plan flag in the command that confirms it', async () => {
+  it('echoes --no-plan in the command that confirms it', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({ plan: false })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
-    expect(output.confirmCommand).toBe('npx checkly deploy --force')
+    expect(output.confirmCommand).toBe('npx checkly deploy --no-plan --force')
     expect(output).not.toHaveProperty('preview')
   })
 
@@ -1157,7 +1155,7 @@ describe('deploy without --plan', () => {
 
       expect(ctx.style.longError).toHaveBeenCalledWith(
         `${named} applies to a planned deploy only.`,
-        `Re-run with --plan, or without ${named}.`,
+        `Re-run without --no-plan, or without ${named}.`,
       )
       expect(parseProject).not.toHaveBeenCalled()
       expect(api.projects.preview).not.toHaveBeenCalled()
@@ -1295,7 +1293,7 @@ new ApiCheck('api', {
       '  ~ imported Frequency from \'checkly/constructs\'',
       '',
     ].join('\n'))
-    expect(printed).toContain('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy --plan` again.')
+    expect(printed).toContain('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy` again.')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })
@@ -1873,7 +1871,7 @@ describe('deploy of a plan with nothing to apply', () => {
       expect(printed).not.toContain('No changes.')
       expect(printed).toContain('\n1 updated, 0 unchanged\n')
       expect(printed).toContain(
-        '1 resource was updated to set a baseline for --plan. Later deploys with --plan show only what changed.',
+        '1 resource was updated to set a baseline. Later deploys show only what changed.',
       )
       expect(ctx.logged[ctx.logged.length - 1])
         .toBe('Successfully deployed project "My Project" to account "Test Account".')

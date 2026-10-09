@@ -277,7 +277,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     )),
     ...sortedUnmanaged.map(listed => withNote(
       MARKER.warn, listed,
-      chalk.yellow('has alert channels or private locations this project does not manage (pass --plan --prune-relations to delete them)'),
+      chalk.yellow('has alert channels or private locations this project does not manage (pass --prune-relations to delete them)'),
     )),
     ...skipping.sort(compareEntries).map(listed => ({
       ...withConstruct(MARKER.skip, listed),
@@ -408,7 +408,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     chalk.dim(`${unchanged} unchanged`),
   ].join(', '))
   if (planToken !== undefined) {
-    output.push(`${chalk.dim('Deploy exactly this plan:')} checkly deploy --plan --plan-token ${planToken}`)
+    output.push(`${chalk.dim('Deploy exactly this plan:')} checkly deploy --plan-token ${planToken}`)
   }
   // A blank line closes the plan, whatever follows it.
   output.push('')
@@ -418,8 +418,8 @@ export function formatPreview (input: PreviewOutputInput): string {
 /**
  * Why a plan lists resources as updates in which nothing differs. Checkly
  * compares a resource with the state its last planned deploy left; one without
- * such a state (the project's first plan, the first after a deploy without
- * `--plan`, a resource added with `checkly import`) is compared with what is
+ * such a state (the project's first plan, the first after a deploy with
+ * `--no-plan`, a resource added with `checkly import`) is compared with what is
  * deployed instead and written whatever that finds, so that the next plan has
  * a baseline. The note counts them and names no cause: the plan does not say
  * which of these it was, and a sentence about "the first plan" would be wrong
@@ -428,7 +428,7 @@ export function formatPreview (input: PreviewOutputInput): string {
 function baselineNote (count: number, done: boolean): string {
   const resources = count === 1 ? '1 resource' : `${count} resources`
   const verb = done ? (count === 1 ? 'was' : 'were') : (count === 1 ? 'is' : 'are')
-  return `${resources} ${verb} updated to set a baseline for --plan. Later deploys with --plan show only what changed.`
+  return `${resources} ${verb} updated to set a baseline. Later deploys show only what changed.`
 }
 
 /**

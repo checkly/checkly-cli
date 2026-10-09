@@ -111,7 +111,7 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
       if (skipped !== undefined) {
         command.log(skipped)
       }
-      command.log('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy --plan` again.')
+      command.log('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy` again.')
     },
   }]
 }
@@ -125,8 +125,7 @@ export default class Deploy extends AuthCommand {
   static flags = {
     'preview': Flags.boolean({
       char: 'p',
-      description: 'Show a preview of the changes made by the deploy command. '
-        + 'Add --plan to see what changes in each resource.',
+      description: 'Show a preview of the changes made by the deploy command.',
       default: false,
     }),
     'output': Flags.boolean({
@@ -163,19 +162,20 @@ export default class Deploy extends AuthCommand {
     'force': forceFlag(),
     'dry-run': dryRunFlag(),
     'plan': Flags.boolean({
-      description: 'Ask Checkly for a plan first: what the deploy would change, property by property, compared '
+      description: 'Plan the deploy first: Checkly says what would change, property by property, compared '
         + 'with what is deployed. The deploy then applies that plan, leaves unchanged resources alone and '
-        + 'refuses to run if your Checkly account changed in between.',
-      default: false,
+        + 'refuses to run if your Checkly account changed in between. --no-plan deploys without a plan '
+        + 'and writes every resource.',
+      default: true,
       allowNo: true,
     }),
     'plan-token': Flags.string({
       description: 'Deploy only if the plan still matches this token from an earlier run. '
-        + 'Aborts if anything changed in your Checkly account since then. Requires --plan.',
+        + 'Aborts if anything changed in your Checkly account since then. Not available with --no-plan.',
     }),
     'prune-relations': Flags.boolean({
       description: 'Delete the alert channel subscriptions and private location assignments on this project\'s '
-        + 'checks and groups that the project does not manage. Requires --plan.',
+        + 'checks and groups that the project does not manage. Not available with --no-plan.',
       default: false,
     }),
     'cancel-in-progress-deployment': Flags.boolean({
@@ -240,7 +240,7 @@ export default class Deploy extends AuthCommand {
       if (needsPlan !== undefined) {
         this.style.longError(
           `${needsPlan} applies to a planned deploy only.`,
-          `Re-run with --plan, or without ${needsPlan}.`,
+          `Re-run without --no-plan, or without ${needsPlan}.`,
         )
         this.exit(1)
       }
@@ -426,7 +426,7 @@ export default class Deploy extends AuthCommand {
     // Set when the API has no preview endpoint, which also means it rejects the
     // payload fields that arrived with it.
     let previewNotSupported = false
-    // Without --plan the deploy applies to whatever the account looks like
+    // With --no-plan the deploy applies to whatever the account looks like
     // when it runs: no plan, no token, and nothing to render before the prompt.
     if (planRequested) {
       this.style.actionStart('Checking what would change')
@@ -483,7 +483,7 @@ export default class Deploy extends AuthCommand {
         this.style.longWarning(
           previewSupported
             // Say which failure it was: the user is about to get a coarser answer
-            // than they asked for and deserves to know why.
+            // than a planned deploy gives and deserves to know why.
             ? `Could not check what this deploy would change: ${err.message}`
             : plansDisabled
               ? err.message
@@ -498,7 +498,7 @@ export default class Deploy extends AuthCommand {
       if (plan !== undefined && requestedPlanToken !== undefined && requestedPlanToken !== plan.planToken) {
         this.style.longError(
           'Your Checkly account no longer matches the plan this deploy is pinned to, so nothing was deployed.',
-          'Re-run `checkly deploy --plan --preview` to see the current plan.',
+          'Re-run `checkly deploy --preview` to see the current plan.',
         )
         this.exit(1)
       }
@@ -519,7 +519,7 @@ export default class Deploy extends AuthCommand {
 
     // A planned run learns from the preview call whether the API has the
     // endpoint, and with it whether the deploy route knows the fields that
-    // arrived with it. A run without a plan — one that did not ask for it, or
+    // arrived with it. A run without a plan — one started with --no-plan, or
     // a preview that failed for a reason other than a missing endpoint — does not, so a
     // payload the route refuses because of one of those fields is sent once
     // more in the older form; the rest of the run then sends that form too.
@@ -694,7 +694,7 @@ export default class Deploy extends AuthCommand {
       if (sentLegacyPayload) {
         this.style.longWarning(
           'This Checkly API does not know the fields the preview endpoint added, so the deploy was sent without them.',
-          'The next `checkly deploy --plan` reports every Playwright check suite and every check with snapshots as changed.',
+          'The next planned deploy reports every Playwright check suite and every check with snapshots as changed.',
         )
       }
       // Judged on what the deploy answered, not on the plan it started from: a
@@ -800,14 +800,14 @@ export default class Deploy extends AuthCommand {
             nothingToApply
               ? 'Your Checkly account changed after the plan found no changes, so nothing was deployed.'
               : 'Your Checkly account changed while this deploy was being confirmed, so nothing was deployed.',
-            'The plan above is the current one. Re-run `checkly deploy --plan` to review and deploy it.',
+            'The plan above is the current one. Re-run `checkly deploy` to review and deploy it.',
           )
         } else {
           // A refusal with no plan attached: the account moved for a reason the
           // error itself explains, and there is nothing to print above.
           this.style.longError(
             `${err.message} Nothing was deployed.`,
-            'Re-run `checkly deploy --plan` to see the current plan and deploy it.',
+            'Re-run `checkly deploy` to see the current plan and deploy it.',
           )
         }
       } else if (plan !== undefined && err instanceof ValidationError && err.data.code === DEPLOY_PLAN_DISABLED) {
