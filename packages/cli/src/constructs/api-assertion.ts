@@ -97,9 +97,4 @@ export class AssertionBuilder {
   static responseTime () {
     return new NumericAssertionBuilder<ApiAssertionSource>('RESPONSE_TIME')
   }
-
-  /** @deprecated Use {@link responseTime()} instead */
-  static responseTme () {
-    return AssertionBuilder.responseTime()
-  }
 }
