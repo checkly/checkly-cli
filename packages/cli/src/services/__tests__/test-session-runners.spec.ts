@@ -19,29 +19,29 @@ describe('test-session runners', () => {
     vi.clearAllMocks()
   })
 
-  it('schedules local Agentic checks as cancellable test-session jobs', async () => {
+  it('schedules local Playwright checks as cancellable test-session jobs', async () => {
     vi.mocked(testSessions.run).mockResolvedValue({
       data: {
-        testSessionId: 'ts-agentic',
+        testSessionId: 'ts-playwright',
         sequenceIds: {
-          'agentic-logical-id': 'seq-agentic',
+          'playwright-logical-id': 'seq-playwright',
         },
       },
     } as any)
 
-    const agenticCheck = {
-      logicalId: 'agentic-logical-id',
+    const playwrightCheck = {
+      logicalId: 'playwright-logical-id',
       groupId: undefined,
-      getSourceFile: () => 'agentic.check.ts',
+      getSourceFile: () => 'playwright.check.ts',
     }
-    const agenticBundle = {
+    const playwrightBundle = {
       synthesize: vi.fn(() => ({
-        checkType: 'AGENTIC',
-        name: 'Agentic Check',
+        checkType: 'PLAYWRIGHT',
+        name: 'Playwright Check',
       })),
     }
     const projectBundle = {
-      project: { name: 'Agentic Project', logicalId: 'agentic-project' },
+      project: { name: 'Playwright Project', logicalId: 'playwright-project' },
       data: {
         'check-group': {},
       },
@@ -50,7 +50,7 @@ describe('test-session runners', () => {
     const runner = new TestRunner(
       'account-id',
       projectBundle as any,
-      [{ construct: agenticCheck, bundle: agenticBundle }] as any,
+      [{ construct: playwrightCheck, bundle: playwrightBundle }] as any,
       [],
       RUN_LOCATION,
       60,
@@ -67,17 +67,17 @@ describe('test-session runners', () => {
     const payload = vi.mocked(testSessions.run).mock.calls[0][0]
 
     expect(payload.checkRunJobs[0]).toMatchObject({
-      checkType: 'AGENTIC',
-      logicalId: 'agentic-logical-id',
-      filePath: 'agentic.check.ts',
+      checkType: 'PLAYWRIGHT',
+      logicalId: 'playwright-logical-id',
+      filePath: 'playwright.check.ts',
       sourceInfo: {
         checkRunSuiteId: 'suite-id',
         updateSnapshots: false,
       },
     })
     expect(scheduled).toEqual({
-      testSessionId: 'ts-agentic',
-      checks: [{ check: agenticCheck, sequenceId: 'seq-agentic' }],
+      testSessionId: 'ts-playwright',
+      checks: [{ check: playwrightCheck, sequenceId: 'seq-playwright' }],
     })
   })
 
@@ -132,18 +132,18 @@ describe('test-session runners', () => {
     expect(job.snapshots).toEqual([{ path: 'home.png', key: 'checks/home.png' }])
   })
 
-  it('maps triggered Agentic checks back to the test-session sequence IDs', async () => {
-    const agenticCheck = {
-      id: 'agentic-check-id',
-      name: 'Triggered Agentic Check',
-      checkType: 'AGENTIC',
+  it('maps triggered Playwright checks back to the test-session sequence IDs', async () => {
+    const playwrightCheck = {
+      id: 'playwright-check-id',
+      name: 'Triggered Playwright Check',
+      checkType: 'PLAYWRIGHT',
     }
     vi.mocked(testSessions.trigger).mockResolvedValue({
       data: {
-        checks: [agenticCheck],
-        testSessionId: 'ts-trigger-agentic',
+        checks: [playwrightCheck],
+        testSessionId: 'ts-trigger-playwright',
         sequenceIds: {
-          'agentic-check-id': 'seq-trigger-agentic',
+          'playwright-check-id': 'seq-trigger-playwright',
         },
       },
     } as any)
@@ -155,7 +155,7 @@ describe('test-session runners', () => {
       true,
       RUN_LOCATION,
       [],
-      ['agentic-check-id'],
+      ['playwright-check-id'],
       [],
       null,
       null,
@@ -167,11 +167,11 @@ describe('test-session runners', () => {
 
     expect(testSessions.trigger).toHaveBeenCalledWith(expect.objectContaining({
       checkRunSuiteId: 'suite-id',
-      checkId: ['agentic-check-id'],
+      checkId: ['playwright-check-id'],
     }))
     expect(scheduled).toEqual({
-      testSessionId: 'ts-trigger-agentic',
-      checks: [{ check: agenticCheck, sequenceId: 'seq-trigger-agentic' }],
+      testSessionId: 'ts-trigger-playwright',
+      checks: [{ check: playwrightCheck, sequenceId: 'seq-trigger-playwright' }],
     })
   })
 })

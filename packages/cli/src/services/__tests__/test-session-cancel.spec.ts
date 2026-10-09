@@ -20,7 +20,7 @@ function makeReporter () {
 }
 
 describe('registerTestSessionCancelHandler', () => {
-  it('cancels the whole test session for an agentic-shaped run', async () => {
+  it('cancels the whole test session for a Playwright-shaped run', async () => {
     const runner = new EventEmitter()
     const reporter = makeReporter()
     const cancelClient = {
@@ -28,11 +28,11 @@ describe('registerTestSessionCancelHandler', () => {
     }
 
     registerTestSessionCancelHandler(runner, [reporter], cancelClient)
-    runner.emit(Events.CANCEL, 'ts-agentic')
+    runner.emit(Events.CANCEL, 'ts-playwright')
     await vi.waitFor(() => expect(cancelClient.cancelTestSession).toHaveBeenCalled())
 
     expect(reporter.onCancel).toHaveBeenCalledTimes(1)
-    expect(cancelClient.cancelTestSession).toHaveBeenCalledWith({ testSessionId: 'ts-agentic' })
+    expect(cancelClient.cancelTestSession).toHaveBeenCalledWith({ testSessionId: 'ts-playwright' })
     expect(cancelClient.cancelTestSession).not.toHaveBeenCalledWith(
       expect.objectContaining({ sequenceId: expect.anything() }),
     )

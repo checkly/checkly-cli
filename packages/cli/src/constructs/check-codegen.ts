@@ -1,6 +1,5 @@
 import { Codegen, Context } from './internal/codegen/index.js'
 import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen/index.js'
-import { AgenticCheckCodegen, AgenticCheckResource } from './agentic-check-codegen.js'
 import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen.js'
 import { BrowserCheckCodegen, BrowserCheckResource } from './browser-check-codegen.js'
@@ -72,20 +71,9 @@ export interface CheckResource {
  *
  * The defaults match the historical behavior — every field is emitted if
  * the resource provides it. Individual check types can opt out of specific
- * fields when their construct's props type does not accept them. For
- * example, `AgenticCheck` omits `retryStrategy` from its props, so its
- * codegen passes `skipRetryStrategy: true` to avoid emitting code that
- * would not type-check against the construct.
+ * fields when their construct's props type does not accept them.
  */
 export interface BuildCheckPropsOptions {
-  /**
-   * Skip emitting the `retryStrategy` property. Unlike most fields in
-   * `buildCheckProps`, `retryStrategy` is emitted unconditionally (null is
-   * rendered as `RetryStrategyBuilder.noRetries()`), so opting out requires
-   * an explicit flag.
-   */
-  skipRetryStrategy?: boolean
-
   /**
    * Skip emitting the `intent` property for constructs that do not support it.
    */
@@ -104,21 +92,13 @@ export interface BuildCheckPropsOptions {
   includeShouldFail?: boolean
 
   /**
-   * The locations a construct of this type gives itself when neither the
-   * props nor the project config name any (an agentic check falls back to a
-   * single region). A row holding exactly these is generated without them.
-   */
-  fallbackLocations?: readonly string[]
-
-  /**
    * Shared props the construct's own props type omits, which are never
-   * generated whatever the row or a project default holds. `retryStrategy`
-   * here means the same as `skipRetryStrategy`.
+   * generated whatever the row or a project default holds.
    */
   omit?: readonly OmittableCheckProp[]
 }
 
-export type OmittableCheckProp = 'privateLocations' | 'runParallel' | 'retryStrategy'
+export type OmittableCheckProp = 'retryStrategy'
 
 /**
  * The project-level defaults a construct of the given check type falls back
@@ -225,7 +205,7 @@ export function buildCheckProps (
 
   if (resource.locations) {
     const locations = resource.locations
-    const implied = defaults('locations') ?? options.fallbackLocations ?? []
+    const implied = defaults('locations') ?? []
     if (!sameList(locations, implied) || context.spelledOut('locations')) {
       builder.array('locations', builder => {
         for (const location of locations) {
@@ -243,9 +223,7 @@ export function buildCheckProps (
     }
   })()
 
-  if (omitted.has('privateLocations')) {
-    // The construct does not take them.
-  } else if (privateLocationIds === undefined) {
+  if (privateLocationIds === undefined) {
     // No assignment on the row; spelled out as none only when the project
     // config would otherwise assign some.
     if ((defaults('privateLocations') ?? []).length > 0) {
@@ -356,7 +334,7 @@ export function buildCheckProps (
     builder.boolean('testOnly', resource.testOnly)
   }
 
-  if (!options.skipRetryStrategy && !omitted.has('retryStrategy')) {
+  if (!omitted.has('retryStrategy')) {
     builder.value('retryStrategy', valueForRetryStrategy(
       genfile,
       resource.retryStrategy,
@@ -364,7 +342,7 @@ export function buildCheckProps (
     ))
   }
 
-  if (!omitted.has('runParallel') && resource.runParallel !== undefined
+  if (resource.runParallel !== undefined
     && (resource.runParallel !== false || context.spelledOut('runParallel'))) {
     builder.boolean('runParallel', resource.runParallel)
   }
@@ -417,7 +395,6 @@ export const PREVIEW_ONLY_CHECK_TYPES: ReadonlyMap<string, string> = new Map([
 ])
 
 export class CheckCodegen extends Codegen<CheckResource> {
-  agenticCheckCodegen: AgenticCheckCodegen
   apiCheckCodegen: ApiCheckCodegen
   browserCheckCodegen: BrowserCheckCodegen
   checkGroupCodegen: CheckGroupCodegen
@@ -434,7 +411,6 @@ export class CheckCodegen extends Codegen<CheckResource> {
 
   constructor (program: Program) {
     super(program)
-    this.agenticCheckCodegen = new AgenticCheckCodegen(program)
     this.apiCheckCodegen = new ApiCheckCodegen(program)
     this.browserCheckCodegen = new BrowserCheckCodegen(program)
     this.checkGroupCodegen = new CheckGroupCodegen(program)
@@ -454,8 +430,6 @@ export class CheckCodegen extends Codegen<CheckResource> {
     const { checkType } = resource
 
     switch (checkType) {
-      case 'AGENTIC':
-        return this.agenticCheckCodegen.describe(resource as AgenticCheckResource)
       case 'BROWSER':
         return this.browserCheckCodegen.describe(resource as BrowserCheckResource)
       case 'API':
@@ -489,9 +463,6 @@ export class CheckCodegen extends Codegen<CheckResource> {
     const { checkType } = resource
 
     switch (checkType) {
-      case 'AGENTIC':
-        this.agenticCheckCodegen.gencode(logicalId, resource as AgenticCheckResource, context)
-        return
       case 'BROWSER':
         this.browserCheckCodegen.gencode(logicalId, resource as BrowserCheckResource, context)
         return

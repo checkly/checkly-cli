@@ -1,5 +1,4 @@
 import type {
-  AgenticCheckProps,
   ApiCheckProps,
   BrowserCheckProps,
   CheckIntent,
@@ -27,7 +26,6 @@ type IntentExposure = {
   tcp: HasIntent<TcpMonitorProps>
   grpc: HasIntent<GrpcMonitorProps>
   playwright: HasIntent<PlaywrightCheckProps>
-  agentic: HasIntent<AgenticCheckProps>
   heartbeat: HasIntent<HeartbeatMonitorProps>
   ssl: HasIntent<SslMonitorProps>
   traceroute: HasIntent<TracerouteMonitorProps>
@@ -43,7 +41,6 @@ export const intentExposure: IntentExposure = {
   tcp: true,
   grpc: true,
   playwright: true,
-  agentic: false,
   heartbeat: false,
   ssl: false,
   traceroute: false,

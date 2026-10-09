@@ -11,7 +11,6 @@ export const CheckTypes = {
   GRPC: 'GRPC',
   SSL: 'SSL',
   TRACEROUTE: 'TRACEROUTE',
-  AGENTIC: 'AGENTIC',
 } as const
 
 export type CheckType = typeof CheckTypes[keyof typeof CheckTypes]

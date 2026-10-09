@@ -4,7 +4,6 @@ import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { AgenticCheckCodegen, AgenticCheckResource } from '../agentic-check-codegen.js'
 import { ApiCheckCodegen, ApiCheckResource } from '../api-check-codegen.js'
 import { projectDefaultsFor } from '../check-codegen.js'
 import { Context } from '../internal/codegen/context.js'
@@ -185,22 +184,6 @@ describe('buildCheckProps defaults', () => {
       const api = projectDefaultsFor('API')
       expect([api('activated'), api('muted')]).toEqual([true, true])
     })
-
-    it('generates an agentic check\'s empty locations, which the construct would fill with its own region', async () => {
-      const agentic = (overrides: Partial<AgenticCheckResource> = {}): AgenticCheckResource => ({
-        id: 'agentic',
-        checkType: 'AGENTIC',
-        name: 'Agentic',
-        prompt: 'Verify the homepage loads.',
-        ...overrides,
-      })
-      const render = (resource: AgenticCheckResource) =>
-        renderWith(env, program => new AgenticCheckCodegen(program), resource)
-      expect(await render(agentic({ locations: [] }))).toContain('locations: []')
-      expect(await render(agentic({ locations: ['us-east-1'] }))).not.toContain('locations')
-      Session.checkDefaults = { locations: ['eu-west-1'] }
-      expect(await render(agentic({ locations: ['us-east-1'] }))).toContain('\'us-east-1\'')
-    })
   })
 
   describe('lists the project config can fill', () => {
@@ -221,19 +204,6 @@ describe('buildCheckProps defaults', () => {
       expect(source).toContain('alertChannels: []')
       expect(source).toContain('privateLocations: []')
       expect(source).toContain('environmentVariables: []')
-    })
-
-    it('never generates the props an agentic check omits, whatever the row or the project sets', async () => {
-      Session.checkDefaults = {
-        shouldFail: true,
-        privateLocations: [new PrivateLocation('pl', { name: 'Office', slugName: 'office' })],
-      }
-      const source = await renderWith(env, program => new AgenticCheckCodegen(program), {
-        id: 'agentic', checkType: 'AGENTIC', name: 'Agentic', prompt: 'Verify.', shouldFail: false, runParallel: true,
-      })
-      expect(source).not.toContain('shouldFail')
-      expect(source).not.toContain('privateLocations')
-      expect(source).not.toContain('runParallel')
     })
 
     it('generates shouldFail for URL and TCP monitors', async () => {

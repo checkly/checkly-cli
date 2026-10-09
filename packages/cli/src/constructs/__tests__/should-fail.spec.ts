@@ -3,7 +3,6 @@ import path from 'node:path'
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { AgenticCheck } from '../agentic-check.js'
 import { ApiCheck } from '../api-check.js'
 import { BrowserCheck } from '../browser-check.js'
 import { Check } from '../check.js'
@@ -49,9 +48,6 @@ const unsupported: [string, Factory][] = [
   })],
   ['PlaywrightCheck', extra => new PlaywrightCheck('playwright', {
     name: 'Playwright', playwrightConfigPath: path.join(os.tmpdir(), 'playwright.config.ts'), ...extra,
-  })],
-  ['AgenticCheck', extra => new AgenticCheck('agentic', {
-    name: 'Agentic', prompt: 'Verify the homepage loads.', ...extra,
   })],
   ['DnsMonitor', extra => new DnsMonitor('dns', {
     name: 'DNS', request: { recordType: 'A', query: 'example.com' }, ...extra,

@@ -13,8 +13,7 @@ export function quotedKeys (values: Record<string, unknown>): string {
 }
 
 // Reports an invalid assertion as a fatal diagnostic. The property path is the array
-// field itself; the offending element index and detail go in the message, following
-// the convention in agentic-check.ts.
+// field itself; the offending element index and detail go in the message.
 export function addAssertionDiagnostic (diagnostics: Diagnostics, message: string): void {
   diagnostics.add(new InvalidPropertyValueDiagnostic('request.assertions', new Error(message)))
 }

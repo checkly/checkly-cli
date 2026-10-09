@@ -23,7 +23,7 @@ export function registerTestSessionCancelHandler (
     }
 
     // Cancellation is intentionally test-session scoped. The backend resolves
-    // which running results are cancellable (currently Playwright and Agentic),
+    // which running results are cancellable (currently Playwright),
     // so the CLI must not narrow the request by check type or sequence ID here.
     await cancelClient.cancelTestSession({ testSessionId })
   })

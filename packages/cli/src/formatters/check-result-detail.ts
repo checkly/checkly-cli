@@ -5,10 +5,6 @@ import type {
   BrowserCheckResult,
   MultiStepCheckResult,
   WebVitalEntry,
-  AgenticCheckResult,
-  AgenticAssertion,
-  AgenticSuggestion,
-  AgenticStep,
   TracerouteCheckResult,
   GrpcCheckResult,
   SslCheckResult,
@@ -99,10 +95,6 @@ function firstErrorMessage (result: CheckResult): string {
   if (browserErr) return formatErrorEntry(browserErr)
   const multiStepErr = result.multiStepCheckResult?.errors?.find(Boolean)
   if (multiStepErr) return formatErrorEntry(multiStepErr)
-  const agenticErr = result.agenticCheckResult?.errors
-    ?.map(e => e?.error?.message ?? '')
-    .find(m => m.length > 0)
-  if (agenticErr) return agenticErr
   const tracerouteErr = result.tracerouteCheckResult?.requestError
   if (tracerouteErr) return tracerouteErr
   const grpcErr = result.grpcCheckResult?.requestError
@@ -212,13 +204,6 @@ export function formatResultDetail (result: CheckResult, format: OutputFormat): 
 
   if (result.multiStepCheckResult && format === 'terminal') {
     parts.push(formatMultiStepResultTerminal(result.multiStepCheckResult).join('\n'))
-  }
-
-  if (result.agenticCheckResult) {
-    const subLines = format === 'md'
-      ? formatAgenticResultMd(result.agenticCheckResult)
-      : formatAgenticResultTerminal(result.agenticCheckResult)
-    parts.push(subLines.join('\n'))
   }
 
   if (result.tracerouteCheckResult) {
@@ -474,175 +459,6 @@ function formatMultiStepResultTerminal (ms: MultiStepCheckResult): string[] {
   }
 
   appendAssets(lines, ms)
-
-  return lines
-}
-
-// --- Agentic check result (terminal) ---
-
-function formatAgenticResultTerminal (agentic: AgenticCheckResult): string[] {
-  const lines: string[] = []
-
-  lines.push(heading('AGENTIC RESULT', 2, 'terminal'))
-
-  if (agentic.summary) {
-    lines.push(heading('SUMMARY', 2, 'terminal'))
-    lines.push(...wrapText(agentic.summary, '  ', 100))
-  }
-
-  if (agentic.assertions && agentic.assertions.length > 0) {
-    lines.push('')
-    lines.push(heading('ASSERTIONS', 2, 'terminal'))
-    for (const assertion of agentic.assertions) {
-      lines.push(formatAgenticAssertionTerminal(assertion))
-    }
-  }
-
-  if (agentic.errors && agentic.errors.length > 0) {
-    const messages = agentic.errors
-      .map(e => e?.error?.message ?? '')
-      .filter((m): m is string => m.length > 0)
-    if (messages.length > 0) {
-      lines.push('', heading('ERRORS', 2, 'terminal'))
-      for (const msg of messages) lines.push(chalk.red(`  ${msg}`))
-    }
-  }
-
-  if (agentic.steps && agentic.steps.length > 0) {
-    lines.push('')
-    lines.push(heading('STEPS', 2, 'terminal'))
-    lines.push(chalk.dim(`  ${agentic.steps.length} step${agentic.steps.length === 1 ? '' : 's'} recorded`))
-    const preview = agentic.steps.slice(0, 10)
-    for (const step of preview) {
-      lines.push(formatAgenticStepTerminal(step))
-    }
-    if (agentic.steps.length > preview.length) {
-      lines.push(chalk.dim(`  ... (${agentic.steps.length - preview.length} more step${agentic.steps.length - preview.length === 1 ? '' : 's'})`))
-    }
-  }
-
-  if (agentic.suggestions && agentic.suggestions.length > 0) {
-    lines.push('')
-    lines.push(heading('SUGGESTIONS', 2, 'terminal'))
-    for (const suggestion of agentic.suggestions) {
-      lines.push(...formatAgenticSuggestionTerminal(suggestion))
-    }
-  }
-
-  if (agentic.jobLog && Array.isArray(agentic.jobLog) && agentic.jobLog.length > 0) {
-    lines.push('')
-    lines.push(...formatJobLogArray(agentic.jobLog as Array<{ time: number, msg: string, level: string }>))
-  }
-
-  return lines
-}
-
-function formatAgenticAssertionTerminal (assertion: AgenticAssertion): string {
-  const status = assertion.passed ? chalk.green('✓') : chalk.red('✗')
-  const condition = assertion.condition ?? '(no condition)'
-  const suffix = assertion.passed
-    ? ''
-    : chalk.dim(`  expected ${JSON.stringify(assertion.expected ?? '')}, got ${JSON.stringify(assertion.actual ?? '')}`)
-  return `  ${status} ${condition}${suffix}`
-}
-
-function formatAgenticStepTerminal (step: AgenticStep): string {
-  const seq = step.sequenceNumber != null ? chalk.dim(String(step.sequenceNumber).padStart(3)) : chalk.dim('  ·')
-  if (step.type === 'tool_call') {
-    const name = step.name ?? '(tool)'
-    return `  ${seq} ${chalk.cyan('→')} ${name}`
-  }
-  if (step.type === 'tool_result') {
-    const name = step.name ?? '(tool)'
-    return `  ${seq} ${chalk.dim('←')} ${chalk.dim(name)}`
-  }
-  // 'message' type
-  const preview = truncateSingleLine(step.output ?? '', 100)
-  return `  ${seq} ${chalk.dim('•')} ${preview}`
-}
-
-function formatAgenticSuggestionTerminal (suggestion: AgenticSuggestion): string[] {
-  const lines: string[] = []
-  const category = suggestion.category ? chalk.dim(`[${suggestion.category}]`) : ''
-  const summary = suggestion.summary ?? '(no summary)'
-  lines.push(`  ${chalk.yellow('◆')} ${summary} ${category}`.trimEnd())
-  if (suggestion.secrets && suggestion.secrets.length > 0) {
-    lines.push(chalk.dim(`     needs: ${suggestion.secrets.join(', ')}`))
-  }
-  return lines
-}
-
-// --- Agentic check result (markdown) ---
-
-function formatAgenticResultMd (agentic: AgenticCheckResult): string[] {
-  const lines: string[] = []
-
-  lines.push('## Agentic Result')
-
-  if (agentic.summary) {
-    lines.push('')
-    lines.push('### Summary')
-    lines.push(agentic.summary)
-  }
-
-  if (agentic.assertions && agentic.assertions.length > 0) {
-    lines.push('')
-    lines.push('### Assertions')
-    lines.push('| Status | Condition | Expected | Actual |')
-    lines.push('| --- | --- | --- | --- |')
-    for (const assertion of agentic.assertions) {
-      const status = assertion.passed ? '✓' : '✗'
-      const condition = assertion.condition ?? ''
-      const expected = assertion.expected ?? ''
-      const actual = assertion.actual ?? ''
-      lines.push(`| ${status} | ${condition} | ${expected} | ${actual} |`)
-    }
-  }
-
-  if (agentic.errors && agentic.errors.length > 0) {
-    const messages = agentic.errors
-      .map(e => e?.error?.message ?? '')
-      .filter((m): m is string => m.length > 0)
-    if (messages.length > 0) {
-      lines.push('')
-      lines.push('### Errors')
-      for (const msg of messages) lines.push(`- ${msg}`)
-    }
-  }
-
-  if (agentic.suggestions && agentic.suggestions.length > 0) {
-    lines.push('')
-    lines.push('### Suggestions')
-    for (const suggestion of agentic.suggestions) {
-      const category = suggestion.category ? ` _(${suggestion.category})_` : ''
-      lines.push(`- **${suggestion.summary ?? '(no summary)'}**${category}`)
-      if (suggestion.prompt) {
-        lines.push(`  - Prompt fragment: \`${suggestion.prompt.replace(/\n/g, ' ')}\``)
-      }
-      if (suggestion.secrets && suggestion.secrets.length > 0) {
-        lines.push(`  - Needs secrets: ${suggestion.secrets.map(s => `\`${s}\``).join(', ')}`)
-      }
-    }
-  }
-
-  if (agentic.steps && agentic.steps.length > 0) {
-    lines.push('')
-    lines.push(`### Steps (${agentic.steps.length})`)
-    const preview = agentic.steps.slice(0, 20)
-    for (const step of preview) {
-      const seq = step.sequenceNumber != null ? `${step.sequenceNumber}. ` : '- '
-      if (step.type === 'tool_call') {
-        lines.push(`${seq}→ \`${step.name ?? '(tool)'}\``)
-      } else if (step.type === 'tool_result') {
-        lines.push(`${seq}← \`${step.name ?? '(tool)'}\``)
-      } else {
-        lines.push(`${seq}• ${truncateSingleLine(step.output ?? '', 200)}`)
-      }
-    }
-    if (agentic.steps.length > preview.length) {
-      lines.push(`- _... ${agentic.steps.length - preview.length} more step(s)_`)
-    }
-  }
 
   return lines
 }
@@ -1298,28 +1114,6 @@ function appendAssets (
     lines.push(`  ${parts.join(', ')}`)
     lines.push(chalk.dim('  Use --output json to get asset URLs'))
   }
-}
-
-function wrapText (text: string, indent: string, width: number): string[] {
-  const lines: string[] = []
-  for (const paragraph of text.split('\n')) {
-    if (paragraph.length === 0) {
-      lines.push(indent)
-      continue
-    }
-    const words = paragraph.split(/\s+/)
-    let current = indent
-    for (const word of words) {
-      if (current.length + word.length + 1 > width && current !== indent) {
-        lines.push(current)
-        current = indent + word
-      } else {
-        current += (current === indent ? '' : ' ') + word
-      }
-    }
-    if (current !== indent) lines.push(current)
-  }
-  return lines
 }
 
 function formatBody (body: string, indent: string): string {
