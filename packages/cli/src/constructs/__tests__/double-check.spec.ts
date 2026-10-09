@@ -69,9 +69,10 @@ describe('doubleCheck', () => {
 
   const fixed = RetryStrategyBuilder.fixedStrategy({ maxRetries: 1 })
 
-  // The backend defaults the flag to `true` and only consults it when no
-  // retry strategy is stored, so checks clear it whenever they set a strategy.
-  describe.each(constructs.filter(([name]) => !name.startsWith('CheckGroup')))('%s payload', (_name, create) => {
+  // The backend defaults the flag to `true` for checks and v1 groups and only
+  // consults it when no retry strategy is stored, so both clear it whenever
+  // they set a strategy.
+  describe.each(constructs.filter(([name]) => name !== 'CheckGroupV2'))('%s payload', (_name, create) => {
     it('leaves doubleCheck and retryStrategy out without a retry strategy', () => {
       const payload = create({}).synthesize()
       expect(payload.retryStrategy).toBeUndefined()
@@ -94,18 +95,16 @@ describe('doubleCheck', () => {
     expect(monitor.synthesize().doubleCheck).toBe(false)
   })
 
-  describe.each(constructs.filter(([name]) => name.startsWith('CheckGroup')))('%s payload', (name, create) => {
-    it('leaves doubleCheck out without a retry strategy or with a typed one', () => {
-      expect(create({}).synthesize().doubleCheck).toBeUndefined()
-      expect(create({ retryStrategy: fixed }).synthesize().doubleCheck).toBeUndefined()
-    })
+  // The backend defaults the flag to `false` for v2 groups, so they never send it.
+  describe('CheckGroupV2 payload', () => {
+    const create = constructs.find(([name]) => name === 'CheckGroupV2')![1]
 
-    // The backend defaults the flag to `true` for v1 groups, which would retry
-    // once despite `NO_RETRIES` being sent as a null strategy; v2 defaults to `false`.
-    it('handles RetryStrategyBuilder.noRetries()', () => {
-      const payload = create({ retryStrategy: RetryStrategyBuilder.noRetries() }).synthesize()
-      expect(payload).toMatchObject({ retryStrategy: null })
-      expect(payload.doubleCheck).toBe(name === 'CheckGroupV1' ? false : undefined)
+    it.each([
+      ['no retry strategy', {}],
+      ['RetryStrategyBuilder.noRetries()', { retryStrategy: RetryStrategyBuilder.noRetries() }],
+      ['a typed strategy', { retryStrategy: fixed }],
+    ])('leaves doubleCheck out with %s', (_label, extra) => {
+      expect(create(extra).synthesize().doubleCheck).toBeUndefined()
     })
   })
 

@@ -546,9 +546,10 @@ export class CheckGroupV1 extends Construct {
       retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
         ? null
         : this.retryStrategy,
-      // The backend still takes the legacy `doubleCheck` flag and defaults it to `true`, which retries
-      // once whenever `retryStrategy` is null. `NO_RETRIES` is sent as null, so it must also turn the flag off.
-      doubleCheck: this.retryStrategy?.type === 'NO_RETRIES' ? false : undefined,
+      // The backend still takes the legacy `doubleCheck` flag, defaults it to `true`, and only consults it
+      // when no retry strategy is stored (one retry). Any explicit strategy, including `NO_RETRIES` (sent as
+      // null), turns it off; with no strategy, omitting it keeps the backend's single-retry default.
+      doubleCheck: this.retryStrategy ? false : undefined,
       runParallel: this.runParallel,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
