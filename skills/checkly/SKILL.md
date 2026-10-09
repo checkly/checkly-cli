@@ -1,6 +1,6 @@
 ---
 name: checkly
-description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, and pending invites. Includes generic API pass-through (`checkly api`) for endpoints without dedicated commands.
+description: Set up, create, test and manage monitoring checks using the Checkly CLI. Use when working with API Checks, Browser Checks, URL Monitors, ICMP Monitors, Playwright Check Suites, Heartbeat Monitors, Alert Channels, Dashboards, or Status Pages. Access Checkly account plan, entitlements, feature limits, members, pending invites, and saved views. Includes generic API pass-through (`checkly api`) for endpoints without dedicated commands.
 allowed-tools: Bash(npx checkly:*), Bash(npm install:*)
 metadata:
   author: checkly
@@ -144,4 +144,4 @@ Access check and test-session status, analyze failures, inspect attempts/assets,
 Open incidents and lead customer communications via status pages.
 
 ### `npx checkly skills manage`
-Understand your account plan, entitlements, feature limits, members, and pending invites.
+Understand your account plan, entitlements, feature limits, members, pending invites, and saved views.

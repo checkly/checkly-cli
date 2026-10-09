@@ -32,6 +32,7 @@ import AlertNotifications from './alert-notifications.js'
 import Rca from './rca.js'
 import Cancel from './cancel.js'
 import Usage from './usage.js'
+import Views from './views.js'
 import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
 import { detectOperator } from '../helpers/cli-mode.js'
@@ -169,3 +170,4 @@ export const alertNotifications = new AlertNotifications(api)
 export const rca = new Rca(api)
 export const cancel = new Cancel(api)
 export const usage = new Usage(api)
+export const views = new Views(api)
