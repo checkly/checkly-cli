@@ -51,6 +51,11 @@ type ProjectParseOpts = {
   loadPlaywrightChecksOnly?: boolean
   warnOnWebServerConfig?: boolean
   enableWorkspaces?: boolean
+  /**
+   * Warn about checks that have no location to run on. Only meaningful for
+   * commands that deploy the project, or validate it for deployment.
+   */
+  warnOnMissingCheckLocations?: boolean
 }
 
 const BASE_CHECK_DEFAULTS = {
@@ -151,6 +156,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
     loadPlaywrightChecksOnly,
     warnOnWebServerConfig,
     enableWorkspaces = true,
+    warnOnMissingCheckLocations,
   } = opts
 
   // Constructs learn their declaring file from the call stack, and module
@@ -200,6 +206,7 @@ export async function parseProject (opts: ProjectParseOpts): Promise<Project> {
   // repeated in-process parse with different options must not reuse it.
   Session.embeddedPackagesMaterializer = undefined
   Session.warnOnWebServerConfig = warnOnWebServerConfig
+  Session.warnOnMissingCheckLocations = warnOnMissingCheckLocations ?? false
   Session.packageManager = packageManager
   Session.workspace = workspace
 

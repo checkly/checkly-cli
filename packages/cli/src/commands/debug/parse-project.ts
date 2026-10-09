@@ -195,6 +195,7 @@ export default class ParseProjectCommand extends Command {
         playwrightChecks: checklyConfig.checks?.playwrightChecks,
         loadPlaywrightChecksOnly: emulatePwTest,
         warnOnWebServerConfig: emulatePwTest && !(includeFlag.length > 0),
+        warnOnMissingCheckLocations: !emulatePwTest,
       })
       const parseMs = performance.now() - parseStartedAt
 

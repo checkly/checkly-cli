@@ -136,6 +136,19 @@ export class DeprecatedConstructDiagnostic extends WarningDiagnostic {
   }
 }
 
+export class MissingRunLocationDiagnostic extends WarningDiagnostic {
+  constructor () {
+    super({
+      title: `Check has no location`,
+      message:
+        `The check has no "locations" or "privateLocations", so it will run in a location chosen by Checkly.`
+        + `\n\n`
+        + `Hint: Set "locations" or "privateLocations" on the check or on its group, or set a default `
+        + `with "checks.locations" or "checks.privateLocations" in checkly.config.ts.`,
+    })
+  }
+}
+
 export class UnsupportedRuntimeFeatureDiagnostic extends ErrorDiagnostic {
   runtimeId: string
 

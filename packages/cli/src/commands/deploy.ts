@@ -284,6 +284,7 @@ export default class Deploy extends AuthCommand {
       include: checklyConfig.checks?.include,
       embeddedPackages: checklyConfig.bundle?.packages?.embed,
       playwrightChecks: checklyConfig.checks?.playwrightChecks,
+      warnOnMissingCheckLocations: true,
     })
     const repoInfo = getGitInformation(project.repoUrl)
     const repoRoot = getGitRepoRoot()

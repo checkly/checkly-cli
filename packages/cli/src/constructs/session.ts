@@ -88,6 +88,12 @@ export class Session {
   static ignoreDirectoriesMatch: string[] = []
   static embeddedPackages?: string[]
   static warnOnWebServerConfig?: boolean
+  /**
+   * Whether to warn about checks without a location to run on. Only
+   * deploying uses a check's locations; `checkly test` runs every check on
+   * its own run location instead.
+   */
+  static warnOnMissingCheckLocations = false
   static packageManager: PackageManager = npmPackageManager
   static workspace: Result<Workspace, Error> = Err(new Error(`Workspace support not initialized`))
   static detectedEnginePromise?: Promise<EngineDetectionResult | null>
@@ -116,6 +122,7 @@ export class Session {
     this.ignoreDirectoriesMatch = []
     this.embeddedPackages = undefined
     this.warnOnWebServerConfig = false
+    this.warnOnMissingCheckLocations = false
     this.packageManager = npmPackageManager
     this.workspace = Err(new Error(`Workspace support not initialized`))
     this.detectedEnginePromise = undefined

@@ -79,6 +79,9 @@ export class HeartbeatMonitor extends Monitor {
     this.addSubscriptions()
   }
 
+  // Heartbeat monitors wait for pings instead of running anywhere.
+  protected validateRunLocations (): void {}
+
   describe (): string {
     return `HeartbeatMonitor:${this.logicalId}`
   }
