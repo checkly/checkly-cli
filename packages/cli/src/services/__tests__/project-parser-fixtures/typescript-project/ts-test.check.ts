@@ -5,7 +5,6 @@ export default function createCheck () {
     name: 'typescript-check',
     muted: false,
     activated: true,
-    doubleCheck: false,
     runtimeId: '2022.10',
     locations: ['eu-central-1'],
     frequency: 10,

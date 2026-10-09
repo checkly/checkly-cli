@@ -126,6 +126,13 @@ describe('loadChecklyConfig()', () => {
     expect(error.message).toContain('Property "checks.multiStepChecks.shouldFail" is not supported')
     expect(error.message).not.toContain('Property "checks.shouldFail"')
   })
+  it('rejects doubleCheck in the check defaults', async () => {
+    const error = await loadInvalidConfig('check-defaults-double-check.js')
+    expect(error.message).toContain('Property "checks.doubleCheck" has been removed')
+    expect(error.message).toContain('Property "checks.browserChecks.doubleCheck" has been removed')
+    expect(error.message).toContain('Property "checks.multiStepChecks.doubleCheck" has been removed')
+    expect(error.message).toContain('RetryStrategyBuilder.noRetries()')
+  })
   it('rejects the removed caching block with a migration hint', async () => {
     const error = await loadInvalidConfig('caching-removed.js')
     expect(error.message).toContain('Property "caching" has been removed')

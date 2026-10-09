@@ -1,7 +1,6 @@
 import { validate as validateUuid } from 'uuid'
 
 import {
-  DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
   RemovedPropertyDiagnostic,
   UnsupportedPropertyDiagnostic,
@@ -19,11 +18,12 @@ async function validateDoubleCheck (
   diagnostics: Diagnostics,
   kind: new (property: string, error: Error) => Diagnostic,
   props: RetryStrategyProps,
+  property = 'doubleCheck',
 ): Promise<void> {
   if (props.doubleCheck !== undefined) {
     if (props.doubleCheck) {
       diagnostics.add(new kind(
-        'doubleCheck',
+        property,
         new Error(
           `To match the behavior of doubleCheck: true, please use the `
           + `following retryStrategy instead:`
@@ -38,7 +38,7 @@ async function validateDoubleCheck (
       ))
     } else {
       diagnostics.add(new kind(
-        'doubleCheck',
+        property,
         new Error(
           `To match the behavior of doubleCheck: false, please use the `
           + `following retryStrategy instead:`
@@ -50,21 +50,12 @@ async function validateDoubleCheck (
   }
 }
 
-export async function validateDeprecatedDoubleCheck (diagnostics: Diagnostics, props: RetryStrategyProps) {
-  if (props.doubleCheck !== undefined) {
-    if (props.retryStrategy) {
-      diagnostics.add(new InvalidPropertyValueDiagnostic(
-        'doubleCheck',
-        new Error('Cannot specify both "doubleCheck" and "retryStrategy".'),
-      ))
-    }
-
-    await validateDoubleCheck(diagnostics, DeprecatedPropertyDiagnostic, props)
-  }
-}
-
-export async function validateRemovedDoubleCheck (diagnostics: Diagnostics, props: RetryStrategyProps) {
-  await validateDoubleCheck(diagnostics, RemovedPropertyDiagnostic, props)
+export async function validateRemovedDoubleCheck (
+  diagnostics: Diagnostics,
+  props: RetryStrategyProps,
+  property?: string,
+) {
+  await validateDoubleCheck(diagnostics, RemovedPropertyDiagnostic, props, property)
 }
 
 export async function validateUnsupportedDoubleCheck (diagnostics: Diagnostics, props: RetryStrategyProps) {

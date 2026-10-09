@@ -22,7 +22,7 @@ import { resolveEngineVersion } from '../services/engine-resolver.js'
 import { Engine } from './engine.js'
 
 /** The check props a Playwright check does not take. */
-export type PlaywrightCheckOmittedProp = 'retryStrategy' | 'doubleCheck'
+export type PlaywrightCheckOmittedProp = 'retryStrategy'
 
 export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, PlaywrightCheckOmittedProp> {
   /**
@@ -194,8 +194,6 @@ export class PlaywrightCheck extends RuntimeCheck {
         ...Session.checkDefaults,
         // Not supported by Playwright checks; exclude from defaults.
         retryStrategy: undefined,
-        // Not supported by Playwright checks; exclude from defaults.
-        doubleCheck: undefined,
       },
     )
   }

@@ -27,7 +27,7 @@ import { MultiStepCheck } from './multi-step-check.js'
 import { PrivateLocationGroupAssignment } from './private-location-group-assignment.js'
 import { Ref } from './ref.js'
 import { Session } from './session.js'
-import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics.js'
+import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
 import { CheckRetryStrategy } from './check.js'
 import { MonitorRetryStrategy } from './monitor.js'
 
@@ -99,19 +99,6 @@ export interface CheckGroupV1Props {
    * If not set, the default is `false`.
    */
   muted?: boolean
-
-  /**
-   * Setting this to "true" will trigger a retry when a check fails from
-   * the failing region and another, randomly selected region before marking
-   * the check as failed.
-   *
-   * If set, overrides the doubleCheck property of all checks in the group.
-   *
-   * If not set, the default is `true`.
-   *
-   * @deprecated Use {@link CheckGroupV1Props.retryStrategy} instead.
-   */
-  doubleCheck?: boolean
 
   /**
    * The runtime version, i.e. fixed set of runtime dependencies, used to
@@ -299,6 +286,11 @@ export class CheckGroupV1 extends Construct {
   name: string
   activated?: boolean
   muted?: boolean
+  /**
+   * Not part of the props type, since `retryStrategy` replaces it. Plain
+   * JavaScript or a type assertion can still pass it, which validation
+   * reports as an error.
+   */
   doubleCheck?: boolean
   runtimeId?: string
   locations: Array<keyof Region>
@@ -333,7 +325,7 @@ export class CheckGroupV1 extends Construct {
     this.name = props.name
     this.activated = props.activated
     this.muted = props.muted
-    this.doubleCheck = props.doubleCheck
+    this.doubleCheck = (props as { doubleCheck?: boolean }).doubleCheck
     this.tags = props.tags
     this.runtimeId = props.runtimeId
     this.locations = props.locations ?? []
@@ -382,7 +374,7 @@ export class CheckGroupV1 extends Construct {
   }
 
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
-    await validateDeprecatedDoubleCheck(diagnostics, this)
+    await validateRemovedDoubleCheck(diagnostics, this)
   }
 
   async validate (diagnostics: Diagnostics): Promise<void> {
@@ -554,11 +546,10 @@ export class CheckGroupV1 extends Construct {
       retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
         ? null
         : this.retryStrategy,
-      // When `retryStrategy: NO_RETRIES` and `doubleCheck: undefined`, we want to let the user disable all retries.
-      // The backend has a Joi default of `doubleCheck: true`, though, so we need special handling for this case.
-      doubleCheck: this.doubleCheck === undefined && this.retryStrategy?.type === 'NO_RETRIES'
-        ? false
-        : this.doubleCheck,
+      // The backend still takes the legacy `doubleCheck` flag, defaults it to `true`, and only consults it
+      // when no retry strategy is stored (one retry). Any explicit strategy, including `NO_RETRIES` (sent as
+      // null), turns it off; with no strategy, omitting it keeps the backend's single-retry default.
+      doubleCheck: this.retryStrategy ? false : undefined,
       runParallel: this.runParallel,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
