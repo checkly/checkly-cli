@@ -7,9 +7,8 @@ import { Session } from '../constructs/index.js'
 import { Construct } from '../constructs/construct.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import {
-  ConflictingPropertyDiagnostic,
-  DeprecatedPropertyDiagnostic,
   InvalidPropertyValueDiagnostic,
+  RemovedPropertyDiagnostic,
   RequiredPropertyDiagnostic,
   UnsupportedPropertyDiagnostic,
 } from '../constructs/construct-diagnostics.js'
@@ -281,28 +280,6 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
     }
   }
   /**
-   * Caching-related configuration properties.
-   *
-   * @deprecated Use `runner.cache` instead.
-   */
-  caching?: {
-    /**
-     * Deprecated alias of `runner.cache.install`.
-     *
-     * @deprecated Use `runner.cache.install` instead.
-     */
-    dependencyCache?: {
-      /**
-       * Deprecated alias of `runner.cache.install.version`; see that
-       * option for the full semantics. Declaring both fails config loading
-       * with a conflict error.
-       *
-       * @deprecated Use `runner.cache.install.version` instead.
-       */
-      version?: string | number
-    }
-  }
-  /**
    * Configuration applied on the Checkly runner when it executes checks.
    */
   runner?: {
@@ -374,9 +351,7 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
          * once. Numbers must be safe integers; unset and empty string leave
          * the hash unchanged, so a dynamic value such as
          * `process.env.DEPENDENCY_CACHE_VERSION` behaves sanely when the
-         * environment variable is missing. Declaring this option together
-         * with the deprecated `caching.dependencyCache.version` fails config
-         * loading with a conflict error.
+         * environment variable is missing.
          *
          * Unlike the `--refresh-cache` flag available on the run/test
          * commands, which forces a reinstall for a single ad-hoc run, this
@@ -523,7 +498,7 @@ export async function loadChecklyConfig (
 
     const diagnostics = new ConfigFileDiagnostics(configFileName)
     validateConfigFields(config, ['logicalId', 'projectName'] as const, diagnostics)
-    validateDependencyCacheVersion(config, diagnostics)
+    validateRemovedCaching(config, diagnostics)
     validateBundle(config, diagnostics)
     validateRunner(config, diagnostics)
     validateCheckTypeDefaults(config, diagnostics)
@@ -584,19 +559,10 @@ function validateConfigFields (
 }
 
 /**
- * Resolves the effective dependency cache version from the config,
- * preferring the current `runner.cache.install.version` location over the
- * legacy `caching.dependencyCache.version` one.
+ * Resolves the dependency cache version from `runner.cache.install.version`.
  */
 export function resolveDependencyCacheVersion (config: ChecklyConfig): string | number | undefined {
-  const version = config.runner?.cache?.install?.version
-  // The empty string means "unset" for cache version values (see the JSDoc
-  // on `runner.cache.install.version`) — e.g. an unset environment variable
-  // — so it must not shadow a value set at the legacy location.
-  if (version !== undefined && version !== '') {
-    return version
-  }
-  return config.caching?.dependencyCache?.version
+  return config.runner?.cache?.install?.version
 }
 
 function validateCacheVersionValue (property: string, version: unknown, diagnostics: Diagnostics): void {
@@ -610,52 +576,21 @@ function validateCacheVersionValue (property: string, version: unknown, diagnost
   }
 }
 
-function validateDependencyCacheVersion (config: ChecklyConfig, diagnostics: Diagnostics): void {
-  if (config.caching === undefined) {
+// `caching.dependencyCache.version` was replaced by
+// `runner.cache.install.version` and is absent from the ChecklyConfig type,
+// but plain-JS configs (or type casts) can still declare it. Reject it so the
+// version is not silently dropped from the cache hash.
+function validateRemovedCaching (config: ChecklyConfig, diagnostics: Diagnostics): void {
+  if ((config as { caching?: unknown }).caching === undefined) {
     return
   }
 
-  diagnostics.add(new DeprecatedPropertyDiagnostic(
+  diagnostics.add(new RemovedPropertyDiagnostic(
     'caching',
     new Error(
-      `Use "runner.cache.install.version" instead of "caching.dependencyCache.version".`
-      + `\n\n`
-      + `Note: CLI versions that predate "runner.cache" either reject it as an unsupported property or ignore`
-      + ` it silently, dropping the cache version from the cache hash — upgrade every environment running the`
-      + ` CLI before migrating.`,
+      `Use "runner.cache.install.version" instead of "caching.dependencyCache.version".`,
     ),
   ))
-
-  const caching = validateObjectBlock('caching', config.caching, ['dependencyCache'], diagnostics)
-  const dependencyCache = validateObjectBlock(
-    'caching.dependencyCache',
-    caching?.dependencyCache,
-    ['version'],
-    diagnostics,
-  )
-  if (dependencyCache === undefined) {
-    return
-  }
-
-  validateCacheVersionValue('caching.dependencyCache.version', dependencyCache.version, diagnostics)
-
-  // The conflict is based on the properties being declared, not on their
-  // values: either version may be a `process.env` reference, and a
-  // value-based rule would make the same committed config load in one
-  // environment and fail in another. The runner block has not been
-  // shape-validated yet (validateRunner runs later), so guard before using
-  // `in`; a misshapen block gets its own fatal diagnostics from
-  // validateRunner.
-  const install = config.runner?.cache?.install
-  const installDeclaresVersion = install !== null && typeof install === 'object'
-    && !Array.isArray(install) && 'version' in install
-  if ('version' in dependencyCache && installDeclaresVersion) {
-    diagnostics.add(new ConflictingPropertyDiagnostic(
-      'caching.dependencyCache.version',
-      'runner.cache.install.version',
-      new Error(`Remove the deprecated "caching.dependencyCache.version" option.`),
-    ))
-  }
 }
 
 function validateBundle (config: ChecklyConfig, diagnostics: Diagnostics): void {
