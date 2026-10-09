@@ -104,6 +104,9 @@
       },
       "test-sessions": {
         "description": "Inspect recorded test sessions."
+      },
+      "ui-views": {
+        "description": "Manage saved views on the Monitors and Test sessions pages."
       }
     },
     "helpClass": "./dist/help/help-extension.js"

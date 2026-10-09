@@ -1,6 +1,6 @@
 # Account Management
 
-Understand your account's plan, entitlements, limits, members, and pending invites.
+Understand your account's plan, entitlements, limits, members, pending invites, and the saved views of the Monitors and Test sessions pages.
 
 ## Plan-aware workflow
 

@@ -75,6 +75,7 @@ describe('help', () => {
   switch           Switch user account.
   sync-playwright  Copy Playwright config into the Checkly config file.
   test-sessions    Inspect recorded test sessions.
+  ui-views         Manage saved views on the Monitors and Test sessions pages.
   whoami           See your currently logged in account and user.`)
   })
 })
