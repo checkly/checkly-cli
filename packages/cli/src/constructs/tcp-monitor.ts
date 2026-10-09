@@ -4,7 +4,7 @@ import { Session } from './session.js'
 import { Assertion as CoreAssertion, NumericAssertionBuilder, GeneralAssertionBuilder } from './internal/assertion.js'
 import { Diagnostics } from './diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
-import { CheckIntent, CheckIntentProps } from './check.js'
+import { CheckIntent, CheckIntentProps, ShouldFailProps } from './check.js'
 import { validateResponseTimes } from './internal/common-diagnostics.js'
 
 type TcpAssertionSource = 'RESPONSE_DATA' | 'RESPONSE_TIME'
@@ -90,7 +90,7 @@ export interface TcpRequest {
   data?: string
 }
 
-export interface TcpMonitorProps extends MonitorProps, CheckIntentProps {
+export interface TcpMonitorProps extends MonitorProps, CheckIntentProps, ShouldFailProps {
   /**
    * Determines the request that the check is going to run.
    */
@@ -160,6 +160,10 @@ export class TcpMonitor extends Monitor {
     Session.registerConstruct(this)
     this.addSubscriptions()
     this.addPrivateLocationCheckAssignments()
+  }
+
+  protected supportsShouldFail (): boolean {
+    return true
   }
 
   describe (): string {

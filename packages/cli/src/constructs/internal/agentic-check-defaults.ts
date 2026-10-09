@@ -14,7 +14,6 @@ export const DEFAULT_AGENTIC_CHECK_LOCATION = 'us-east-1'
  * prop that leaves or joins that list is caught here.
  */
 export const AGENTIC_CHECK_OMITTED_PROPS = [
-  'shouldFail',
   'privateLocations',
   'runParallel',
   'retryStrategy',

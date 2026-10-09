@@ -22,7 +22,7 @@ import { IncidentTrigger } from './incident.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateDeprecatedDoubleCheck } from './internal/common-diagnostics.js'
-import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
+import { InvalidPropertyValueDiagnostic, UnsupportedPropertyDiagnostic } from './construct-diagnostics.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 
 type FrequencyLike = {
@@ -145,6 +145,30 @@ export interface AutomaticCheckRepairProps {
   aiAutoRepairEnabled?: boolean | null
 }
 
+export interface ShouldFailProps {
+  /**
+   * Allows to invert the behaviour of when a check is considered to fail.
+   * Useful for validating error status codes like 404 or 500.
+   * When set to true, the check passes when it would normally fail, and
+   * fails when it would normally pass.
+   *
+   * Only available in ApiCheck, UrlMonitor and TcpMonitor.
+   *
+   * @defaultValue false
+   * @example
+   * ```typescript
+   * // Check that expects a 404 status - must set shouldFail: true
+   * shouldFail: true,
+   * request: {
+   *   method: 'GET',
+   *   url: 'https://api.example.com/nonexistent',
+   *   assertions: [AssertionBuilder.statusCode().equals(404)]
+   * }
+   * ```
+   */
+  shouldFail?: boolean
+}
+
 /**
  * Base configuration properties for all check types.
  * These properties are inherited by ApiCheck, BrowserCheck, and other check types.
@@ -187,26 +211,6 @@ export interface CheckProps {
    * @deprecated Use {@link retryStrategy} instead.
    */
   doubleCheck?: boolean
-
-  /**
-   * Allows to invert the behaviour of when a check is considered to fail.
-   * Useful for validating error status codes like 404 or 500.
-   * This only applies to API Checks. When set to true, the check passes when
-   * it would normally fail, and fails when it would normally pass.
-   *
-   * @defaultValue false
-   * @example
-   * ```typescript
-   * // Check that expects a 404 status - must set shouldFail: true
-   * shouldFail: true,
-   * request: {
-   *   method: 'GET',
-   *   url: 'https://api.example.com/nonexistent',
-   *   assertions: [AssertionBuilder.statusCode().equals(404)]
-   * }
-   * ```
-   */
-  shouldFail?: boolean
 
   /**
    * An array of one or more data center locations where to run this check.
@@ -381,7 +385,7 @@ export abstract class Check extends Construct {
 
   static readonly __checklyType = 'check'
 
-  protected constructor (logicalId: string, props: CheckProps) {
+  protected constructor (logicalId: string, props: CheckProps & ShouldFailProps) {
     super(Check.__checklyType, logicalId)
     const config = this.applyConfigDefaults(props)
     // TODO: Throw an error if required properties are still missing after applying the defaults.
@@ -449,6 +453,21 @@ export abstract class Check extends Construct {
 
   protected supportsOnlyOnNetworkErrorRetryStrategy (): boolean {
     return false
+  }
+
+  protected supportsShouldFail (): boolean {
+    return false
+  }
+
+  // The props types of the check types without `shouldFail` leave it out,
+  // but plain JavaScript or a type assertion can still set it.
+  protected validateShouldFail (diagnostics: Diagnostics): void {
+    if (this.shouldFail !== undefined && !this.supportsShouldFail()) {
+      diagnostics.add(new UnsupportedPropertyDiagnostic(
+        'shouldFail',
+        new Error(`This property is only available in the ApiCheck, UrlMonitor and TcpMonitor constructs.`),
+      ))
+    }
   }
 
   protected get checkIntent (): CheckIntent | null | undefined {
@@ -621,6 +640,7 @@ export abstract class Check extends Construct {
     await super.validate(diagnostics)
     await this.validateDoubleCheck(diagnostics)
     await this.validateRetryStrategyOnlyOn(diagnostics)
+    this.validateShouldFail(diagnostics)
     this.validateIntent(diagnostics)
   }
 
@@ -631,7 +651,7 @@ export abstract class Check extends Construct {
     )
   }
 
-  protected applyConfigDefaults<T extends CheckProps> (props: T): T {
+  protected applyConfigDefaults<T extends CheckProps & ShouldFailProps> (props: T): T {
     const config = Object.assign({}, props)
 
     const defaults = this.configDefaultsGetter(props)
@@ -645,7 +665,11 @@ export abstract class Check extends Construct {
     config.muted ??= defaults('muted')
     config.privateLocations ??= defaults('privateLocations')
     config.retryStrategy ??= defaults('retryStrategy')
-    config.shouldFail ??= defaults('shouldFail')
+    // A project-wide `shouldFail` default only reaches the check types that
+    // support the property; the others never take it.
+    if (this.supportsShouldFail()) {
+      config.shouldFail ??= defaults('shouldFail')
+    }
     config.tags ??= defaults('tags')
 
     return config
