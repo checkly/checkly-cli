@@ -524,6 +524,82 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     await run
   })
 
+  it('reports a check as failed exactly once when processing its FINAL result throws', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    vi.mocked(assets.getLogs).mockRejectedValueOnce(new Error('asset download failed'))
+
+    const run = runner.run()
+    await flush()
+
+    messageHandler!(resultTopic('seq-api'), JSON.stringify({
+      result: { hasFailures: true, assets: { logs: 'logs.json' } },
+      testResultId: 'tr-1',
+      resultType: 'FINAL',
+    }))
+    await flush()
+
+    expect(events).toContain(`${Events.CHECK_FAILED}:seq-api`)
+    expect(events).not.toContain(`${Events.CHECK_SUCCESSFUL}:seq-api`)
+    expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
+
+    // The check's timeout was cleared, so it does not fire a second terminal event later.
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+    expect(events.filter(e => e === `${Events.CHECK_FAILED}:seq-api`)).toHaveLength(1)
+    expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
+  })
+
+  it('restarts the timeout before fetching an ATTEMPT result, so a fetch near the deadline does not time out', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    let resolveLogs!: (value: unknown) => void
+    vi.mocked(assets.getLogs).mockReturnValue(new Promise(resolve => {
+      resolveLogs = resolve
+    }) as any)
+
+    const run = runner.run()
+    await flush()
+
+    // The attempt arrives 1s before the original deadline and its log fetch takes 5s.
+    await vi.advanceTimersByTimeAsync((DEFAULT_CHECK_RUN_TIMEOUT_SECONDS - 1) * 1000)
+    messageHandler!(resultTopic('seq-api'), JSON.stringify({
+      result: { hasFailures: true, assets: { logs: 'logs.json' } },
+      resultType: 'ATTEMPT',
+    }))
+    await flush()
+    await vi.advanceTimersByTimeAsync(5_000)
+    resolveLogs([])
+    await flush()
+
+    expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
+    expect(events).toContain(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+  })
+
+  it('reports an ATTEMPT result without logs when fetching them fails', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    vi.mocked(assets.getLogs).mockRejectedValueOnce(new Error('asset download failed'))
+
+    const run = runner.run()
+    await flush()
+
+    messageHandler!(resultTopic('seq-api'), JSON.stringify({
+      result: { hasFailures: true, assets: { logs: 'logs.json' } },
+      resultType: 'ATTEMPT',
+    }))
+    await flush()
+
+    expect(events).toContain(`${Events.CHECK_ATTEMPT_RESULT}:seq-api`)
+    expect(events).not.toContain(`${Events.CHECK_FAILED}:seq-api`)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+  })
+
   const topic = (sequenceId: string, subtopic: string) =>
     `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/${subtopic}`
 

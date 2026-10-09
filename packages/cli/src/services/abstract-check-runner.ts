@@ -288,27 +288,43 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         // report the check a second time, which also lets `allChecksFinished()`
         // resolve while other checks are still running.
         this.disableTimeout(sequenceId)
+        let links
         try {
           await this.processCheckResult(result)
-          const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
-          this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, testResultId, links)
+          links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
         } catch (err: any) {
+          // Fail loudly, unlike for an ATTEMPT: for the final result this also
+          // covers pulling snapshots with --update-snapshots, which must not be
+          // skipped silently.
           this.emit(Events.CHECK_FAILED, sequenceId, check,
             `Failed to process the check result: ${err?.message ?? err}`)
+          this.emit(Events.CHECK_FINISHED, check)
+          return
         }
+        // Emitted outside the try: an exception from a listener is a reporter
+        // bug, not a failure of the check, and must not report it a second time.
+        this.emit(Events.CHECK_SUCCESSFUL, sequenceId, check, result, testResultId, links)
         this.emit(Events.CHECK_FINISHED, check)
       } else if (resultType === 'ATTEMPT') {
-        await this.processCheckResult(result)
+        // The backend publishes ATTEMPT when it has decided to retry, so the
+        // check is alive: restart its timeout instead of counting the whole
+        // retry sequence against a single timeout. Restart it before awaiting,
+        // so the old deadline cannot expire while we fetch this attempt's logs.
+        // The retry is scheduled after the ATTEMPT is published and can still
+        // fail to start; the restarted timeout is what ends the wait in that case.
+        this.resetTimeout(sequenceId, check)
+        try {
+          await this.processCheckResult(result)
+        } catch {
+          // Logs are a nice-to-have for an intermediate attempt; the FINAL
+          // result decides the outcome. Report the attempt without them.
+        }
         const links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
         if (!this.timeouts.has(sequenceId)) {
           // The check timed out (or finished) while we were fetching; it has
           // already been reported as terminal, so don't report an attempt after it.
           return
         }
-        // The backend only publishes ATTEMPT when it has already queued the
-        // next run, so the check is alive: restart its timeout instead of
-        // counting the whole retry sequence against a single timeout.
-        this.resetTimeout(sequenceId, check)
         this.emit(Events.CHECK_ATTEMPT_RESULT, sequenceId, check, result, links)
       }
     } else if (subtopic === 'error') {
