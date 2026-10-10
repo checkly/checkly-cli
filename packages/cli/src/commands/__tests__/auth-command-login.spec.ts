@@ -4,7 +4,7 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn(),
 }))
 vi.mock('../../services/config', () => ({
-  default: { hasValidCredentials: vi.fn(), hasEnvVarsConfigured: vi.fn() },
+  default: { hasValidCredentials: vi.fn(), hasEnvVarsConfigured: vi.fn(), getCredentialSource: vi.fn() },
 }))
 vi.mock('../../helpers/cli-mode', async importOriginal => ({
   ...await importOriginal<typeof import('../../helpers/cli-mode.js')>(),
@@ -61,6 +61,7 @@ beforeEach(() => {
   vi.mocked(api.validateAuthentication).mockResolvedValue({ id: 'acc-1', name: 'Acme', features: [] } as any)
   vi.mocked(config.hasValidCredentials).mockReturnValue(false)
   vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(false)
+  vi.mocked(config.getCredentialSource).mockReturnValue('login')
   setTTY(true)
 })
 
@@ -208,8 +209,8 @@ describe('AuthCommand.notFoundHint', () => {
       + 'run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; `npx checkly whoami` lists them.')
   })
 
-  it('suggests nothing for a key from CHECKLY_API_KEY, which belongs to one account', async () => {
-    vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+  it('suggests nothing for credentials from the environment, whose key belongs to one account', async () => {
+    vi.mocked(config.getCredentialSource).mockReturnValue('environment')
     vi.mocked(config.hasValidCredentials).mockReturnValue(true)
     const cmd = createCommand()
     await cmd.init()

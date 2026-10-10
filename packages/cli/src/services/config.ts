@@ -22,6 +22,8 @@ enum Env {
   local = 'local',
 }
 
+export type CredentialSource = 'login' | 'account_override' | 'environment'
+
 class ChecklyConfig {
   private _auth?: Conf<{ apiKey: unknown, pendingDeviceAuthorization: unknown }>
   private _data?: Conf<{ accountId: unknown, accountName: unknown }>
@@ -81,13 +83,18 @@ class ChecklyConfig {
   }
 
   /**
-   * Whether `CHECKLY_ACCOUNT_ID` only picks the account for this run while
-   * the key is the one `checkly login` stored. A login key belongs to the
-   * user, so it works with any of their accounts.
+   * Where this run's credentials come from: `login`, the key and default
+   * account `checkly login` stored; `account_override`, that key with
+   * `CHECKLY_ACCOUNT_ID` picking the account for this run (a login key belongs
+   * to the user, so it works with any of their accounts); `environment`,
+   * credentials from `CHECKLY_API_KEY` / `CHECKLY_ACCOUNT_ID`, whose key
+   * belongs to one account.
    */
-  hasAccountOverride (): boolean {
-    return !process.env.CHECKLY_API_KEY && Boolean(process.env.CHECKLY_ACCOUNT_ID)
-      && Boolean(this.auth.get<string>('apiKey'))
+  getCredentialSource (): CredentialSource {
+    if (!process.env.CHECKLY_API_KEY && process.env.CHECKLY_ACCOUNT_ID && this.auth.get<string>('apiKey')) {
+      return 'account_override'
+    }
+    return this.hasEnvVarsConfigured() ? 'environment' : 'login'
   }
 
   getApiUrl (): string {

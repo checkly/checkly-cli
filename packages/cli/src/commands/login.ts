@@ -42,6 +42,41 @@ export const selectAccount = async (
   return selectedAccount
 }
 
+/** Accounts as `Name (id), …`, for messages that list the choices. */
+export function formatAccounts (accounts: Array<{ id: string, name: string }>): string {
+  return accounts.map(({ id, name }) => `${name} (${id})`).join(', ')
+}
+
+/**
+ * The `select_account` line an agent gets when a person has to choose the
+ * account (`login` and `switch`). A login key works with all of the user's
+ * accounts, so the choice can be made the default with `defaultCommand` or
+ * used for one command only: `command` when it is known, any command otherwise.
+ */
+export function selectAccountLine (options: {
+  message: string
+  accounts: Array<{ id: string, name: string }>
+  defaultCommand: string
+  command?: string
+  extra?: Record<string, unknown>
+}): string {
+  return JSON.stringify({
+    status: 'action_required',
+    reason: 'select_account',
+    userActionRequired: true,
+    message: options.message,
+    ...options.extra,
+    choices: options.accounts.map(({ id, name }) => ({ id, name })),
+    next: [
+      { command: options.defaultCommand, when: 'to make the account the default' },
+      {
+        command: `CHECKLY_ACCOUNT_ID=<id> ${options.command ?? 'npx checkly <command>'}`,
+        when: 'to use the account for this command only',
+      },
+    ],
+  })
+}
+
 /**
  * The `reason` of an agent-mode error line. A closed set that agents branch
  * on; the skill documents every value, so keep the two in step.
@@ -200,7 +235,6 @@ export default class Login extends BaseCommand {
   #requestedAccountId?: string
   // The command line that started an inline login, for the agent to run again.
   #command?: string
-  #wait = false
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
@@ -231,7 +265,6 @@ export default class Login extends BaseCommand {
     this.#notice = undefined
     this.#requestedAccountId = options.accountId
     this.#command = options.command
-    this.#wait = options.wait ?? false
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
@@ -291,7 +324,7 @@ export default class Login extends BaseCommand {
         if (reuseStoredKey && this.#mode === 'interactive') {
           this.#print('The stored login is no longer valid. Logging in again.')
         }
-        const result = await this.#authenticate()
+        const result = await this.#authenticate(options.wait ?? false)
         if (result === 'pending') {
           return false
         }
@@ -310,32 +343,23 @@ export default class Login extends BaseCommand {
       }
 
       const { data: accounts } = await api.accounts.getAll()
-      const accountSummaries = accounts.map(({ id, name }) => ({ id, name }))
       const account = await this.#pickAccount(accounts, options.accountId, usingStoredKey)
 
       if (!account) {
         // Agent mode, several accounts, none requested: do not guess.
         // (CI never gets here; #pickAccount throws instead.)
         // A person has to choose; the agent must not pick an account itself.
-        // The choice need not be stored, though: the login key works with
-        // all of the user's accounts, so one command can name its own.
-        const thisCommandOnly = `CHECKLY_ACCOUNT_ID=<id> ${this.#command ?? 'npx checkly <command>'}`
-        this.#print(JSON.stringify({
-          status: 'action_required',
-          reason: 'select_account',
-          userActionRequired: true,
+        this.#print(selectAccountLine({
           message: (this.#notice ? `${this.#notice} ` : '')
             + 'Logged in, but this user belongs to several accounts. Ask the user which one to use. Then run '
             + '`npx checkly login --account-id <id>` to make it the default'
             + (this.#inline ? ' and run the original command again' : '')
             + ', or set `CHECKLY_ACCOUNT_ID=<id>` on a command to use the account for that command only. '
             + 'To log in as someone else instead, run `npx checkly logout` first.',
-          user: userName,
-          choices: accountSummaries,
-          next: [
-            { command: 'npx checkly login --account-id <id>', when: 'to make the account the default' },
-            { command: thisCommandOnly, when: 'to use the account for this command only' },
-          ],
+          accounts,
+          defaultCommand: 'npx checkly login --account-id <id>',
+          command: this.#command,
+          extra: { user: userName },
         }))
         return false
       }
@@ -494,13 +518,13 @@ export default class Login extends BaseCommand {
    * - 'stored' when another process completed this login with the same code
    *   and stored its key.
    */
-  async #authenticate (): Promise<Credentials | 'pending' | 'stored'> {
+  async #authenticate (wait: boolean): Promise<Credentials | 'pending' | 'stored'> {
     const deviceFlow = new DeviceFlow()
 
     let authorization: DeviceAuthorization
     try {
       const pending = this.#mode === 'agent' ? this.#pendingAuthorization() : undefined
-      if (pending && this.#wait) {
+      if (pending && wait) {
         return await this.#waitForPendingAuthorization(deviceFlow, pending)
       }
       if (pending) {
@@ -586,12 +610,7 @@ export default class Login extends BaseCommand {
     try {
       result = await deviceFlow.pollOnce(pending)
     } catch (error) {
-      // Denied, expired or already used: the code is done either way.
-      config.auth.delete('pendingDeviceAuthorization')
-      if (error instanceof DeviceFlowError && config.getApiKey()) {
-        return 'stored'
-      }
-      throw error
+      return this.#pendingCodeFailed(error)
     }
 
     if (!result.tokens) {
@@ -631,15 +650,23 @@ export default class Login extends BaseCommand {
     try {
       tokens = await deviceFlow.pollForTokens(pending)
     } catch (error) {
-      // As in #collectPendingAuthorization: the code is done either way.
-      config.auth.delete('pendingDeviceAuthorization')
-      if (error instanceof DeviceFlowError && config.getApiKey()) {
-        return 'stored'
-      }
-      throw error
+      return this.#pendingCodeFailed(error)
     }
     config.auth.delete('pendingDeviceAuthorization')
     return credentialsFromTokens(tokens)
+  }
+
+  /**
+   * The login server refused the stored code (denied, expired or already
+   * used), so it is done either way. Returns 'stored' when another run used
+   * it and stored its key; rethrows otherwise.
+   */
+  #pendingCodeFailed (error: unknown): 'stored' {
+    config.auth.delete('pendingDeviceAuthorization')
+    if (error instanceof DeviceFlowError && config.getApiKey()) {
+      return 'stored'
+    }
+    throw error
   }
 
   // The login pages also offer sign-up, and logging in with a new identity
@@ -673,7 +700,7 @@ export default class Login extends BaseCommand {
       // the user need not tell the agent when they are done.
       next: [
         { command: this.#waitCommand(), when: 'right after relaying the code; returns once the user has approved' },
-        ...this.#inline && this.#command ? [{ command: this.#command, when: 'after the login' }] : [],
+        ...this.#command ? [{ command: this.#command, when: 'after the login' }] : [],
       ],
     }, [
       `Visit ${chalk.bold.underline(withoutScheme(authorization.verificationUri))} and enter `
@@ -827,7 +854,7 @@ export default class Login extends BaseCommand {
   async #pickAccount (
     accounts: Account[], requestedId: string | undefined, usingStoredKey: boolean,
   ): Promise<Account | undefined> {
-    const available = accounts.map(a => `${a.name} (${a.id})`).join(', ')
+    const available = formatAccounts(accounts)
     if (requestedId) {
       const match = accounts.find(account => account.id === requestedId)
       if (!match) {

@@ -6,9 +6,8 @@ vi.mock('../../rest/api', () => ({
 }))
 vi.mock('../../services/config', () => ({
   default: {
-    hasAccountOverride: vi.fn(),
-    hasEnvVarsConfigured: vi.fn(),
-    data: { get: vi.fn() },
+    getCredentialSource: vi.fn(),
+    data: { store: {} as Record<string, unknown> },
   },
 }))
 
@@ -32,10 +31,9 @@ function output (cmd: Whoami): string {
 beforeEach(() => {
   vi.clearAllMocks()
   vi.mocked(api.user.get).mockResolvedValue({ data: { id: 'u1', name: 'Ada Lovelace' } } as any)
-  vi.mocked(config.data.get).mockReturnValue(undefined)
+  config.data.store = {}
   vi.mocked(api.accounts.getAll).mockResolvedValue({ data: [acme] } as any)
-  vi.mocked(config.hasAccountOverride).mockReturnValue(false)
-  vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(false)
+  vi.mocked(config.getCredentialSource).mockReturnValue('login')
 })
 
 afterEach(() => {
@@ -62,8 +60,7 @@ describe('checkly whoami', () => {
   })
 
   it('does not look for other accounts with a key from CHECKLY_API_KEY, which belongs to one account', async () => {
-    vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
-    vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+    vi.mocked(config.getCredentialSource).mockReturnValue('environment')
     const cmd = createCommand()
     await cmd.run()
 
@@ -81,7 +78,7 @@ describe('checkly whoami', () => {
   })
 
   it('names the stored default account', async () => {
-    vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-1', accountName: 'Acme' } as any)[key])
+    config.data.store = { accountId: 'acc-1', accountName: 'Acme' }
     const cmd = createCommand()
     await cmd.run()
 
@@ -89,9 +86,8 @@ describe('checkly whoami', () => {
   })
 
   it('says CHECKLY_ACCOUNT_ID picks the account for this command only, naming the default', async () => {
-    vi.mocked(config.hasAccountOverride).mockReturnValue(true)
-    vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
-    vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-2', accountName: 'Globex' } as any)[key])
+    vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
+    config.data.store = { accountId: 'acc-2', accountName: 'Globex' }
     const cmd = createCommand()
     await cmd.run()
 
@@ -101,8 +97,8 @@ describe('checkly whoami', () => {
   })
 
   it('says how to choose a default when none is set', async () => {
-    vi.mocked(config.hasAccountOverride).mockReturnValue(true)
-    vi.mocked(config.data.get).mockReturnValue(undefined)
+    vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
+    config.data.store = {}
     const cmd = createCommand()
     await cmd.run()
 
@@ -118,7 +114,7 @@ describe('checkly whoami', () => {
       vi.mocked(api.accounts.getAll).mockResolvedValue({
         data: [{ ...acme, planDisplayName: 'Team', addons: {} }, { id: 'acc-2', name: 'Globex', runtimeId: 'x' }],
       } as any)
-      vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-1', accountName: 'Acme' } as any)[key])
+      config.data.store = { accountId: 'acc-1', accountName: 'Acme' }
       const cmd = createCommand('--output', 'json')
       vi.spyOn(cmd, 'account', 'get').mockReturnValue({
         ...acme, planDisplayName: 'Team', addons: { a: { tier: 't', tierDisplayName: 'Communicate Pro' } },
@@ -135,8 +131,7 @@ describe('checkly whoami', () => {
     })
 
     it('reports a per-command account and no default when none is chosen yet', async () => {
-      vi.mocked(config.hasAccountOverride).mockReturnValue(true)
-      vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+      vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
       const cmd = createCommand('--output', 'json')
       await cmd.run()
 
@@ -144,8 +139,7 @@ describe('checkly whoami', () => {
     })
 
     it('reports environment credentials', async () => {
-      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
-      vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+      vi.mocked(config.getCredentialSource).mockReturnValue('environment')
       const cmd = createCommand('--output', 'json')
       await cmd.run()
 

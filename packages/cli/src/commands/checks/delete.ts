@@ -33,7 +33,8 @@ export default class ChecksDelete extends AuthCommand {
       check = data
     } catch (err: any) {
       if (err instanceof NotFoundError) {
-        this.style.shortError(`Check "${args.id}" not found. It may have already been deleted.`)
+        this.style.shortError([`Check "${args.id}" not found. It may have already been deleted.`, this.notFoundHint()]
+          .filter(Boolean).join(' '))
       } else {
         this.style.longError('Failed to find check.', err)
       }

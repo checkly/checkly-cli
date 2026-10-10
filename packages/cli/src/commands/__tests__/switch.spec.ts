@@ -135,7 +135,7 @@ describe('checkly switch', () => {
         choices: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
         next: [
           { command: 'npx checkly switch --account-id <id>', when: 'to make the account the default' },
-          { command: 'CHECKLY_ACCOUNT_ID=<id> npx checkly <command>', when: 'to use the account for one command only' },
+          { command: 'CHECKLY_ACCOUNT_ID=<id> npx checkly <command>', when: 'to use the account for this command only' },
         ],
       })
     })

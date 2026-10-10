@@ -41,6 +41,7 @@ function createCommandContext (Command: typeof AuthCommand, parsed: unknown) {
       throw new Error(`EXIT_${code}`)
     }),
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
+    notFoundHint: vi.fn(),
     style: {
       outputFormat: undefined,
       shortSuccess: vi.fn(),
@@ -134,6 +135,24 @@ describe('checks delete command', () => {
     expect(api.checks.delete).not.toHaveBeenCalled()
   })
 
+  it('says which account it searched when the check does not exist there', async () => {
+    vi.mocked(api.checks.get).mockRejectedValue(new NotFoundError({
+      statusCode: 404,
+      error: 'Not Found',
+      message: 'Check not found',
+    }))
+    const ctx = createCommandContext(ChecksDelete, {
+      args: { id: check.id },
+      flags: { 'force': true, 'dry-run': false },
+    })
+    ctx.notFoundHint.mockReturnValue('Searched account "Acme" (acc-1).')
+
+    await ChecksDelete.prototype.run.call(ctx as any)
+
+    expect(ctx.style.shortError).toHaveBeenCalledWith(
+      `Check "${check.id}" not found. It may have already been deleted. Searched account "Acme" (acc-1).`,
+    )
+  })
   it('sets exit code 1 when the delete fails', async () => {
     vi.mocked(api.checks.delete).mockRejectedValue(new Error('boom'))
     const ctx = createCommandContext(ChecksDelete, {

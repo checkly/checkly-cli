@@ -2,9 +2,9 @@ import chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
-import { selectAccount } from './login.js'
+import { formatAccounts, selectAccount, selectAccountLine } from './login.js'
 import { activateAccount } from '../helpers/activate-account.js'
-import { detectCliMode, isPersonAtTerminal } from '../helpers/cli-mode.js'
+import { detectCliMode, isPersonAtTerminal, type CliMode } from '../helpers/cli-mode.js'
 import type { Account } from '../rest/accounts.js'
 
 export default class Switch extends AuthCommand {
@@ -59,8 +59,9 @@ export default class Switch extends AuthCommand {
       throw new Error(`Failed to switch account. ${err.message}`, { cause: err })
     }
 
-    if (detectCliMode() !== 'interactive' || !isPersonAtTerminal()) {
-      return this.reportChoices(accounts)
+    const mode = detectCliMode()
+    if (mode !== 'interactive' || !isPersonAtTerminal()) {
+      return this.reportChoices(accounts, mode)
     }
 
     try {
@@ -80,28 +81,19 @@ export default class Switch extends AuthCommand {
    * gets the `select_account` line `checkly login` prints; the user has to
    * choose, as there.
    */
-  private reportChoices (accounts: Account[]): never {
-    const choices = accounts.map(({ id, name }) => ({ id, name }))
-    const current = { id: this.account.id, name: this.account.name }
-    if (detectCliMode() === 'agent') {
-      this.log(JSON.stringify({
-        status: 'action_required',
-        reason: 'select_account',
-        userActionRequired: true,
-        message: `The default account is "${current.name}". Ask the user which account to switch to, then run `
+  private reportChoices (accounts: Account[], mode: CliMode): never {
+    if (mode === 'agent') {
+      this.log(selectAccountLine({
+        message: `The default account is "${this.account.name}". Ask the user which account to switch to, then run `
           + '`npx checkly switch --account-id <id>` to make it the default, or set `CHECKLY_ACCOUNT_ID=<id>` '
           + 'on a command to use the account for that command only.',
-        currentAccount: current,
-        choices,
-        next: [
-          { command: 'npx checkly switch --account-id <id>', when: 'to make the account the default' },
-          { command: 'CHECKLY_ACCOUNT_ID=<id> npx checkly <command>', when: 'to use the account for one command only' },
-        ],
+        accounts,
+        defaultCommand: 'npx checkly switch --account-id <id>',
+        extra: { currentAccount: { id: this.account.id, name: this.account.name } },
       }))
       return this.exit(1)
     }
     return this.error('`npx checkly switch` needs a terminal to ask which account to use. Choose one with '
-      + '`npx checkly switch --account-id <id>`. Available: '
-      + choices.map(({ id, name }) => `${name} (${id})`).join(', '), { exit: 1 })
+      + `\`npx checkly switch --account-id <id>\`. Available: ${formatAccounts(accounts)}`, { exit: 1 })
   }
 }
