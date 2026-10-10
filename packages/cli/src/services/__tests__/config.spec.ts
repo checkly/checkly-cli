@@ -1,5 +1,5 @@
 import Conf from 'conf'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import config from '../config.js'
 vi.mock('conf')
@@ -31,5 +31,41 @@ describe('config', () => {
     delete process.env.CHECKLY_AUTH_URL
     expect(config.getAuthUrl()).toEqual('https://auth.checklyhq.com')
     delete process.env.CHECKLY_ENV
+  })
+
+  describe('hasAccountOverride', () => {
+    function withStoredKey (apiKey: string | undefined) {
+      return vi.spyOn(config, 'auth', 'get').mockReturnValue({ get: () => apiKey } as any)
+    }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.restoreAllMocks()
+    })
+
+    it('is true when CHECKLY_ACCOUNT_ID picks an account for the key `checkly login` stored', () => {
+      withStoredKey('cak_login')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      expect(config.hasAccountOverride()).toBe(true)
+    })
+
+    it('is false with CHECKLY_API_KEY set: those are environment credentials', () => {
+      withStoredKey('cak_login')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      expect(config.hasAccountOverride()).toBe(false)
+    })
+
+    it('is false without a stored key or without CHECKLY_ACCOUNT_ID', () => {
+      withStoredKey(undefined)
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      expect(config.hasAccountOverride()).toBe(false)
+
+      withStoredKey('cak_login')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', '')
+      expect(config.hasAccountOverride()).toBe(false)
+    })
   })
 })

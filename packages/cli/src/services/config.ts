@@ -80,6 +80,16 @@ class ChecklyConfig {
     return apiKey !== '' || accoundId !== ''
   }
 
+  /**
+   * Whether `CHECKLY_ACCOUNT_ID` only picks the account for this run while
+   * the key is the one `checkly login` stored. A login key belongs to the
+   * user, so it works with any of their accounts.
+   */
+  hasAccountOverride (): boolean {
+    return !process.env.CHECKLY_API_KEY && Boolean(process.env.CHECKLY_ACCOUNT_ID)
+      && Boolean(this.auth.get<string>('apiKey'))
+  }
+
   getApiUrl (): string {
     const environments = {
       local: process.env.CHECKLY_API_URL || 'http://127.0.0.1:3000',

@@ -6,6 +6,7 @@ import { Session } from '../constructs/session.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import { canLogInInline, detectCliMode } from '../helpers/cli-mode.js'
 import config from '../services/config.js'
+import { shellJoin } from '../services/shell.js'
 import Login from './login.js'
 import type { Project } from '../constructs/project.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
@@ -45,11 +46,22 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
     command.logToStderr('No Checkly credentials found. Let\'s log in first.\n')
   }
 
-  const ok = await new Login([], command.config).login({ inline: true })
+  const ok = await new Login([], command.config).login({ inline: true, command: commandLine(command) })
   if (!ok) {
     return command.exit(1)
   }
   return true
+}
+
+/**
+ * The command line that ran `command`, for an agent to run again after the
+ * login; undefined when the command's id is not known.
+ */
+function commandLine (command: BaseCommand): string | undefined {
+  if (!command.id) {
+    return undefined
+  }
+  return shellJoin(['npx', 'checkly', ...command.id.split(':'), ...command.argv])
 }
 
 export abstract class AuthCommand extends BaseCommand {
@@ -66,6 +78,21 @@ export abstract class AuthCommand extends BaseCommand {
     }
 
     return this.#account
+  }
+
+  /**
+   * A lookup that found nothing may have searched the wrong account: a key
+   * from `checkly login` belongs to the user and works with all of their
+   * accounts. Says which account was searched and how to search another.
+   * Keys from `CHECKLY_API_KEY` belong to one account, so there is nothing
+   * to suggest.
+   */
+  notFoundHint (): string | undefined {
+    if (this.#account === undefined || process.env.CHECKLY_API_KEY) {
+      return undefined
+    }
+    return `Searched account "${this.#account.name}" (${this.#account.id}). If it belongs to another of your `
+      + 'accounts, run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; `npx checkly whoami` lists them.'
   }
 
   protected async init (): Promise<any> {

@@ -167,6 +167,7 @@ export default class Login extends BaseCommand {
   static examples = [
     '$ npx checkly login',
     '$ npx checkly login --account-id <id>',
+    '$ npx checkly login --wait',
   ]
 
   static flags = {
@@ -177,6 +178,11 @@ export default class Login extends BaseCommand {
     'no-browser': Flags.boolean({
       description: 'Only print the login URL and code; do not try to open a browser. '
         + 'Also honoured through CHECKLY_NO_BROWSER=1, e.g. on headless hosts.',
+      default: false,
+    }),
+    'wait': Flags.boolean({
+      description: 'For AI agents: wait until the user approves the login code an earlier run showed, instead of '
+        + 'returning at once. Run it right after relaying the code, so the user need not say when they are done.',
       default: false,
     }),
   }
@@ -192,10 +198,15 @@ export default class Login extends BaseCommand {
   #atBlankLine = false
   // `--account-id` as given, so the command to run after approval keeps it.
   #requestedAccountId?: string
+  // The command line that started an inline login, for the agent to run again.
+  #command?: string
+  #wait = false
 
   async run (): Promise<void> {
     const { flags } = await this.parse(Login)
-    const ok = await this.login({ accountId: flags['account-id'], openBrowser: !flags['no-browser'] })
+    const ok = await this.login({
+      accountId: flags['account-id'], openBrowser: !flags['no-browser'], wait: flags.wait,
+    })
     return this.exit(ok ? 0 : 1)
   }
 
@@ -205,13 +216,22 @@ export default class Login extends BaseCommand {
    * (the JSON error line has already been printed); throws otherwise.
    * Other commands call this with `inline: true` to log the user in before
    * they run; the login then writes to stderr so the command's own stdout
-   * (e.g. `--output json`) stays clean.
+   * (e.g. `--output json`) stays clean, and pass their own command line as
+   * `command` for the agent to run again.
    */
-  async login (options: { accountId?: string, openBrowser?: boolean, inline?: boolean } = {}): Promise<boolean> {
+  async login (options: {
+    accountId?: string
+    openBrowser?: boolean
+    inline?: boolean
+    command?: string
+    wait?: boolean
+  } = {}): Promise<boolean> {
     this.#mode = detectCliMode()
     this.#inline = options.inline ?? false
     this.#notice = undefined
     this.#requestedAccountId = options.accountId
+    this.#command = options.command
+    this.#wait = options.wait ?? false
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
     if (config.hasEnvVarsConfigured()) {
@@ -297,18 +317,25 @@ export default class Login extends BaseCommand {
         // Agent mode, several accounts, none requested: do not guess.
         // (CI never gets here; #pickAccount throws instead.)
         // A person has to choose; the agent must not pick an account itself.
+        // The choice need not be stored, though: the login key works with
+        // all of the user's accounts, so one command can name its own.
+        const thisCommandOnly = `CHECKLY_ACCOUNT_ID=<id> ${this.#command ?? 'npx checkly <command>'}`
         this.#print(JSON.stringify({
           status: 'action_required',
           reason: 'select_account',
           userActionRequired: true,
           message: (this.#notice ? `${this.#notice} ` : '')
-            + 'Logged in, but this user belongs to several accounts. Ask the user which one to use, then run '
-            + '`npx checkly login --account-id <id>`'
+            + 'Logged in, but this user belongs to several accounts. Ask the user which one to use. Then run '
+            + '`npx checkly login --account-id <id>` to make it the default'
             + (this.#inline ? ' and run the original command again' : '')
-            + '. To log in as someone else instead, run `npx checkly logout` first.',
+            + ', or set `CHECKLY_ACCOUNT_ID=<id>` on a command to use the account for that command only. '
+            + 'To log in as someone else instead, run `npx checkly logout` first.',
           user: userName,
           choices: accountSummaries,
-          next: [{ command: 'npx checkly login --account-id <id>' }],
+          next: [
+            { command: 'npx checkly login --account-id <id>', when: 'to make the account the default' },
+            { command: thisCommandOnly, when: 'to use the account for this command only' },
+          ],
         }))
         return false
       }
@@ -473,6 +500,9 @@ export default class Login extends BaseCommand {
     let authorization: DeviceAuthorization
     try {
       const pending = this.#mode === 'agent' ? this.#pendingAuthorization() : undefined
+      if (pending && this.#wait) {
+        return await this.#waitForPendingAuthorization(deviceFlow, pending)
+      }
       if (pending) {
         const collected = await this.#collectPendingAuthorization(deviceFlow, pending)
         if (collected !== 'expiring') {
@@ -523,6 +553,12 @@ export default class Login extends BaseCommand {
         onUnexpectedAnswers: failure => report(`Still waiting: the last answer was ${failure}.`),
       }))
     return credentialsFromTokens(tokens)
+  }
+
+  /** The login command that waits for the code just shown, keeping `--account-id`. */
+  #waitCommand (): string {
+    return 'npx checkly login --wait'
+      + (this.#requestedAccountId ? ` --account-id ${shellQuote(this.#requestedAccountId)}` : '')
   }
 
   /** The stored device code, if it is still usable against this login server. */
@@ -582,6 +618,30 @@ export default class Login extends BaseCommand {
     return credentialsFromTokens(result.tokens)
   }
 
+  /**
+   * `--wait`: polls the stored code until the user approves it or it
+   * expires. The agent has already relayed the code, so nothing is printed
+   * while waiting. If the agent's shell stops the command first, the code
+   * stays stored for the next run.
+   */
+  async #waitForPendingAuthorization (
+    deviceFlow: DeviceFlow, pending: DeviceAuthorization,
+  ): Promise<Credentials | 'stored'> {
+    let tokens
+    try {
+      tokens = await deviceFlow.pollForTokens(pending)
+    } catch (error) {
+      // As in #collectPendingAuthorization: the code is done either way.
+      config.auth.delete('pendingDeviceAuthorization')
+      if (error instanceof DeviceFlowError && config.getApiKey()) {
+        return 'stored'
+      }
+      throw error
+    }
+    config.auth.delete('pendingDeviceAuthorization')
+    return credentialsFromTokens(tokens)
+  }
+
   // The login pages also offer sign-up, and logging in with a new identity
   // creates the Checkly user (see exchangeAccessTokenForApiKey()).
   static readonly #signUpHint = 'New to Checkly? You can sign up on the same page.'
@@ -601,23 +661,20 @@ export default class Login extends BaseCommand {
         // plain "not logged in" error and the code goes unused.
         + (this.#inline ? 'Not logged in to Checkly, so this command needs a login first. ' : '')
         + `Open ${authorization.verificationUri} in a browser on any device and enter the code `
-        + `${authorization.userCode}. Once the user has approved, run this command again.`
+        + `${authorization.userCode}. Then run \`${this.#waitCommand()}\`: it returns once the user has approved`
+        + (this.#inline ? ', after which run this command again.' : '.')
         + (problem ? ` ${problem}` : '') + ` ${Login.#signUpHint}`,
       verification_uri: authorization.verificationUri,
       verification_uri_complete: authorization.verificationUriComplete,
       user_code: authorization.userCode,
       expires_in: Math.max(0, Math.round((authorization.expiresAt - Date.now()) / 1000)),
-      // The step after the user approves, spelled out: no other CLI logs in
-      // over two runs, so agents won't expect it. Left out when another
-      // command started the login: running that command again is the step,
-      // and its arguments aren't known here.
-      next: this.#inline
-        ? undefined
-        : [{
-            command: 'npx checkly login'
-              + (this.#requestedAccountId ? ` --account-id ${shellQuote(this.#requestedAccountId)}` : ''),
-            when: 'after the user has approved in the browser',
-          }],
+      // The steps after relaying the code, spelled out: no other CLI logs in
+      // over two runs, so agents won't expect it. Waiting right away means
+      // the user need not tell the agent when they are done.
+      next: [
+        { command: this.#waitCommand(), when: 'right after relaying the code; returns once the user has approved' },
+        ...this.#inline && this.#command ? [{ command: this.#command, when: 'after the login' }] : [],
+      ],
     }, [
       `Visit ${chalk.bold.underline(withoutScheme(authorization.verificationUri))} and enter `
       + chalk.bold(authorization.userCode),
