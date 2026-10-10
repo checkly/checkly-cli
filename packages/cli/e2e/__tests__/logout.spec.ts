@@ -22,6 +22,7 @@ describe('logout', () => {
 
     expect(stdout).toContain('See you soon! 👋')
     // env credentials are set, so logout warns the session clear didn't log us out
-    expect(stderr).toContain('are configured (via shell or .env file)')
+    // oclif wraps long warnings, prefixing each continuation with › (» on Windows).
+    expect(stderr.replace(/\s*[›»]\s*/g, ' ').replace(/\s+/g, ' ')).toContain('are configured (via shell or .env file)')
   })
 })
