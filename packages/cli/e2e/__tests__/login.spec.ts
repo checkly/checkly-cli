@@ -97,9 +97,11 @@ describe('login', () => {
       timeout: 5000,
       env: isolatedHome(),
     })
-    expect(stderr).toContain('`CHECKLY_API_KEY`')
-    expect(stderr).toContain('environment variables')
-    expect(stderr).toContain('are configured (via shell or .env file)')
+    // oclif wraps long warnings, prefixing each continuation with › (» on Windows).
+    const warning = stderr.replace(/\s*[›»]\s*/g, ' ').replace(/\s+/g, ' ')
+    expect(warning).toContain('`CHECKLY_API_KEY`')
+    expect(warning).toContain('environment variables are configured (via shell or .env file)')
+    expect(warning).toContain('You must delete them to use `npx checkly login`.')
   }, 10000)
 
   // With the Device Code grant enabled on the Auth0 client, login prints an
