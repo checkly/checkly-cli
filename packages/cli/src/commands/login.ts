@@ -350,10 +350,10 @@ export default class Login extends BaseCommand {
 
       const { data: accounts } = await api.accounts.getAll()
 
-      // A command started this login while `CHECKLY_ACCOUNT_ID` names its
-      // account: that is the choice for this run. No default is stored, as
-      // nobody chose one.
-      if (this.#inline && config.getCredentialSource() === 'account_override') {
+      // `CHECKLY_ACCOUNT_ID` already names the account commands use while it
+      // is set, so there is nothing to ask. No default is stored, as nobody
+      // chose one; `--account-id` still stores one.
+      if (!options.accountId && config.getCredentialSource() === 'account_override') {
         return this.#useAccountOverride(accounts, userName)
       }
 
@@ -426,10 +426,10 @@ export default class Login extends BaseCommand {
   }
 
   /**
-   * Finishes a login another command started while `CHECKLY_ACCOUNT_ID`
-   * names the account: that command uses it, and no default is stored. An
-   * id that is not one of the user's accounts fails here, listing them,
-   * rather than later as a bare "not found".
+   * Finishes a login while `CHECKLY_ACCOUNT_ID` names the account: commands
+   * use it while the variable is set, and no default is stored. An id that
+   * is not one of the user's accounts fails here, listing them, rather than
+   * later as a bare "not found".
    */
   #useAccountOverride (accounts: Account[], userName: string): boolean {
     const accountId = config.getAccountId()
@@ -439,8 +439,8 @@ export default class Login extends BaseCommand {
         + `user's accounts. Available: ${formatAccounts(accounts)}. Fix \`CHECKLY_ACCOUNT_ID\` where it is set `
         + '(the command line, your shell or .env).')
     }
-    const message = `Logged in as ${userName}. This command uses account "${account.name}" from `
-      + '`CHECKLY_ACCOUNT_ID`; no default account is stored.'
+    const message = `Logged in as ${userName}. Commands use account "${account.name}" from \`CHECKLY_ACCOUNT_ID\` `
+      + 'while it is set; no default account is stored (`npx checkly login --account-id <id>` stores one).'
     if (this.#mode === 'agent') {
       this.#print(JSON.stringify({
         status: 'success',

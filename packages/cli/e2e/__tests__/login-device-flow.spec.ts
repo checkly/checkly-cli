@@ -314,10 +314,11 @@ describe('login with the device flow (fake Auth0 + API)', () => {
 
       fake.approved = true
       const waited = await runLoginInHome(home, ['login', '--wait'], { CHECKLY_CLI_MODE: 'agent' })
-      // An explicit login manages the stored default: with two accounts it asks, and says the variable wins.
-      const [select] = jsonLines(waited.stdout)
-      expect(select).toMatchObject({ reason: 'select_account' })
-      expect(select.message).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-other"')
+      // The variable names the account, so there is nothing to ask and no default to store.
+      expect(waited.exitCode, waited.stderr).toBe(0)
+      expect(jsonLines(waited.stdout)).toEqual([expect.objectContaining({
+        status: 'success', reason: 'logged_in', accountId: 'acc-other',
+      })])
 
       const again = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
       expect(again.exitCode, again.stderr).toBe(0)
