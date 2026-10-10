@@ -33,7 +33,7 @@ describe('config', () => {
     delete process.env.CHECKLY_ENV
   })
 
-  describe('hasAccountOverride', () => {
+  describe('getCredentialSource', () => {
     function withStoredKey (apiKey: string | undefined) {
       return vi.spyOn(config, 'auth', 'get').mockReturnValue({ get: () => apiKey } as any)
     }
@@ -43,29 +43,29 @@ describe('config', () => {
       vi.restoreAllMocks()
     })
 
-    it('is true when CHECKLY_ACCOUNT_ID picks an account for the key `checkly login` stored', () => {
+    it('is account_override when CHECKLY_ACCOUNT_ID picks an account for the key `checkly login` stored', () => {
       withStoredKey('cak_login')
       vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
       vi.stubEnv('CHECKLY_API_KEY', '')
-      expect(config.hasAccountOverride()).toBe(true)
+      expect(config.getCredentialSource()).toBe('account_override')
     })
 
-    it('is false with CHECKLY_API_KEY set: those are environment credentials', () => {
+    it('is environment with CHECKLY_API_KEY set, or with CHECKLY_ACCOUNT_ID and no stored key', () => {
       withStoredKey('cak_login')
       vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
       vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
-      expect(config.hasAccountOverride()).toBe(false)
+      expect(config.getCredentialSource()).toBe('environment')
+
+      withStoredKey(undefined)
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      expect(config.getCredentialSource()).toBe('environment')
     })
 
-    it('is false without a stored key or without CHECKLY_ACCOUNT_ID', () => {
-      withStoredKey(undefined)
-      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
-      vi.stubEnv('CHECKLY_API_KEY', '')
-      expect(config.hasAccountOverride()).toBe(false)
-
+    it('is login without credentials in the environment', () => {
       withStoredKey('cak_login')
       vi.stubEnv('CHECKLY_ACCOUNT_ID', '')
-      expect(config.hasAccountOverride()).toBe(false)
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      expect(config.getCredentialSource()).toBe('login')
     })
   })
 })

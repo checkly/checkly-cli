@@ -84,11 +84,11 @@ export abstract class AuthCommand extends BaseCommand {
    * A lookup that found nothing may have searched the wrong account: a key
    * from `checkly login` belongs to the user and works with all of their
    * accounts. Says which account was searched and how to search another.
-   * Keys from `CHECKLY_API_KEY` belong to one account, so there is nothing
-   * to suggest.
+   * Credentials from the environment belong to one account, so there is
+   * nothing to suggest.
    */
   notFoundHint (): string | undefined {
-    if (this.#account === undefined || process.env.CHECKLY_API_KEY) {
+    if (this.#account === undefined || config.getCredentialSource() === 'environment') {
       return undefined
     }
     return `Searched account "${this.#account.name}" (${this.#account.id}). If it belongs to another of your `
