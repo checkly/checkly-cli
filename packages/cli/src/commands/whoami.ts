@@ -31,15 +31,17 @@ export default class Whoami extends AuthCommand {
       : config.hasEnvVarsConfigured() ? 'environment' : 'login'
     const addonNames = Object.values(account.addons ?? {}).map(a => a.tierDisplayName)
 
+    const defaultAccountId = config.data.get('accountId') as string | undefined
+    const defaultAccountName = config.data.get('accountName') as string | undefined
+
     if (flags.output === 'json') {
-      const defaultAccountId = config.data.get('accountId') as string | undefined
       this.log(JSON.stringify({
         user: { id: user.id, name: user.name },
         account: { id: account.id, name: account.name, plan: account.planDisplayName ?? null, addons: addonNames },
         accountSource,
         // The account `checkly login` stored; none until one is chosen.
         defaultAccount: defaultAccountId
-          ? { id: defaultAccountId, name: config.data.get('accountName') ?? null }
+          ? { id: defaultAccountId, name: defaultAccountName ?? null }
           : null,
         otherAccounts,
       }, null, 2))
@@ -47,6 +49,12 @@ export default class Whoami extends AuthCommand {
     }
 
     this.log(`You are currently on account "${account.name}" (${account.id}) as ${user.name}.`)
+    // Environment credentials ignore the stored default, so it says nothing about this run.
+    if (accountSource !== 'environment') {
+      this.log(defaultAccountId
+        ? `Default account: "${defaultAccountName ?? defaultAccountId}" (${defaultAccountId})`
+        : 'Default account: none; choose one with `npx checkly login --account-id <id>`')
+    }
     if (account.planDisplayName) {
       this.log(`Plan: ${account.planDisplayName}`)
     }
@@ -57,13 +65,9 @@ export default class Whoami extends AuthCommand {
       this.log(`Other accounts: ${otherAccounts.map(({ id, name }) => `"${name}" (${id})`).join(', ')}`)
     }
     if (accountSource === 'account_override') {
-      const defaultName = config.data.get('accountName') as string | undefined
       this.log()
       this.log('`CHECKLY_ACCOUNT_ID` selects this account for this command only, with the key of your '
-        + '`checkly login` session. '
-        + (defaultName
-          ? `Your default account is "${defaultName}".`
-          : 'No default account is set; choose one with `npx checkly login --account-id <id>`.'))
+        + '`checkly login` session.')
     } else if (accountSource === 'environment') {
       this.log()
       this.log(`This account is resolved from your environment, not a \`checkly login\` session. ${commonMessages.envCredentialsConfigured}`)

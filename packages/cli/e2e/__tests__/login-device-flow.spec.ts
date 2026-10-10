@@ -277,7 +277,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(other.exitCode, other.stderr).toBe(0)
     expect(other.stdout).toContain('You are currently on account "Other" (acc-other) as Ada Lovelace.')
     expect(other.stdout).toContain('Other accounts: "E2E Account" (acc-e2e)')
-    expect(other.stdout).toContain('Your default account is "E2E Account".')
+    expect(other.stdout).toContain('Default account: "E2E Account" (acc-e2e)')
 
     const again = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
     expect(again.stdout).toContain('You are currently on account "E2E Account" (acc-e2e)')

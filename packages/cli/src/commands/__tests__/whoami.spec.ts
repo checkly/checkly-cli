@@ -69,6 +69,7 @@ describe('checkly whoami', () => {
 
     expect(api.accounts.getAll).not.toHaveBeenCalled()
     expect(output(cmd)).toContain('resolved from your environment')
+    expect(output(cmd)).not.toContain('Default account')
   })
 
   it('still answers when the accounts cannot be listed', async () => {
@@ -79,15 +80,23 @@ describe('checkly whoami', () => {
     expect(output(cmd)).toContain('You are currently on account "Acme"')
   })
 
+  it('names the stored default account', async () => {
+    vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-1', accountName: 'Acme' } as any)[key])
+    const cmd = createCommand()
+    await cmd.run()
+
+    expect(output(cmd)).toContain('Default account: "Acme" (acc-1)')
+  })
+
   it('says CHECKLY_ACCOUNT_ID picks the account for this command only, naming the default', async () => {
     vi.mocked(config.hasAccountOverride).mockReturnValue(true)
     vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
-    vi.mocked(config.data.get).mockReturnValue('Globex')
+    vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-2', accountName: 'Globex' } as any)[key])
     const cmd = createCommand()
     await cmd.run()
 
     expect(output(cmd)).toContain('`CHECKLY_ACCOUNT_ID` selects this account for this command only')
-    expect(output(cmd)).toContain('Your default account is "Globex".')
+    expect(output(cmd)).toContain('Default account: "Globex" (acc-2)')
     expect(output(cmd)).not.toContain('resolved from your environment')
   })
 
@@ -97,7 +106,7 @@ describe('checkly whoami', () => {
     const cmd = createCommand()
     await cmd.run()
 
-    expect(output(cmd)).toContain('No default account is set; choose one with `npx checkly login --account-id <id>`.')
+    expect(output(cmd)).toContain('Default account: none; choose one with `npx checkly login --account-id <id>`')
   })
 
   describe('--output json', () => {
