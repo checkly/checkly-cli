@@ -73,6 +73,9 @@ function startFakeServers (): Promise<FakeServers> {
     if (req.method === 'GET' && url === '/next/accounts/acc-e2e') {
       return json(200, { id: 'acc-e2e', name: 'E2E Account', runtimeId: '2024.02', features: [] })
     }
+    if (req.method === 'GET' && url === '/next/accounts/acc-other') {
+      return json(200, { id: 'acc-other', name: 'Other', runtimeId: '2024.02', features: [] })
+    }
     return json(404, { error: 'not_found', url })
   })
 
@@ -208,7 +211,10 @@ describe('login with the device flow (fake Auth0 + API)', () => {
       userActionRequired: true,
       user: 'Ada Lovelace',
       choices: [{ id: 'acc-e2e', name: 'E2E Account' }, { id: 'acc-other', name: 'Other' }],
-      next: [{ command: 'npx checkly login --account-id <id>' }],
+      next: [
+        { command: 'npx checkly login --account-id <id>', when: 'to make the account the default' },
+        { command: 'CHECKLY_ACCOUNT_ID=<id> npx checkly <command>', when: 'to use the account for this command only' },
+      ],
     })])
     const urls = fake.seen.map(s => `${s.method} ${decodeURIComponent(s.url)}`)
     expect(urls.filter(u => u === 'POST /oauth/token')).toHaveLength(1)
@@ -232,6 +238,49 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(resumedUrls).not.toContain('POST /oauth/device/code')
     expect(resumedUrls).not.toContain('POST /oauth/token')
     expect(resumedUrls).toContain('GET /next/accounts/acc-e2e')
+    await rm(home, { recursive: true, force: true })
+  }, 180_000)
+
+  it('agent mode: `login --wait` returns once the user approves, without being told', async () => {
+    fake.approved = false
+    const started = await runLogin(['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'agent' })
+    expect(started.exitCode).toBe(1)
+    const [actionRequired] = jsonLines(started.stdout)
+    expect(actionRequired.next).toEqual([{
+      command: 'npx checkly login --wait --account-id acc-e2e',
+      when: 'right after relaying the code; returns once the user has approved',
+    }])
+
+    // The agent runs the wait right away; the user approves a moment later.
+    const waiting = runLoginInHome(home, ['login', '--wait', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'agent' })
+    setTimeout(() => {
+      fake.approved = true
+    }, 2_000)
+    const approved = await waiting
+    expect(approved.stderr).toBe('')
+    expect(approved.exitCode).toBe(0)
+    expect(jsonLines(approved.stdout)).toEqual([expect.objectContaining({
+      status: 'success',
+      reason: 'logged_in',
+      accountId: 'acc-e2e',
+    })])
+    expect(await storedApiKey()).toBe('cak_e2e')
+    await rm(home, { recursive: true, force: true })
+  }, 180_000)
+
+  it('runs one command against another account with CHECKLY_ACCOUNT_ID, keeping the stored choice', async () => {
+    fake.approved = true
+    const loggedIn = await runLogin(['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'interactive' })
+    expect(loggedIn.exitCode, loggedIn.stderr).toBe(0)
+
+    const other = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent', CHECKLY_ACCOUNT_ID: 'acc-other' })
+    expect(other.exitCode, other.stderr).toBe(0)
+    expect(other.stdout).toContain('You are currently on account "Other" (acc-other) as Ada Lovelace.')
+    expect(other.stdout).toContain('Other accounts: "E2E Account" (acc-e2e)')
+    expect(other.stdout).toContain('Your default account is "E2E Account".')
+
+    const again = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
+    expect(again.stdout).toContain('You are currently on account "E2E Account" (acc-e2e)')
     await rm(home, { recursive: true, force: true })
   }, 180_000)
 

@@ -188,24 +188,37 @@ describe('checkly login', () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
     })
 
-    it('leaves next out when another command started the login, which is what to run again', async () => {
+    it('asks to wait for the approval and then to run the command that started the login again', async () => {
+      const cmd = createCommand()
+      await expect(cmd.login({ inline: true, command: 'npx checkly test-sessions get ts-1' })).resolves.toBe(false)
+
+      const line = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
+      expect(line.reason).toBe('login_required')
+      expect(line.next).toEqual([
+        { command: 'npx checkly login --wait', when: 'right after relaying the code; returns once the user has approved' },
+        { command: 'npx checkly test-sessions get ts-1', when: 'after the login' },
+      ])
+      // Says why a command that was asked for something else shows a code.
+      expect(line.message).toMatch(/^Not logged in to Checkly, so this command needs a login first\. Open /)
+      expect(line.message).toContain('run `npx checkly login --wait`')
+      expect(line.message).toContain('after which run this command again')
+    })
+
+    it('only asks to wait when the command that started the login is not known', async () => {
       const cmd = createCommand()
       await expect(cmd.login({ inline: true })).resolves.toBe(false)
 
       const line = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
-      expect(line.reason).toBe('login_required')
-      expect(line.next).toBeUndefined()
-      // Says why a command that was asked for something else shows a code.
-      expect(line.message).toMatch(/^Not logged in to Checkly, so this command needs a login first\. Open /)
+      expect(line.next).toEqual([{ command: 'npx checkly login --wait', when: 'right after relaying the code; returns once the user has approved' }])
     })
 
-    it('keeps --account-id in the command to run after approval', async () => {
+    it('keeps --account-id in the command that waits for the approval', async () => {
       const cmd = createCommand('--account-id', 'acc-2')
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(jsonLines(cmd)[0].next).toEqual([{
-        command: 'npx checkly login --account-id acc-2',
-        when: 'after the user has approved in the browser',
+        command: 'npx checkly login --wait --account-id acc-2',
+        when: 'right after relaying the code; returns once the user has approved',
       }])
     })
 
@@ -223,10 +236,10 @@ describe('checkly login', () => {
         verification_uri: 'https://auth.checklyhq.com/activate',
         verification_uri_complete: 'https://auth.checklyhq.com/activate?user_code=ABCD-EFGH',
         user_code: 'ABCD-EFGH',
-        next: [{ command: 'npx checkly login', when: 'after the user has approved in the browser' }],
+        next: [{ command: 'npx checkly login --wait', when: 'right after relaying the code; returns once the user has approved' }],
       })
       expect(actionRequired.message).toContain('ABCD-EFGH')
-      expect(actionRequired.message).toContain('run this command again')
+      expect(actionRequired.message).toContain('Then run `npx checkly login --wait`: it returns once the user has approved.')
       expect(actionRequired.message).toContain('sign up on the same page')
       expect(actionRequired.expires_in).toBeGreaterThan(0)
 
@@ -404,7 +417,12 @@ describe('checkly login', () => {
       })
       expect(select).not.toHaveProperty('accounts')
       expect(select.message).not.toContain('original command')
-      expect(select.next[0].command).toBe('npx checkly login --account-id <id>')
+      // Choosing need not change the default: a login key works with all of the user's accounts.
+      expect(select.next).toEqual([
+        { command: 'npx checkly login --account-id <id>', when: 'to make the account the default' },
+        { command: 'CHECKLY_ACCOUNT_ID=<id> npx checkly <command>', when: 'to use the account for this command only' },
+      ])
+      expect(select.message).toContain('set `CHECKLY_ACCOUNT_ID=<id>` on a command')
       expect(select.message).toContain('run `npx checkly logout` first')
       expect(loggedLines(cmd)).toHaveLength(1)
     })
@@ -742,6 +760,51 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error', reason: 'no_accounts' })
+    })
+
+    describe('--wait', () => {
+      it('waits for the user to approve the stored code and completes the login', async () => {
+        storePendingCode({ approved: false })
+        const cmd = createCommand('--wait')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(deviceFlow.pollForTokens).toHaveBeenCalledWith(expect.objectContaining({ deviceCode: 'dev-code' }))
+        expect(deviceFlow.pollOnce).not.toHaveBeenCalled()
+        expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
+        expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
+        expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
+        // Nothing while waiting: the agent relayed the code already.
+        expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'success', reason: 'logged_in' })])
+      })
+
+      it('shows a new code at once when none is stored', async () => {
+        const cmd = createCommand('--wait')
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+        expect(deviceFlow.pollForTokens).not.toHaveBeenCalled()
+        expect(jsonLines(cmd)).toEqual([expect.objectContaining({ reason: 'login_required', user_code: 'ABCD-EFGH' })])
+      })
+
+      it('forgets the code and reports the error when it expires while waiting', async () => {
+        storePendingCode({ approved: false })
+        deviceFlow.pollForTokens.mockRejectedValue(new DeviceFlowError('expired_token', 'The login code expired.'))
+        const cmd = createCommand('--wait')
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+        expect(config.auth.get('pendingDeviceAuthorization')).toBeUndefined()
+        expect(jsonLines(cmd)).toEqual([{ status: 'error', reason: 'expired_token', message: 'The login code expired.' }])
+      })
+
+      it('continues with the key a parallel run stored with the same code', async () => {
+        storePendingCode({ approved: false })
+        deviceFlow.pollForTokens.mockRejectedValue(new DeviceFlowError('invalid_grant', 'Already used'))
+        vi.mocked(config.getApiKey).mockReturnValue('cak_parallel')
+        const cmd = createCommand('--wait')
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(credentialsFromTokens).not.toHaveBeenCalled()
+        expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'success', reason: 'logged_in' })])
+      })
     })
 
     it('shows the code a parallel run stored meanwhile instead of its own', async () => {
@@ -1361,11 +1424,15 @@ describe('checkly login', () => {
       } as any)
       const cmd = createCommand()
 
-      await expect(cmd.login({ inline: true })).resolves.toBe(false)
+      await expect(cmd.login({ inline: true, command: 'npx checkly test-sessions get ts-1' })).resolves.toBe(false)
 
       const select = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
       expect(select).toMatchObject({ reason: 'select_account' })
       expect(select.message).toContain('run the original command again')
+      expect(select.next[1]).toEqual({
+        command: 'CHECKLY_ACCOUNT_ID=<id> npx checkly test-sessions get ts-1',
+        when: 'to use the account for this command only',
+      })
     })
 
     it('writes the failure line to stderr as well', async () => {

@@ -174,3 +174,50 @@ describe('AuthCommand.init with credentials', () => {
     expect(loginInstance.login).not.toHaveBeenCalled()
   })
 })
+
+describe('AuthCommand inline login for a known command', () => {
+  class TestSessionsGetProbe extends Probe {
+    static id = 'test-sessions:get'
+  }
+
+  it('passes its own command line, for the agent to run again', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const cmd = new TestSessionsGetProbe(['ts-1', '--output', 'json', '--name', 'a b'], mockConfig)
+    cmd.logToStderr = vi.fn() as any
+
+    await cmd.init()
+
+    expect(loginInstance.login).toHaveBeenCalledWith({
+      inline: true,
+      command: `npx checkly test-sessions get ts-1 --output json --name 'a b'`,
+    })
+  })
+})
+
+describe('AuthCommand.notFoundHint', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('names the account that was searched and how to search another', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    expect(cmd.notFoundHint()).toBe('Searched account "Acme" (acc-1). If it belongs to another of your accounts, '
+      + 'run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; `npx checkly whoami` lists them.')
+  })
+
+  it('suggests nothing for a key from CHECKLY_API_KEY, which belongs to one account', async () => {
+    vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    expect(cmd.notFoundHint()).toBeUndefined()
+  })
+
+  it('suggests nothing before an account is known', () => {
+    expect(createCommand().notFoundHint()).toBeUndefined()
+  })
+})

@@ -6,6 +6,7 @@ import { dirname, relative } from 'node:path'
 import { api } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
+import { NotFoundError } from '../rest/errors.js'
 import { InvalidConfigError } from '../services/config-diagnostics.js'
 import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
@@ -165,6 +166,11 @@ export abstract class BaseCommand extends Command {
     await this.exit(0)
   }
 
+  /** What to add to an API error saying a resource was not found; see AuthCommand. */
+  notFoundHint (): string | undefined {
+    return undefined
+  }
+
   protected catch (err: Error & { exitCode?: number }): Promise<any> {
     if (err instanceof InvalidConfigError) {
       // Stops the spinner if one is running (e.g. `validate` starts one
@@ -173,6 +179,10 @@ export abstract class BaseCommand extends Command {
       this.style.diagnostics(err.diagnostics)
       this.style.shortError(`Your Checkly configuration file is not valid.`)
       return this.exit(1)
+    }
+    const hint = err instanceof NotFoundError ? this.notFoundHint() : undefined
+    if (hint) {
+      err.message = `${err.message} ${hint}`
     }
     // TODO: we can add Sentry here and log critical errors.
     return super.catch(err)
