@@ -1460,12 +1460,30 @@ describe('checkly login', () => {
       expect(line).toEqual({
         status: 'success',
         reason: 'logged_in',
-        message: 'Logged in as Ada Lovelace. This command uses account "Globex" from `CHECKLY_ACCOUNT_ID`; '
-          + 'no default account is stored.',
+        message: 'Logged in as Ada Lovelace. Commands use account "Globex" from `CHECKLY_ACCOUNT_ID` while it is set; '
+          + 'no default account is stored (`npx checkly login --account-id <id>` stores one).',
         user: 'Ada Lovelace',
         accountId: 'acc-2',
         accountName: 'Globex',
       })
+    })
+
+    it('finishes an explicit login with that account too, instead of asking which one to use', async () => {
+      storePendingCode({ approved: true })
+      const cmd = createCommand('--wait')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(config.data.set).not.toHaveBeenCalledWith('accountId', expect.anything())
+      expect(jsonLines(cmd)).toEqual([expect.objectContaining({ status: 'success', reason: 'logged_in', accountId: 'acc-2' })])
+    })
+
+    it('still stores the default that --account-id names', async () => {
+      storePendingCode({ approved: true })
+      const cmd = createCommand('--account-id', 'acc-1')
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
+      expect(jsonLines(cmd)[0].message).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-2"')
     })
 
     it('names the user\'s accounts when the variable is not one of them', async () => {
