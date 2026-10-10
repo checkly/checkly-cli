@@ -103,7 +103,8 @@ describe('checkly whoami', () => {
     const cmd = createCommand()
     await cmd.run()
 
-    expect(output(cmd)).toContain('Default account: none; choose one with `npx checkly login --account-id <id>`')
+    // CHECKLY_ACCOUNT_ID already picks the account, so nothing nudges towards storing a default.
+    expect(output(cmd)).toContain('Default account: none (not needed while `CHECKLY_ACCOUNT_ID` picks the account)')
   })
 
   describe('--output json', () => {
