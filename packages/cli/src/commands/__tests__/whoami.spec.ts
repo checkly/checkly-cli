@@ -18,8 +18,8 @@ import Whoami from '../whoami.js'
 
 const acme = { id: 'acc-1', name: 'Acme', runtimeId: '2025.04' }
 
-function createCommand () {
-  const cmd = new Whoami([], { version: '1.0.0', runHook: vi.fn() } as any)
+function createCommand (...argv: string[]) {
+  const cmd = new Whoami(argv, { version: '1.0.0', runHook: vi.fn().mockResolvedValue({ successes: [], failures: [] }) } as any)
   vi.spyOn(cmd, 'account', 'get').mockReturnValue(acme)
   cmd.log = vi.fn() as any
   return cmd
@@ -31,7 +31,8 @@ function output (cmd: Whoami): string {
 
 beforeEach(() => {
   vi.clearAllMocks()
-  vi.mocked(api.user.get).mockResolvedValue({ data: { name: 'Ada Lovelace' } } as any)
+  vi.mocked(api.user.get).mockResolvedValue({ data: { id: 'u1', name: 'Ada Lovelace' } } as any)
+  vi.mocked(config.data.get).mockReturnValue(undefined)
   vi.mocked(api.accounts.getAll).mockResolvedValue({ data: [acme] } as any)
   vi.mocked(config.hasAccountOverride).mockReturnValue(false)
   vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(false)
@@ -97,5 +98,49 @@ describe('checkly whoami', () => {
     await cmd.run()
 
     expect(output(cmd)).toContain('No default account is set; choose one with `npx checkly login --account-id <id>`.')
+  })
+
+  describe('--output json', () => {
+    function json (cmd: Whoami) {
+      return JSON.parse(output(cmd))
+    }
+
+    it('reports the user, the account, where it comes from, the default and the other accounts', async () => {
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ ...acme, planDisplayName: 'Team', addons: {} }, { id: 'acc-2', name: 'Globex', runtimeId: 'x' }],
+      } as any)
+      vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-1', accountName: 'Acme' } as any)[key])
+      const cmd = createCommand('--output', 'json')
+      vi.spyOn(cmd, 'account', 'get').mockReturnValue({
+        ...acme, planDisplayName: 'Team', addons: { a: { tier: 't', tierDisplayName: 'Communicate Pro' } },
+      })
+      await cmd.run()
+
+      expect(json(cmd)).toEqual({
+        user: { id: 'u1', name: 'Ada Lovelace' },
+        account: { id: 'acc-1', name: 'Acme', plan: 'Team', addons: ['Communicate Pro'] },
+        accountSource: 'login',
+        defaultAccount: { id: 'acc-1', name: 'Acme' },
+        otherAccounts: [{ id: 'acc-2', name: 'Globex' }],
+      })
+    })
+
+    it('reports a per-command account and no default when none is chosen yet', async () => {
+      vi.mocked(config.hasAccountOverride).mockReturnValue(true)
+      vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+      const cmd = createCommand('--output', 'json')
+      await cmd.run()
+
+      expect(json(cmd)).toMatchObject({ accountSource: 'account_override', defaultAccount: null, otherAccounts: [] })
+    })
+
+    it('reports environment credentials', async () => {
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+      const cmd = createCommand('--output', 'json')
+      await cmd.run()
+
+      expect(json(cmd)).toMatchObject({ accountSource: 'environment', account: { plan: null, addons: [] } })
+    })
   })
 })
