@@ -323,7 +323,7 @@ describe('login with the device flow (fake Auth0 + API)', () => {
       const again = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
       expect(again.exitCode, again.stderr).toBe(0)
       expect(again.stdout).toContain('You are currently on account "Other" (acc-other) as Ada Lovelace.')
-      expect(again.stdout).toContain('Default account: none')
+      expect(again.stdout).toContain('Default account: none (not needed while `CHECKLY_ACCOUNT_ID` picks the account)')
       expect((await storedFile('config'))?.accountId).toBeUndefined()
     })
     await rm(home, { recursive: true, force: true })

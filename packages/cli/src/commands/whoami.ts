@@ -48,7 +48,9 @@ export default class Whoami extends AuthCommand {
     if (accountSource !== 'environment') {
       this.log(defaultAccountId
         ? `Default account: "${defaultAccountName ?? defaultAccountId}" (${defaultAccountId})`
-        : 'Default account: none; choose one with `npx checkly login --account-id <id>`')
+        : accountSource === 'account_override'
+          ? 'Default account: none (not needed while `CHECKLY_ACCOUNT_ID` picks the account)'
+          : 'Default account: none; choose one with `npx checkly login --account-id <id>`')
     }
     if (account.planDisplayName) {
       this.log(`Plan: ${account.planDisplayName}`)
