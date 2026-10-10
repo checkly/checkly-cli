@@ -1,7 +1,7 @@
 import * as http from 'node:http'
 import * as os from 'node:os'
 import * as path from 'node:path'
-import { mkdtemp, readFile, rm } from 'node:fs/promises'
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { execa } from 'execa'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
@@ -149,21 +149,41 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     })
   }
 
-  async function storedApiKey (): Promise<string | undefined> {
-    // conf writes <configDir>/@checkly/cli-local/auth.json; find it wherever the platform put it.
+  async function storedFile (name: 'auth' | 'config'): Promise<Record<string, unknown> | undefined> {
+    // conf writes <configDir>/@checkly/cli-local/<name>.json; find it wherever the platform put it.
     const candidates = [
-      path.join(home, 'Library', 'Preferences', '@checkly', 'cli-local', 'auth.json'),
-      path.join(home, '.config', '@checkly', 'cli-local', 'auth.json'),
-      path.join(home, 'AppData', 'Roaming', '@checkly', 'cli-local', 'Config', 'auth.json'),
+      path.join(home, 'Library', 'Preferences', '@checkly', 'cli-local', `${name}.json`),
+      path.join(home, '.config', '@checkly', 'cli-local', `${name}.json`),
+      path.join(home, 'AppData', 'Roaming', '@checkly', 'cli-local', 'Config', `${name}.json`),
     ]
     for (const file of candidates) {
       try {
-        return JSON.parse(await readFile(file, 'utf8')).apiKey
+        return JSON.parse(await readFile(file, 'utf8'))
       } catch {
         // try next
       }
     }
     return undefined
+  }
+
+  async function storedApiKey (): Promise<string | undefined> {
+    return (await storedFile('auth'))?.apiKey as string | undefined
+  }
+
+  /** An error as one line: oclif wraps long ones and prefixes the continuations with `›`. */
+  function oneLine (output: string): string {
+    return output.replace(/\s*›\s*/g, ' ').replace(/\s+/g, ' ')
+  }
+
+  /** Runs `body` with a `.env` in the project, as a project that pins its account would have. */
+  async function withDotenv (content: string, body: () => Promise<void>): Promise<void> {
+    const file = path.join(fixt.root, '.env')
+    await writeFile(file, content)
+    try {
+      await body()
+    } finally {
+      await rm(file, { force: true })
+    }
   }
 
   function jsonLines (output: string): any[] {
@@ -281,6 +301,70 @@ describe('login with the device flow (fake Auth0 + API)', () => {
 
     const again = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
     expect(again.stdout).toContain('You are currently on account "E2E Account" (acc-e2e)')
+    await rm(home, { recursive: true, force: true })
+  }, 180_000)
+
+  it('a project .env with CHECKLY_ACCOUNT_ID: a fresh machine logs in and uses that account, storing no default', async () => {
+    await withDotenv('CHECKLY_ACCOUNT_ID=acc-other\n', async () => {
+      fake.approved = false
+      const started = await runLogin(['whoami'], { CHECKLY_CLI_MODE: 'agent' })
+      // Not "`CHECKLY_API_KEY` is not set": the variable only picks an account for a login.
+      expect(jsonLines(started.stderr)).toEqual([expect.objectContaining({ reason: 'login_required' })])
+      expect(started.exitCode).toBe(1)
+
+      fake.approved = true
+      const waited = await runLoginInHome(home, ['login', '--wait'], { CHECKLY_CLI_MODE: 'agent' })
+      // An explicit login manages the stored default: with two accounts it asks, and says the variable wins.
+      const [select] = jsonLines(waited.stdout)
+      expect(select).toMatchObject({ reason: 'select_account' })
+      expect(select.message).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-other"')
+
+      const again = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent' })
+      expect(again.exitCode, again.stderr).toBe(0)
+      expect(again.stdout).toContain('You are currently on account "Other" (acc-other) as Ada Lovelace.')
+      expect(again.stdout).toContain('Default account: none')
+      expect((await storedFile('config'))?.accountId).toBeUndefined()
+    })
+    await rm(home, { recursive: true, force: true })
+  }, 180_000)
+
+  it('a command started under CHECKLY_ACCOUNT_ID logs in inline and runs against that account', async () => {
+    fake.approved = true
+    home = await mkdtemp(path.join(os.tmpdir(), 'checkly-login-e2e-'))
+    const first = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent', CHECKLY_ACCOUNT_ID: 'acc-other' })
+    expect(jsonLines(first.stderr)[0]).toMatchObject({ reason: 'login_required' })
+    const second = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent', CHECKLY_ACCOUNT_ID: 'acc-other' })
+    expect(second.exitCode, second.stderr).toBe(0)
+    expect(jsonLines(second.stderr)).toEqual([expect.objectContaining({
+      status: 'success',
+      reason: 'logged_in',
+      accountId: 'acc-other',
+      message: expect.stringContaining('no default account is stored'),
+    })])
+    expect(second.stdout).toContain('You are currently on account "Other" (acc-other)')
+    expect((await storedFile('config'))?.accountId).toBeUndefined()
+    await rm(home, { recursive: true, force: true })
+  }, 180_000)
+
+  it('CHECKLY_ACCOUNT_ID naming an account the login does not have lists the ones it has', async () => {
+    fake.approved = true
+    const loggedIn = await runLogin(['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'interactive' })
+    expect(loggedIn.exitCode, loggedIn.stderr).toBe(0)
+
+    const typo = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent', CHECKLY_ACCOUNT_ID: 'acc-typo' })
+    expect(typo.exitCode).not.toBe(0)
+    expect(oneLine(typo.stderr)).toContain('Account "acc-typo" from `CHECKLY_ACCOUNT_ID` is not available with your login.')
+    expect(oneLine(typo.stderr)).toContain('E2E Account (acc-e2e), Other (acc-other)')
+    await rm(home, { recursive: true, force: true })
+  }, 180_000)
+
+  it('CI with CHECKLY_ACCOUNT_ID but no key names both ways to authenticate instead of starting a login', async () => {
+    fake.seen.length = 0
+    const ci = await runLogin(['whoami'], { CHECKLY_CLI_MODE: 'ci', CHECKLY_ACCOUNT_ID: 'acc-e2e' })
+    expect(ci.exitCode).not.toBe(0)
+    expect(oneLine(ci.stderr)).toContain('`CHECKLY_ACCOUNT_ID` is set, but there is no `checkly login` session to use it with.')
+    expect(oneLine(ci.stderr)).toContain('set `CHECKLY_API_KEY` as well')
+    expect(fake.seen.map(s => s.url)).not.toContain('/oauth/device/code')
     await rm(home, { recursive: true, force: true })
   }, 180_000)
 

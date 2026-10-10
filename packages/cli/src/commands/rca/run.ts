@@ -114,7 +114,7 @@ export default class RcaRun extends AuthCommand {
       }
       if (err instanceof NotFoundError) {
         const label = source.type === 'error-group' ? 'Error group' : 'Test session error group'
-        this.style.shortError([`${label} not found: ${source.id}`, this.notFoundHint()].filter(Boolean).join('. '))
+        this.style.shortError(this.withNotFoundHint(`${label} not found: ${source.id}.`))
         process.exitCode = 1
         return
       }

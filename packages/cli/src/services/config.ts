@@ -76,25 +76,33 @@ class ChecklyConfig {
     return process.env.CHECKLY_ACCOUNT_ID || this.data.get<string>('accountId') as string || ''
   }
 
-  hasEnvVarsConfigured (): boolean {
-    const apiKey = process.env.CHECKLY_API_KEY || ''
-    const accoundId = process.env.CHECKLY_ACCOUNT_ID || ''
-    return apiKey !== '' || accoundId !== ''
+  /** The account `checkly login` stored as the default, ignoring the environment. */
+  getStoredAccountId (): string {
+    return this.data.get<string>('accountId') as string || ''
+  }
+
+  /** Whether `checkly login` stored both a key and a default account. */
+  hasStoredLogin (): boolean {
+    return Boolean(this.auth.get<string>('apiKey')) && this.getStoredAccountId() !== ''
   }
 
   /**
-   * Where this run's credentials come from: `login`, the key and default
-   * account `checkly login` stored; `account_override`, that key with
-   * `CHECKLY_ACCOUNT_ID` picking the account for this run (a login key belongs
-   * to the user, so it works with any of their accounts); `environment`,
-   * credentials from `CHECKLY_API_KEY` / `CHECKLY_ACCOUNT_ID`, whose key
-   * belongs to one account.
+   * Where this run's credentials come from:
+   * - `environment`: `CHECKLY_API_KEY` is set. Such a key belongs to one
+   *   account; `CHECKLY_ACCOUNT_ID` names it, and `checkly login` stays out
+   *   of the way.
+   * - `account_override`: only `CHECKLY_ACCOUNT_ID` is set. It picks the
+   *   account for the key `checkly login` stores, which belongs to the user
+   *   and works with all of their accounts. The CLI cannot tell a one-command
+   *   prefix from an export or a `.env` entry, so this holds for every command
+   *   while the variable is set.
+   * - `login`: neither is set; the stored key and default account apply.
    */
   getCredentialSource (): CredentialSource {
-    if (!process.env.CHECKLY_API_KEY && process.env.CHECKLY_ACCOUNT_ID && this.auth.get<string>('apiKey')) {
-      return 'account_override'
+    if (process.env.CHECKLY_API_KEY) {
+      return 'environment'
     }
-    return this.hasEnvVarsConfigured() ? 'environment' : 'login'
+    return process.env.CHECKLY_ACCOUNT_ID ? 'account_override' : 'login'
   }
 
   getApiUrl (): string {

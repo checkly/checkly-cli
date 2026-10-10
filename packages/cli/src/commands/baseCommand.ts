@@ -166,9 +166,25 @@ export abstract class BaseCommand extends Command {
     await this.exit(0)
   }
 
-  /** What to add to an API error saying a resource was not found; see AuthCommand. */
-  notFoundHint (): string | undefined {
+  /**
+   * The account a lookup searched when the user may have others to search:
+   * set only by AuthCommand, and only for a `checkly login` key.
+   */
+  searchedAccount (): { id: string, name: string } | undefined {
     return undefined
+  }
+
+  /** What to add to an API error saying a resource was not found, if anything. */
+  notFoundHint (): string | undefined {
+    const account = this.searchedAccount()
+    return account && `Searched account "${account.name}" (${account.id}). If it belongs to another of your `
+      + 'accounts, run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; `npx checkly whoami` lists them.'
+  }
+
+  /** `message` followed by the not-found hint, for commands with their own not-found message. */
+  withNotFoundHint (message: string): string {
+    const hint = this.notFoundHint()
+    return hint ? `${message} ${hint}` : message
   }
 
   protected catch (err: Error & { exitCode?: number }): Promise<any> {
@@ -180,9 +196,8 @@ export abstract class BaseCommand extends Command {
       this.style.shortError(`Your Checkly configuration file is not valid.`)
       return this.exit(1)
     }
-    const hint = err instanceof NotFoundError ? this.notFoundHint() : undefined
-    if (hint) {
-      err.message = `${err.message} ${hint}`
+    if (err instanceof NotFoundError) {
+      err.message = this.withNotFoundHint(err.message)
     }
     // TODO: we can add Sentry here and log critical errors.
     return super.catch(err)

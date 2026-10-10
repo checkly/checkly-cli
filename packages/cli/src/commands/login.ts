@@ -174,6 +174,10 @@ function errorMessage (error: any): string {
 // approve it.
 const MIN_RELAY_TIME_MS = 60_000
 
+// How long a run whose code another run used waits for that run's key.
+const KEY_EXCHANGE_GRACE_MS = 15_000
+const KEY_EXCHANGE_POLL_MS = 500
+
 /** A device code kept between agent-mode runs, with the login server it belongs to. */
 type PendingDeviceAuthorization = DeviceAuthorization & { authUrl: string }
 
@@ -267,7 +271,7 @@ export default class Login extends BaseCommand {
     this.#command = options.command
     this.#openBrowser = (options.openBrowser ?? true) && !isEnvFlagSet(process.env.CHECKLY_NO_BROWSER)
 
-    if (config.hasEnvVarsConfigured()) {
+    if (config.getCredentialSource() === 'environment') {
       const message = `${commonMessages.envCredentialsConfigured} You must delete them to use \`npx checkly login\`.`
       if (this.#mode === 'agent') {
         // Not a success: the variables may be incomplete or wrong, and only
@@ -281,15 +285,17 @@ export default class Login extends BaseCommand {
     }
 
     // `--account-id` naming a different account switches to it with the
-    // stored key; it is not a request to log in again.
-    const switchingAccount = config.hasValidCredentials()
-      && Boolean(options.accountId) && options.accountId !== config.getAccountId()
+    // stored key; it is not a request to log in again. The stored login is
+    // what this command manages, so a `CHECKLY_ACCOUNT_ID` in the environment
+    // does not count here.
+    const switchingAccount = config.hasStoredLogin()
+      && Boolean(options.accountId) && options.accountId !== config.getStoredAccountId()
 
     try {
       // A stored login is only kept as it is while it still works. Dropping an
       // unusable account sends the flow below into the stored-key resume path:
       // account selection with a working key, a new login otherwise.
-      if (config.hasValidCredentials() && !switchingAccount) {
+      if (config.hasStoredLogin() && !switchingAccount) {
         const storedAccount = await this.#checkStoredAccount()
         if (storedAccount.usable && !await this.#wantsToReplaceLogin(storedAccount.name)) {
           return true
@@ -305,7 +311,7 @@ export default class Login extends BaseCommand {
       // The stored key is reused when switching accounts, and when a previous
       // login stored it but stopped before an account was chosen (agent mode
       // with several accounts, or a cancelled account prompt).
-      const reuseStoredKey = switchingAccount || (Boolean(config.getApiKey()) && !config.getAccountId())
+      const reuseStoredKey = switchingAccount || (Boolean(config.getApiKey()) && !config.getStoredAccountId())
       let userName = reuseStoredKey ? await this.#storedKeyUserName() : undefined
       const usingStoredKey = userName !== undefined
       if (userName === undefined) {
@@ -343,6 +349,14 @@ export default class Login extends BaseCommand {
       }
 
       const { data: accounts } = await api.accounts.getAll()
+
+      // A command started this login while `CHECKLY_ACCOUNT_ID` names its
+      // account: that is the choice for this run. No default is stored, as
+      // nobody chose one.
+      if (this.#inline && config.getCredentialSource() === 'account_override') {
+        return this.#useAccountOverride(accounts, userName)
+      }
+
       const account = await this.#pickAccount(accounts, options.accountId, usingStoredKey)
 
       if (!account) {
@@ -355,7 +369,8 @@ export default class Login extends BaseCommand {
             + '`npx checkly login --account-id <id>` to make it the default'
             + (this.#inline ? ' and run the original command again' : '')
             + ', or set `CHECKLY_ACCOUNT_ID=<id>` on a command to use the account for that command only. '
-            + 'To log in as someone else instead, run `npx checkly logout` first.',
+            + 'To log in as someone else instead, run `npx checkly logout` first.'
+            + this.#overrideNotice(),
           accounts,
           defaultCommand: 'npx checkly login --account-id <id>',
           command: this.#command,
@@ -373,18 +388,20 @@ export default class Login extends BaseCommand {
           reason: switched ? 'account_switched' : 'logged_in',
           message: (this.#notice ? `${this.#notice} ` : '') + (switched
             ? `Switched to account "${account.name}".`
-            : `Logged in as ${userName} to account "${account.name}".`),
+            : `Logged in as ${userName} to account "${account.name}".`) + this.#overrideNotice(),
           user: userName,
           accountId: account.id,
           accountName: account.name,
         }))
       } else if (switched) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
+        this.#printOverrideNotice()
       } else {
         if (this.#mode === 'interactive' && !this.#atBlankLine) {
           this.#print('')
         }
         this.#print(`Logged in as ${chalk.cyan.bold(userName)} to ${chalk.cyan.bold(account.name)}.`)
+        this.#printOverrideNotice()
         // A login another command started goes straight on to that command.
         const hint = this.#mode === 'interactive' && !this.#inline ? await nextStepHint() : undefined
         if (hint) {
@@ -405,6 +422,54 @@ export default class Login extends BaseCommand {
       }
       this.#print(JSON.stringify({ status: 'error', reason: errorReason(error), message: errorMessage(error) }))
       return false
+    }
+  }
+
+  /**
+   * Finishes a login another command started while `CHECKLY_ACCOUNT_ID`
+   * names the account: that command uses it, and no default is stored. An
+   * id that is not one of the user's accounts fails here, listing them,
+   * rather than later as a bare "not found".
+   */
+  #useAccountOverride (accounts: Account[], userName: string): boolean {
+    const accountId = config.getAccountId()
+    const account = accounts.find(({ id }) => id === accountId)
+    if (!account) {
+      throw new LoginError('account_not_found', `\`CHECKLY_ACCOUNT_ID\` is "${accountId}", which is not one of this `
+        + `user's accounts. Available: ${formatAccounts(accounts)}. Fix \`CHECKLY_ACCOUNT_ID\` where it is set `
+        + '(the command line, your shell or .env).')
+    }
+    const message = `Logged in as ${userName}. This command uses account "${account.name}" from `
+      + '`CHECKLY_ACCOUNT_ID`; no default account is stored.'
+    if (this.#mode === 'agent') {
+      this.#print(JSON.stringify({
+        status: 'success',
+        reason: 'logged_in',
+        message,
+        user: userName,
+        accountId: account.id,
+        accountName: account.name,
+      }))
+    } else {
+      this.#print(message)
+    }
+    return true
+  }
+
+  /**
+   * ` <notice>` when `CHECKLY_ACCOUNT_ID` overrides the default account this
+   * command manages, for agent lines; empty otherwise.
+   */
+  #overrideNotice (): string {
+    return config.getCredentialSource() === 'account_override'
+      ? ` ${commonMessages.accountOverride(config.getAccountId())}`
+      : ''
+  }
+
+  #printOverrideNotice (): void {
+    const notice = this.#overrideNotice()
+    if (notice) {
+      this.#print(chalk.yellow(notice.trim()))
     }
   }
 
@@ -459,15 +524,18 @@ export default class Login extends BaseCommand {
         this.#print(JSON.stringify({
           status: 'success',
           reason: 'already_logged_in',
-          message: `Already logged in to account "${accountName}".`,
+          message: `Already logged in to account "${accountName}".` + this.#overrideNotice(),
           accountId,
           accountName,
         }))
       } else {
         this.#print(`Already logged in to "${accountName}".`)
+        this.#printOverrideNotice()
       }
       return false
     }
+
+    this.#printOverrideNotice()
 
     const { setNewkey } = await prompts({
       name: 'setNewkey',
@@ -485,7 +553,7 @@ export default class Login extends BaseCommand {
    * account's name either way.
    */
   async #checkStoredAccount (): Promise<{ usable: boolean, name: string }> {
-    const accountId = config.getAccountId()
+    const accountId = config.getStoredAccountId()
     try {
       const { data: account } = await api.accounts.get(accountId)
       // Older CLI versions' `checkly switch` stored only the new account's
@@ -610,7 +678,7 @@ export default class Login extends BaseCommand {
     try {
       result = await deviceFlow.pollOnce(pending)
     } catch (error) {
-      return this.#pendingCodeFailed(error)
+      return this.#pendingCodeFailed(error, pending)
     }
 
     if (!result.tokens) {
@@ -619,7 +687,7 @@ export default class Login extends BaseCommand {
       // a new code. After a failed request the code is kept, since it may
       // have been approved.
       if (!result.failure && pending.expiresAt - Date.now() < MIN_RELAY_TIME_MS) {
-        config.auth.delete('pendingDeviceAuthorization')
+        this.#forgetPendingAuthorization(pending)
         return 'expiring'
       }
       // Without this, an agent whose user has already approved would be told
@@ -633,7 +701,7 @@ export default class Login extends BaseCommand {
       return 'pending'
     }
 
-    config.auth.delete('pendingDeviceAuthorization')
+    this.#forgetPendingAuthorization(pending)
     return credentialsFromTokens(result.tokens)
   }
 
@@ -646,27 +714,60 @@ export default class Login extends BaseCommand {
   async #waitForPendingAuthorization (
     deviceFlow: DeviceFlow, pending: DeviceAuthorization,
   ): Promise<Credentials | 'stored'> {
+    // Answers from something other than the login server (a proxy or a
+    // captive portal) keep the poll going, since they may clear up; if the
+    // code expires meanwhile, they are the likely reason, not the user.
+    let unexpectedAnswer: string | undefined
     let tokens
     try {
-      tokens = await deviceFlow.pollForTokens(pending)
+      tokens = await deviceFlow.pollForTokens(pending, {
+        onUnexpectedAnswers: failure => {
+          unexpectedAnswer = failure
+        },
+      })
     } catch (error) {
-      return this.#pendingCodeFailed(error)
+      if (error instanceof DeviceFlowError && error.code === 'expired_token' && unexpectedAnswer) {
+        return this.#pendingCodeFailed(new DeviceFlowError('network_error', 'The login code expired while the '
+          + `answers to the login server kept coming from something else (${unexpectedAnswer}); a proxy or captive `
+          + 'portal may be in the way. Fix the connection and run the login again.'), pending)
+      }
+      return this.#pendingCodeFailed(error, pending)
     }
-    config.auth.delete('pendingDeviceAuthorization')
+    this.#forgetPendingAuthorization(pending)
     return credentialsFromTokens(tokens)
   }
 
   /**
    * The login server refused the stored code (denied, expired or already
    * used), so it is done either way. Returns 'stored' when another run used
-   * it and stored its key; rethrows otherwise.
+   * it and stored its key; rethrows otherwise. A run that used the code may
+   * still be exchanging it for a key (`--wait` keeps polling while others
+   * collect), so an already used code waits briefly for that key.
    */
-  #pendingCodeFailed (error: unknown): 'stored' {
-    config.auth.delete('pendingDeviceAuthorization')
-    if (error instanceof DeviceFlowError && config.getApiKey()) {
-      return 'stored'
+  async #pendingCodeFailed (error: unknown, pending: DeviceAuthorization): Promise<'stored'> {
+    this.#forgetPendingAuthorization(pending)
+    if (error instanceof DeviceFlowError) {
+      const deadline = Date.now() + (error.code === 'invalid_grant' ? KEY_EXCHANGE_GRACE_MS : 0)
+      while (!config.getApiKey() && Date.now() < deadline) {
+        await new Promise(resolve => setTimeout(resolve, KEY_EXCHANGE_POLL_MS))
+      }
+      if (config.getApiKey()) {
+        return 'stored'
+      }
     }
     throw error
+  }
+
+  /**
+   * Forgets the stored device code, but only if it is still `pending`:
+   * another run may have replaced a code about to expire with a new one,
+   * which the user may be approving right now.
+   */
+  #forgetPendingAuthorization (pending: DeviceAuthorization): void {
+    const stored = config.auth.get('pendingDeviceAuthorization') as PendingDeviceAuthorization | undefined
+    if (stored?.deviceCode === pending.deviceCode) {
+      config.auth.delete('pendingDeviceAuthorization')
+    }
   }
 
   // The login pages also offer sign-up, and logging in with a new identity
