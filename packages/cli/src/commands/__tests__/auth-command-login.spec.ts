@@ -4,7 +4,7 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn(),
 }))
 vi.mock('../../services/config', () => ({
-  default: { hasValidCredentials: vi.fn(), hasEnvVarsConfigured: vi.fn() },
+  default: { hasValidCredentials: vi.fn(), getCredentialSource: vi.fn() },
 }))
 vi.mock('../../helpers/cli-mode', async importOriginal => ({
   ...await importOriginal<typeof import('../../helpers/cli-mode.js')>(),
@@ -13,6 +13,7 @@ vi.mock('../../helpers/cli-mode', async importOriginal => ({
 vi.mock('../login', () => ({ default: vi.fn() }))
 
 import * as api from '../../rest/api.js'
+import { NotFoundError } from '../../rest/errors.js'
 import config from '../../services/config.js'
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import Login from '../login.js'
@@ -60,7 +61,7 @@ beforeEach(() => {
   loginInstance.login.mockResolvedValue(true)
   vi.mocked(api.validateAuthentication).mockResolvedValue({ id: 'acc-1', name: 'Acme', features: [] } as any)
   vi.mocked(config.hasValidCredentials).mockReturnValue(false)
-  vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(false)
+  vi.mocked(config.getCredentialSource).mockReturnValue('login')
   setTTY(true)
 })
 
@@ -130,9 +131,20 @@ describe('AuthCommand.init without stored credentials', () => {
     expect(loginInstance.login).toHaveBeenCalledTimes(1)
   })
 
-  it('leaves incomplete environment credentials to authentication instead of logging in', async () => {
+  it('starts the login when only CHECKLY_ACCOUNT_ID is set, which picks an account for it', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
-    vi.mocked(config.hasEnvVarsConfigured).mockReturnValue(true)
+    vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
+    const cmd = createCommand()
+
+    await cmd.init()
+
+    expect(loginInstance.login).toHaveBeenCalledTimes(1)
+    expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
+  })
+
+  it('leaves incomplete API key credentials to authentication instead of logging in', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    vi.mocked(config.getCredentialSource).mockReturnValue('environment')
     vi.mocked(api.validateAuthentication).mockRejectedValue(new Error('`CHECKLY_ACCOUNT_ID` is not set.'))
     const cmd = createCommand()
 
@@ -172,5 +184,93 @@ describe('AuthCommand.init with credentials', () => {
     await cmd.init()
 
     expect(loginInstance.login).not.toHaveBeenCalled()
+  })
+})
+
+describe('AuthCommand inline login for a known command', () => {
+  class TestSessionsGetProbe extends Probe {
+    static id = 'test-sessions:get'
+  }
+
+  it('passes its own command line, for the agent to run again', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    const cmd = new TestSessionsGetProbe(['ts-1', '--output', 'json', '--name', 'a b'], mockConfig)
+    cmd.logToStderr = vi.fn() as any
+
+    await cmd.init()
+
+    expect(loginInstance.login).toHaveBeenCalledWith({
+      inline: true,
+      command: `npx checkly test-sessions get ts-1 --output json --name 'a b'`,
+    })
+  })
+})
+
+describe('AuthCommand.notFoundHint', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('names the account that was searched and how to search another', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    expect(cmd.notFoundHint()).toBe('Searched account "Acme" (acc-1). If it belongs to another of your accounts, '
+      + 'run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; `npx checkly whoami` lists them.')
+  })
+
+  it('suggests nothing for credentials from the environment, whose key belongs to one account', async () => {
+    vi.mocked(config.getCredentialSource).mockReturnValue('environment')
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    expect(cmd.notFoundHint()).toBeUndefined()
+  })
+
+  it('suggests nothing before an account is known', () => {
+    expect(createCommand().notFoundHint()).toBeUndefined()
+  })
+
+  it('reports the searched account as data, for JSON output', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    expect(cmd.searchedAccount()).toEqual({ id: 'acc-1', name: 'Acme' })
+  })
+})
+
+describe('AuthCommand.catch', () => {
+  const notFound = () => new NotFoundError({ statusCode: 404, error: 'Not Found', message: 'No such test session.' })
+
+  // Most commands leave a not-found error to catch(), which oclif then prints.
+  it('adds the hint to a not-found error a command did not handle itself', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    await expect((cmd as any).catch(notFound())).rejects.toThrow(
+      'No such test session. Searched account "Acme" (acc-1). If it belongs to another of your accounts')
+  })
+
+  it('leaves the error alone for API key credentials', async () => {
+    vi.mocked(config.getCredentialSource).mockReturnValue('environment')
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    const error = notFound()
+    await expect((cmd as any).catch(error)).rejects.toBe(error)
+    expect(error.message).toBe('No such test session.')
+  })
+
+  it('leaves other errors alone', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    const cmd = createCommand()
+    await cmd.init()
+
+    await expect((cmd as any).catch(new Error('Boom'))).rejects.toThrow(/^Boom$/)
   })
 })

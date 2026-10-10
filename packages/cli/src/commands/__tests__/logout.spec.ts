@@ -9,7 +9,7 @@ vi.mock('../../helpers/cli-mode', async importOriginal => ({
 vi.mock('../../services/config', () => ({
   default: {
     clear: vi.fn(),
-    hasEnvVarsConfigured: vi.fn(() => false),
+    getCredentialSource: vi.fn(() => 'login'),
     data: { get: vi.fn(() => 'Acme') },
   },
 }))

@@ -6,6 +6,7 @@ import { Session } from '../constructs/session.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import { canLogInInline, detectCliMode } from '../helpers/cli-mode.js'
 import config from '../services/config.js'
+import { shellJoin } from '../services/shell.js'
 import Login from './login.js'
 import type { Project } from '../constructs/project.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
@@ -17,8 +18,9 @@ import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/comm
  * error: it should be configured through environment variables. So does an
  * unattended run that is not recognised as CI (cron, a script, a container
  * without a TTY): nobody would see the login code, and the flow would wait
- * for it until it expires. Credentials from the environment, even incomplete
- * ones, skip it too: login refuses to run while they are set.
+ * for it until it expires. A `CHECKLY_API_KEY` skips it too: login refuses
+ * to run while it is set. A `CHECKLY_ACCOUNT_ID` alone does not; after the
+ * login, this command uses that account.
  * Returns whether it logged the user in.
  */
 async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
@@ -26,9 +28,11 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
     return false
   }
 
-  // Credentials from the environment mean the user chose API keys; login
-  // would refuse to run, and authentication names what is missing.
-  if (config.hasEnvVarsConfigured()) {
+  // `CHECKLY_API_KEY` means the user chose API key credentials; login would
+  // refuse to run, and authentication names what is missing. A
+  // `CHECKLY_ACCOUNT_ID` alone only picks an account for a login, so the
+  // login still runs.
+  if (config.getCredentialSource() === 'environment') {
     return false
   }
 
@@ -45,11 +49,22 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
     command.logToStderr('No Checkly credentials found. Let\'s log in first.\n')
   }
 
-  const ok = await new Login([], command.config).login({ inline: true })
+  const ok = await new Login([], command.config).login({ inline: true, command: commandLine(command) })
   if (!ok) {
     return command.exit(1)
   }
   return true
+}
+
+/**
+ * The command line that ran `command`, for an agent to run again after the
+ * login; undefined when the command's id is not known.
+ */
+function commandLine (command: BaseCommand): string | undefined {
+  if (!command.id) {
+    return undefined
+  }
+  return shellJoin(['npx', 'checkly', ...command.id.split(':'), ...command.argv])
 }
 
 export abstract class AuthCommand extends BaseCommand {
@@ -66,6 +81,19 @@ export abstract class AuthCommand extends BaseCommand {
     }
 
     return this.#account
+  }
+
+  /**
+   * A lookup that found nothing may have searched the wrong account: a key
+   * from `checkly login` belongs to the user and works with all of their
+   * accounts. API key credentials belong to one account, so there is no
+   * other to search.
+   */
+  searchedAccount (): { id: string, name: string } | undefined {
+    if (this.#account === undefined || config.getCredentialSource() === 'environment') {
+      return undefined
+    }
+    return { id: this.#account.id, name: this.#account.name }
   }
 
   protected async init (): Promise<any> {

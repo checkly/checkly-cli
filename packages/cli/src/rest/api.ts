@@ -46,12 +46,13 @@ export function getDefaults () {
 }
 
 /**
- * Checks the configured credentials against the configured account. Pass
- * `suggestLogin: false` when trying out a different account (switching),
- * where logging in again would not help.
+ * Checks the configured credentials against the configured account, or
+ * against `accountId` when given (activating an account that is not the
+ * configured one yet). Pass `suggestLogin: false` when trying out a
+ * different account (switching), where logging in again would not help.
  */
 export async function validateAuthentication (
-  { suggestLogin = true }: { suggestLogin?: boolean } = {},
+  { suggestLogin = true, accountId = config.getAccountId() }: { suggestLogin?: boolean, accountId?: string } = {},
 ): Promise<Account | undefined> {
   // This internal environment variable allows auth checks to be skipped
   // when using e.g. debug flags that don't actually need to authenticate
@@ -60,35 +61,57 @@ export async function validateAuthentication (
     return
   }
 
-  if (!config.hasValidCredentials()) {
-    // Credentials from the environment are a deliberate choice, so the
-    // missing half is the actionable part, not a hint to log in.
-    if (config.hasEnvVarsConfigured()) {
-      const missing = config.getApiKey() ? 'CHECKLY_ACCOUNT_ID' : 'CHECKLY_API_KEY'
-      throw new Error(`\`${missing}\` is not set. Set both \`CHECKLY_API_KEY\` and \`CHECKLY_ACCOUNT_ID\` `
+  const source = config.getCredentialSource()
+  const apiKey = config.getApiKey()
+
+  if (apiKey === '' || accountId === '') {
+    // API key credentials are a deliberate choice, so the missing half is
+    // the actionable part, not a hint to log in.
+    if (source === 'environment') {
+      throw new Error('`CHECKLY_ACCOUNT_ID` is not set. Set both `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` '
         + 'in your environment or .env file.')
+    }
+    // Only reached without a login to go with the account (CI, or a run
+    // that cannot show a login code): name both ways to authenticate.
+    if (source === 'account_override') {
+      throw new Error('`CHECKLY_ACCOUNT_ID` is set, but there is no `checkly login` session to use it with. '
+        + 'Run `npx checkly login`, or set `CHECKLY_API_KEY` as well to use API key credentials.')
     }
     throw new Error('Run `npx checkly login` or set `CHECKLY_API_KEY` '
       + '& `CHECKLY_ACCOUNT_ID` in your environment or .env file.')
   }
-
-  const accountId = config.getAccountId()
-  const apiKey = config.getApiKey()
 
   try {
     // check if credentials works
     const resp = await accounts.get(accountId)
     return resp.data
   } catch (err: any) {
-    // A stored login can be renewed by logging in again; environment
-    // credentials have to be fixed where they are set.
-    const hint = suggestLogin && !config.hasEnvVarsConfigured() ? ' Run `npx checkly login` to log in again.' : ''
+    // API key credentials have to be fixed where they are set; a login can
+    // be renewed by logging in again.
+    if (source === 'environment' || !suggestLogin) {
+      if (err instanceof UnauthorizedError) {
+        throw new Error(`Authentication failed with account id "${accountId}" `
+          + `and API key "...${apiKey.slice(-4)}".`, { cause: err })
+      }
+      throw err
+    }
     if (err instanceof UnauthorizedError) {
       throw new Error(`Authentication failed with account id "${accountId}" `
-        + `and API key "...${apiKey?.slice(-4)}".${hint}`, { cause: err })
+        + `and API key "...${apiKey.slice(-4)}". Run \`npx checkly login\` to log in again.`, { cause: err })
     }
-    if (hint && (err instanceof ForbiddenError || err instanceof NotFoundError)) {
-      throw new Error(`Account "${accountId}" is not available with the stored login.${hint}`, { cause: err })
+    if (err instanceof ForbiddenError || err instanceof NotFoundError) {
+      if (source === 'account_override') {
+        // Most likely a typo or an account of someone else: list the ones
+        // the login does work with, so the next step needs no lookup.
+        const available = await accounts.getAll()
+          .then(({ data }) => ` This login works with: ${data.map(({ id, name }) => `${name} (${id})`).join(', ')}.`)
+          .catch(() => '')
+        throw new Error(`Account "${accountId}" from \`CHECKLY_ACCOUNT_ID\` is not available with your login.`
+          + `${available} Fix \`CHECKLY_ACCOUNT_ID\` where it is set (the command line, your shell or .env).`,
+        { cause: err })
+      }
+      throw new Error(`Account "${accountId}" is not available with the stored login. `
+        + 'Run `npx checkly login` to log in again.', { cause: err })
     }
 
     throw err
