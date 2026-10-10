@@ -28,7 +28,8 @@ describe('activateAccount()', () => {
 
     expect(config.data.store).toEqual({ accountId: 'acc-2', accountName: 'Globex' })
     // Logging in again would not help when the new account is the problem.
-    expect(api.validateAuthentication).toHaveBeenCalledWith({ suggestLogin: false })
+    // It checks the new account, not one CHECKLY_ACCOUNT_ID may name.
+    expect(api.validateAuthentication).toHaveBeenCalledWith({ suggestLogin: false, accountId: 'acc-2' })
   })
 
   it('keeps the previous account when the credentials do not work with the new one', async () => {

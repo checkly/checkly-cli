@@ -85,13 +85,14 @@ describe('checkly whoami', () => {
     expect(output(cmd)).toContain('Default account: "Acme" (acc-1)')
   })
 
-  it('says CHECKLY_ACCOUNT_ID picks the account for this command only, naming the default', async () => {
+  it('says CHECKLY_ACCOUNT_ID picks the account until it is unset, naming the default', async () => {
     vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
     config.data.store = { accountId: 'acc-2', accountName: 'Globex' }
     const cmd = createCommand()
     await cmd.run()
 
-    expect(output(cmd)).toContain('`CHECKLY_ACCOUNT_ID` selects this account for this command only')
+    expect(output(cmd)).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-1" (on the command line, in your shell or in .env), '
+      + 'so commands use that account instead of the default until it is unset.')
     expect(output(cmd)).toContain('Default account: "Globex" (acc-2)')
     expect(output(cmd)).not.toContain('resolved from your environment')
   })
@@ -136,6 +137,15 @@ describe('checkly whoami', () => {
       await cmd.run()
 
       expect(json(cmd)).toMatchObject({ accountSource: 'account_override', defaultAccount: null, otherAccounts: [] })
+    })
+
+    it('reports no default for API key credentials, which ignore it', async () => {
+      vi.mocked(config.getCredentialSource).mockReturnValue('environment')
+      config.data.store = { accountId: 'acc-1', accountName: 'Acme' }
+      const cmd = createCommand('--output', 'json')
+      await cmd.run()
+
+      expect(json(cmd)).toMatchObject({ accountSource: 'environment', defaultAccount: null })
     })
 
     it('reports environment credentials', async () => {

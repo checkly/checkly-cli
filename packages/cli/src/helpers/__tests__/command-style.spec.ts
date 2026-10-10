@@ -4,7 +4,11 @@ import { CommandStyle } from '../command-style.js'
 import { NotFoundError, ServerError } from '../../rest/errors.js'
 
 function createStyle (hint: string | undefined, outputFormat?: string) {
-  const command = { log: vi.fn(), notFoundHint: vi.fn(() => hint) }
+  const command = {
+    log: vi.fn(),
+    notFoundHint: vi.fn(() => hint),
+    searchedAccount: vi.fn(() => hint ? { id: 'acc-1', name: 'Acme' } : undefined),
+  }
   const style = new CommandStyle(command as any)
   style.outputFormat = outputFormat
   const lines = () => command.log.mock.calls.map(([line]) => String(line ?? ''))
@@ -22,13 +26,25 @@ describe('CommandStyle.longError', () => {
     expect(lines().join('\n')).toContain('  Searched account "Acme" (acc-1).')
   })
 
-  it('adds the hint to the JSON detail', () => {
+  it('reports the hint and the searched account as their own JSON fields', () => {
     const { style, lines } = createStyle('Searched account "Acme" (acc-1).', 'json')
     style.longError('Failed to get test session details.', notFound())
 
     expect(lines().map(line => JSON.parse(line))).toEqual([{
       error: 'Failed to get test session details.',
-      detail: 'No such test session. Searched account "Acme" (acc-1).',
+      detail: 'No such test session.',
+      hint: 'Searched account "Acme" (acc-1).',
+      searchedAccount: { id: 'acc-1', name: 'Acme' },
+    }])
+  })
+
+  it('leaves both fields out without a hint', () => {
+    const { style, lines } = createStyle(undefined, 'json')
+    style.longError('Failed to get test session details.', notFound())
+
+    expect(lines().map(line => JSON.parse(line))).toEqual([{
+      error: 'Failed to get test session details.',
+      detail: 'No such test session.',
     }])
   })
 

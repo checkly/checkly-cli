@@ -43,21 +43,24 @@ describe('config', () => {
       vi.restoreAllMocks()
     })
 
-    it('is account_override when CHECKLY_ACCOUNT_ID picks an account for the key `checkly login` stored', () => {
-      withStoredKey('cak_login')
+    it('is account_override when only CHECKLY_ACCOUNT_ID is set, with or without a stored login', () => {
       vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
       vi.stubEnv('CHECKLY_API_KEY', '')
+      withStoredKey('cak_login')
+      expect(config.getCredentialSource()).toBe('account_override')
+
+      // The login comes next; the variable then picks its account.
+      withStoredKey(undefined)
       expect(config.getCredentialSource()).toBe('account_override')
     })
 
-    it('is environment with CHECKLY_API_KEY set, or with CHECKLY_ACCOUNT_ID and no stored key', () => {
+    it('is environment whenever CHECKLY_API_KEY is set', () => {
       withStoredKey('cak_login')
       vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
       vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
       expect(config.getCredentialSource()).toBe('environment')
 
-      withStoredKey(undefined)
-      vi.stubEnv('CHECKLY_API_KEY', '')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', '')
       expect(config.getCredentialSource()).toBe('environment')
     })
 

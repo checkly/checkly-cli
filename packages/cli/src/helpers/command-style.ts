@@ -95,8 +95,12 @@ export class CommandStyle {
   longError (title: string, message: string | Error) {
     const hint = message instanceof NotFoundError ? this.c.notFoundHint() : undefined
     if (this.outputFormat === 'json') {
-      const detail = this.#plainDescription(message)
-      this.c.log(JSON.stringify({ error: title, detail: hint ? `${detail} ${hint}` : detail }))
+      // The searched account as data, so an agent need not parse the hint.
+      this.c.log(JSON.stringify({
+        error: title,
+        detail: this.#plainDescription(message),
+        ...hint && { hint, searchedAccount: this.c.searchedAccount() },
+      }))
       return
     }
     this.c.log(`${logSymbols.error} ${title}`)

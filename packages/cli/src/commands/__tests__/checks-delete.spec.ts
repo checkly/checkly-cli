@@ -17,6 +17,7 @@ import { detectCliMode } from '../../helpers/cli-mode.js'
 import * as api from '../../rest/api.js'
 import { NotFoundError } from '../../rest/errors.js'
 import { AuthCommand } from '../authCommand.js'
+import { BaseCommand } from '../baseCommand.js'
 import ChecksDelete from '../checks/delete.js'
 
 const check = {
@@ -41,7 +42,9 @@ function createCommandContext (Command: typeof AuthCommand, parsed: unknown) {
       throw new Error(`EXIT_${code}`)
     }),
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    notFoundHint: vi.fn(),
+    searchedAccount: vi.fn(),
+    notFoundHint: BaseCommand.prototype.notFoundHint,
+    withNotFoundHint: BaseCommand.prototype.withNotFoundHint,
     style: {
       outputFormat: undefined,
       shortSuccess: vi.fn(),
@@ -145,12 +148,14 @@ describe('checks delete command', () => {
       args: { id: check.id },
       flags: { 'force': true, 'dry-run': false },
     })
-    ctx.notFoundHint.mockReturnValue('Searched account "Acme" (acc-1).')
+    ctx.searchedAccount.mockReturnValue({ id: 'acc-1', name: 'Acme' })
 
     await ChecksDelete.prototype.run.call(ctx as any)
 
     expect(ctx.style.shortError).toHaveBeenCalledWith(
-      `Check "${check.id}" not found. It may have already been deleted. Searched account "Acme" (acc-1).`,
+      `Check "${check.id}" not found. It may have already been deleted. Searched account "Acme" (acc-1). `
+      + 'If it belongs to another of your accounts, run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; '
+      + '`npx checkly whoami` lists them.',
     )
   })
   it('sets exit code 1 when the delete fails', async () => {
