@@ -1,5 +1,4 @@
 import axios from 'axios'
-import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { fileURLToPath } from 'node:url'
 import { dirname, relative } from 'node:path'
@@ -8,8 +7,8 @@ import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
 import { InvalidConfigError } from '../services/config-diagnostics.js'
 import { findStaleSkills } from '../services/skills.js'
-import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
-import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
+import type { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
+import { detectNearestPackageJson } from '../services/check-parser/package-files/nearest-package-json.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -148,6 +147,7 @@ export abstract class BaseCommand extends Command {
     if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {
       try {
         const injections = JSON.parse(process.env.CHECKLY_E2E_PROMPTS_INJECTIONS)
+        const { default: prompts } = await import('prompts')
         prompts.inject(injections)
       } catch {
         process.stderr.write('Error parsing CHECKLY_E2E_PROMPTS_INJECTIONS environment variable for injections.')

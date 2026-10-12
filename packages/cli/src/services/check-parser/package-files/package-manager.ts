@@ -18,6 +18,12 @@ import {
   parseYarnLockfileVersion,
 } from './lockfile-package-version.js'
 
+export {
+  detectNearestPackageJson,
+  NoPackageJsonFoundError,
+  type DetectNearestPackageJsonOptions,
+} from './nearest-package-json.js'
+
 export class Runnable {
   executable: string
   args: string[]
@@ -1265,44 +1271,6 @@ export async function detectNearestConfigFiles (
   const configFiles = [...new Set(detectors.flatMap(detector => detector.representativeConfigFile ?? []))]
 
   throw new NoConfigFileFoundError(searchPaths, configFiles)
-}
-
-export class NoPackageJsonFoundError extends Error {
-  searchPaths: string[]
-
-  constructor (searchPaths: string[], options?: ErrorOptions) {
-    const message = `Unable to detect a package.json in any of the following paths:`
-      + `\n\n`
-      + `${searchPaths.map(searchPath => `  ${searchPath}`).join('\n')}`
-    super(message, options)
-    this.name = 'NoPackageJsonFoundError'
-    this.searchPaths = searchPaths
-  }
-}
-
-export interface DetectNearestPackageJsonOptions {
-  root?: string
-}
-
-export async function detectNearestPackageJson (
-  dir: string,
-  options?: DetectNearestPackageJsonOptions,
-): Promise<PackageJsonFile> {
-  const searchPaths: string[] = []
-
-  for (const searchPath of lineage(dir, { root: options?.root })) {
-    searchPaths.push(searchPath)
-
-    const packageJson = await PackageJsonFile.loadFromFilePath(
-      PackageJsonFile.filePath(searchPath),
-    )
-
-    if (packageJson) {
-      return packageJson
-    }
-  }
-
-  throw new NoPackageJsonFoundError(searchPaths)
 }
 
 export async function fauxWorkspaceFromPackageJson (

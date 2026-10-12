@@ -1,12 +1,10 @@
-import prompts from 'prompts'
 import { BaseCommand } from './baseCommand.js'
 import * as api from '../rest/api.js'
 import { Account } from '../rest/accounts.js'
-import { Session } from '../constructs/session.js'
+import { accountFeaturesState } from '../constructs/account-features-state.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import { canLogInInline, detectCliMode } from '../helpers/cli-mode.js'
 import config from '../services/config.js'
-import Login from './login.js'
 import type { Project } from '../constructs/project.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
 import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview.js'
@@ -45,6 +43,7 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
     command.logToStderr('No Checkly credentials found. Let\'s log in first.\n')
   }
 
+  const { default: Login } = await import('./login.js')
   const ok = await new Login([], command.config).login({ inline: true })
   if (!ok) {
     return command.exit(1)
@@ -74,7 +73,7 @@ export abstract class AuthCommand extends BaseCommand {
     this.#account = await api.validateAuthentication()
     // Constructs validate against account-specific limits and have no access to
     // the command instance.
-    Session.accountFeatures = this.#account?.features ?? []
+    accountFeaturesState.features = this.#account?.features ?? []
   }
 
   protected async validateProject (
@@ -142,6 +141,7 @@ export abstract class AuthCommand extends BaseCommand {
       const question = preview.question ?? 'Proceed?'
       const alternatives = preview.terminal?.alternatives ?? []
       if (alternatives.length === 0) {
+        const { default: prompts } = await import('prompts')
         const { confirm } = await prompts({ name: 'confirm', type: 'confirm', message: question })
         if (!confirm) {
           return this.exit(0)
@@ -157,6 +157,7 @@ export abstract class AuthCommand extends BaseCommand {
         ...alternatives.map((alternative, index) => ({ title: alternative.title, value: `alternative:${index}` })),
         { title: 'Cancel', value: 'cancel' },
       ]
+      const { default: prompts } = await import('prompts')
       const { action } = await prompts({
         name: 'action',
         type: 'select',

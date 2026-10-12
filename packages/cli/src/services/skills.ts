@@ -2,7 +2,6 @@ import chalk from 'chalk'
 import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join, dirname } from 'path'
-import prompts from 'prompts'
 import { fileURLToPath } from 'node:url'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -79,6 +78,7 @@ export async function promptForPlatformTarget (
 
   const promptOptions = onCancel ? { onCancel } : {}
 
+  const { default: prompts } = await import('prompts')
   const { platform } = await prompts({
     type: 'select',
     name: 'platform',
