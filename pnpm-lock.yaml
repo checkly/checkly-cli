@@ -47,9 +47,6 @@ importers:
       '@oclif/plugin-help':
         specifier: ^7.0.2
         version: 7.0.2
-      '@oclif/plugin-warn-if-update-available':
-        specifier: ^4.0.1
-        version: 4.0.1
       '@typescript-eslint/typescript-estree':
         specifier: ^8.71.0
         version: 8.71.0(typescript@6.0.3)
@@ -140,6 +137,9 @@ importers:
       recast:
         specifier: ^0.24.0
         version: 0.24.0
+      registry-auth-token:
+        specifier: ^5.1.1
+        version: 5.1.1
       semver:
         specifier: ^7.8.5
         version: 7.8.5
