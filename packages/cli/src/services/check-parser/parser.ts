@@ -4,8 +4,7 @@ import path from 'node:path'
 
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
-// Only import types given this is an optional dependency
-import type { TSESTree, AST_NODE_TYPES } from '@typescript-eslint/typescript-estree'
+import type { ParseResult, ParserOptions as OxcParserOptions } from 'oxc-parser'
 import Debug from 'debug'
 
 import { Collector } from './collector.js'
@@ -61,36 +60,95 @@ const supportedBuiltinModules = [
   'node:zlib',
 ]
 
-let tsParser: any
-function getTsParser (): any {
-  if (tsParser) {
-    return tsParser
-  }
+export type TsParse = (filePath: string, contents: string) => unknown
 
+// acorn-walk doesn't know the TypeScript and JSX node types. TS/JSX nodes are
+// skipped, so dependencies inside type positions or JSX aren't collected.
+// Auto-accessor class fields (`accessor x = ...`) have the same shape as
+// regular class fields, so their computed key and initializer are walked for
+// dependencies.
+const tsWalkBase = new Proxy(walk.base, {
+  get (base: any, type: string | symbol) {
+    if (typeof type === 'string' && !(type in base)) {
+      if (type === 'AccessorProperty') {
+        return base.PropertyDefinition
+      }
+      if (type.startsWith('TS') || type.startsWith('JSX')) {
+        return ignore
+      }
+    }
+    return base[type]
+  },
+})
+
+// foo.d.ts, foo.d.mts, foo.d.cts and foo.d.css.ts (allowArbitraryExtensions)
+const DECLARATION_FILE = /\.d\.([^.\\/]+\.)?[cm]?ts$/
+
+function lineColumn (contents: string, offset: number): string {
+  const before = contents.slice(0, offset)
+  const line = before.split('\n').length
+  const column = offset - before.lastIndexOf('\n')
+  return `${line}:${column}`
+}
+
+function oxcParse (parseSync: (filename: string, source: string, options?: OxcParserOptions) => ParseResult): TsParse {
+  return (filePath, contents) => {
+    const extension = path.extname(filePath)
+    const result = parseSync(filePath, contents, {
+      // Declaration files allow syntax that regular files don't. We must only
+      // enable jsx for tsx files. Otherwise type brackets may confuse the
+      // parser and cause an error.
+      lang: DECLARATION_FILE.test(filePath) ? 'dts' : extension === '.tsx' ? 'tsx' : 'ts',
+      sourceType: extension === '.cts' ? 'commonjs' : 'module',
+      astType: 'ts',
+    })
+    // oxc recovers from syntax errors and returns a partial AST. Treat any
+    // error as a failure so a broken file doesn't yield partial dependencies.
+    const [error] = result.errors
+    if (error) {
+      const offset = error.labels[0]?.start
+      throw new SyntaxError(offset === undefined ? error.message : `${error.message} (${lineColumn(contents, offset)})`)
+    }
+    return result.program
+  }
+}
+
+export function typescriptEstreeParse (): TsParse {
   try {
     const require = createRequire(import.meta.url)
-    tsParser = require('@typescript-eslint/typescript-estree')
-    const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
-    // Our custom configuration to handle walking errors
-
-    const base: any = walk.base
-    Object.values(AST_NODE_TYPES).forEach(astType => {
-      // Only handle the TS/JSX specific ones
-      if (astType.startsWith('TS') || astType.startsWith('JSX')) {
-        base[astType] = base[astType] ?? ignore
-      }
+    const tsParser = require('@typescript-eslint/typescript-estree')
+    return (filePath, contents) => tsParser.parse(contents, {
+      // We must only enable jsx for tsx/jsx files. Otherwise type brackets
+      // may confuse the parser and cause an error.
+      jsx: path.extname(filePath).endsWith('x'),
     })
-    // Auto-accessor class fields (`accessor x = ...`) have the same shape as
-    // regular class fields, so walk their computed key and initializer for
-    // dependencies.
-    base.AccessorProperty = base.AccessorProperty ?? base.PropertyDefinition
-    return tsParser
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
       throw new Error('Please install "typescript" to use TypeScript-code in check files', { cause: err })
     }
     throw err
   }
+}
+
+let tsParse: TsParse | undefined
+function getTsParse (): TsParse {
+  if (tsParse) {
+    return tsParse
+  }
+
+  try {
+    // oxc-parser is a native (Rust) parser. It's much faster than
+    // typescript-estree, doesn't depend on the user's TypeScript version, and
+    // works without TypeScript installed.
+    const require = createRequire(import.meta.url)
+    tsParse = oxcParse(require('oxc-parser').parseSync)
+  } catch (err) {
+    // Its native binding can be missing, e.g. when optional dependencies
+    // weren't installed or node_modules was copied from another platform.
+    debug(`Failed to load oxc-parser, falling back to typescript-estree: ${err}`)
+    tsParse = typescriptEstreeParse()
+  }
+  return tsParse
 }
 
 class RawDependencyCollector {
@@ -492,7 +550,7 @@ export class Parser {
     return collector.getItems()
   }
 
-  static parseDependencies (filePath: string, contents: string):
+  static parseDependencies (filePath: string, contents: string, tsParse?: TsParse):
   { module: Module, error?: any } {
     debug(`Parsing dependencies of ${filePath}`)
     const dependencies = new RawDependencyCollector()
@@ -508,16 +566,9 @@ export class Parser {
         })
         walk.simple(ast, Parser.jsNodeVisitor(dependencies))
       } else if (isTSExtension(extension)) {
-        const tsParser = getTsParser()
-        const ast = tsParser.parse(contents, {
-          // We must only enable jsx for tsx/jsx files. Otherwise type brackets
-          // may confuse the parser and cause an error.
-          jsx: extension.endsWith('x'),
-        })
-        // The AST from typescript-estree is slightly different from the type used by acorn-walk.
-        // This doesn't actually cause problems (both are "ESTree's"), but we need to ignore type errors here.
-        // @ts-ignore
-        walk.simple(ast, Parser.tsNodeVisitor(tsParser, dependencies))
+        const ast = (tsParse ?? getTsParse())(filePath, contents)
+        // The TypeScript AST is a superset of the ESTree acorn-walk expects.
+        walk.simple(ast as acorn.Node, Parser.tsNodeVisitor(dependencies), tsWalkBase)
       }
     } catch (err) {
       debug(`Failed to parse dependencies of ${filePath}: ${err}`)
@@ -561,7 +612,7 @@ export class Parser {
     }
   }
 
-  static tsNodeVisitor (tsParser: any, dependencies: RawDependencyCollector): any {
+  static tsNodeVisitor (dependencies: RawDependencyCollector): any {
     return {
       // While rare, TypeScript files may also use require.
       CallExpression (node: Node) {
@@ -569,22 +620,22 @@ export class Parser {
         const requireStringArg = Parser.getRequireStringArg(node)
         Parser.registerDependency(requireStringArg, 'require', dependencies)
       },
-      ImportDeclaration (node: TSESTree.ImportDeclaration) {
+      ImportDeclaration (node: any) {
       // For now, we only support literal strings in the import statement
-        if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
+        if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, 'import', dependencies)
       },
-      ExportNamedDeclaration (node: TSESTree.ExportNamedDeclaration) {
+      ExportNamedDeclaration (node: any) {
       // The statement isn't importing another dependency
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
-        if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
+        if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, 'import', dependencies)
       },
-      ExportAllDeclaration (node: TSESTree.ExportAllDeclaration) {
+      ExportAllDeclaration (node: any) {
         if (node.source === null) return
         // For now, we only support literal strings in the export statement
-        if (node.source.type !== tsParser.TSESTree.AST_NODE_TYPES.Literal) return
+        if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, 'import', dependencies)
       },
     }

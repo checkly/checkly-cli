@@ -6,13 +6,13 @@ class UninitializedJsonTextSourceFileParserState extends SourceFileParser {
 
   async #parser (): Promise<SourceFileParser> {
     try {
-      const typescriptExports = await import('typescript')
-      const { parseJsonText, convertToObject } = typescriptExports.default
+      // JSON5 accepts the comments and trailing commas that tsconfig.json and
+      // jsconfig.json files may contain. Unlike TypeScript's own JSON parser,
+      // it works regardless of the project's TypeScript version.
+      const { default: JSON5 } = await import('json5')
 
       const parser = new SourceFileParserFuncState(<T>(sourceFile: SourceFile) => {
-        const errors: any[] = []
-        const parsed = parseJsonText(sourceFile.meta.filePath, sourceFile.contents)
-        const object: T = convertToObject(parsed, errors)
+        const object: T = JSON5.parse(sourceFile.contents)
         return object
       })
 

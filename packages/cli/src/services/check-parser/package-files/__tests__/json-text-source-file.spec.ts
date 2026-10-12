@@ -39,13 +39,20 @@ describe('JsonTextSourceFile', () => {
       vi.doUnmock('typescript')
     })
 
-    it('should fail to load a JSON text file', async () => {
+    it('should still load a JSON text file', async () => {
       const sourceFile = new SourceFile(
         FileMeta.fromFilePath('foo.json'),
         jsonTextFixture,
       )
 
-      await expect(JsonTextSourceFile.loadFromSourceFile(sourceFile)).resolves.toBeUndefined()
+      await expect(JsonTextSourceFile.loadFromSourceFile(sourceFile)).resolves.toEqual(
+        expect.objectContaining({
+          data: {
+            'foo': 'bar',
+            'trailing-comma': 'yes',
+          },
+        }),
+      )
     })
 
     it('should successfully load a plain JSON file', async () => {
