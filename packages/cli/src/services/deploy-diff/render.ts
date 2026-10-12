@@ -388,7 +388,7 @@ function renderShown (
   const beforeRelations = relationResourcesFromBefore(type, entry.before)
   const beforeText = renderSide(deployed, beforeRelations, project, ids, maskedValues, variableNames, spelledOut)
   const afterText = renderSide(after, afterRelations, project, ids, maskedValues, variableNames, spelledOut)
-  const rendered = diffLines(beforeText, afterText, { maxLines })
+  const rendered = diffLines(beforeText, afterText, { maxLines, pairProperties: true })
   if (rendered === undefined) {
     return shown.length > 0 ? listing(shown, 'the construct diff is too large to show') : []
   }

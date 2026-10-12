@@ -60,9 +60,10 @@ describe('formatWriteBackUpdated', () => {
       '',
       '~ ApiCheck api  src/api.check.ts',
       '    new ApiCheck(\'api\', {',
+      // Each property's old line sits directly above its new one.
       '  -   frequency: Frequency.EVERY_5M,',
-      '  -   degradedResponseTime: 5000,',
       '  +   frequency: Frequency.EVERY_2M,',
+      '  -   degradedResponseTime: 5000,',
       '  +   degradedResponseTime: 3500,',
       '    })',
       '',

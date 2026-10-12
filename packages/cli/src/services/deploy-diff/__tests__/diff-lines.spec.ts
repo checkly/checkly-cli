@@ -190,4 +190,192 @@ describe('diffLines()', () => {
       '+y',
     ])
   })
+
+  describe('with pairProperties, for the source of an object literal', () => {
+    const construct = (lines: string[]) => ['new UrlMonitor(\'m\', {', '  name: \'Monitor\',', ...lines, '  request: {', '    url: \'https://example.com\',', '  },', '})'].join('\n') + '\n'
+
+    it('pairs each property\'s old lines with its new ones instead of stacking removals over additions', () => {
+      const before = construct([
+        '  tags: [',
+        '    \'workshop\',',
+        '  ],',
+        '  frequency: Frequency.EVERY_10M,',
+        '  alertChannels: [',
+        '    emailAlert,',
+        '    claudeRoutine,',
+        '  ],',
+      ])
+      const after = construct([
+        '  tags: [',
+        '    \'tier-1\',',
+        '  ],',
+        '  frequency: Frequency.EVERY_1M,',
+        '  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1, {',
+        '    amount: 3,',
+        '  }, {',
+        '    enabled: false,',
+        '  }),',
+      ])
+
+      expect(unifiedDiff(before, after, { pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        ' new UrlMonitor(\'m\', {',
+        '   name: \'Monitor\',',
+        '   tags: [',
+        // The items continue the `tags` opened above the changed run, so they
+        // pair with each other, and the `],` both sides keep is context again.
+        '-    \'workshop\',',
+        '+    \'tier-1\',',
+        '   ],',
+        '-  frequency: Frequency.EVERY_10M,',
+        '+  frequency: Frequency.EVERY_1M,',
+        // A property only one side has stands alone, in the order of its side.
+        '-  alertChannels: [',
+        '-    emailAlert,',
+        '-    claudeRoutine,',
+        '-  ],',
+        '+  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1, {',
+        '+    amount: 3,',
+        '+  }, {',
+        '+    enabled: false,',
+        '+  }),',
+        '   request: {',
+        '     url: \'https://example.com\',',
+        '   },',
+      ])
+    })
+
+    it('does not align the two sides on a line of only brackets', () => {
+      // Without this, the `],` closing the old `tags` would match the `],`
+      // closing the new one, and `frequency` would be removed above the new
+      // tag and added below it.
+      const before = construct(['  tags: [', '    \'a\',', '  ],', '  frequency: Frequency.EVERY_10M,'])
+      const after = construct(['  tags: [', '    \'b\',', '  ],', '  frequency: Frequency.EVERY_1M,'])
+
+      expect(unifiedDiff(before, after, { context: 0, pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        '-    \'a\',',
+        '+    \'b\',',
+        '@@',
+        '-  frequency: Frequency.EVERY_10M,',
+        '+  frequency: Frequency.EVERY_1M,',
+      ])
+    })
+
+    it('keeps an added property where its side puts it', () => {
+      const before = construct(['  frequency: Frequency.EVERY_10M,'])
+      const after = construct(['  activated: false,', '  frequency: Frequency.EVERY_1M,', '  muted: true,'])
+
+      expect(unifiedDiff(before, after, { context: 0, pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        '+  activated: false,',
+        '-  frequency: Frequency.EVERY_10M,',
+        '+  frequency: Frequency.EVERY_1M,',
+        '+  muted: true,',
+      ])
+    })
+
+    it('pairs the properties of a nested object in turn', () => {
+      const before = construct(['  options: {', '    method: \'GET\',', '    headers: {', '      a: 1,', '    },', '  },'])
+      const after = construct(['  options: {', '    method: \'POST\',', '    headers: {', '      a: 2,', '    },', '  },'])
+
+      expect(unifiedDiff(before, after, { context: 0, pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        '-    method: \'GET\',',
+        '+    method: \'POST\',',
+        '@@',
+        '-      a: 1,',
+        '+      a: 2,',
+      ])
+    })
+
+    it('does not keep a closing bracket as context when it ends different properties on the two sides', () => {
+      // Both texts end `],` then `})`; the `],` closes `tags` on one side and
+      // `locations` on the other, so it belongs to those properties, while
+      // the `})` closes the construct on both and stays context.
+      const before = 'new A({\n  name: 1,\n  tags: [\n    2,\n  ],\n})\n'
+      const after = 'new A({\n  name: 9,\n  tags: [3],\n  locations: [\n    4,\n  ],\n})\n'
+
+      expect(unifiedDiff(before, after, { pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        ' new A({',
+        '-  name: 1,',
+        '+  name: 9,',
+        '-  tags: [',
+        '-    2,',
+        '-  ],',
+        '+  tags: [3],',
+        '+  locations: [',
+        '+    4,',
+        '+  ],',
+        ' })',
+      ])
+    })
+
+    it('keeps every line of both sides, in each side\'s order, when the sides list the keys differently', () => {
+      // A key the two sides place differently is not pulled out of order to
+      // make a pair; what cannot be paired in order is shown unpaired.
+      const before = '{\n  a: 1,\n  b: 1,\n}\n'
+      const after = '{\n  b: 2,\n  c: 2,\n  a: 2,\n  d: 2,\n}\n'
+
+      expect(unifiedDiff(before, after, { pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        ' {',
+        '+  b: 2,',
+        '+  c: 2,',
+        '-  a: 1,',
+        '+  a: 2,',
+        '-  b: 1,',
+        '+  d: 2,',
+        ' }',
+      ])
+    })
+
+    it('shows a property with nothing in common as its old lines then its new ones', () => {
+      const before = construct(['  retryStrategy: RetryStrategyBuilder.fixedStrategy({', '    maxRetries: 2,', '  }),'])
+      const after = construct(['  retryStrategy: RetryStrategyBuilder.noRetries(),'])
+
+      expect(unifiedDiff(before, after, { context: 0, pairProperties: true })).toEqual([
+        '--- deployed',
+        '+++ local',
+        '@@',
+        '-  retryStrategy: RetryStrategyBuilder.fixedStrategy({',
+        '-    maxRetries: 2,',
+        '-  }),',
+        '+  retryStrategy: RetryStrategyBuilder.noRetries(),',
+      ])
+    })
+  })
+
+  it('leaves a plain text alone without pairProperties, aligning on blank lines and braces as before', () => {
+    // A script is not an object literal: a block that moves past a blank
+    // line or a closing brace is still shown as the move it is.
+    const before = 'first()\n}\n\n}\nsecond()\n'
+    const after = 'second()\n}\n\n}\nfirst()\n'
+
+    expect(unifiedDiff(before, after)).toEqual([
+      '--- deployed',
+      '+++ local',
+      '@@',
+      '-first()',
+      '+second()',
+      ' }',
+      ' ',
+      ' }',
+      '-second()',
+      '+first()',
+    ])
+  })
 })
