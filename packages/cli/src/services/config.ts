@@ -1,19 +1,14 @@
-import { createRequire } from 'node:module'
+import { ConfigStore, type ConfigStoreSchema } from './config-store.js'
 
-import type Conf from 'conf'
+type DataStore = { accountId: unknown, accountName: unknown }
+type AuthStore = { apiKey: unknown, pendingDeviceAuthorization: unknown }
 
-// conf (and ajv, which it uses for schema validation) is only loaded when the
-// config store is actually read, which isn't needed when credentials come
-// from environment variables.
-const require = createRequire(import.meta.url)
-const loadConf = (): typeof Conf => (require('conf') as { default: typeof Conf }).default
-
-const dataSchema = {
+const dataSchema: ConfigStoreSchema<DataStore> = {
   accountId: { type: 'string' },
   accountName: { type: 'string' },
 }
 
-const authSchema = {
+const authSchema: ConfigStoreSchema<AuthStore> = {
   apiKey: { type: 'string' },
   // A device code an agent-mode login handed to the user and has not
   // collected yet; see `checkly login`.
@@ -31,29 +26,27 @@ enum Env {
 }
 
 class ChecklyConfig {
-  private _auth?: Conf<{ apiKey: unknown, pendingDeviceAuthorization: unknown }>
-  private _data?: Conf<{ accountId: unknown, accountName: unknown }>
+  private _auth?: ConfigStore<AuthStore>
+  private _data?: ConfigStore<DataStore>
 
-  // Accessing auth or data will cause a config file to be created.
-  // We should avoid doing this unless absolutely necessary, since this operation can fail due to file permissions.
+  // Writing to auth or data creates the config file. Avoid writing unless
+  // necessary, since this operation can fail due to file permissions.
   get auth () {
     // Create this._auth lazily
-    return this._auth ?? (this._auth = new (loadConf())({
+    return this._auth ?? (this._auth = new ConfigStore({
       projectName: '@checkly/cli',
       configName: 'auth',
       projectSuffix,
-      // @ts-ignore
       schema: authSchema,
     }))
   }
 
   get data () {
     // Create this._data lazily
-    return this._data ?? (this._data = new (loadConf())({
+    return this._data ?? (this._data = new ConfigStore({
       projectName: '@checkly/cli',
       configName: 'config',
       projectSuffix,
-      // @ts-ignore
       schema: dataSchema,
     }))
   }
@@ -75,11 +68,11 @@ class ChecklyConfig {
   }
 
   getApiKey (): string {
-    return process.env.CHECKLY_API_KEY || this.auth.get<string>('apiKey') as string || ''
+    return process.env.CHECKLY_API_KEY || this.auth.get('apiKey') as string || ''
   }
 
   getAccountId (): string {
-    return process.env.CHECKLY_ACCOUNT_ID || this.data.get<string>('accountId') as string || ''
+    return process.env.CHECKLY_ACCOUNT_ID || this.data.get('accountId') as string || ''
   }
 
   hasEnvVarsConfigured (): boolean {
