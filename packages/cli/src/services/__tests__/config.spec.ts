@@ -1,16 +1,17 @@
-import Conf from 'conf'
+import fs from 'node:fs'
 import { describe, it, expect, vi } from 'vitest'
 
 import config from '../config.js'
-vi.mock('conf')
 
 describe('config', () => {
   it('should avoid reading config file if environment variables are set', () => {
+    const readFileSync = vi.spyOn(fs, 'readFileSync')
     process.env.CHECKLY_API_KEY = 'test-api-key'
     const apiKey = config.getApiKey()
     expect(apiKey).toEqual(process.env.CHECKLY_API_KEY)
-    expect(Conf).toHaveBeenCalledTimes(0)
+    expect(readFileSync).not.toHaveBeenCalled()
     delete process.env.CHECKLY_API_KEY
+    readFileSync.mockRestore()
   })
 
   it('should let CHECKLY_MQTT_URL override the events endpoint in the local environment', () => {
