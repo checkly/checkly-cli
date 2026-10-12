@@ -57,16 +57,12 @@
       "version"
     ],
     "plugins": [
-      "@oclif/plugin-help",
-      "@oclif/plugin-warn-if-update-available"
+      "@oclif/plugin-help"
     ],
     "hooks": {
       "command_not_found": "./dist/hooks/command-not-found",
-      "finally": "./dist/hooks/parse-error"
-    },
-    "warn-if-update-available": {
-      "timeoutInDays": 30,
-      "message": "<%= config.name %> update available from <%= chalk.greenBright(config.version) %> to <%= chalk.greenBright(latest) %>. To update, run `npm install -D checkly@latest`"
+      "finally": "./dist/hooks/parse-error",
+      "init": "./dist/hooks/update-check"
     },
     "topics": {
       "account": {
@@ -115,7 +111,6 @@
   "dependencies": {
     "@oclif/core": "^5.1.2",
     "@oclif/plugin-help": "^7.0.2",
-    "@oclif/plugin-warn-if-update-available": "^4.0.1",
     "@typescript-eslint/typescript-estree": "^8.71.0",
     "acorn": "^8.18.0",
     "acorn-walk": "^8.3.5",
@@ -146,6 +141,7 @@
     "prompts": "^2.4.2",
     "proxy-from-env": "^2.1.0",
     "recast": "^0.24.0",
+    "registry-auth-token": "^5.1.1",
     "semver": "^7.8.5",
     "socks-proxy-agent": "^10.1.0",
     "string-width": "^8.3.0",
