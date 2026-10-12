@@ -4,12 +4,19 @@ vi.mock('../../rest/api', () => ({
   accounts: { getAll: vi.fn() },
   user: { get: vi.fn() },
 }))
-vi.mock('../../services/config', () => ({
-  default: {
-    getCredentialSource: vi.fn(),
-    data: { store: {} as Record<string, unknown> },
-  },
-}))
+vi.mock('../../services/config', () => {
+  const data = { store: {} as Record<string, unknown> }
+  return {
+    default: {
+      getCredentialSource: vi.fn(),
+      getAccountId: vi.fn(() => 'acc-1'),
+      getStoredAccount: vi.fn(() => data.store.accountId
+        ? { id: data.store.accountId, name: data.store.accountName ?? data.store.accountId }
+        : undefined),
+      data,
+    },
+  }
+})
 
 import * as api from '../../rest/api.js'
 import config from '../../services/config.js'
@@ -49,7 +56,7 @@ describe('checkly whoami', () => {
     await cmd.run()
 
     expect(output(cmd)).toContain('You are currently on account "Acme" (acc-1) as Ada Lovelace.')
-    expect(output(cmd)).toContain('Other accounts: "Globex" (acc-2), "Initech" (acc-3)')
+    expect(output(cmd)).toContain('Other accounts: Globex (acc-2), Initech (acc-3)')
   })
 
   it('lists no other accounts when there are none', async () => {
@@ -82,7 +89,7 @@ describe('checkly whoami', () => {
     const cmd = createCommand()
     await cmd.run()
 
-    expect(output(cmd)).toContain('Default account: "Acme" (acc-1)')
+    expect(output(cmd)).toContain('Default account: Acme (acc-1)')
   })
 
   it('says CHECKLY_ACCOUNT_ID picks the account until it is unset, naming the default', async () => {
@@ -93,7 +100,7 @@ describe('checkly whoami', () => {
 
     expect(output(cmd)).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-1" (on the command line, in your shell or in .env), '
       + 'so commands use that account instead of the default until it is unset.')
-    expect(output(cmd)).toContain('Default account: "Globex" (acc-2)')
+    expect(output(cmd)).toContain('Default account: Globex (acc-2)')
     expect(output(cmd)).not.toContain('resolved from your environment')
   })
 

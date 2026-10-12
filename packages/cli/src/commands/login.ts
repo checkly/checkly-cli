@@ -25,6 +25,7 @@ import {
 import { credentialsFromTokens, type Credentials } from '../auth/api-key.js'
 import { isPersonAtTerminal, detectCliMode, isEnvFlagSet, type CliMode } from '../helpers/cli-mode.js'
 import { activateAccount } from '../helpers/activate-account.js'
+import { accountOverrideNotAvailable, accountOverrideNotice, formatAccounts } from '../helpers/accounts.js'
 import commonMessages from '../messages/common-messages.js'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
@@ -40,11 +41,6 @@ export const selectAccount = async (
   }, { onCancel })
 
   return selectedAccount
-}
-
-/** Accounts as `Name (id), …`, for messages that list the choices. */
-export function formatAccounts (accounts: Array<{ id: string, name: string }>): string {
-  return accounts.map(({ id, name }) => `${name} (${id})`).join(', ')
 }
 
 /**
@@ -288,14 +284,15 @@ export default class Login extends BaseCommand {
     // stored key; it is not a request to log in again. The stored login is
     // what this command manages, so a `CHECKLY_ACCOUNT_ID` in the environment
     // does not count here.
-    const switchingAccount = config.hasStoredLogin()
+    const storedLogin = config.hasStoredLogin()
+    const switchingAccount = storedLogin
       && Boolean(options.accountId) && options.accountId !== config.getStoredAccountId()
 
     try {
       // A stored login is only kept as it is while it still works. Dropping an
       // unusable account sends the flow below into the stored-key resume path:
       // account selection with a working key, a new login otherwise.
-      if (config.hasStoredLogin() && !switchingAccount) {
+      if (storedLogin && !switchingAccount) {
         const storedAccount = await this.#checkStoredAccount()
         if (storedAccount.usable && !await this.#wantsToReplaceLogin(storedAccount.name)) {
           return true
@@ -369,8 +366,7 @@ export default class Login extends BaseCommand {
             + '`npx checkly login --account-id <id>` to make it the default'
             + (this.#inline ? ' and run the original command again' : '')
             + ', or set `CHECKLY_ACCOUNT_ID=<id>` on a command to use the account for that command only. '
-            + 'To log in as someone else instead, run `npx checkly logout` first.'
-            + this.#overrideNotice(),
+            + 'To log in as someone else instead, run `npx checkly logout` first.',
           accounts,
           defaultCommand: 'npx checkly login --account-id <id>',
           command: this.#command,
@@ -388,7 +384,7 @@ export default class Login extends BaseCommand {
           reason: switched ? 'account_switched' : 'logged_in',
           message: (this.#notice ? `${this.#notice} ` : '') + (switched
             ? `Switched to account "${account.name}".`
-            : `Logged in as ${userName} to account "${account.name}".`) + this.#overrideNotice(),
+            : `Logged in as ${userName} to account "${account.name}".`) + this.#overrideSuffix(),
           user: userName,
           accountId: account.id,
           accountName: account.name,
@@ -435,9 +431,7 @@ export default class Login extends BaseCommand {
     const accountId = config.getAccountId()
     const account = accounts.find(({ id }) => id === accountId)
     if (!account) {
-      throw new LoginError('account_not_found', `\`CHECKLY_ACCOUNT_ID\` is "${accountId}", which is not one of this `
-        + `user's accounts. Available: ${formatAccounts(accounts)}. Fix \`CHECKLY_ACCOUNT_ID\` where it is set `
-        + '(the command line, your shell or .env).')
+      throw new LoginError('account_not_found', accountOverrideNotAvailable(accountId, accounts))
     }
     const message = `Logged in as ${userName}. Commands use account "${account.name}" from \`CHECKLY_ACCOUNT_ID\` `
       + 'while it is set; no default account is stored (`npx checkly login --account-id <id>` stores one).'
@@ -456,20 +450,16 @@ export default class Login extends BaseCommand {
     return true
   }
 
-  /**
-   * ` <notice>` when `CHECKLY_ACCOUNT_ID` overrides the default account this
-   * command manages, for agent lines; empty otherwise.
-   */
-  #overrideNotice (): string {
-    return config.getCredentialSource() === 'account_override'
-      ? ` ${commonMessages.accountOverride(config.getAccountId())}`
-      : ''
+  /** ` <notice>` for agent lines when `CHECKLY_ACCOUNT_ID` overrides the default this command manages. */
+  #overrideSuffix (): string {
+    const notice = accountOverrideNotice()
+    return notice ? ` ${notice}` : ''
   }
 
   #printOverrideNotice (): void {
-    const notice = this.#overrideNotice()
+    const notice = accountOverrideNotice()
     if (notice) {
-      this.#print(chalk.yellow(notice.trim()))
+      this.#print(chalk.yellow(notice))
     }
   }
 
@@ -524,7 +514,7 @@ export default class Login extends BaseCommand {
         this.#print(JSON.stringify({
           status: 'success',
           reason: 'already_logged_in',
-          message: `Already logged in to account "${accountName}".` + this.#overrideNotice(),
+          message: `Already logged in to account "${accountName}".` + this.#overrideSuffix(),
           accountId,
           accountName,
         }))
@@ -747,15 +737,22 @@ export default class Login extends BaseCommand {
   async #pendingCodeFailed (error: unknown, pending: DeviceAuthorization): Promise<'stored'> {
     this.#forgetPendingAuthorization(pending)
     if (error instanceof DeviceFlowError) {
-      const deadline = Date.now() + (error.code === 'invalid_grant' ? KEY_EXCHANGE_GRACE_MS : 0)
-      while (!config.getApiKey() && Date.now() < deadline) {
-        await new Promise(resolve => setTimeout(resolve, KEY_EXCHANGE_POLL_MS))
+      if (error.code === 'invalid_grant') {
+        await this.#waitForStoredKey()
       }
       if (config.getApiKey()) {
         return 'stored'
       }
     }
     throw error
+  }
+
+  /** Waits a little for the key of a run that used the same code and is still exchanging it. */
+  async #waitForStoredKey (): Promise<void> {
+    const deadline = Date.now() + KEY_EXCHANGE_GRACE_MS
+    while (!config.getApiKey() && Date.now() < deadline) {
+      await new Promise(resolve => setTimeout(resolve, KEY_EXCHANGE_POLL_MS))
+    }
   }
 
   /**

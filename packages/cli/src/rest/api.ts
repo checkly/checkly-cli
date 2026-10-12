@@ -35,6 +35,7 @@ import Usage from './usage.js'
 import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
 import { detectOperator } from '../helpers/cli-mode.js'
+import { accountOverrideNotAvailable } from '../helpers/accounts.js'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -88,27 +89,15 @@ export async function validateAuthentication (
   } catch (err: any) {
     // API key credentials have to be fixed where they are set; a login can
     // be renewed by logging in again.
-    if (source === 'environment' || !suggestLogin) {
-      if (err instanceof UnauthorizedError) {
-        throw new Error(`Authentication failed with account id "${accountId}" `
-          + `and API key "...${apiKey.slice(-4)}".`, { cause: err })
-      }
-      throw err
-    }
+    const relogin = suggestLogin && source !== 'environment'
     if (err instanceof UnauthorizedError) {
-      throw new Error(`Authentication failed with account id "${accountId}" `
-        + `and API key "...${apiKey.slice(-4)}". Run \`npx checkly login\` to log in again.`, { cause: err })
+      throw new Error(`Authentication failed with account id "${accountId}" and API key "...${apiKey.slice(-4)}".`
+        + (relogin ? ' Run `npx checkly login` to log in again.' : ''), { cause: err })
     }
-    if (err instanceof ForbiddenError || err instanceof NotFoundError) {
+    if (relogin && (err instanceof ForbiddenError || err instanceof NotFoundError)) {
       if (source === 'account_override') {
-        // Most likely a typo or an account of someone else: list the ones
-        // the login does work with, so the next step needs no lookup.
-        const available = await accounts.getAll()
-          .then(({ data }) => ` This login works with: ${data.map(({ id, name }) => `${name} (${id})`).join(', ')}.`)
-          .catch(() => '')
-        throw new Error(`Account "${accountId}" from \`CHECKLY_ACCOUNT_ID\` is not available with your login.`
-          + `${available} Fix \`CHECKLY_ACCOUNT_ID\` where it is set (the command line, your shell or .env).`,
-        { cause: err })
+        const available = await accounts.getAll().then(({ data }) => data, () => undefined)
+        throw new Error(accountOverrideNotAvailable(accountId, available), { cause: err })
       }
       throw new Error(`Account "${accountId}" is not available with the stored login. `
         + 'Run `npx checkly login` to log in again.', { cause: err })

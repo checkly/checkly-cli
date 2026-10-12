@@ -81,6 +81,12 @@ class ChecklyConfig {
     return this.data.get<string>('accountId') as string || ''
   }
 
+  /** The stored default account with its name (the id when the name is missing), if there is one. */
+  getStoredAccount (): { id: string, name: string } | undefined {
+    const { accountId, accountName } = this.data.store as { accountId?: string, accountName?: string }
+    return accountId ? { id: accountId, name: accountName || accountId } : undefined
+  }
+
   /** Whether `checkly login` stored both a key and a default account. */
   hasStoredLogin (): boolean {
     return Boolean(this.auth.get<string>('apiKey')) && this.getStoredAccountId() !== ''

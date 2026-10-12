@@ -1495,8 +1495,9 @@ describe('checkly login', () => {
 
       const line = JSON.parse(String(vi.mocked(cmd.logToStderr).mock.calls.at(-1)![0]))
       expect(line).toMatchObject({ status: 'error', reason: 'account_not_found' })
-      expect(line.message).toContain('`CHECKLY_ACCOUNT_ID` is "acc-typo"')
-      expect(line.message).toContain('Available: Acme (acc-1), Globex (acc-2)')
+      expect(line.message).toBe('Account "acc-typo" from `CHECKLY_ACCOUNT_ID` is not available with your login. '
+        + 'This login works with: Acme (acc-1), Globex (acc-2). '
+        + 'Fix `CHECKLY_ACCOUNT_ID` where it is set (the command line, your shell or .env).')
     })
 
     it('reports the stored login, not the variable, and says the variable takes precedence', async () => {

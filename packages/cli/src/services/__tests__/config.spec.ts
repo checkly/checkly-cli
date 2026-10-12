@@ -33,6 +33,25 @@ describe('config', () => {
     delete process.env.CHECKLY_ENV
   })
 
+  describe('getStoredAccount', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('returns the stored default with its name, falling back to the id', () => {
+      vi.spyOn(config, 'data', 'get').mockReturnValue({ store: { accountId: 'acc-1', accountName: 'Acme' } } as any)
+      expect(config.getStoredAccount()).toEqual({ id: 'acc-1', name: 'Acme' })
+
+      vi.spyOn(config, 'data', 'get').mockReturnValue({ store: { accountId: 'acc-1' } } as any)
+      expect(config.getStoredAccount()).toEqual({ id: 'acc-1', name: 'acc-1' })
+    })
+
+    it('returns nothing without a stored default', () => {
+      vi.spyOn(config, 'data', 'get').mockReturnValue({ store: {} } as any)
+      expect(config.getStoredAccount()).toBeUndefined()
+    })
+  })
+
   describe('getCredentialSource', () => {
     function withStoredKey (apiKey: string | undefined) {
       return vi.spyOn(config, 'auth', 'get').mockReturnValue({ get: () => apiKey } as any)

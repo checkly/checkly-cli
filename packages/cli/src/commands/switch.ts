@@ -2,10 +2,10 @@ import chalk from 'chalk'
 import { Flags } from '@oclif/core'
 import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
-import { formatAccounts, selectAccount, selectAccountLine } from './login.js'
+import { selectAccount, selectAccountLine } from './login.js'
+import { accountOverrideNotice, formatAccounts } from '../helpers/accounts.js'
 import { activateAccount } from '../helpers/activate-account.js'
 import config from '../services/config.js'
-import commonMessages from '../messages/common-messages.js'
 import { detectCliMode, isPersonAtTerminal, type CliMode } from '../helpers/cli-mode.js'
 import type { Account } from '../rest/accounts.js'
 
@@ -81,8 +81,9 @@ export default class Switch extends AuthCommand {
 
   /** A new default does not apply while `CHECKLY_ACCOUNT_ID` picks the account; say so. */
   private warnAboutOverride (): void {
-    if (config.getCredentialSource() === 'account_override') {
-      this.warn(commonMessages.accountOverride(config.getAccountId()))
+    const notice = accountOverrideNotice()
+    if (notice) {
+      this.warn(notice)
     }
   }
 
@@ -96,15 +97,13 @@ export default class Switch extends AuthCommand {
     if (mode === 'agent') {
       // The stored default, not `this.account`: a `CHECKLY_ACCOUNT_ID` in the
       // environment picks the account in use without changing the default.
-      const { accountId, accountName } = config.data.store as { accountId?: string, accountName?: string }
-      const defaultAccount = accountId ? { id: accountId, name: accountName ?? accountId } : null
+      const defaultAccount = config.getStoredAccount() ?? null
+      const notice = accountOverrideNotice()
       this.log(selectAccountLine({
         message: (defaultAccount ? `The default account is "${defaultAccount.name}". ` : 'No default account is set. ')
           + 'Ask the user which account to switch to, then run `npx checkly switch --account-id <id>` to make it '
           + 'the default, or set `CHECKLY_ACCOUNT_ID=<id>` on a command to use the account for that command only.'
-          + (config.getCredentialSource() === 'account_override'
-            ? ` ${commonMessages.accountOverride(config.getAccountId())}`
-            : ''),
+          + (notice ? ` ${notice}` : ''),
         accounts,
         defaultCommand: 'npx checkly switch --account-id <id>',
         extra: { defaultAccount },

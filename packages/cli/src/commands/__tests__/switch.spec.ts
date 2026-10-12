@@ -9,13 +9,19 @@ vi.mock('../../helpers/cli-mode', () => ({
   detectCliMode: vi.fn(() => 'interactive'),
   isPersonAtTerminal: vi.fn(() => true),
 }))
-vi.mock('../../services/config', () => ({
-  default: {
-    data: { store: {} as Record<string, unknown> },
-    getCredentialSource: vi.fn(() => 'login'),
-    getAccountId: vi.fn(),
-  },
-}))
+vi.mock('../../services/config', () => {
+  const data = { store: {} as Record<string, unknown> }
+  return {
+    default: {
+      data,
+      getCredentialSource: vi.fn(() => 'login'),
+      getAccountId: vi.fn(),
+      getStoredAccount: vi.fn(() => data.store.accountId
+        ? { id: data.store.accountId, name: data.store.accountName ?? data.store.accountId }
+        : undefined),
+    },
+  }
+})
 
 import prompts from 'prompts'
 import * as api from '../../rest/api.js'
