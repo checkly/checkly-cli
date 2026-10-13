@@ -349,6 +349,48 @@ describe('deploy confirmation flow', () => {
     expect(storeBundle).not.toHaveBeenCalled()
   })
 
+  describe('deletion of resources removed from code', () => {
+    const DELETE_LINE = 'Delete any resources removed from code, losing their run history. '
+      + 'Pass --preserve-resources to keep them in your Checkly account instead'
+
+    async function changesOf (ctx: ReturnType<typeof createCommandContext>): Promise<string[]> {
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+      return JSON.parse(ctx.logged[ctx.logged.length - 1]).changes
+    }
+
+    it('is announced when the plan deletes a resource', async () => {
+      planResolves([CHANGED, DELETED])
+      expect(await changesOf(createCommandContext())).toContain(DELETE_LINE)
+    })
+
+    it('is not announced when the plan deletes nothing', async () => {
+      planResolves([CHANGED])
+      const changes = await changesOf(createCommandContext())
+      expect(changes).not.toContain(DELETE_LINE)
+      expect(changes).toContain('Update AlertChannel: ops')
+    })
+
+    it('is not announced for relations a pruning deploy deletes', async () => {
+      planResolves([CHANGED, {
+        type: 'alert-channel-subscription',
+        logicalId: 'sub',
+        action: 'DELETE',
+        origin: 'unmanaged',
+        foldedInto: { type: 'check', logicalId: 'chk' },
+      }])
+      expect(await changesOf(createCommandContext({ 'prune-relations': true }))).not.toContain(DELETE_LINE)
+    })
+
+    it('follows what the dry run found when there is no plan', async () => {
+      vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPreviewNotSupportedError())
+      vi.mocked(api.projects.deploy).mockResolvedValueOnce({ data: { project: {} as any, diff: [] } })
+      expect(await changesOf(createCommandContext())).not.toContain(DELETE_LINE)
+
+      vi.mocked(api.projects.deploy).mockResolvedValueOnce({ data: { project: {} as any, diff: [DELETED] } })
+      expect(await changesOf(createCommandContext())).toContain(DELETE_LINE)
+    })
+  })
+
   it('leaves the resources\' full state out of the envelope', async () => {
     planResolves()
     const ctx = createCommandContext()
