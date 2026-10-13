@@ -93,7 +93,8 @@ export default class ChecklyHelpClass extends Help {
       `The CLI automatically loads variables from a .env file in the current directory.
   To disable, set CHECKLY_NO_DOTENV=1.
 
-  CHECKLY_ACCOUNT_ID    Checkly account ID.
+  CHECKLY_ACCOUNT_ID    Checkly account ID. On its own, picks the account for your
+                        \`checkly login\` instead of the default.
   CHECKLY_API_KEY       Checkly User API Key.
     `))
 
