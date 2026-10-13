@@ -3,6 +3,7 @@ import { ux } from '@oclif/core'
 
 import { BaseCommand } from '../commands/baseCommand.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
+import { NotFoundError } from '../rest/errors.js'
 import { wrap } from './wrap.js'
 import logSymbols from 'log-symbols'
 
@@ -92,13 +93,22 @@ export class CommandStyle {
   }
 
   longError (title: string, message: string | Error) {
+    const hint = message instanceof NotFoundError ? this.c.notFoundHint() : undefined
     if (this.outputFormat === 'json') {
-      this.c.log(JSON.stringify({ error: title, detail: this.#plainDescription(message) }))
+      // The searched account as data, so an agent need not parse the hint.
+      this.c.log(JSON.stringify({
+        error: title,
+        detail: this.#plainDescription(message),
+        ...hint && { hint, searchedAccount: this.c.searchedAccount() },
+      }))
       return
     }
     this.c.log(`${logSymbols.error} ${title}`)
     this.c.log()
     this.c.log(chalk.red(this.#formatDescription(message)))
+    if (hint) {
+      this.c.log(wrap(hint, textWrapOptions))
+    }
     this.c.log()
   }
 

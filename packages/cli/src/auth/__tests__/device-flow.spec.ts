@@ -323,13 +323,26 @@ describe('DeviceFlow', () => {
       expect(onUnexpectedAnswers).toHaveBeenCalledTimes(2)
     })
 
-    it('names the proxy answer when the code expires while they keep coming', async () => {
+    it('reports a network_error naming the proxy answer when the code expires while they keep coming', async () => {
       post.mockResolvedValue(proxyPage)
 
       const error = await flow.pollForTokens({ ...auth, expiresAt: now + 30_000 }).catch(e => e)
 
-      expect(error.code).toBe('expired_token')
+      expect(error.code).toBe('network_error')
       expect(error.message).toContain('HTTP 407')
+      expect(error.message).toContain('proxy or captive portal')
+    })
+
+    it('blames the expiry, not the connection, once the login server answered again', async () => {
+      for (const response of Array(5).fill(proxyPage)) {
+        post.mockResolvedValueOnce(response)
+      }
+      post.mockResolvedValue(pending)
+
+      const error = await flow.pollForTokens({ ...auth, expiresAt: now + 40_000 }).catch(e => e)
+
+      expect(error.code).toBe('expired_token')
+      expect(error.message).toBe('The login code expired before it was used. Please run the login again.')
     })
 
     it('counts only answers in a row', async () => {

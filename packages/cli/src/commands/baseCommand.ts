@@ -6,6 +6,7 @@ import { dirname, relative } from 'node:path'
 import { api } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
+import { NotFoundError } from '../rest/errors.js'
 import { InvalidConfigError } from '../services/config-diagnostics.js'
 import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
@@ -165,6 +166,27 @@ export abstract class BaseCommand extends Command {
     await this.exit(0)
   }
 
+  /**
+   * The account a lookup searched when the user may have others to search:
+   * set only by AuthCommand, and only for a `checkly login` key.
+   */
+  searchedAccount (): { id: string, name: string } | undefined {
+    return undefined
+  }
+
+  /** What to add to an API error saying a resource was not found, if anything. */
+  notFoundHint (): string | undefined {
+    const account = this.searchedAccount()
+    return account && `Searched account "${account.name}" (${account.id}). If it belongs to another of your `
+      + 'accounts, run the command again with `CHECKLY_ACCOUNT_ID=<id>` set; `npx checkly whoami` lists them.'
+  }
+
+  /** `message` followed by the not-found hint, for commands with their own not-found message. */
+  withNotFoundHint (message: string): string {
+    const hint = this.notFoundHint()
+    return hint ? `${message} ${hint}` : message
+  }
+
   protected catch (err: Error & { exitCode?: number }): Promise<any> {
     if (err instanceof InvalidConfigError) {
       // Stops the spinner if one is running (e.g. `validate` starts one
@@ -173,6 +195,9 @@ export abstract class BaseCommand extends Command {
       this.style.diagnostics(err.diagnostics)
       this.style.shortError(`Your Checkly configuration file is not valid.`)
       return this.exit(1)
+    }
+    if (err instanceof NotFoundError) {
+      err.message = this.withNotFoundHint(err.message)
     }
     // TODO: we can add Sentry here and log critical errors.
     return super.catch(err)

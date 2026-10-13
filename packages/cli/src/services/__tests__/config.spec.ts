@@ -1,5 +1,5 @@
 import Conf from 'conf'
-import { describe, it, expect, vi } from 'vitest'
+import { afterEach, describe, it, expect, vi } from 'vitest'
 
 import config from '../config.js'
 vi.mock('conf')
@@ -31,5 +31,67 @@ describe('config', () => {
     delete process.env.CHECKLY_AUTH_URL
     expect(config.getAuthUrl()).toEqual('https://auth.checklyhq.com')
     delete process.env.CHECKLY_ENV
+  })
+
+  describe('getStoredAccount', () => {
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    function withStore (store: Record<string, string>) {
+      vi.spyOn(config, 'data', 'get').mockReturnValue({ get: (key: string) => store[key] } as any)
+    }
+
+    it('returns the stored default with its name, falling back to the id', () => {
+      withStore({ accountId: 'acc-1', accountName: 'Acme' })
+      expect(config.getStoredAccount()).toEqual({ id: 'acc-1', name: 'Acme' })
+
+      withStore({ accountId: 'acc-1' })
+      expect(config.getStoredAccount()).toEqual({ id: 'acc-1', name: 'acc-1' })
+    })
+
+    it('returns nothing without a stored default', () => {
+      withStore({})
+      expect(config.getStoredAccount()).toBeUndefined()
+    })
+  })
+
+  describe('getCredentialSource', () => {
+    function withStoredKey (apiKey: string | undefined) {
+      return vi.spyOn(config, 'auth', 'get').mockReturnValue({ get: () => apiKey } as any)
+    }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.restoreAllMocks()
+    })
+
+    it('is account_override when only CHECKLY_ACCOUNT_ID is set, with or without a stored login', () => {
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      withStoredKey('cak_login')
+      expect(config.getCredentialSource()).toBe('account_override')
+
+      // The login comes next; the variable then picks its account.
+      withStoredKey(undefined)
+      expect(config.getCredentialSource()).toBe('account_override')
+    })
+
+    it('is environment whenever CHECKLY_API_KEY is set', () => {
+      withStoredKey('cak_login')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      expect(config.getCredentialSource()).toBe('environment')
+
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', '')
+      expect(config.getCredentialSource()).toBe('environment')
+    })
+
+    it('is login without credentials in the environment', () => {
+      withStoredKey('cak_login')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', '')
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      expect(config.getCredentialSource()).toBe('login')
+    })
   })
 })

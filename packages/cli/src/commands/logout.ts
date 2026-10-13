@@ -47,7 +47,7 @@ export default class Logout extends BaseCommand {
     config.clear()
     this.log('See you soon! 👋')
 
-    if (config.hasEnvVarsConfigured()) {
+    if (config.getCredentialSource() === 'environment') {
       this.warn(`${commonMessages.envCredentialsConfigured} You are still authenticated through them until you remove them.`)
     }
   }

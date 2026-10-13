@@ -185,7 +185,8 @@ export class DeviceFlow {
    * coming from something other than the login server (a proxy or captive
    * portal), `onUnexpectedAnswers` is called once per such run with the latest one, and
    * polling goes on: the user may still be getting past a captive portal,
-   * and the code stays valid.
+   * and the code stays valid. If the code expires during such a run, the
+   * error is a `network_error` rather than `expired_token`.
    */
   async pollForTokens (
     auth: DeviceAuthorization,
@@ -213,7 +214,13 @@ export class DeviceFlow {
     }
 
     // A code the user approved can still expire here when the login server
-    // was unreachable at the end; say so rather than blaming the user.
+    // was unreachable at the end; say so rather than blaming the user. While
+    // something else kept answering for it, the connection is the problem.
+    if (unexpectedInARow >= MAX_UNEXPECTED_RESPONSES) {
+      throw new DeviceFlowError('network_error', 'The login code expired while the answers to the login server '
+        + `kept coming from something else (${lastFailure}); a proxy or captive portal may be in the way. `
+        + 'Fix the connection and run the login again.')
+    }
     throw new DeviceFlowError('expired_token', lastFailure
       ? `The login code expired; the last attempt to reach the login server failed (${lastFailure}). `
       + 'Please run the login again.'
