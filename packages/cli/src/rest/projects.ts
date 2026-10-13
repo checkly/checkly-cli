@@ -499,13 +499,24 @@ export class InvalidImportPlanStateError extends Error {
 // large predecessor deploy or delete can legitimately run for many minutes.
 const DEPLOY_CONFLICT_WAIT_DEADLINE_MS = 30 * 60_000
 
-// A preview conflicts only while something else holds the project, which is
-// measured in seconds, so it is retried a few times rather than waited out
-// like a deploy's predecessor. The cap keeps a server asking for an
-// unreasonable wait from stalling the command instead of failing it.
-const PREVIEW_CONFLICT_ATTEMPTS = 3
-const PREVIEW_RETRY_AFTER_DEFAULT_MS = 2_000
-const PREVIEW_RETRY_AFTER_MAX_MS = 10_000
+// A preview, or a dry-run deploy, conflicts only while something else holds
+// the project, which is measured in seconds, so it is retried a few times
+// rather than waited out like a deploy's predecessor. The cap keeps a server
+// asking for an unreasonable wait from stalling the command instead of
+// failing it.
+const BUSY_PROJECT_ATTEMPTS = 3
+const BUSY_PROJECT_RETRY_AFTER_DEFAULT_MS = 2_000
+const BUSY_PROJECT_RETRY_AFTER_MAX_MS = 10_000
+const BUSY_PROJECT_STATUS = 'Another operation is holding the project, retrying...'
+
+/** Waits as long as a busy-project 409 asked, within the cap. */
+function waitOutBusyProject (err: ConflictError): Promise<void> {
+  const retryAfterMs = Math.min(
+    parseRetryAfter(err.data.retryAfter) ?? BUSY_PROJECT_RETRY_AFTER_DEFAULT_MS,
+    BUSY_PROJECT_RETRY_AFTER_MAX_MS,
+  )
+  return new Promise(resolve => setTimeout(resolve, retryAfterMs))
+}
 
 class Projects {
   api: AxiosInstance
@@ -687,15 +698,11 @@ class Projects {
         if (!(err instanceof ConflictError)) {
           throw err
         }
-        if (attempt >= PREVIEW_CONFLICT_ATTEMPTS) {
+        if (attempt >= BUSY_PROJECT_ATTEMPTS) {
           throw new ProjectPreviewUnavailableError(err.data.message, { cause: err })
         }
-        const retryAfterMs = Math.min(
-          parseRetryAfter(err.data.retryAfter) ?? PREVIEW_RETRY_AFTER_DEFAULT_MS,
-          PREVIEW_RETRY_AFTER_MAX_MS,
-        )
-        onStatus?.('Another operation is holding the project, retrying...')
-        await new Promise(resolve => setTimeout(resolve, retryAfterMs))
+        onStatus?.(BUSY_PROJECT_STATUS)
+        await waitOutBusyProject(err)
       }
     }
   }
@@ -780,8 +787,13 @@ class Projects {
     // final state, so we re-POST the (potentially large) payload exactly once per
     // predecessor — never while it is still running. Bound by an overall deadline
     // so a stuck predecessor can't make us wait forever.
+    //
+    // A dry run never waits on a predecessor: it reads the project without
+    // locking it. Its 409 names no deployment and means only that something
+    // holds the project for a moment, such as a migration, so it is retried
+    // a few times like a preview.
     const deadlineAt = Date.now() + DEPLOY_CONFLICT_WAIT_DEADLINE_MS
-    for (;;) {
+    for (let busyAttempt = 1; ; busyAttempt++) {
       try {
         return await this.submitDeployment(resources, {
           dryRun,
@@ -796,6 +808,16 @@ class Projects {
           onProgress,
         })
       } catch (err) {
+        if (
+          dryRun
+          && err instanceof ConflictError
+          && typeof err.data.deploymentId !== 'string'
+          && busyAttempt < BUSY_PROJECT_ATTEMPTS
+        ) {
+          onStatus?.(BUSY_PROJECT_STATUS)
+          await waitOutBusyProject(err)
+          continue
+        }
         if (
           dryRun
           || !(err instanceof ConflictError)

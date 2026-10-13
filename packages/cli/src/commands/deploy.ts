@@ -601,6 +601,7 @@ export default class Deploy extends AuthCommand {
           dryRun: true,
           scheduleOnDeploy,
           preserveResources,
+          onStatus: message => this.style.actionStatus(message),
         })
         fallbackDiff = data
         this.style.actionSuccess()

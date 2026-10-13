@@ -630,7 +630,9 @@ describe('deploy confirmation flow', () => {
     // Without a plan the deletions are only visible in a dry-run deploy. It is
     // sent without storage keys, so an answer of no leaves nothing in storage.
     expect(api.projects.deploy).toHaveBeenCalledOnce()
-    expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ dryRun: true })
+    // A busy project is retried, and the run says so while it waits.
+    expect(vi.mocked(api.projects.deploy).mock.calls[0][1])
+      .toMatchObject({ dryRun: true, onStatus: expect.any(Function) })
     expect(storeBundle).not.toHaveBeenCalled()
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])

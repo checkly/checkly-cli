@@ -152,6 +152,75 @@ describe('Projects.preview', () => {
   })
 })
 
+describe('Projects.deploy dry run on a busy project', () => {
+  let api: AxiosInstance
+  let projects: Projects
+  const preview = { project: sync.project, diff: [] }
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    api = makeAxiosMock()
+    projects = new Projects(api)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('retries, waiting as long as the API asked', async () => {
+    vi.mocked(api.post)
+      .mockRejectedValueOnce(conflict('5'))
+      .mockResolvedValueOnce({ data: preview })
+    const onStatus = vi.fn()
+
+    const pending = projects.deploy(sync, { dryRun: true, onStatus })
+    // Still waiting: the retry is not due yet.
+    await vi.advanceTimersByTimeAsync(4_000)
+    expect(api.post).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(1_000)
+    expect(await pending).toEqual({ data: preview })
+    expect(api.post).toHaveBeenCalledTimes(2)
+    expect(onStatus).toHaveBeenCalledWith(expect.stringContaining('holding the project'))
+  })
+
+  it('gives up after three attempts and surfaces the conflict', async () => {
+    vi.mocked(api.post).mockRejectedValue(conflict('1'))
+
+    const pending = projects.deploy(sync, { dryRun: true })
+    const assertion = expect(pending).rejects.toThrow(ConflictError)
+    await vi.advanceTimersByTimeAsync(10_000)
+    await assertion
+
+    expect(api.post).toHaveBeenCalledTimes(3)
+  })
+
+  it('caps how long it honours a retry-after', async () => {
+    vi.mocked(api.post)
+      .mockRejectedValueOnce(conflict('600'))
+      .mockResolvedValueOnce({ data: preview })
+
+    const pending = projects.deploy(sync, { dryRun: true })
+    await vi.advanceTimersByTimeAsync(10_000)
+
+    expect(await pending).toEqual({ data: preview })
+  })
+
+  it('neither retries nor waits on a conflict that names a deployment', async () => {
+    vi.mocked(api.post).mockRejectedValue(new ConflictError({
+      statusCode: 409,
+      error: 'Conflict',
+      message: 'A deployment is already in progress.',
+      deploymentId: 'dep-running',
+    }))
+
+    await expect(projects.deploy(sync, { dryRun: true })).rejects.toThrow(ConflictError)
+
+    expect(api.post).toHaveBeenCalledTimes(1)
+    expect(api.get).not.toHaveBeenCalled()
+  })
+})
+
 describe('Projects.deploy with a plan token', () => {
   let api: AxiosInstance
   let projects: Projects
