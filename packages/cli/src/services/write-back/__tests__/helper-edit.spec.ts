@@ -256,6 +256,9 @@ describe('resolveImports and appendImports', () => {
       .toBe(`const { ApiCheck, Frequency } = require('checkly/constructs')\n`)
     expect(plan('a.js', `const {\n  ApiCheck,\n} = require('checkly/constructs')\n`, ['Frequency']).applied)
       .toBe(`const {\n  ApiCheck,\n  Frequency,\n} = require('checkly/constructs')\n`)
+    // A type annotation on the pattern is not part of the list.
+    expect(plan('a.cts', `const {\n  ApiCheck\n}: Pick<typeof C, 'a,b'> = require('checkly/constructs')\n`, ['Frequency']).applied)
+      .toBe(`const {\n  ApiCheck,\n  Frequency\n}: Pick<typeof C, 'a,b'> = require('checkly/constructs')\n`)
     // The first value import of the module is extended, not a type-only one.
     expect(plan('a.ts', `import type { CheckProps } from 'checkly/constructs'\nimport { ApiCheck } from 'checkly/constructs'\n`, ['Frequency']).applied)
       .toBe(`import type { CheckProps } from 'checkly/constructs'\nimport { ApiCheck, Frequency } from 'checkly/constructs'\n`)
