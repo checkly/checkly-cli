@@ -237,6 +237,16 @@ function contentDiff (
   return [note(`${change.path}:${originNote(change)}`), ...nested]
 }
 
+/**
+ * Whether every change the entry reports is named by a cause and none is a
+ * secret: such an entry is rendered as one `changed: <causes>` notice, with
+ * no diff, so it needs no deployed state, and the API sends it none.
+ */
+export function changedByCauseAlone (entry: DiffEntry): boolean {
+  const changes = entry.changes ?? []
+  return changes.length > 0 && changes.every(change => change.secret !== true && change.cause !== undefined)
+}
+
 export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] {
   const { entry, local, localResources, diff, project, ids, ...options } = input
   const { pruneRelations, variableNames, spelledOut, maxLines } = options
@@ -316,7 +326,7 @@ function renderShown (
   if (shown.length === 0 && !withSecrets) {
     return []
   }
-  if (!withSecrets && shown.every(change => change.cause !== undefined)) {
+  if (changedByCauseAlone(entry)) {
     return [note(`changed: ${[...new Set(shown.map(change => change.cause))].join(', ')}`)]
   }
   // A change that is secret or carries a marker (a reorder of a list holding

@@ -14,8 +14,12 @@ import { formatPreview } from '../preview-output.js'
 import { renderResourceDiff, type RenderedLine } from '../render.js'
 
 // The construct diff has its own spec; here it is a fixed set of typed lines
-// so the styling of every kind can be asserted.
-vi.mock('../render.js', () => ({ renderResourceDiff: vi.fn(() => []) }))
+// so the styling of every kind can be asserted. The predicate that decides
+// which entries reach the renderer stays real.
+vi.mock('../render.js', async importOriginal => ({
+  ...await importOriginal<typeof import('../render.js')>(),
+  renderResourceDiff: vi.fn(() => []),
+}))
 
 /**
  * What `checkly deploy` prints for a plan (`preview-output.ts`): the overview
@@ -544,6 +548,57 @@ new ApiCheck('api-health', {
       const diff = [...unchangedEntries, updateEntry]
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
       expect(text).not.toContain('baseline')
+    })
+  })
+
+  describe('an update the plan reports without the deployed state', () => {
+    it('prints the header and the one-line notice of an update changed by cause alone', () => {
+      const { local } = scenario()
+      const causeOnly: DiffEntry = {
+        ...updateEntry,
+        before: undefined,
+        changes: [
+          { path: '/codeBundle', origin: 'code', cause: 'code bundle' },
+          { path: '/playwrightVersion', origin: 'code', cause: 'playwright version' },
+        ],
+      }
+      vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'note', text: 'changed: code bundle, playwright version' }])
+      const diff = [...unchangedEntries, causeOnly]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+      expect(text).toContain('~ ApiCheck api-health  src/api-health.check.ts\n  ~ changed: code bundle, playwright version\n')
+      expect(text).not.toContain('live in Checkly')
+      expect(vi.mocked(renderResourceDiff)).toHaveBeenCalledWith(expect.objectContaining({ entry: causeOnly }))
+    })
+
+    it('keeps an update with a property change to its overview row', () => {
+      const { local } = scenario()
+      const withoutState: DiffEntry = {
+        ...updateEntry,
+        before: undefined,
+        changes: [...updateEntry.changes!, { path: '/codeBundle', origin: 'code', cause: 'code bundle' }],
+      }
+      vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'note', text: '/request/url: changed' }])
+      const diff = [...unchangedEntries, withoutState]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+      expect(text).not.toContain('~ ApiCheck api-health  ')
+      expect(text).toContain('  ~ ApiCheck  api-health  src/api-health.check.ts\n    2 unchanged\n\n1 to update, 2 unchanged')
+      expect(vi.mocked(renderResourceDiff)).not.toHaveBeenCalledWith(expect.objectContaining({ entry: withoutState }))
+    })
+
+    it('keeps an update whose only changes are a cause and a secret to its overview row', () => {
+      const { local } = scenario()
+      const withSecret: DiffEntry = {
+        ...updateEntry,
+        before: undefined,
+        changes: [
+          { path: '/codeBundle', origin: 'code', cause: 'code bundle' },
+          { path: '/environmentVariables/0/value', origin: 'code', secret: true },
+        ],
+      }
+      const diff = [...unchangedEntries, withSecret]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
+      expect(text).not.toContain('~ ApiCheck api-health  ')
+      expect(vi.mocked(renderResourceDiff)).not.toHaveBeenCalledWith(expect.objectContaining({ entry: withSecret }))
     })
   })
 
