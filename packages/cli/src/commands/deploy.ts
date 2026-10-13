@@ -422,25 +422,6 @@ export default class Deploy extends AuthCommand {
       destructive: Deploy.destructive,
       idempotent: Deploy.idempotent,
     }
-    // What the deploy does whatever it finds, worded as the confirmation
-    // prompt words it. The plan's own lines follow these. The scheduling
-    // threshold is left out: few deploys reach it, and the deploy reports it
-    // when one does.
-    const optionLines = [
-      `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
-      scheduleOnDeploy
-        ? `Schedule ${scheduleScope} checks after deploy`
-        : 'Leave checks to run at their next scheduled time. '
-          + 'Pass --schedule-on-deploy to schedule them right after the deploy instead',
-      preserveResources
-        ? 'Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app'
-        : 'Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead',
-      ...pruneRelations
-        ? ['Delete the alert channel subscriptions and private location assignments on this project\'s checks '
-          + 'and groups that the project does not manage']
-        : [],
-    ]
-
     // Ask Checkly what this payload would change. Writes nothing, and needs no
     // upload: the payload describes the code bundle and every snapshot by
     // content hash.
@@ -629,11 +610,39 @@ export default class Deploy extends AuthCommand {
       return
     }
 
+    // Resources removed from code that the deploy deletes, as the plan or,
+    // without one, the dry run found them. Undefined when neither ran (a
+    // forced run without a plan), so nothing is known about them.
+    const knownDiff = plan?.diff ?? fallbackDiff?.diff
+    const deletions = knownDiff !== undefined ? collectDeletions(knownDiff) : undefined
+
+    // What the deploy does as a whole, worded as the confirmation prompt words
+    // it. The plan's own lines follow these. The scheduling threshold is left
+    // out: few deploys reach it, and the deploy reports it when one does.
+    const optionLines = [
+      `Deploy project "${checklyConfig.projectName}" to account "${account.name}"`,
+      scheduleOnDeploy
+        ? `Schedule ${scheduleScope} checks after deploy`
+        : 'Leave checks to run at their next scheduled time. '
+          + 'Pass --schedule-on-deploy to schedule them right after the deploy instead',
+      // Saying resources will be deleted when none are reads as a warning
+      // about data loss that is not going to happen.
+      ...preserveResources
+        ? ['Keep any resources removed from code (and their run history) in your Checkly account, where you can manage them from the Checkly web app']
+        : deletions === undefined || deletions.length > 0
+          ? ['Delete any resources removed from code, losing their run history. Pass --preserve-resources to keep them in your Checkly account instead']
+          : [],
+      ...pruneRelations
+        ? ['Delete the alert channel subscriptions and private location assignments on this project\'s checks '
+          + 'and groups that the project does not manage']
+        : [],
+    ]
+
     // With a plan, every touched resource has a line; without one, only the
     // deletions the dry run found are known.
     const planLines = plan !== undefined
       ? planChangeLines(plan.diff, summaryOptions)
-      : this.collectDeletions(fallbackDiff?.diff ?? [])
+      : (deletions ?? [])
           .map(({ resourceType, logicalId }) =>
             `Permanently delete ${PRETTY_RESOURCE_TYPES[resourceType] ?? resourceType}: ${logicalId}, `
             + 'losing its run history')
@@ -881,21 +890,21 @@ export default class Deploy extends AuthCommand {
       this.exit(1)
     }
   }
+}
 
-  private collectDeletions (diff: DiffEntry[]): Array<{ resourceType: string, logicalId: string }> {
-    return diff
-      .filter(change =>
-        change.action === ResourceDeployStatus.DELETE
-        // A resource the project no longer declares, not a relation it never
-        // managed: pruning those is reported under its own heading.
-        && change.origin !== 'unmanaged'
-        && !NON_REPORTED_TYPES.some(t => t === change.type),
-      )
-      .map(({ type, logicalId }) => ({ resourceType: type, logicalId }))
-      .sort((a, b) =>
-        a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
-      )
-  }
+function collectDeletions (diff: DiffEntry[]): Array<{ resourceType: string, logicalId: string }> {
+  return diff
+    .filter(change =>
+      change.action === ResourceDeployStatus.DELETE
+      // A resource the project no longer declares, not a relation it never
+      // managed: pruning those is reported under its own heading.
+      && change.origin !== 'unmanaged'
+      && !NON_REPORTED_TYPES.some(t => t === change.type),
+    )
+    .map(({ type, logicalId }) => ({ resourceType: type, logicalId }))
+    .sort((a, b) =>
+      a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
+    )
 }
 
 function countBy<T> (items: T[], key: (item: T) => string): Record<string, number> {
