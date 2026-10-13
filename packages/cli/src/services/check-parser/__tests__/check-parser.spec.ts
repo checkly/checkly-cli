@@ -773,6 +773,19 @@ describe('dependency-parser - parser()', () => {
       await parser.parse(entrypoint)
     })
 
+    it('should parse dependencies of TypeScript accessor class fields', async () => {
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('typescript-accessor', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('dep.js'),
+        toAbsolutePath('key.js'),
+      ])
+    })
+
     it('should silently skip native binary (.node) imports (issue #1274)', async () => {
       // Native addons are loaded by Node.js at runtime via process.dlopen
       // and are not parseable as JavaScript. The parser should neither

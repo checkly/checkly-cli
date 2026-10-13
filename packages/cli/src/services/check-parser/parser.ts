@@ -73,13 +73,17 @@ function getTsParser (): any {
     const AST_NODE_TYPES = tsParser.AST_NODE_TYPES as AST_NODE_TYPES
     // Our custom configuration to handle walking errors
 
+    const base: any = walk.base
     Object.values(AST_NODE_TYPES).forEach(astType => {
       // Only handle the TS/JSX specific ones
       if (astType.startsWith('TS') || astType.startsWith('JSX')) {
-        const base: any = walk.base
         base[astType] = base[astType] ?? ignore
       }
     })
+    // Auto-accessor class fields (`accessor x = ...`) have the same shape as
+    // regular class fields, so walk their computed key and initializer for
+    // dependencies.
+    base.AccessorProperty = base.AccessorProperty ?? base.PropertyDefinition
     return tsParser
   } catch (err: any) {
     if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
