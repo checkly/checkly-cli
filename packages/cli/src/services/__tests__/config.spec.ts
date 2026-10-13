@@ -38,16 +38,20 @@ describe('config', () => {
       vi.restoreAllMocks()
     })
 
+    function withStore (store: Record<string, string>) {
+      vi.spyOn(config, 'data', 'get').mockReturnValue({ get: (key: string) => store[key] } as any)
+    }
+
     it('returns the stored default with its name, falling back to the id', () => {
-      vi.spyOn(config, 'data', 'get').mockReturnValue({ store: { accountId: 'acc-1', accountName: 'Acme' } } as any)
+      withStore({ accountId: 'acc-1', accountName: 'Acme' })
       expect(config.getStoredAccount()).toEqual({ id: 'acc-1', name: 'Acme' })
 
-      vi.spyOn(config, 'data', 'get').mockReturnValue({ store: { accountId: 'acc-1' } } as any)
+      withStore({ accountId: 'acc-1' })
       expect(config.getStoredAccount()).toEqual({ id: 'acc-1', name: 'acc-1' })
     })
 
     it('returns nothing without a stored default', () => {
-      vi.spyOn(config, 'data', 'get').mockReturnValue({ store: {} } as any)
+      withStore({})
       expect(config.getStoredAccount()).toBeUndefined()
     })
   })

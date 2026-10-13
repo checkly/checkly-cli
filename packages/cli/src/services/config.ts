@@ -73,7 +73,7 @@ class ChecklyConfig {
   }
 
   getAccountId (): string {
-    return process.env.CHECKLY_ACCOUNT_ID || this.data.get<string>('accountId') as string || ''
+    return process.env.CHECKLY_ACCOUNT_ID || this.getStoredAccountId()
   }
 
   /** The account `checkly login` stored as the default, ignoring the environment. */
@@ -83,8 +83,8 @@ class ChecklyConfig {
 
   /** The stored default account with its name (the id when the name is missing), if there is one. */
   getStoredAccount (): { id: string, name: string } | undefined {
-    const { accountId, accountName } = this.data.store as { accountId?: string, accountName?: string }
-    return accountId ? { id: accountId, name: accountName || accountId } : undefined
+    const id = this.getStoredAccountId()
+    return id ? { id, name: this.data.get<string>('accountName') as string || id } : undefined
   }
 
   /** Whether `checkly login` stored both a key and a default account. */

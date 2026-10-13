@@ -752,7 +752,9 @@ export default class Login extends BaseCommand {
   /**
    * Forgets the stored device code, but only if it is still `pending`:
    * another run may have replaced a code about to expire with a new one,
-   * which the user may be approving right now.
+   * which the user may be approving right now. Best effort: the check and
+   * the delete are separate file operations, so a code stored between them
+   * is still lost.
    */
   #forgetPendingAuthorization (pending: DeviceAuthorization): void {
     const stored = config.auth.get('pendingDeviceAuthorization') as PendingDeviceAuthorization | undefined
