@@ -1,4 +1,12 @@
-import Conf from 'conf'
+import { createRequire } from 'node:module'
+
+import type Conf from 'conf'
+
+// conf (and ajv, which it uses for schema validation) is only loaded when the
+// config store is actually read, which isn't needed when credentials come
+// from environment variables.
+const require = createRequire(import.meta.url)
+const loadConf = (): typeof Conf => (require('conf') as { default: typeof Conf }).default
 
 const dataSchema = {
   accountId: { type: 'string' },
@@ -30,7 +38,7 @@ class ChecklyConfig {
   // We should avoid doing this unless absolutely necessary, since this operation can fail due to file permissions.
   get auth () {
     // Create this._auth lazily
-    return this._auth ?? (this._auth = new Conf({
+    return this._auth ?? (this._auth = new (loadConf())({
       projectName: '@checkly/cli',
       configName: 'auth',
       projectSuffix,
@@ -41,7 +49,7 @@ class ChecklyConfig {
 
   get data () {
     // Create this._data lazily
-    return this._data ?? (this._data = new Conf({
+    return this._data ?? (this._data = new (loadConf())({
       projectName: '@checkly/cli',
       configName: 'config',
       projectSuffix,

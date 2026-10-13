@@ -1,11 +1,16 @@
 import type { AxiosRequestConfig, CreateAxiosDefaults } from 'axios'
 import type { Agent } from 'node:http'
+import { createRequire } from 'node:module'
 
-import { HttpProxyAgent } from 'http-proxy-agent'
-import { HttpsProxyAgent } from 'https-proxy-agent'
-import { SocksProxyAgent } from 'socks-proxy-agent'
+import type { HttpProxyAgent } from 'http-proxy-agent'
+import type { HttpsProxyAgent } from 'https-proxy-agent'
+import type { SocksProxyAgent } from 'socks-proxy-agent'
 // @ts-ignore proxy-from-env ships no type declarations
 import { getProxyForUrl } from 'proxy-from-env'
+
+// The proxy agents are only needed when a proxy is configured, so they are
+// loaded on demand instead of on every CLI start.
+const require = createRequire(import.meta.url)
 
 // WebSocket URLs are not understood by proxy-from-env, so map them to their
 // HTTP equivalents (which share the same HTTP_PROXY/HTTPS_PROXY rules) for
@@ -47,12 +52,17 @@ export function createProxyAgent (targetUrl: string): Agent | undefined {
   }
 
   if (new URL(proxyUrl).protocol.startsWith('socks')) {
-    return new SocksProxyAgent(proxyUrl)
+    const { SocksProxyAgent: ProxyAgent } = require('socks-proxy-agent') as { SocksProxyAgent: typeof SocksProxyAgent }
+    return new ProxyAgent(proxyUrl)
   }
 
-  return new URL(toHttpUrl(targetUrl)).protocol === 'https:'
-    ? new HttpsProxyAgent(proxyUrl)
-    : new HttpProxyAgent(proxyUrl)
+  if (new URL(toHttpUrl(targetUrl)).protocol === 'https:') {
+    const { HttpsProxyAgent: ProxyAgent } = require('https-proxy-agent') as { HttpsProxyAgent: typeof HttpsProxyAgent }
+    return new ProxyAgent(proxyUrl)
+  }
+
+  const { HttpProxyAgent: ProxyAgent } = require('http-proxy-agent') as { HttpProxyAgent: typeof HttpProxyAgent }
+  return new ProxyAgent(proxyUrl)
 }
 
 /**

@@ -1,5 +1,6 @@
 import path from 'node:path'
 
+import { accountFeaturesState } from './account-features-state.js'
 import * as api from '../rest/api.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { type EngineDetectionResult } from '../services/engine-detector.js'
@@ -79,7 +80,14 @@ export class Session {
   static verifyRuntimeDependencies = true
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
-  static accountFeatures: string[] = []
+  static get accountFeatures (): string[] {
+    return accountFeaturesState.features
+  }
+
+  static set accountFeatures (features: string[]) {
+    accountFeaturesState.features = features
+  }
+
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
   static playwrightProjectBundler?: PlaywrightProjectBundler
