@@ -199,7 +199,6 @@ function createCommandContext (given: Record<string, unknown> = {}) {
     }),
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     validateProject: (AuthCommand.prototype as any).validateProject,
-    collectDeletions: (Deploy.prototype as any).collectDeletions,
     style: {
       outputFormat: undefined,
       diagnostics: vi.fn(),

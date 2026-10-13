@@ -614,7 +614,7 @@ export default class Deploy extends AuthCommand {
     // without one, the dry run found them. Undefined when neither ran (a
     // forced run without a plan), so nothing is known about them.
     const knownDiff = plan?.diff ?? fallbackDiff?.diff
-    const deletions = knownDiff !== undefined ? this.collectDeletions(knownDiff) : undefined
+    const deletions = knownDiff !== undefined ? collectDeletions(knownDiff) : undefined
 
     // What the deploy does as a whole, worded as the confirmation prompt words
     // it. The plan's own lines follow these. The scheduling threshold is left
@@ -890,21 +890,21 @@ export default class Deploy extends AuthCommand {
       this.exit(1)
     }
   }
+}
 
-  private collectDeletions (diff: DiffEntry[]): Array<{ resourceType: string, logicalId: string }> {
-    return diff
-      .filter(change =>
-        change.action === ResourceDeployStatus.DELETE
-        // A resource the project no longer declares, not a relation it never
-        // managed: pruning those is reported under its own heading.
-        && change.origin !== 'unmanaged'
-        && !NON_REPORTED_TYPES.some(t => t === change.type),
-      )
-      .map(({ type, logicalId }) => ({ resourceType: type, logicalId }))
-      .sort((a, b) =>
-        a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
-      )
-  }
+function collectDeletions (diff: DiffEntry[]): Array<{ resourceType: string, logicalId: string }> {
+  return diff
+    .filter(change =>
+      change.action === ResourceDeployStatus.DELETE
+      // A resource the project no longer declares, not a relation it never
+      // managed: pruning those is reported under its own heading.
+      && change.origin !== 'unmanaged'
+      && !NON_REPORTED_TYPES.some(t => t === change.type),
+    )
+    .map(({ type, logicalId }) => ({ resourceType: type, logicalId }))
+    .sort((a, b) =>
+      a.resourceType.localeCompare(b.resourceType) || a.logicalId.localeCompare(b.logicalId),
+    )
 }
 
 function countBy<T> (items: T[], key: (item: T) => string): Record<string, number> {
