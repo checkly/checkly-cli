@@ -131,6 +131,37 @@ export function typescriptEstreeParse (): TsParse {
   }
 }
 
+// typescript-estree only supports the TypeScript versions it was built for,
+// and only loads when TypeScript is installed. When it fails while standing in
+// for oxc-parser, oxc-parser failing to load is the root cause, so the error
+// names both. Syntax errors in the parsed file are passed through as they are.
+export function typescriptEstreeFallback (oxcError: unknown, load = typescriptEstreeParse): TsParse {
+  const message = (err: unknown) => err instanceof Error ? err.message : String(err)
+  const explain = (err: unknown) => new Error(
+    `${message(err)} (typescript-estree was used because oxc-parser failed to load: ${message(oxcError)})`,
+    { cause: err },
+  )
+
+  let parse: TsParse
+  try {
+    parse = load()
+  } catch (err) {
+    return () => {
+      throw explain(err)
+    }
+  }
+  return (filePath, contents) => {
+    try {
+      return parse(filePath, contents)
+    } catch (err: any) {
+      if (err?.name === 'TSError') {
+        throw err
+      }
+      throw explain(err)
+    }
+  }
+}
+
 let tsParse: TsParse | undefined
 function getTsParse (): TsParse {
   if (tsParse) {
@@ -147,7 +178,7 @@ function getTsParse (): TsParse {
     // Its native binding can be missing, e.g. when optional dependencies
     // weren't installed or node_modules was copied from another platform.
     debug(`Failed to load oxc-parser, falling back to typescript-estree: ${err}`)
-    tsParse = typescriptEstreeParse()
+    tsParse = typescriptEstreeFallback(err)
   }
   return tsParse
 }
