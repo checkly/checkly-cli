@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { applyEdits } from '../apply-edits.js'
 import { detectStyle, evaluateLiteral, isPlainLiteral, resolvePath, templateLiteral } from '../literal-edit.js'
-import { findConstructOptions, parseSource, spelledOutPaths, WriteBackSkipped } from '../source-file.js'
+import { findConstructOptions, parseSource, spelledOutPaths, gapTokens, walk, WriteBackSkipped } from '../source-file.js'
 
 /**
  * The rewriter (`source-file.ts`, `literal-edit.ts`): finding the construct
@@ -94,6 +94,54 @@ describe('findConstructOptions', () => {
     expect(() => parseSource('a.json', '{}')).toThrow(/is not a JavaScript or TypeScript file/)
     expect(() => parseSource('a.ts', 'new (')).toThrow(/could not parse the file/)
     expect(() => parseSource('a.js', 'new (')).toThrow(WriteBackSkipped)
+  })
+
+  it('skips TypeScript and JSX files when oxc-parser cannot load, and still reads JavaScript', () => {
+    const load = () => {
+      throw new Error('Cannot find native binding.')
+    }
+    expect(() => parseSource('a.ts', 'const a = 1', load))
+      .toThrow('oxc-parser, which reads TypeScript and JSX files, failed to load; reinstall the project\'s dependencies')
+    expect(parseSource('a.js', 'const a = 1', load).program.body).toHaveLength(1)
+  })
+})
+
+describe('gapTokens and walk', () => {
+  it('reads the tokens between two nodes around the comments', () => {
+    for (const file of ['a.ts', 'a.js']) {
+      const text = `f([1 /* ,} */, (2) // ,\n, ], import_x)`
+      const source = parseSource(file, text)
+      const tokens = gapTokens(source, text.indexOf('2') + 1, text.indexOf(']'))
+      expect(tokens.map(token => token.kind === 'comment' ? text.slice(...token.range) : token.value))
+        .toEqual([')', '// ,', ','])
+      const words = gapTokens(source, text.indexOf(']'), text.length)
+      expect(words.map(token => token.value)).toEqual([']', ',', 'import_x', ')'])
+    }
+  })
+
+  it('takes every JavaScript space for whitespace, and leaves out a comment that runs past the end', () => {
+    const text = 'f({\u00a0\ufeff\u2028 /* a\n b */})'
+    const source = parseSource('a.ts', text)
+    expect(gapTokens(source, 3, text.indexOf('}'))).toEqual([
+      { kind: 'comment', value: '', range: [7, 17] },
+    ])
+    expect(gapTokens(source, 3, 10)).toEqual([])
+  })
+
+  it('walks the tree in source order, whatever order the parser keeps the keys in', () => {
+    // A template keeps its strings and its expressions in separate lists.
+    for (const file of ['a.ts', 'a.js']) {
+      const nodes = [...walk(parseSource(file, 'f(`a${b}c${[d]}e`)').program)]
+        .filter(node => ['TemplateElement', 'Identifier', 'ArrayExpression'].includes(node.type))
+      expect(nodes.map(node => node.type === 'TemplateElement' ? node.value.raw : node.type))
+        .toEqual(['Identifier', 'a', 'Identifier', 'c', 'ArrayExpression', 'Identifier', 'e'])
+    }
+  })
+
+  it('splices at the right offsets after a byte order mark and characters outside ASCII', () => {
+    const source = `\ufeffimport { ApiCheck } from 'checkly'\n// é ü 😀\nnew ApiCheck('api', {\n  name: '😀😀', // ☕, tea\n})\n`
+    const { text } = edit('a.ts', source, [{ path: ['name'], value: 'x' }, { path: ['muted'], value: true }])
+    expect(text).toBe(`\ufeffimport { ApiCheck } from 'checkly'\n// é ü 😀\nnew ApiCheck('api', {\n  name: 'x', // ☕, tea\n  muted: true,\n})\n`)
   })
 })
 

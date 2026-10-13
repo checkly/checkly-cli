@@ -271,6 +271,8 @@ describe('resolveImports and appendImports', () => {
       .toBe(`import {\n  ApiCheck, // main\n  Frequency\n} from 'checkly/constructs'\n`)
     expect(plan('a.ts', `import {\n  ApiCheck /* a\n  b */\n} from 'checkly/constructs'\n`, ['Frequency']).applied)
       .toBe(`import {\n  ApiCheck,\n  Frequency /* a\n  b */\n} from 'checkly/constructs'\n`)
+    expect(plan('a.ts', `import Default, /* { */ { ApiCheck /* } */ } from 'checkly/constructs'\n`, ['Frequency']).applied)
+      .toBe(`import Default, /* { */ { ApiCheck, Frequency /* } */ } from 'checkly/constructs'\n`)
     expect(plan('a.ts', `import { ApiCheck }\n  from 'checkly/constructs'\n`, ['Frequency']).applied)
       .toBe(`import { ApiCheck, Frequency }\n  from 'checkly/constructs'\n`)
   })

@@ -8,7 +8,7 @@ import {
   type ParsedSource,
   type SourceToken,
   type Splice,
-  tokensBetween,
+  gapTokens,
   WriteBackSkipped,
   walk,
 } from './source-file.js'
@@ -311,7 +311,7 @@ export function trailingCommaOf (
   if (last === null || last === undefined) {
     return undefined
   }
-  return tokensBetween(source, last.range[1], list.range[1] - 1).find(token => token.kind === 'token' && token.value === ',')
+  return gapTokens(source, last.range[1], list.range[1] - 1).find(token => token.kind === 'token' && token.value === ',')
 }
 
 export function quoteString (value: string, quote: SourceStyle['quote']): string {
@@ -475,7 +475,7 @@ export function insertionSplice (
     const at = parent.range[0] + 1
     // Whitespace alone between the braces is replaced; a comment stays,
     // after the new members.
-    const held = tokensBetween(source, at, closing).length > 0
+    const held = gapTokens(source, at, closing).length > 0
     const end = held ? at : closing
     if (!isMultiLine(text, parent)) {
       return { start: at, end, text: ` ${members.join(', ')}${held ? ',' : ' '}` }

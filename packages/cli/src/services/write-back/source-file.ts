@@ -1,21 +1,20 @@
 import path from 'node:path'
-import { createRequire } from 'node:module'
 import * as acorn from 'acorn'
 import type { TSESTree } from '@typescript-eslint/typescript-estree'
 
 import * as constructs from '../../constructs/index.js'
 import type { Construct } from '../../constructs/construct.js'
+import { loadOxcParser, parseWithOxc, type ParseSync } from '../oxc-parser.js'
 
 /**
  * Reads a construct's source file far enough to find the `new X('id', { … })`
  * that declared it, so `literal-edit.ts` can splice values into that options
  * object by byte range.
  *
- * Two parsers, one AST shape: `.js`/`.mjs`/`.cjs` go through acorn, which the
- * CLI always ships; TypeScript and JSX go through typescript-estree, which
- * needs the project's own `typescript` — the same requirement the check
- * dependency parser already places on TypeScript check files. Both produce
- * ESTree nodes carrying `range`, and only `range` and the node types below are
+ * Two parsers, one AST shape: `.js`/`.mjs`/`.cjs` go through acorn and
+ * TypeScript and JSX through oxc-parser, as the check dependency parser reads
+ * them. Both produce ESTree nodes carrying `range` (oxc the same nodes
+ * typescript-estree does), and only `range` and the node types below are
  * read. Recast (which edits `checkly.config.ts` elsewhere in the CLI) is not
  * used: its acorn parser cannot read TypeScript, and reprinting a touched
  * node re-quotes it, whereas splicing by range leaves every other byte of the
@@ -38,14 +37,15 @@ export interface SourceToken {
 }
 
 /**
- * A parsed file with its tokens and comments, which the splicer needs to
- * tell a comma of the source from one inside a comment.
+ * A parsed file with its comments, which the splicer needs to tell a comma
+ * of the source from one inside a comment.
  */
 export interface ParsedSource {
   /** The text the program was parsed from; every range below indexes it. */
   text: string
   program: TSESTree.Program
-  tokens: SourceToken[]
+  /** The `[start, end)` of every comment, in source order. */
+  comments: Array<[number, number]>
 }
 
 /** A replacement of the bytes `[start, end)` of the parsed text. */
@@ -55,9 +55,45 @@ export interface Splice {
   text: string
 }
 
-/** The tokens and comments lying within `[start, end)`. */
-export function tokensBetween (source: ParsedSource, start: number, end: number): SourceToken[] {
-  return source.tokens.filter(token => token.range[0] >= start && token.range[1] <= end)
+const WORD_CHARACTER = /[\p{ID_Continue}$\u200c\u200d]/u
+
+/**
+ * The tokens and comments lying within `[start, end)`, read off the text of
+ * a gap between two nodes, such as between a list's last member and its
+ * closing bracket, or between `import` and a specifier. Such a gap holds
+ * only whitespace, comments, punctuation and keywords or names (`from`, a
+ * default import), never a string or a regular expression, so outside the
+ * parser's comments each run of word characters is one token and every
+ * other non-space character is a one-character token.
+ */
+export function gapTokens (source: ParsedSource, start: number, end: number): SourceToken[] {
+  const { text, comments } = source
+  const tokens: SourceToken[] = []
+  const first = comments.findIndex(comment => comment[0] >= start)
+  let next = first === -1 ? comments.length : first
+  let at = start
+  while (at < end) {
+    const comment = comments[next]
+    if (comment !== undefined && comment[0] === at) {
+      if (comment[1] <= end) {
+        tokens.push({ kind: 'comment', value: '', range: comment })
+      }
+      at = comment[1]
+      next++
+    } else if (/\s/.test(text[at])) {
+      at++
+    } else {
+      let tokenEnd = at + 1
+      if (WORD_CHARACTER.test(text[at])) {
+        while (tokenEnd < end && WORD_CHARACTER.test(text[tokenEnd])) {
+          tokenEnd++
+        }
+      }
+      tokens.push({ kind: 'token', value: text.slice(at, tokenEnd), range: [at, tokenEnd] })
+      at = tokenEnd
+    }
+  }
+  return tokens
 }
 
 const CHECKLY_MODULE = /^checkly(\/.*)?$/
@@ -65,32 +101,14 @@ const CHECKLY_MODULE = /^checkly(\/.*)?$/
 /** The one module that exports the constructs and their helpers by name. */
 export const CONSTRUCTS_MODULE = 'checkly/constructs'
 
-let tsParser: typeof import('@typescript-eslint/typescript-estree') | undefined
-
-function loadTsParser (): typeof import('@typescript-eslint/typescript-estree') {
-  if (tsParser !== undefined) {
-    return tsParser
-  }
-  try {
-    const require = createRequire(import.meta.url)
-    tsParser = require('@typescript-eslint/typescript-estree')
-    return tsParser as typeof import('@typescript-eslint/typescript-estree')
-  } catch (err: any) {
-    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
-      throw new WriteBackSkipped('install "typescript" in the project to update TypeScript and JSX files')
-    }
-    throw err
-  }
-}
-
-export function parseSource (filePath: string, text: string): ParsedSource {
+export function parseSource (filePath: string, text: string, loadParser = loadOxcParser): ParsedSource {
   const extension = path.extname(filePath)
   if (!SOURCE_EXTENSIONS.has(extension)) {
     throw new WriteBackSkipped(`${extension === '' ? 'the file' : `"${extension}"`} is not a JavaScript or TypeScript file`)
   }
   try {
     if (extension === '.js' || extension === '.mjs' || extension === '.cjs') {
-      const tokens: SourceToken[] = []
+      const comments: Array<[number, number]> = []
       // The same options the check dependency parser reads .js files with,
       // so the two agree on what parses.
       const program = acorn.parse(text, {
@@ -100,26 +118,25 @@ export function parseSource (filePath: string, text: string): ParsedSource {
         allowImportExportEverywhere: true,
         allowReturnOutsideFunction: true,
         allowAwaitOutsideFunction: true,
-        onToken: token => {
-          if (token.type.label !== 'eof') {
-            tokens.push({ kind: 'token', value: text.slice(token.start, token.end), range: [token.start, token.end] })
-          }
-        },
-        onComment: (_block, _text, start, end) => tokens.push({ kind: 'comment', value: '', range: [start, end] }),
+        onComment: (_block, _text, start, end) => comments.push([start, end]),
       }) as unknown as TSESTree.Program
-      return { text, program, tokens: tokens.sort((a, b) => a.range[0] - b.range[0]) }
+      return { text, program, comments }
     }
-    const program = loadTsParser().parse(text, {
-      range: true,
-      comment: true,
-      tokens: true,
-      jsx: extension.endsWith('x'),
-    })
-    const tokens: SourceToken[] = [
-      ...(program.tokens ?? []).map((token): SourceToken => ({ kind: 'token', value: token.value, range: token.range })),
-      ...(program.comments ?? []).map((comment): SourceToken => ({ kind: 'comment', value: '', range: comment.range })),
-    ]
-    return { text, program, tokens: tokens.sort((a, b) => a.range[0] - b.range[0]) }
+    let parseSync: ParseSync
+    try {
+      parseSync = loadParser()
+    } catch {
+      throw new WriteBackSkipped('oxc-parser, which reads TypeScript and JSX files, failed to load;'
+        + ' reinstall the project\'s dependencies')
+    }
+    // Without `preserveParens`, a parenthesized expression's range excludes
+    // its parentheses, as typescript-estree's and acorn's do.
+    const result = parseWithOxc(parseSync, filePath, text, { range: true, preserveParens: false })
+    return {
+      text,
+      program: result.program as unknown as TSESTree.Program,
+      comments: result.comments.map(({ start, end }): [number, number] => [start, end]),
+    }
   } catch (err: any) {
     if (err instanceof WriteBackSkipped) {
       throw err
@@ -128,7 +145,12 @@ export function parseSource (filePath: string, text: string): ParsedSource {
   }
 }
 
-/** Every node below (and including) `root`, in source order. Only object-valued keys are followed, which covers every ESTree child slot. */
+/**
+ * Every node below (and including) `root`, in source order: a parent before
+ * its children, and siblings by where they start, whatever order the parser
+ * put their keys in. Only object-valued keys are followed, which covers every
+ * ESTree child slot.
+ */
 export function* walk (root: Node): Generator<Node> {
   const stack: Node[] = [root]
   while (stack.length > 0) {
@@ -136,9 +158,8 @@ export function* walk (root: Node): Generator<Node> {
     yield node
     const children: Node[] = []
     for (const [key, value] of Object.entries(node)) {
-      // `parent` would cycle; a program's token and comment lists are not
-      // part of the tree.
-      if (key === 'parent' || key === 'tokens' || key === 'comments') {
+      // `parent` would cycle.
+      if (key === 'parent') {
         continue
       }
       if (Array.isArray(value)) {
@@ -151,6 +172,7 @@ export function* walk (root: Node): Generator<Node> {
         children.push(value)
       }
     }
+    children.sort((a, b) => a.range[0] - b.range[0])
     for (let i = children.length - 1; i >= 0; i--) {
       stack.push(children[i])
     }
@@ -249,13 +271,13 @@ export function appendAfterLast (
   lineEnding: string,
 ): Splice {
   const { text } = source
-  const comma = tokensBetween(source, last.range[1], close).find(token => token.kind === 'token' && token.value === ',')
+  const comma = gapTokens(source, last.range[1], close).find(token => token.kind === 'token' && token.value === ',')
   const afterMember = comma === undefined ? last.range[1] : comma.range[1]
   const breakAt = text.indexOf('\n', afterMember)
   const lineEnd = breakAt === -1 || breakAt >= close
     ? afterMember
     : text[breakAt - 1] === '\r' ? breakAt - 1 : breakAt
-  const straddles = tokensBetween(source, last.range[1], close)
+  const straddles = gapTokens(source, last.range[1], close)
     .some(token => token.range[0] < lineEnd && token.range[1] > lineEnd)
   const at = straddles ? afterMember : lineEnd
   const lines = members.map(member => `${lineEnding}${indentation}${member}`).join(',')

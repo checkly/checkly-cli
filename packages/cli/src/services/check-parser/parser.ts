@@ -4,7 +4,6 @@ import path from 'node:path'
 
 import * as acorn from 'acorn'
 import * as walk from 'acorn-walk'
-import type { ParseResult, ParserOptions as OxcParserOptions } from 'oxc-parser'
 import Debug from 'debug'
 
 import { Collector } from './collector.js'
@@ -17,6 +16,7 @@ import { isCoreExtension, isTSExtension } from './package-files/extension.js'
 import { createFauxPackageFiles } from './faux-package.js'
 import { isPnpmfilePath } from './package-files/pnpmfile.js'
 import { PlaywrightConfigExpander } from './playwright-config-expander.js'
+import { loadOxcParser, parseWithOxc, type ParseSync } from '../oxc-parser.js'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
 
@@ -81,37 +81,10 @@ const tsWalkBase = new Proxy(walk.base, {
   },
 })
 
-// foo.d.ts, foo.d.mts, foo.d.cts and foo.d.css.ts (allowArbitraryExtensions)
-const DECLARATION_FILE = /\.d\.([^.\\/]+\.)?[cm]?ts$/
-
-function lineColumn (contents: string, offset: number): string {
-  const before = contents.slice(0, offset)
-  const line = before.split('\n').length
-  // 0-based column, like acorn's
-  const column = offset - before.lastIndexOf('\n') - 1
-  return `${line}:${column}`
-}
-
-function oxcParse (parseSync: (filename: string, source: string, options?: OxcParserOptions) => ParseResult): TsParse {
-  return (filePath, contents) => {
-    const extension = path.extname(filePath)
-    const result = parseSync(filePath, contents, {
-      // Declaration files allow syntax that regular files don't. We must only
-      // enable jsx for tsx files. Otherwise type brackets may confuse the
-      // parser and cause an error.
-      lang: DECLARATION_FILE.test(filePath) ? 'dts' : extension === '.tsx' ? 'tsx' : 'ts',
-      sourceType: extension === '.cts' ? 'commonjs' : 'module',
-      astType: 'ts',
-    })
-    // oxc recovers from syntax errors and returns a partial AST. Treat any
-    // error as a failure so a broken file doesn't yield partial dependencies.
-    const [error] = result.errors
-    if (error) {
-      const offset = error.labels[0]?.start
-      throw new SyntaxError(offset === undefined ? error.message : `${error.message} (${lineColumn(contents, offset)})`)
-    }
-    return result.program
-  }
+// Any syntax error fails the file, so a broken file doesn't yield partial
+// dependencies.
+function oxcParse (parseSync: ParseSync): TsParse {
+  return (filePath, contents) => parseWithOxc(parseSync, filePath, contents).program
 }
 
 export function typescriptEstreeParse (): TsParse {
@@ -172,8 +145,7 @@ function getTsParse (): TsParse {
     // oxc-parser is a native (Rust) parser. It's much faster than
     // typescript-estree, doesn't depend on the user's TypeScript version, and
     // works without TypeScript installed.
-    const require = createRequire(import.meta.url)
-    tsParse = oxcParse(require('oxc-parser').parseSync)
+    tsParse = oxcParse(loadOxcParser())
   } catch (err) {
     // Its native binding can be missing, e.g. when optional dependencies
     // weren't installed or node_modules was copied from another platform.

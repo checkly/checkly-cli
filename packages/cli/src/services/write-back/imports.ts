@@ -10,7 +10,7 @@ import {
   type ParsedSource,
   type Splice,
   stringOf,
-  tokensBetween,
+  gapTokens,
   usesIdentifier,
 } from './source-file.js'
 
@@ -92,7 +92,7 @@ interface Declaration {
 function constructsDeclaration (source: ParsedSource): Declaration | undefined {
   const { program } = source
   const brace = (start: number, end: number, value: '{' | '}'): number | undefined =>
-    tokensBetween(source, start, end).find(token => token.kind === 'token' && token.value === value)?.range[0]
+    gapTokens(source, start, end).find(token => token.kind === 'token' && token.value === value)?.range[0]
   for (const statement of program.body) {
     if (statement.type === 'ImportDeclaration' && statement.source.value === CONSTRUCTS_MODULE
       && statement.importKind !== 'type') {
