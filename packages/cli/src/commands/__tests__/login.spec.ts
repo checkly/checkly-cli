@@ -779,8 +779,7 @@ describe('checkly login', () => {
         const cmd = createCommand('--wait')
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-        expect(deviceFlow.pollForTokens).toHaveBeenCalledWith(
-          expect.objectContaining({ deviceCode: 'dev-code' }), expect.anything())
+        expect(deviceFlow.pollForTokens).toHaveBeenCalledWith(expect.objectContaining({ deviceCode: 'dev-code' }))
         expect(deviceFlow.pollOnce).not.toHaveBeenCalled()
         expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
         expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
@@ -807,19 +806,17 @@ describe('checkly login', () => {
         expect(jsonLines(cmd)).toEqual([{ status: 'error', reason: 'expired_token', message: 'The login code expired.' }])
       })
 
-      it('names a proxy or captive portal when the code expires while answers come from something else', async () => {
+      it('reports a network_error when the code expires while answers come from something else', async () => {
         storePendingCode({ approved: false })
-        deviceFlow.pollForTokens.mockImplementation((_auth, options) => {
-          options?.onUnexpectedAnswers?.('HTTP 302 from a captive portal')
-          return Promise.reject(new DeviceFlowError('expired_token', 'The login code expired before it was used.'))
-        })
+        deviceFlow.pollForTokens.mockRejectedValue(new DeviceFlowError('network_error', 'The login code expired '
+        + 'while the answers to the login server kept coming from something else (HTTP 302).'))
         const cmd = createCommand('--wait')
         await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
+        expect(config.auth.get('pendingDeviceAuthorization')).toBeUndefined()
         const [line] = jsonLines(cmd)
         expect(line).toMatchObject({ status: 'error', reason: 'network_error' })
-        expect(line.message).toContain('HTTP 302 from a captive portal')
-        expect(line.message).toContain('proxy or captive portal')
+        expect(line.message).toContain('HTTP 302')
       })
 
       it('does not forget a newer code another run stored meanwhile', async () => {

@@ -704,23 +704,10 @@ export default class Login extends BaseCommand {
   async #waitForPendingAuthorization (
     deviceFlow: DeviceFlow, pending: DeviceAuthorization,
   ): Promise<Credentials | 'stored'> {
-    // Answers from something other than the login server (a proxy or a
-    // captive portal) keep the poll going, since they may clear up; if the
-    // code expires meanwhile, they are the likely reason, not the user.
-    let unexpectedAnswer: string | undefined
     let tokens
     try {
-      tokens = await deviceFlow.pollForTokens(pending, {
-        onUnexpectedAnswers: failure => {
-          unexpectedAnswer = failure
-        },
-      })
+      tokens = await deviceFlow.pollForTokens(pending)
     } catch (error) {
-      if (error instanceof DeviceFlowError && error.code === 'expired_token' && unexpectedAnswer) {
-        return this.#pendingCodeFailed(new DeviceFlowError('network_error', 'The login code expired while the '
-          + `answers to the login server kept coming from something else (${unexpectedAnswer}); a proxy or captive `
-          + 'portal may be in the way. Fix the connection and run the login again.'), pending)
-      }
       return this.#pendingCodeFailed(error, pending)
     }
     this.#forgetPendingAuthorization(pending)
