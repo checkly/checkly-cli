@@ -37,12 +37,51 @@ export interface DiffLinesOptions {
   context?: number
   /** Lines per side above which no diff is produced. Defaults to 1500. */
   maxLines?: number
+  /**
+   * Treat the texts as the source of an object literal, one property per
+   * line or indented block: the two sides are never aligned on a line of
+   * only brackets and commas, and within a changed run each property's old
+   * lines are followed by its new ones (see {@link pairProperties}). Off by
+   * default, which is right for a script or any other plain text.
+   */
+  pairProperties?: boolean
 }
 
 /** One line of the edit script: kept on both sides, or on one side only. */
 interface Edit {
   kind: 'context' | 'remove' | 'add'
   line: string
+}
+
+/**
+ * A line of nothing but brackets, braces, commas and the like: `],`, `}, {`,
+ * a blank line. Such a line is the same on both sides by accident, not
+ * because the property it closes is, so the comparison must not align the two
+ * sides on it: aligned on the `],` that ends two different `tags` lists, a
+ * diff of several neighbouring properties ends up with every removal above
+ * one addition and the rest of the additions below.
+ */
+const STRUCTURAL = /^[\s[\]{}(),;]*$/
+
+/**
+ * A line that opens a property of an object literal, capturing its key:
+ * `frequency: …`, `'content-type': …`. The continuation lines of a value
+ * spelled over several lines are indented deeper, or are structural.
+ */
+const PROPERTY_KEY = /^\s*([A-Za-z_$][\w$]*|'(?:[^'\\]|\\.)*'|"(?:[^"\\]|\\.)*")\s*:/
+
+function indentOf (line: string): number {
+  return line.length - line.trimStart().length
+}
+
+/**
+ * The indent of the shallowest line that is not structural: a blank line
+ * sits at column 0 and a closing bracket one level out from what it closes,
+ * and neither says where the properties of a run sit.
+ */
+function shallowestIndent (lines: string[]): number {
+  const telling = lines.filter(line => !STRUCTURAL.test(line))
+  return Math.min(...(telling.length > 0 ? telling : lines).map(indentOf))
 }
 
 /**
@@ -72,7 +111,7 @@ function toLines (text: string): string[] {
  * @returns `undefined` when what is left after that trim would need more than
  * {@link MAX_CELLS} cells to compare.
  */
-function editScript (before: string[], after: string[]): Edit[] | undefined {
+function editScript (before: string[], after: string[], anchorOnStructural: boolean): Edit[] | undefined {
   let head = 0
   while (head < before.length && head < after.length && before[head] === after[head]) {
     head += 1
@@ -84,6 +123,21 @@ function editScript (before: string[], after: string[]): Edit[] | undefined {
     && before[before.length - 1 - tail] === after[after.length - 1 - tail]
   ) {
     tail += 1
+  }
+
+  if (!anchorOnStructural) {
+    // The identical tail is matched by text alone, so a closing bracket at
+    // its start may close one property on one side and another on the
+    // other: `],` ends `tags` here and `locations` there once `tags` became
+    // a one-liner. A closer no shallower than every differing line is
+    // handed back to the comparison, where it cannot anchor; a shallower
+    // one closes something both sides share, like the construct's own `})`.
+    const differing = [...before.slice(head, before.length - tail), ...after.slice(head, after.length - tail)]
+    const shallowest = shallowestIndent(differing)
+    const ambiguous = (line: string): boolean => STRUCTURAL.test(line) && indentOf(line) >= shallowest
+    while (tail > 0 && ambiguous(before[before.length - tail])) {
+      tail -= 1
+    }
   }
 
   const a = before.slice(head, before.length - tail)
@@ -98,9 +152,10 @@ function editScript (before: string[], after: string[]): Edit[] | undefined {
   // lengths[i][j] is the LCS length of a[i..] and b[j..], filled from the end
   // so the walk below can go forwards and keep the two sides in step.
   const lengths = new Int32Array((n + 1) * width)
+  const same = (x: string, y: string): boolean => x === y && (anchorOnStructural || !STRUCTURAL.test(x))
   for (let i = n - 1; i >= 0; i -= 1) {
     for (let j = m - 1; j >= 0; j -= 1) {
-      lengths[i * width + j] = a[i] === b[j]
+      lengths[i * width + j] = same(a[i], b[j])
         ? lengths[(i + 1) * width + j + 1] + 1
         : Math.max(lengths[(i + 1) * width + j], lengths[i * width + j + 1])
     }
@@ -114,7 +169,7 @@ function editScript (before: string[], after: string[]): Edit[] | undefined {
   let i = 0
   let j = 0
   while (i < n && j < m) {
-    if (a[i] === b[j]) {
+    if (same(a[i], b[j])) {
       edits.push({ kind: 'context', line: a[i] })
       i += 1
       j += 1
@@ -143,6 +198,105 @@ function editScript (before: string[], after: string[]): Edit[] | undefined {
   }
 
   return edits
+}
+
+/** The lines of one side of a changed run that belong to one property. */
+interface Span {
+  /** The property's key, or undefined for lines that continue the property opened above the run. */
+  key: string | undefined
+  lines: string[]
+}
+
+/**
+ * Splits one side of a changed run into property spans. A property starts at
+ * a key line on the shallowest indent of the run; every other line continues
+ * the span before it. Lines before the first key continue a property opened
+ * above the run (the items of a list whose `tags: [` matched on both sides),
+ * and are kept as a span without a key.
+ */
+function toSpans (lines: string[], indent: number): Span[] {
+  const spans: Span[] = []
+  for (const line of lines) {
+    const key = indentOf(line) === indent ? PROPERTY_KEY.exec(line)?.[1] : undefined
+    const last = spans[spans.length - 1]
+    if (key === undefined && last !== undefined) {
+      last.lines.push(line)
+    } else {
+      spans.push({ key, lines: [line] })
+    }
+  }
+  return spans
+}
+
+/**
+ * Reorders every changed run of an edit script so that a property removed on
+ * one side and added on the other reads as its old lines directly followed by
+ * its new ones, rather than as all removals of the run followed by all
+ * additions. Two spans pair when they open the same key, or when both continue
+ * the property opened above the run. A pair is compared again on its own,
+ * where a structural line may anchor, so the `],` that ends both versions of
+ * a list is context and only the items differ; a pair with nothing in common
+ * is its removals then its additions. A span with no partner keeps its place
+ * in the order of its own side.
+ */
+function pairProperties (edits: Edit[]): Edit[] {
+  const result: Edit[] = []
+  let index = 0
+  while (index < edits.length) {
+    if (edits[index].kind === 'context') {
+      result.push(edits[index])
+      index += 1
+      continue
+    }
+    const run: Edit[] = []
+    while (index < edits.length && edits[index].kind !== 'context') {
+      run.push(edits[index])
+      index += 1
+    }
+    result.push(...pairRun(run))
+  }
+  return result
+}
+
+function pairRun (run: Edit[]): Edit[] {
+  const removed = run.filter(edit => edit.kind === 'remove').map(edit => edit.line)
+  const added = run.filter(edit => edit.kind === 'add').map(edit => edit.line)
+  const indent = shallowestIndent([...removed, ...added])
+  const removedSpans = toSpans(removed, indent)
+  const addedSpans = toSpans(added, indent)
+
+  // Pairs are made in order on both sides: a removed span takes the first
+  // added span of its key after the last pair, and the added spans passed
+  // over on the way are emitted first, so the result still lists every line
+  // of either side in that side's order. A key the two sides list in
+  // different places stays unpaired rather than being pulled out of order.
+  const adds = (span: Span): Edit[] => span.lines.map(line => ({ kind: 'add', line }))
+  const result: Edit[] = []
+  let nextAdded = 0
+  for (const span of removedSpans) {
+    const index = addedSpans.findIndex((candidate, at) => at >= nextAdded && candidate.key === span.key)
+    if (index === -1) {
+      result.push(...span.lines.map(line => ({ kind: 'remove' as const, line })))
+      continue
+    }
+    result.push(...addedSpans.slice(nextAdded, index).flatMap(adds))
+    result.push(...pairSpans(span.lines, addedSpans[index].lines))
+    nextAdded = index + 1
+  }
+  result.push(...addedSpans.slice(nextAdded).flatMap(adds))
+  return result
+}
+
+/** The diff of one property's old lines against its new ones. */
+function pairSpans (removed: string[], added: string[]): Edit[] {
+  // A pair is never larger than the run it came from, which was compared
+  // already, so the comparison cannot decline it; the fallback only keeps
+  // the types honest.
+  const inner = editScript(removed, added, true) ?? []
+  // A pair with no line in common is already its removals then its
+  // additions. One with a common line has changed runs shorter than the
+  // pair, so pairing them in turn terminates.
+  return inner.some(edit => edit.kind === 'context') ? pairProperties(inner) : inner
 }
 
 interface Hunk {
@@ -186,9 +340,15 @@ export interface DiffLine {
  * Hunk grouping follows `git diff` and GNU `diff -u`, which is the shape a
  * reader recognises. When two sides can be aligned in more than one minimal
  * way, which edit script you get is a matter of heuristics, and this one's is
- * not git's: the result is always a valid, minimal diff of the same two texts,
- * but it may group its hunks differently from the diff the same input would
- * get from git.
+ * not git's: the result is always a valid diff of the same two texts, listing
+ * every line of either side in that side's order, but it may group its hunks
+ * differently from the diff the same input would get from git. With
+ * `pairProperties` it is not minimal either: the two sides are never aligned
+ * on a line of only brackets and commas (see {@link STRUCTURAL}), and within
+ * a changed run the lines of one property are kept together, old then new
+ * (see {@link pairProperties}), so that several neighbouring properties
+ * changing at once read as one `-`/`+` pair per property rather than as a
+ * block of removals over a block of additions.
  *
  * @returns An empty array when the two sides are identical (or differ only by
  * a trailing newline), `undefined` when they are too large to compare (see
@@ -203,6 +363,7 @@ export function diffLines (
   const {
     context = DEFAULT_CONTEXT,
     maxLines = DEFAULT_MAX_LINES,
+    pairProperties: byProperty = false,
   } = options
 
   if (before === after) {
@@ -215,12 +376,12 @@ export function diffLines (
     return undefined
   }
 
-  const edits = editScript(beforeLines, afterLines)
+  const edits = editScript(beforeLines, afterLines, !byProperty)
   if (edits === undefined) {
     return undefined
   }
 
-  const hunks = toHunks(edits, context)
+  const hunks = toHunks(byProperty ? pairProperties(edits) : edits, context)
   if (hunks.length === 0) {
     // The texts differ only by the trailing newline that `toLines` dropped.
     return []

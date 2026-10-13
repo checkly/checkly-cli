@@ -65,7 +65,7 @@ export function formatWriteBackUpdated ({ writeBack, project }: WriteBackOutputI
   constructs.forEach((construct, index) => {
     const lines = applied.filter(line => line.file === construct.file && sameResource(line, construct))
     output.push(header(MARKER.update, construct, construct.file, project))
-    const diff = diffLines(construct.before, construct.after)
+    const diff = diffLines(construct.before, construct.after, { pairProperties: true })
     if (diff === undefined || diff.length === 0) {
       // Too long to diff, which a construct's own source never is in
       // practice: the properties are listed with their values instead.
