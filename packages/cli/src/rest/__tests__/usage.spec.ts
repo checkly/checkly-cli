@@ -1,70 +1,71 @@
+import axios, { AxiosHeaders, type InternalAxiosRequestConfig } from 'axios'
 import { describe, expect, it, vi } from 'vitest'
 import Usage from '../usage.js'
 
-function createApi () {
-  return { get: vi.fn().mockResolvedValue({ data: {} }) }
+function client () {
+  const adapter = vi.fn((config: InternalAxiosRequestConfig) => Promise.resolve({
+    data: { server: 'payload' }, status: 200, statusText: 'OK', headers: new AxiosHeaders(), config,
+  }))
+  return { adapter, usage: new Usage(axios.create({ adapter })) }
 }
 
 describe('Usage REST client', () => {
-  it('requests usage terms without query params when none are given', async () => {
-    const api = createApi()
-
-    await new Usage(api as any).getTerms()
-
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', { params: {} })
-  })
-
-  it('passes to when requesting usage terms', async () => {
-    const api = createApi()
-
-    await new Usage(api as any).getTerms({ to: '2026-01-31' })
-
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', { params: { to: '2026-01-31' } })
-  })
-
-  it('never forwards usageTermsId; the public API rejects it with a 400', async () => {
-    const api = createApi()
-
-    await new Usage(api as any).getTerms({ usageTermsId: 'terms-1', to: '2026-01-31' } as any)
-
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/terms', { params: { to: '2026-01-31' } })
-  })
-
-  it('comma-joins account and check type filters for the summary', async () => {
-    const api = createApi()
-
-    await new Usage(api as any).getSummary({
-      from: '2026-01-01',
-      to: '2026-01-31',
-      accountIds: ['acc-a', 'acc-b'],
-      checkTypes: ['API', 'BROWSER'],
+  it('lists v2 terms with overlap bounds and cursor pagination', async () => {
+    const { adapter, usage } = client()
+    const result = await usage.listTerms({ from: '2026-01-01', to: '2026-12-31', limit: 25, nextId: 'opaque' })
+    expect(adapter.mock.calls[0][0]).toMatchObject({
+      url: '/v2/usage/terms', params: { from: '2026-01-01', to: '2026-12-31', limit: 25, nextId: 'opaque' },
     })
+    expect(result.data).toEqual({ server: 'payload' })
+  })
 
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/summary', {
-      params: { from: '2026-01-01', to: '2026-01-31', accountIds: 'acc-a,acc-b', checkTypes: 'API,BROWSER' },
+  it('leaves terms date bounds unset when omitted', async () => {
+    const { adapter, usage } = client()
+    await usage.listTerms()
+    expect(adapter.mock.calls[0][0]).toMatchObject({ url: '/v2/usage/terms', params: {} })
+  })
+
+  it('encodes the term path segment for detail and projections', async () => {
+    const { adapter, usage } = client()
+    await usage.getTerm('id/with space')
+    await usage.getProjections('id/with space', { asOf: '2026-03-31' })
+    expect(adapter.mock.calls[0][0].url).toBe('/v2/usage/terms/id%2Fwith%20space')
+    expect(adapter.mock.calls[1][0]).toMatchObject({
+      url: '/v2/usage/terms/id%2Fwith%20space/projections', params: { asOf: '2026-03-31' },
     })
   })
 
-  it('drops empty filter arrays and undefined values', async () => {
-    const api = createApi()
-
-    await new Usage(api as any).getSummary({ accountIds: [], checkTypes: undefined, from: undefined })
-
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/summary', { params: {} })
+  it('leaves the projection default with the server', async () => {
+    const { adapter, usage } = client()
+    await usage.getProjections('term')
+    expect(adapter.mock.calls[0][0]).toMatchObject({ url: '/v2/usage/terms/term/projections', params: {} })
   })
 
-  it('passes series grouping and pagination params', async () => {
-    const api = createApi()
-
-    await new Usage(api as any).getSeries({
-      interval: 'month',
-      groupBy: 'account',
-      limit: 50,
-      nextId: 'cursor-1',
+  it('comma-joins all report selections without introducing checkTypes', async () => {
+    const { adapter, usage } = client()
+    await usage.getSummary({
+      from: '2026-01-01', to: '2026-01-31', usageTermsIds: ['term-a', 'term-b'],
+      accountIds: ['account-a', 'account-b'], pricingRuleKeys: ['apiChecks', 'aiInvocations'],
     })
+    expect(adapter.mock.calls[0][0]).toMatchObject({ url: '/v2/usage/summary', params: {
+      from: '2026-01-01', to: '2026-01-31', usageTermsIds: 'term-a,term-b',
+      accountIds: 'account-a,account-b', pricingRuleKeys: 'apiChecks,aiInvocations',
+    } })
+  })
 
-    expect(api.get).toHaveBeenCalledWith('/v1/usage/series', {
-      params: { interval: 'month', groupBy: 'account', limit: 50, nextId: 'cursor-1' },
-    })
+  it('serializes composable grouping, includes, and pagination for series', async () => {
+    const { adapter, usage } = client()
+    await usage.getSeries({ interval: 'month', groupBy: ['usageTerm', 'pricingRule', 'checkType'],
+      include: ['runs', 'calculations'], limit: 50, nextId: 'cursor-1' })
+    expect(adapter.mock.calls[0][0]).toMatchObject({ url: '/v2/usage/series', params: {
+      interval: 'month', groupBy: 'usageTerm,pricingRule,checkType',
+      include: 'runs,calculations', limit: 50, nextId: 'cursor-1',
+    } })
+  })
+
+  it('drops empty lists so the backend can produce ungrouped default reports', async () => {
+    const { adapter, usage } = client()
+    await usage.getSeries({ usageTermsIds: [], accountIds: [], pricingRuleKeys: [], groupBy: [], include: [] })
+    expect(adapter.mock.calls[0][0]).toMatchObject({ url: '/v2/usage/series', params: {} })
   })
 })

@@ -93,6 +93,10 @@ export const MANAGE_REFERENCES = [
     description: 'Check account plan, entitlements, feature limits, and available locations (`account plan`)',
   },
   {
+    id: 'manage-usage',
+    description: 'Report contract credits, pricing calculations, coverage gaps, and term projections (`account usage`)',
+  },
+  {
     id: 'manage-account-members',
     description: 'List account members and pending invites (`members`), update member roles, and delete members',
   },

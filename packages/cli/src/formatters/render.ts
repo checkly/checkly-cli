@@ -2,6 +2,7 @@ import chalk from 'chalk'
 import stringWidth from 'string-width'
 
 export type OutputFormat = 'terminal' | 'md'
+export type HeadingLevel = 1 | 2 | 3 | 4 | 5 | 6
 
 // eslint-disable-next-line no-control-regex
 const ANSI_REGEX = /\u001B\[[0-9;]*m/g
@@ -165,10 +166,11 @@ export function renderDetailFields<T> (
   fields: DetailField<T>[],
   item: T,
   format: OutputFormat,
+  headingLevel: HeadingLevel = 1,
 ): string {
   if (format === 'md') {
     const lines = [
-      `# ${title}`,
+      heading(title, headingLevel, format),
       '',
       '| Field | Value |',
       '| --- | --- |',

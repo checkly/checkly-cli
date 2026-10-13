@@ -308,11 +308,17 @@ describe('renderDetailFields', () => {
 
   it('renders markdown detail with table format', () => {
     const result = renderDetailFields('Test Title', fields, { name: 'Alice', age: 30 }, 'md')
-    expect(result).toContain('# Test Title')
-    expect(result).toContain('| Field | Value |')
-    expect(result).toContain('| --- | --- |')
-    expect(result).toContain('| Name | Alice |')
-    expect(result).toContain('| Age | 30 |')
+    expect(result).toBe('# Test Title\n\n| Field | Value |\n| --- | --- |\n| Name | Alice |\n| Age | 30 |')
+  })
+
+  it('supports nested Markdown details while preserving the legacy terminal layout', () => {
+    const item = { name: 'Alice', age: 30 }
+    expect(renderDetailFields('Nested', fields, item, 'md', 3))
+      .toBe('### Nested\n\n| Field | Value |\n| --- | --- |\n| Name | Alice |\n| Age | 30 |')
+    for (const result of [
+      renderDetailFields('Nested', fields, item, 'terminal'),
+      renderDetailFields('Nested', fields, item, 'terminal', 3),
+    ]) expect(stripAnsi(result)).toBe('Nested\n\nName:  Alice\nAge:   30')
   })
 
   it('omits fields that return null in markdown', () => {

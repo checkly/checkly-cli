@@ -1,56 +1,42 @@
 import { AuthCommand } from '../../authCommand.js'
 import { outputFlag } from '../../../helpers/flags.js'
-import { describeUsageError, usageRangeFlags, usageRangeParams, usageTermsParams } from '../../../helpers/usage.js'
+import { describeUsageError, loadUsageNames, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
 import * as api from '../../../rest/api.js'
 import { type OutputFormat, renderCommandHints } from '../../../formatters/render.js'
-import { formatUsageSummary } from '../../../formatters/usage.js'
+import { formatUsageSummary, usageListCommand } from '../../../formatters/usage.js'
 
 export default class UsageSummaryCommand extends AuthCommand {
   static hidden = false
   static readOnly = true
+  static destructive = false
   static idempotent = true
-  static description = 'Show organization usage totals for a date range, plus credit projections as of today.'
-
-  static flags = {
-    ...usageRangeFlags(),
-    output: outputFlag({ default: 'detail' }),
-  }
+  static description = 'Show usage credits, pricing calculations, and coverage gaps across selected terms.'
+  static flags = { ...usageRangeFlags(), output: outputFlag({ default: 'detail' }) }
 
   async run (): Promise<void> {
     const { flags } = await this.parse(UsageSummaryCommand)
     this.style.outputFormat = flags.output
-
     try {
+      const params = usageRangeParams(flags)
+      const { data: summary } = await api.usage.getSummary(params)
       if (flags.output === 'json') {
-        const { data: summary } = await api.usage.getSummary(usageRangeParams(flags))
         this.log(JSON.stringify(summary, null, 2))
         return
       }
-
-      // The summary carries no organization name or budget; the terms do.
-      const [{ data: summary }, { data: terms }] = await Promise.all([
-        api.usage.getSummary(usageRangeParams(flags)),
-        api.usage.getTerms(usageTermsParams(flags)),
-      ])
+      const names = summary.breakdown.length > 0 ? await loadUsageNames(summary.usageTermsIds) : undefined
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
-
-      if (fmt === 'md') {
-        this.log(formatUsageSummary(summary, fmt, terms))
-        return
+      const output = [formatUsageSummary(summary, fmt, names)]
+      if (fmt === 'terminal') {
+        output.push(renderCommandHints([
+          { label: 'Daily series', command: usageListCommand('series', {
+            ...params, ...summary.period, interval: 'day', groupBy: ['account', 'checkType'],
+          }) },
+          { label: 'Terms', command: 'checkly account usage terms' },
+        ], { gap: 1 }))
       }
-
-      const output: string[] = []
-      output.push(formatUsageSummary(summary, fmt, terms))
-      output.push('')
-      output.push(renderCommandHints([
-        { label: 'Daily series', command: 'checkly account usage series --interval day' },
-        { label: 'Monthly by account', command: 'checkly account usage series --interval month --group-by account' },
-        { label: 'Terms', command: 'checkly account usage terms' },
-      ], { gap: 1 }))
-
-      this.log(output.join('\n'))
-    } catch (err: any) {
-      this.style.longError('Failed to load usage summary.', describeUsageError(err, { to: flags.to }) ?? err)
+      this.log(output.join('\n\n'))
+    } catch (err: unknown) {
+      this.style.longError('Failed to load usage summary.', describeUsageError(err) ?? (err instanceof Error ? err : String(err)))
       process.exitCode = 1
     }
   }
