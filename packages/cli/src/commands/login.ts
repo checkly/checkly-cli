@@ -361,12 +361,11 @@ export default class Login extends BaseCommand {
         // (CI never gets here; #pickAccount throws instead.)
         // A person has to choose; the agent must not pick an account itself.
         this.#print(selectAccountLine({
-          message: (this.#notice ? `${this.#notice} ` : '')
-            + 'Logged in, but this user belongs to several accounts. Ask the user which one to use. Then run '
-            + '`npx checkly login --account-id <id>` to make it the default'
+          message: this.#withNotice('Logged in, but this user belongs to several accounts. Ask the user which '
+            + 'one to use. Then run `npx checkly login --account-id <id>` to make it the default'
             + (this.#inline ? ' and run the original command again' : '')
             + ', or set `CHECKLY_ACCOUNT_ID=<id>` on a command to use the account for that command only. '
-            + 'To log in as someone else instead, run `npx checkly logout` first.',
+            + 'To log in as someone else instead, run `npx checkly logout` first.'),
           accounts,
           defaultCommand: 'npx checkly login --account-id <id>',
           command: this.#command,
@@ -382,12 +381,13 @@ export default class Login extends BaseCommand {
         this.#print(JSON.stringify({
           status: 'success',
           reason: switched ? 'account_switched' : 'logged_in',
-          message: (this.#notice ? `${this.#notice} ` : '') + (switched
+          message: this.#withNotice((switched
             ? `Switched to account "${account.name}".`
-            : `Logged in as ${userName} to account "${account.name}".`) + this.#overrideSuffix(),
+            : `Logged in as ${userName} to account "${account.name}".`) + this.#overrideSuffix()),
           user: userName,
           accountId: account.id,
           accountName: account.name,
+          defaultAccount: config.getStoredAccount() ?? null,
         }))
       } else if (switched) {
         this.#print(`Switched to account ${chalk.cyan.bold(account.name)} (${account.id})`)
@@ -439,15 +439,21 @@ export default class Login extends BaseCommand {
       this.#print(JSON.stringify({
         status: 'success',
         reason: 'logged_in',
-        message,
+        message: this.#withNotice(message),
         user: userName,
         accountId: account.id,
         accountName: account.name,
+        defaultAccount: config.getStoredAccount() ?? null,
       }))
     } else {
       this.#print(message)
     }
     return true
+  }
+
+  /** `message` after the notice of why this login was needed, if there is one. */
+  #withNotice (message: string): string {
+    return this.#notice ? `${this.#notice} ${message}` : message
   }
 
   /** ` <notice>` for agent lines when `CHECKLY_ACCOUNT_ID` overrides the default this command manages. */
@@ -507,7 +513,7 @@ export default class Login extends BaseCommand {
   // ─── LOGIN STATE ────────────────────────────────────────────
 
   async #wantsToReplaceLogin (accountName: string): Promise<boolean> {
-    const accountId = config.data.get('accountId')
+    const accountId = config.getStoredAccountId()
 
     if (this.#mode !== 'interactive') {
       if (this.#mode === 'agent') {
@@ -517,6 +523,7 @@ export default class Login extends BaseCommand {
           message: `Already logged in to account "${accountName}".` + this.#overrideSuffix(),
           accountId,
           accountName,
+          defaultAccount: config.getStoredAccount() ?? null,
         }))
       } else {
         this.#print(`Already logged in to "${accountName}".`)
@@ -767,15 +774,14 @@ export default class Login extends BaseCommand {
       status: 'action_required',
       reason: 'login_required',
       userActionRequired: true,
-      message: (this.#notice ? `${this.#notice} ` : '')
-        // A command that started a login on its own (e.g. `whoami`) prints
-        // this instead of what was asked for; say so, or the line reads as a
-        // plain "not logged in" error and the code goes unused.
-        + (this.#inline ? 'Not logged in to Checkly, so this command needs a login first. ' : '')
+      // A command that started a login on its own (e.g. `whoami`) prints
+      // this instead of what was asked for; say so, or the line reads as a
+      // plain "not logged in" error and the code goes unused.
+      message: this.#withNotice((this.#inline ? 'Not logged in to Checkly, so this command needs a login first. ' : '')
         + `Open ${authorization.verificationUri} in a browser on any device and enter the code `
         + `${authorization.userCode}. Then run \`${this.#waitCommand()}\`: it returns once the user has approved`
         + (this.#inline ? ', after which run this command again.' : '.')
-        + (problem ? ` ${problem}` : '') + ` ${Login.#signUpHint}`,
+        + (problem ? ` ${problem}` : '') + ` ${Login.#signUpHint}`),
       verification_uri: authorization.verificationUri,
       verification_uri_complete: authorization.verificationUriComplete,
       user_code: authorization.userCode,

@@ -36,6 +36,9 @@ vi.mock('../../services/config', () => {
     getApiKey: vi.fn(),
     getAccountId: vi.fn(),
     getStoredAccountId: vi.fn((): string => config.accountOverride() ? data.store.accountId as string ?? '' : config.getAccountId()),
+    getStoredAccount: vi.fn(() => data.store.accountId
+      ? { id: data.store.accountId as string, name: (data.store.accountName ?? data.store.accountId) as string }
+      : undefined),
     hasStoredLogin: vi.fn((): boolean => config.accountOverride()
       ? Boolean(config.getApiKey()) && Boolean(data.store.accountId)
       : config.hasValidCredentials()),
@@ -277,6 +280,7 @@ describe('checkly login', () => {
         user: 'Ada Lovelace',
         accountId: 'acc-1',
         accountName: 'Acme',
+        defaultAccount: { id: 'acc-1', name: 'Acme' },
       }])
       expect(config.auth.delete).toHaveBeenCalledWith('pendingDeviceAuthorization')
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_1')
@@ -457,6 +461,7 @@ describe('checkly login', () => {
         user: 'Ada Lovelace',
         accountId: 'acc-2',
         accountName: 'Globex',
+        defaultAccount: { id: 'acc-2', name: 'Globex' },
       }])
     })
 
@@ -508,6 +513,8 @@ describe('checkly login', () => {
 
     it('reports an existing login as JSON without starting a new flow', async () => {
       vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+      vi.mocked(config.getAccountId).mockReturnValue('acc-1')
+      config.data.store = { accountId: 'acc-1', accountName: 'Acme' } as any
       vi.mocked(config.data.get).mockImplementation((key: string) => ({ accountId: 'acc-1', accountName: 'Acme' })[key])
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
@@ -520,6 +527,7 @@ describe('checkly login', () => {
         message: 'Already logged in to account "Acme".',
         accountId: 'acc-1',
         accountName: 'Acme',
+        defaultAccount: { id: 'acc-1', name: 'Acme' },
       }])
     })
 
@@ -742,6 +750,7 @@ describe('checkly login', () => {
           message: 'Already logged in to account "Acme".',
           accountId: 'acc-1',
           accountName: 'Acme',
+          defaultAccount: { id: 'acc-1', name: 'Acme' },
         }])
       })
 
@@ -1462,6 +1471,29 @@ describe('checkly login', () => {
         user: 'Ada Lovelace',
         accountId: 'acc-2',
         accountName: 'Globex',
+        defaultAccount: null,
+      })
+    })
+
+    describe('logging in again after the stored account became unusable', () => {
+      beforeEach(() => {
+        vi.mocked(config.getApiKey).mockReturnValue('cak_stored')
+        vi.mocked(config.data.get).mockImplementation((key: string) => (config.data.store as any)[key])
+      })
+
+      it('says why the previous default is gone and stores none', async () => {
+        config.data.store = { accountId: 'acc-3', accountName: 'Initech' } as any
+        vi.mocked(api.accounts.get).mockRejectedValueOnce(
+          new ForbiddenError({ statusCode: 403, error: 'Forbidden', message: 'Forbidden' } as any))
+        const cmd = createCommand()
+        await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+        expect(config.data.store).not.toHaveProperty('accountId')
+        const [line] = jsonLines(cmd)
+        expect(line).toMatchObject({ status: 'success', accountId: 'acc-2', defaultAccount: null })
+        expect(line.message).toBe('Account "Initech" is no longer available with the stored login. Logged in as '
+          + 'Ada Lovelace. Commands use account "Globex" from `CHECKLY_ACCOUNT_ID` while it is set; no default account '
+          + 'is stored (`npx checkly login --account-id <id>` stores one).')
       })
     })
 
