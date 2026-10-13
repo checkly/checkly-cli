@@ -1,0 +1,192 @@
+import fs from 'node:fs'
+import path from 'node:path'
+
+import { describe, expect, it } from 'vitest'
+
+import { Parser, typescriptEstreeFallback, typescriptEstreeParse } from '../parser.js'
+import { isTSExtension } from '../package-files/extension.js'
+
+// TypeScript files are parsed with oxc-parser, which replaced
+// typescript-estree. These tests make sure both find exactly the same
+// dependencies, so switching parsers doesn't change what gets bundled.
+
+const estree = typescriptEstreeParse()
+
+function findTSFiles (dir: string): string[] {
+  if (!fs.existsSync(dir)) {
+    return []
+  }
+  return fs.readdirSync(dir, { recursive: true, encoding: 'utf8' })
+    .filter(file => !file.split(path.sep).includes('node_modules'))
+    .filter(file => isTSExtension(path.extname(file)))
+    .map(file => path.join(dir, file))
+}
+
+const repoRoot = path.join(__dirname, '..', '..', '..', '..', '..', '..')
+
+const fixtureFiles = [
+  ...findTSFiles(path.join(__dirname, 'check-parser-fixtures')),
+  ...findTSFiles(path.join(repoRoot, 'examples')),
+  ...findTSFiles(path.join(repoRoot, 'benchmarks')),
+]
+
+const edgeCases: Record<string, string> = {
+  'imports.ts': `
+    import type { A } from './type-only'
+    import './side-effect'
+    import def, { named } from './default-and-named'
+    import * as ns from './namespace'
+    export type { B } from './type-reexport'
+    export { c } from './reexport'
+    export * from './star'
+    export * as star from './star-as'
+    import json from './data.json' with { type: 'json' }
+  `,
+  'requires.ts': `
+    const a = require('./require')
+    const b = module.require('./module-require')
+    const c = require(\`./template\`)
+    const d = require(variable)
+    function lazy () { return require('./in-function') }
+    const e = await import('./dynamic')
+    import f = require('./import-equals')
+    namespace N { const g = require('./in-namespace') }
+    declare module 'ambient' { import h from './in-ambient-module' }
+  `,
+  'syntax.ts': `
+    import { inject } from './decorators'
+    enum Color { Red, Green }
+    abstract class Base<T extends object = {}> {
+      @inject() accessor value!: T
+      accessor loaded = require('./accessor-initializer')
+      constructor (private readonly dep: typeof import('./type-import')) {}
+    }
+    const config = { a: 1 } satisfies Record<string, number>
+    export default class extends Base<{}> {}
+    const x = <T,>(value: T) => value
+    using res = getResource()
+  `,
+  'component.tsx': `
+    import { Button } from './button'
+    const el = <div>{require('./in-jsx')}<Button onClick={() => require('./in-handler')} /></div>
+    const generic = <T,>(value: T) => value
+  `,
+  'module.mts': `
+    import { a } from './a.mjs'
+    export const b = await import('./b.mjs')
+  `,
+  'common.cts': `
+    const a = require('./a.cjs')
+    module.exports = { a }
+  `,
+  'declarations.d.ts': `
+    import type { A } from './a'
+    export const value: { title: string }
+    export function fn (a: A): void
+    export default class Page { title: string }
+  `,
+  'declarations.d.mts': `
+    export const value: number
+    export * from './other.mjs'
+  `,
+  'styles.d.css.ts': `
+    declare const styles: { readonly [key: string]: string }
+    export default styles
+  `,
+}
+
+const syntaxError = `
+  import { a } from './a'
+  const b: = ;
+`
+
+// Grammar errors that typescript-estree leaves to the type checker, but oxc
+// reports while parsing. The files fail to parse; nearly all of them would also
+// fail at runtime.
+const grammarErrors: Record<string, string> = {
+  'const-without-initializer.ts': `import './a'\nconst x`,
+  'getter-with-parameter.ts': `import './a'\nclass C { get x (a) { return a } }`,
+  'rest-parameter-trailing-comma.ts': `import './a'\nfunction f (...a,) {}`,
+  'await-identifier.ts': `const a = require('./a')\nconst await = 1`,
+  'import-meta-in-commonjs.cts': `const a = require('./a')\nconsole.log(import.meta.url)`,
+}
+
+describe('TypeScript dependency parsing', () => {
+  it('finds TypeScript fixture files to compare', () => {
+    expect(fixtureFiles.length).toBeGreaterThan(100)
+  })
+
+  it.each(fixtureFiles.map(file => [path.relative(process.cwd(), file), file]))(
+    'finds the same dependencies as typescript-estree in %s',
+    (_, file) => {
+      const contents = fs.readFileSync(file, 'utf8')
+      const actual = Parser.parseDependencies(file, contents)
+      const expected = Parser.parseDependencies(file, contents, estree)
+      expect(actual.module.dependencies).toEqual(expected.module.dependencies)
+      expect(Boolean(actual.error)).toEqual(Boolean(expected.error))
+    },
+  )
+
+  it.each(Object.entries(edgeCases))('finds the same dependencies as typescript-estree in %s', (file, contents) => {
+    const actual = Parser.parseDependencies(file, contents)
+    const expected = Parser.parseDependencies(file, contents, estree)
+    expect(actual.error).toBeUndefined()
+    expect(expected.error).toBeUndefined()
+    expect(actual.module.dependencies).toEqual(expected.module.dependencies)
+  })
+
+  it('fails a syntax error like typescript-estree', () => {
+    expect(Parser.parseDependencies('broken.ts', syntaxError).error).toBeDefined()
+    expect(Parser.parseDependencies('broken.ts', syntaxError, estree).error).toBeDefined()
+  })
+
+  it.each(Object.entries(grammarErrors))('fails a grammar error that typescript-estree accepts in %s', (file, contents) => {
+    expect(Parser.parseDependencies(file, contents).error).toBeInstanceOf(SyntaxError)
+    expect(Parser.parseDependencies(file, contents, estree).error).toBeUndefined()
+  })
+
+  it('reports syntax errors with their location', () => {
+    const { error } = Parser.parseDependencies('broken.ts', syntaxError)
+    expect(error).toBeInstanceOf(SyntaxError)
+    expect(error.message).toMatch(/\(3:11\)$/)
+  })
+})
+
+describe('typescript-estree fallback', () => {
+  const oxcError = new Error('Cannot find native binding.')
+
+  it('finds dependencies like typescript-estree', () => {
+    const contents = edgeCases['imports.ts']!
+    const actual = Parser.parseDependencies('imports.ts', contents, typescriptEstreeFallback(oxcError))
+    const expected = Parser.parseDependencies('imports.ts', contents, estree)
+    expect(actual.error).toBeUndefined()
+    expect(actual.module.dependencies).toEqual(expected.module.dependencies)
+  })
+
+  it('reports syntax errors without mentioning oxc-parser', () => {
+    const { error } = Parser.parseDependencies(
+      'broken.ts', syntaxError, typescriptEstreeFallback(oxcError))
+    expect(error.name).toEqual('TSError')
+    expect(error.message).not.toContain('oxc-parser')
+  })
+
+  it('names the oxc-parser failure when typescript-estree fails to load', () => {
+    const fallback = typescriptEstreeFallback(oxcError, () => {
+      throw new Error('Please install "typescript" to use TypeScript-code in check files')
+    })
+    const { error } = Parser.parseDependencies('a.ts', 'import "./a"', fallback)
+    expect(error.message).toEqual('Please install "typescript" to use TypeScript-code in check files'
+      + ' (typescript-estree was used because oxc-parser failed to load: Cannot find native binding.)')
+  })
+
+  it('names the oxc-parser failure when typescript-estree fails to parse', () => {
+    // typescript-estree fails like this with TypeScript versions it doesn't support.
+    const fallback = typescriptEstreeFallback(oxcError, () => () => {
+      throw new TypeError('Cannot read properties of undefined (reading \'Cjs\')')
+    })
+    const { error } = Parser.parseDependencies('a.ts', 'import "./a"', fallback)
+    expect(error.message).toEqual('Cannot read properties of undefined (reading \'Cjs\')'
+      + ' (typescript-estree was used because oxc-parser failed to load: Cannot find native binding.)')
+    expect(error.cause).toBeInstanceOf(TypeError)
+  })
+})
