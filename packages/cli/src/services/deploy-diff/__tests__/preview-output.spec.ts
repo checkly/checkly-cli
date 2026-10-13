@@ -405,9 +405,14 @@ new ApiCheck('api-health', {
         foldedInto: { type: 'check', logicalId: 'api-health' },
       },
     ]
-    const LATER = 'Later deploys show only what changed.'
+    const NOTE = (count: number, done = false): string => {
+      const one = count === 1
+      return `= ${one ? '1 resource' : `${count} resources`} ${done ? 'showed' : one ? 'shows' : 'show'} no difference `
+        + `from what ${done ? 'was' : 'is'} live and ${done ? (one ? 'was' : 'were') : (one ? 'is' : 'are')} `
+        + 'written once to set the baseline later deploys compare with.'
+    }
 
-    it('lists every resource as an update and counts them in the note', () => {
+    it('lists every resource with the baseline marker and counts them apart from the updates', () => {
       const { local } = scenario()
       const diff: DiffEntry[] = [
         ...baseline,
@@ -423,21 +428,21 @@ new ApiCheck('api-health', {
       expect(text).toBe([
         'Deploy preview · Website → account Acme',
         '',
-        '  ~ EmailAlertChannel  email',
-        '  ~ ApiCheck           api-health  src/api-health.check.ts',
-        '  ~ ApiCheck           signup      src/signup.check.ts',
-        '  ~ CheckGroupV2       grp',
+        '  = EmailAlertChannel  email',
+        '  = ApiCheck           api-health  src/api-health.check.ts',
+        '  = ApiCheck           signup      src/signup.check.ts',
+        '  = CheckGroupV2       grp',
         '',
-        `4 resources are updated to set a baseline. ${LATER}`,
+        NOTE(4),
         '',
-        '4 to update, 0 unchanged',
+        '4 to set a baseline, 0 unchanged',
         'Deploy exactly this plan: checkly deploy --plan-token v1.token',
         '',
       ].join('\n'))
       expect(text).not.toContain('No changes.')
     })
 
-    it('counts only the resources that set the baseline, and renders a diff as usual', () => {
+    it('lists the baseline rows after the updates, and renders the diff of an update as usual', () => {
       const { local } = scenario()
       vi.mocked(renderResourceDiff).mockReturnValue([
         { kind: 'remove', text: '  name: \'Edited in Checkly\',' },
@@ -446,9 +451,12 @@ new ApiCheck('api-health', {
       const diff: DiffEntry[] = [...baseline, updateEntry]
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
       expect(text).toContain([
-        '  ~ CheckGroupV2       grp',
+        '  ~ ApiCheck           api-health  src/api-health.check.ts',
+        '  = EmailAlertChannel  email',
+        '  = ApiCheck           signup      src/signup.check.ts',
+        '  = CheckGroupV2       grp',
         '',
-        `3 resources are updated to set a baseline. ${LATER}`,
+        NOTE(3),
         '',
         '~ ApiCheck api-health  src/api-health.check.ts',
         '    - live in Checkly   replaced or removed by this deploy',
@@ -456,14 +464,14 @@ new ApiCheck('api-health', {
         '  -   name: \'Edited in Checkly\',',
         '  +   name: \'API health\',',
       ].join('\n'))
-      expect(text).toContain('\n4 to update, 0 unchanged\n')
+      expect(text).toContain('\n1 to update, 3 to set a baseline, 0 unchanged\n')
 
       const after = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
-      expect(after).toContain(`\n3 resources were updated to set a baseline. ${LATER}\n`)
-      expect(after).toContain('\n4 updated, 0 unchanged\n')
+      expect(after).toContain(`\n${NOTE(3, true)}\n`)
+      expect(after).toContain('\n1 updated, 3 set a baseline, 0 unchanged\n')
     })
 
-    it('lists one whose only reported changes are relations the project does not manage, next to the warning, without a diff', () => {
+    it('lists one whose only reported changes are relations the project does not manage as a baseline, next to the warning', () => {
       const { local } = scenario()
       // What the diff of such a resource would show: its relation as removed,
       // which the deploy does not do without --prune-relations.
@@ -478,12 +486,41 @@ new ApiCheck('api-health', {
         changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
       }, unchangedEntries[0]]
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local } }))
-      expect(text).toContain('  ~ ApiCheck  signup  src/signup.check.ts\n')
+      expect(text).toContain('  = ApiCheck  signup  src/signup.check.ts\n')
       expect(text).toContain('  ! Check     signup  has alert channels or private locations this project does not manage')
-      expect(text).toContain(`\n1 resource is updated to set a baseline. ${LATER}\n`)
+      expect(text).toContain(`\n${NOTE(1)}\n`)
       expect(text).not.toContain('(absent)')
-      expect(text).toContain('\n1 to update, 1 with relations this project does not manage, 1 unchanged\n')
+      expect(text).toContain('\n1 to set a baseline, 1 with relations this project does not manage, 1 unchanged\n')
       expect(text).not.toContain('No changes.')
+    })
+
+    it('keeps the baseline row when --prune-relations deletes those relations on rows of their own', () => {
+      const { local } = scenario()
+      const diff: DiffEntry[] = [
+        {
+          type: 'check',
+          logicalId: 'signup',
+          physicalId: 's1',
+          action: 'UPDATE',
+          basis: 'live',
+          before: { id: 's1', checkType: 'API', name: 'Signup' },
+          changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+        },
+        {
+          type: 'alert-channel-subscription',
+          logicalId: 'signup#ops',
+          physicalId: 7,
+          action: 'DELETE',
+          origin: 'unmanaged',
+          foldedInto: { type: 'check', logicalId: 'signup' },
+        },
+      ]
+      const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, pruneRelations: true }))
+      expect(text).toMatch(/^ {2}= ApiCheck +signup +src\/signup\.check\.ts$/m)
+      expect(text).toMatch(/^ {2}- alert-channel-subscription +signup#ops +relation on Check signup not managed/m)
+      expect(text).toContain('not managed by this project, deleted by --prune-relations')
+      expect(text).not.toContain('!')
+      expect(text).toContain('\n1 to set a baseline, 1 relation pruned, 0 unchanged\n')
     })
 
     it('speaks in the past tense once the plan was carried out', () => {
@@ -492,14 +529,14 @@ new ApiCheck('api-health', {
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, done: true }))
       expect(text).toContain([
         '  ~ ApiCheck      api-health  src/api-health.check.ts',
-        '  ~ CheckGroupV2  grp',
+        '  = CheckGroupV2  grp',
         '',
-        `1 resource was updated to set a baseline. ${LATER}`,
+        NOTE(1, true),
         '',
-        '2 updated, 0 unchanged',
+        '1 updated, 1 set a baseline, 0 unchanged',
       ].join('\n'))
       const all = uncoloured(formatPreview({ diff: [baseline[0], unchangedEntries[1]], project, done: true }))
-      expect(all).toContain(`\n1 resource was updated to set a baseline. ${LATER}\n`)
+      expect(all).toContain(`\n${NOTE(1, true)}\n`)
     })
 
     it('says nothing of the kind for a plan compared with an earlier one', () => {

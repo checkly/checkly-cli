@@ -1975,7 +1975,7 @@ describe('deploy of a plan with nothing to apply', () => {
     // them whatever was found, so a plan with no difference is still a write.
     const SETS_BASELINE: DiffEntry = { ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }
 
-    it('asks for confirmation, listing the resource as an update', async () => {
+    it('asks for confirmation, listing the resource as one that sets a baseline', async () => {
       nothingToApply([SETS_BASELINE])
       const ctx = createCommandContext()
 
@@ -1983,7 +1983,7 @@ describe('deploy of a plan with nothing to apply', () => {
 
       const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
       expect(output.status).toBe('confirmation_required')
-      expect(output.changes).toContain('Update AlertChannel: ops')
+      expect(output.changes).toContain('Set a baseline for AlertChannel: ops')
       expect(output.preview.diff).toEqual([SETS_BASELINE])
       expect(api.projects.deploy).not.toHaveBeenCalled()
     })
@@ -2009,9 +2009,9 @@ describe('deploy of a plan with nothing to apply', () => {
 
       const printed = ctx.logged.join('\n')
       expect(printed).not.toContain('No changes.')
-      expect(printed).toContain('\n1 updated, 0 unchanged\n')
+      expect(printed).toContain('\n1 set a baseline, 0 unchanged\n')
       expect(printed).toContain(
-        '1 resource was updated to set a baseline. Later deploys show only what changed.',
+        '= 1 resource showed no difference from what was live and was written once to set the baseline later deploys compare with.',
       )
       expect(ctx.logged[ctx.logged.length - 1])
         .toBe('Successfully deployed project "My Project" to account "Test Account".')

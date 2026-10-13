@@ -61,11 +61,11 @@ describe('planHasNoChanges', () => {
 
 /**
  * The lines the confirmation lists. A resource Checkly compared with what is
- * deployed is written whatever was found, to set the baseline for later plans,
- * so it is listed as the update it is.
+ * live is written whatever was found, to set the baseline for later plans, so
+ * it is listed; as a baseline when nothing differs, as an update otherwise.
  */
 describe('planChangeLines', () => {
-  it('lists a resource updated to set the baseline like any other update', () => {
+  it('names a resource written to set the baseline as such, and one with a difference as an update', () => {
     const setsBaseline = (logicalId: string): DiffEntry =>
       ({ type: 'check', logicalId, physicalId: logicalId, action: 'UPDATE', basis: 'live' })
     expect(planChangeLines([
@@ -80,11 +80,31 @@ describe('planChangeLines', () => {
       },
       { type: 'check', logicalId: 'new', action: 'CREATE' },
     ], options)).toEqual([
-      'Update Check: a',
-      'Update Check: relation-only',
       'Update Check: renamed',
       'Create Check: new',
+      'Set a baseline for Check: a',
+      'Set a baseline for Check: relation-only',
     ])
+  })
+
+  it('lists what the deploy changes before what it baselines, and sums up each kind it leaves out', () => {
+    // A first plan of a large project: the two real edits must not be pushed
+    // past the window by the resources that only set a baseline.
+    const baselines = Array.from({ length: 25 }, (_, index): DiffEntry =>
+      ({ type: 'check', logicalId: `b${index}`, physicalId: index, action: 'UPDATE', basis: 'live' }))
+    const lines = planChangeLines([
+      ...baselines.slice(0, 10),
+      { type: 'check', logicalId: 'edited', physicalId: 'e', action: 'UPDATE', basis: 'live', changes: [{ path: '/name', origin: 'code', before: 'Old', after: 'New' }] },
+      ...baselines.slice(10),
+      { type: 'check', logicalId: 'new', action: 'CREATE' },
+    ], options)
+    expect(lines.slice(0, 3)).toEqual(['Update Check: edited', 'Create Check: new', 'Set a baseline for Check: b0'])
+    expect(lines).toHaveLength(21)
+    expect(lines[20]).toBe('Set a baseline for 7 more resource(s); run with --preview to see them all')
+
+    const creates = Array.from({ length: 22 }, (_, index): DiffEntry => ({ type: 'check', logicalId: `c${index}`, action: 'CREATE' }))
+    expect(planChangeLines([...baselines.slice(0, 3), ...creates], options)[20])
+      .toBe('Create or update 2 more resource(s) and Set a baseline for 3 more resource(s); run with --preview to see them all')
   })
 })
 

@@ -9,7 +9,7 @@ import {
 import { padColumn, visWidth } from '../../formatters/render.js'
 import type { DeployResourceSync, DiffEntry } from '../../rest/projects.js'
 import { physicalIdsFromPlan } from './import-shape.js'
-import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges } from './plan-summary.js'
+import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges, writtenForBaseline } from './plan-summary.js'
 import { renderResourceDiff, type RenderedLine } from './render.js'
 import { SourceIndex } from './source-index.js'
 import { constructVariableNames } from './variable-names.js'
@@ -113,6 +113,8 @@ export const MARKER = {
   prune: chalk.red('-'),
   warn: chalk.yellow('!'),
   skip: chalk.dim('·'),
+  /** Written once to set the baseline; nothing differs that the comparison can show. */
+  baseline: chalk.dim('='),
 }
 
 export function formatPreview (input: PreviewOutputInput): string {
@@ -124,10 +126,12 @@ export function formatPreview (input: PreviewOutputInput): string {
   const detaching: Listed[] = []
   const pruning: Listed[] = []
   const unmanaged: Listed[] = []
+  // Written only to set a baseline: compared with what is live, for want of
+  // an earlier planned deploy, and found the same. Listed with their own
+  // marker and count, so that the overview does not announce updates the
+  // reader then looks for a diff of in vain.
+  const baselining: Listed[] = []
   let unchanged = 0
-  // Updates Checkly compared with what is deployed, for want of an earlier
-  // planned deploy; the note under the overview counts them.
-  let baseline = 0
   for (const change of diff) {
     const { type, logicalId, physicalId, action, changes } = change
     if (NON_REPORTED_TYPES.some(t => t === type)) {
@@ -147,32 +151,27 @@ export function formatPreview (input: PreviewOutputInput): string {
       }
       continue
     }
-    if (change.basis === 'live') {
-      baseline++
-    }
     // Relations the project does not manage are reported on their owning
     // check or group whether or not they would be deleted. Without
-    // --prune-relations the deploy leaves them — and the resource — alone, so
-    // listing it as an update would name a write that never happens.
-    // Never an update: what the deploy deletes is the relation, not the
-    // check or group it hangs off. With --prune-relations the relation's own
-    // entry is already listed as pruned, so the resource needs no line of
-    // its own — and advising the flag the user just passed would be absurd.
-    // A resource written to set the baseline is the exception: that write
-    // happens whatever was found, so it keeps its row next to the warning.
-    if (onlyUnmanagedChanges(change)) {
-      if (!pruneRelations) {
-        unmanaged.push({ resourceType: type, logicalId })
-      }
-      if (change.basis !== 'live') {
-        continue
-      }
+    // --prune-relations the deploy leaves them alone, which the `!` row
+    // says; with it, the relation's own entry is listed as pruned, and
+    // advising the flag the user just passed would be absurd.
+    if (onlyUnmanagedChanges(change) && !pruneRelations) {
+      unmanaged.push({ resourceType: type, logicalId })
     }
     // A type this CLI version does not know (a newer CLI deployed it) has no
     // slot in the project. Such an entry has no construct, and a created or
     // updated one is dropped from the overview below rather than crashing it.
     const construct = project.data[type as keyof ProjectData]?.[logicalId]
-    if (action === ResourceDeployStatus.UPDATE) {
+    if (writtenForBaseline(change)) {
+      // Written whatever was found, so it has a row of its own beside any
+      // `!` row, as a baseline rather than as an update.
+      baselining.push({ resourceType: type, logicalId, physicalId, construct })
+    } else if (onlyUnmanagedChanges(change)) {
+      // Never an update: what the deploy deletes, if anything, is the
+      // relation, not the check or group it hangs off.
+      continue
+    } else if (action === ResourceDeployStatus.UPDATE) {
       updating.push({ resourceType: type, logicalId, physicalId, construct })
     } else if (action === ResourceDeployStatus.UNCHANGED) {
       // A resource whose own properties agree with the account can still have
@@ -219,13 +218,14 @@ export function formatPreview (input: PreviewOutputInput): string {
   // non-member private location) and have nothing to show.
   const sortedCreating = creating.filter(({ construct }) => Boolean(construct)).sort(compareEntries)
   const sortedUpdating = updating.filter(({ construct }) => Boolean(construct)).sort(compareEntries)
+  const sortedBaselining = baselining.filter(({ construct }) => Boolean(construct)).sort(compareEntries)
   const sortedDeleting = deleting.sort(compareEntries)
   const sortedDetaching = detaching.sort(compareEntries)
   const sortedPruning = pruning.sort(compareEntries)
   const sortedUnmanaged = unmanaged.sort(compareEntries)
 
   if (!sortedCreating.length && !sortedDeleting.length && !sortedDetaching.length
-    && !sortedUpdating.length && !sortedPruning.length && !sortedUnmanaged.length
+    && !sortedUpdating.length && !sortedBaselining.length && !sortedPruning.length && !sortedUnmanaged.length
     && !unchanged && !skipping.length) {
     return '\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n'
   }
@@ -275,6 +275,8 @@ export function formatPreview (input: PreviewOutputInput): string {
       chalk.red(`relation${listed.owner ? ` on ${listed.owner}` : ''} not managed by this project, `
         + 'deleted by --prune-relations'),
     )),
+    // After what the deploy changes, so that the eye lands on that first.
+    ...sortedBaselining.map(listed => withConstruct(MARKER.baseline, listed)),
     ...sortedUnmanaged.map(listed => withNote(
       MARKER.warn, listed,
       chalk.yellow('has alert channels or private locations this project does not manage (pass --prune-relations to delete them)'),
@@ -331,8 +333,8 @@ export function formatPreview (input: PreviewOutputInput): string {
     output.push(`    ${chalk.dim(`${unchanged} unchanged`)}`)
   }
   output.push('')
-  if (baseline > 0) {
-    output.push(chalk.dim(baselineNote(baseline, done)), '')
+  if (sortedBaselining.length > 0) {
+    output.push(`${MARKER.baseline} ${chalk.dim(baselineNote(sortedBaselining.length, done))}`, '')
   }
 
   if (rendering !== undefined) {
@@ -346,12 +348,6 @@ export function formatPreview (input: PreviewOutputInput): string {
       // itself or the deploy that carried it out.
       const planned = rendering.plan.find(entry => entry.type === resourceType && entry.logicalId === logicalId)
       if (planned === undefined || planned.before === undefined) {
-        continue
-      }
-      // Listed for the write that sets its baseline, not for a change: a diff
-      // would show its unmanaged relations as removed, which the deploy does
-      // not do without --prune-relations. The `!` row says what there is to say.
-      if (onlyUnmanagedChanges(planned) && !pruneRelations) {
         continue
       }
       const lines = renderResourceDiff({
@@ -401,6 +397,7 @@ export function formatPreview (input: PreviewOutputInput): string {
     ...counted(sortedCreating.length, done ? 'created' : 'to create', chalk.green),
     ...counted(sortedUpdating.length, done ? 'updated' : 'to update', chalk.yellow),
     ...counted(sortedDeleting.length, done ? 'deleted' : 'to delete', chalk.red),
+    ...counted(sortedBaselining.length, done ? 'set a baseline' : 'to set a baseline', chalk.dim),
     ...counted(sortedDetaching.length, 'kept in your account', chalk.yellow),
     ...counted(sortedPruning.length, sortedPruning.length === 1 ? 'relation pruned' : 'relations pruned', chalk.red),
     ...counted(skipping.length, 'skipped (testOnly)', chalk.dim),
@@ -416,19 +413,22 @@ export function formatPreview (input: PreviewOutputInput): string {
 }
 
 /**
- * Why a plan lists resources as updates in which nothing differs. Checkly
- * compares a resource with the state its last planned deploy left; one without
- * such a state (the project's first plan, the first after a deploy with
- * `--no-plan`, a resource added with `checkly import`) is compared with what is
- * deployed instead and written whatever that finds, so that the next plan has
- * a baseline. The note counts them and names no cause: the plan does not say
- * which of these it was, and a sentence about "the first plan" would be wrong
- * for the others.
+ * What the `=` rows are. Checkly compares a resource with the state its last
+ * planned deploy left; one without such a state (the project's first plan,
+ * the first after a deploy with `--no-plan`, a resource added with `checkly
+ * import`) is compared with what is live instead and written whatever that
+ * finds, so that the next plan has a baseline. The note names no cause: the
+ * plan does not say which of these it was, and a sentence about "the first
+ * plan" would be wrong for the others.
  */
 function baselineNote (count: number, done: boolean): string {
-  const resources = count === 1 ? '1 resource' : `${count} resources`
-  const verb = done ? (count === 1 ? 'was' : 'were') : (count === 1 ? 'is' : 'are')
-  return `${resources} ${verb} updated to set a baseline. Later deploys show only what changed.`
+  const one = count === 1
+  const resources = one ? '1 resource' : `${count} resources`
+  const showed = done ? 'showed' : one ? 'shows' : 'show'
+  const live = done ? 'was' : 'is'
+  const written = done ? (one ? 'was' : 'were') : (one ? 'is' : 'are')
+  return `${resources} ${showed} no difference from what ${live} live and ${written} written once to set `
+    + 'the baseline later deploys compare with.'
 }
 
 /**

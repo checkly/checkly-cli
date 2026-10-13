@@ -46,6 +46,23 @@ export function onlyUnmanagedChanges (entry: DiffEntry): boolean {
 }
 
 /**
+ * True for a resource the deploy writes only to set a baseline: Checkly
+ * compared it with what is live for want of an earlier planned deploy
+ * (`basis: 'live'`) and found nothing to report, or nothing but relations the
+ * project does not manage. The write happens whatever was found, and the
+ * reported changes are not exhaustive (a secret or content Checkly does not
+ * return may differ), so the plan lists the resource; but as a baseline, not
+ * as the update a resource with a difference to show is. Relations the
+ * project does not manage count for nothing here whether or not the deploy
+ * prunes them: pruned, each is deleted on an entry of its own, which the plan
+ * lists; not pruned, they are left alone, which the `!` row says.
+ */
+export function writtenForBaseline (entry: DiffEntry): boolean {
+  return entry.basis === 'live' && entry.action === 'UPDATE'
+    && (entry.changes ?? []).every(change => change.origin === 'unmanaged')
+}
+
+/**
  * Entries worth showing: a resource the deploy touches. An `UNCHANGED` entry
  * with no changes of its own is the converged case and says nothing, a relation
  * folded into its parent is already reported there, and a resource whose only
@@ -97,7 +114,12 @@ export function planChangeLines (diff: DiffEntry[], options: PlanSummaryOptions)
   // `DETACHED` is what an API older than the deploy diff calls the same thing.
   const detached = (entry: DiffEntry) => entry.action === 'DETACH' || entry.action === 'DETACHED'
   const detachments = shown.filter(detached)
-  const rest = shown.filter(entry => entry.action !== 'DELETE' && !detached(entry))
+  // What the deploy changes comes first, so that a long first plan does not
+  // push its few real edits past the window with resources it only baselines.
+  const rest = [
+    ...shown.filter(entry => entry.action !== 'DELETE' && !detached(entry) && !writtenForBaseline(entry)),
+    ...shown.filter(writtenForBaseline),
+  ]
 
   const lines = [
     ...deletions.map(entry => (isPrunedRelation(entry)
@@ -112,14 +134,22 @@ export function planChangeLines (diff: DiffEntry[], options: PlanSummaryOptions)
       : `Permanently delete ${label(entry, options)}, losing its run history`)),
     ...detachments.map(entry => `Keep ${label(entry, options)} in your Checkly account, managed from the web app`),
     ...rest.slice(0, MAX_LISTED_CHANGES).map(entry => {
-      const verb = entry.action === 'CREATE' ? 'Create' : 'Update'
+      const verb = entry.action === 'CREATE'
+        ? 'Create'
+        : writtenForBaseline(entry) ? 'Set a baseline for' : 'Update'
       return `${verb} ${label(entry, options)}`
     }),
   ]
 
-  const hidden = rest.length - Math.min(rest.length, MAX_LISTED_CHANGES)
-  if (hidden > 0) {
-    lines.push(`Create or update ${hidden} more resource(s); run with --preview to see them all`)
+  const hidden = rest.slice(MAX_LISTED_CHANGES)
+  const hiddenBaselines = hidden.filter(writtenForBaseline).length
+  const hiddenChanges = hidden.length - hiddenBaselines
+  const summed = [
+    ...(hiddenChanges > 0 ? [`Create or update ${hiddenChanges} more resource(s)`] : []),
+    ...(hiddenBaselines > 0 ? [`Set a baseline for ${hiddenBaselines} more resource(s)`] : []),
+  ]
+  if (summed.length > 0) {
+    lines.push(`${summed.join(' and ')}; run with --preview to see them all`)
   }
   return lines
 }
