@@ -10,7 +10,7 @@ import { padColumn, visWidth } from '../../formatters/render.js'
 import type { DeployResourceSync, DiffEntry } from '../../rest/projects.js'
 import { physicalIdsFromPlan } from './import-shape.js'
 import { isPrunedRelation, onlyUnmanagedChanges, planHasNoChanges, writtenForBaseline } from './plan-summary.js'
-import { renderResourceDiff, type RenderedLine } from './render.js'
+import { changedByCauseAlone, renderResourceDiff, type RenderedLine } from './render.js'
 import { SourceIndex } from './source-index.js'
 import { constructVariableNames } from './variable-names.js'
 
@@ -347,7 +347,13 @@ export function formatPreview (input: PreviewOutputInput): string {
       // The entry to render is the plan's, whether this listing is the plan
       // itself or the deploy that carried it out.
       const planned = rendering.plan.find(entry => entry.type === resourceType && entry.logicalId === logicalId)
-      if (planned === undefined || planned.before === undefined) {
+      // The API attaches the deployed state only where the renderer needs it
+      // for a diff; an entry that changed by cause alone (a code bundle, a
+      // Playwright version, snapshots) comes without it and is rendered as
+      // its one-line notice. Any other entry without it (a plan asked for
+      // without the state, a type the API could not read) would render as a
+      // bare listing, so it keeps its overview row alone.
+      if (planned === undefined || (planned.before === undefined && !changedByCauseAlone(planned))) {
         continue
       }
       const lines = renderResourceDiff({
