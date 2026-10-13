@@ -46,9 +46,10 @@ export default class Switch extends AuthCommand {
       this.exit(0)
     }
 
-    // The login this run just did already chose the account (asking when
-    // there were several) and, in agent mode, reported it as JSON.
-    if (this.loggedInInline) {
+    // The login this run just did already chose the default (asking when
+    // there were several) and, in agent mode, reported it as JSON. Under
+    // `CHECKLY_ACCOUNT_ID` it stores no default, so there is still one to choose.
+    if (this.loggedInInline && config.getStoredAccountId()) {
       if (detectCliMode() !== 'agent') {
         this.log(`Logged in to ${chalk.bold.cyan(this.account.name)}. Run \`npx checkly switch\` to change accounts.`)
       }

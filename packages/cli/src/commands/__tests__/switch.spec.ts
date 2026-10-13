@@ -16,6 +16,7 @@ vi.mock('../../services/config', () => {
       data,
       getCredentialSource: vi.fn(() => 'login'),
       getAccountId: vi.fn(),
+      getStoredAccountId: vi.fn(() => data.store.accountId ?? ''),
       getStoredAccount: vi.fn(() => data.store.accountId
         ? { id: data.store.accountId, name: data.store.accountName ?? data.store.accountId }
         : undefined),
@@ -122,6 +123,36 @@ describe('checkly switch', () => {
 
       expect(prompts).not.toHaveBeenCalled()
       expect(cmd.log).not.toHaveBeenCalled()
+    })
+
+    it('still asks for the default when CHECKLY_ACCOUNT_ID picked the account and none was stored', async () => {
+      config.data.store = {}
+      vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      vi.mocked(prompts).mockResolvedValue({ selectedAccount: { id: 'acc-2', name: 'Globex' } })
+      const cmd = loggedInCommand()
+
+      await cmd.run()
+
+      expect(activateAccount).toHaveBeenCalledWith({ id: 'acc-2', name: 'Globex' })
+    })
+
+    it('lists the accounts to an agent when CHECKLY_ACCOUNT_ID picked the account and none was stored', async () => {
+      config.data.store = {}
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      const cmd = loggedInCommand()
+
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      const [line] = vi.mocked(cmd.log).mock.calls.map(([msg]) => JSON.parse(String(msg)))
+      expect(line).toMatchObject({ reason: 'select_account', defaultAccount: null })
+      expect(prompts).not.toHaveBeenCalled()
     })
   })
 
