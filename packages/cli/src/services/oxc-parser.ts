@@ -17,8 +17,8 @@ let loaded: { parseSync: ParseSync } | { error: unknown } | undefined
 /**
  * oxc-parser's `parseSync`. Its native binding can be missing, e.g. when
  * optional dependencies weren't installed or node_modules was copied from
- * another platform; the load error (which says how to reinstall) is thrown
- * then, and again on every later call without retrying the load.
+ * another platform; `oxcLoadError` is thrown then, and again on every later
+ * call without retrying the load.
  */
 export function loadOxcParser (): ParseSync {
   if (loaded === undefined) {
@@ -26,13 +26,23 @@ export function loadOxcParser (): ParseSync {
       const require = createRequire(import.meta.url)
       loaded = { parseSync: require('oxc-parser').parseSync }
     } catch (error) {
-      loaded = { error }
+      loaded = { error: oxcLoadError(error) }
     }
   }
   if ('error' in loaded) {
     throw loaded.error
   }
   return loaded.parseSync
+}
+
+/**
+ * A failure to load oxc-parser, named as such: its own error ("Cannot find
+ * native binding", with how to reinstall) doesn't say which package it is
+ * about.
+ */
+export function oxcLoadError (error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error)
+  return new Error(`oxc-parser, which parses TypeScript files, failed to load: ${message}`, { cause: error })
 }
 
 // foo.d.ts, foo.d.mts, foo.d.cts and foo.d.css.ts (allowArbitraryExtensions)
