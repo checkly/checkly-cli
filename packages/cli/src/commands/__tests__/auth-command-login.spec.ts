@@ -142,6 +142,17 @@ describe('AuthCommand.init without stored credentials', () => {
     expect(api.validateAuthentication).toHaveBeenCalledTimes(1)
   })
 
+  it('does not start a login in CI when only CHECKLY_ACCOUNT_ID is set, leaving the error to authentication', async () => {
+    vi.mocked(detectCliMode).mockReturnValue('ci')
+    vi.mocked(config.getCredentialSource).mockReturnValue('account_override')
+    vi.mocked(api.validateAuthentication).mockRejectedValue(
+      new Error('`CHECKLY_ACCOUNT_ID` is set, but there is no `checkly login` session to use it with.'))
+    const cmd = createCommand()
+
+    await expect(cmd.init()).rejects.toThrow('no `checkly login` session')
+    expect(loginInstance.login).not.toHaveBeenCalled()
+  })
+
   it('leaves incomplete API key credentials to authentication instead of logging in', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(config.getCredentialSource).mockReturnValue('environment')
