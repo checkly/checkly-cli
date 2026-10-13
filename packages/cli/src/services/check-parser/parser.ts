@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import path from 'node:path'
 
 import * as acorn from 'acorn'
@@ -16,7 +15,7 @@ import { isCoreExtension, isTSExtension } from './package-files/extension.js'
 import { createFauxPackageFiles } from './faux-package.js'
 import { isPnpmfilePath } from './package-files/pnpmfile.js'
 import { PlaywrightConfigExpander } from './playwright-config-expander.js'
-import { loadOxcParser, parseWithOxc, type ParseSync } from '../oxc-parser.js'
+import { loadOxcParser, parseWithOxc } from '../oxc-parser.js'
 
 const debug = Debug('checkly:cli:services:check-parser:parser')
 
@@ -81,79 +80,12 @@ const tsWalkBase = new Proxy(walk.base, {
   },
 })
 
-// Any syntax error fails the file, so a broken file doesn't yield partial
-// dependencies.
-function oxcParse (parseSync: ParseSync): TsParse {
-  return (filePath, contents) => parseWithOxc(parseSync, filePath, contents).program
-}
-
-export function typescriptEstreeParse (): TsParse {
-  try {
-    const require = createRequire(import.meta.url)
-    const tsParser = require('@typescript-eslint/typescript-estree')
-    return (filePath, contents) => tsParser.parse(contents, {
-      // We must only enable jsx for tsx/jsx files. Otherwise type brackets
-      // may confuse the parser and cause an error.
-      jsx: path.extname(filePath).endsWith('x'),
-    })
-  } catch (err: any) {
-    if (err.code === 'ERR_MODULE_NOT_FOUND' || err.code === 'MODULE_NOT_FOUND') {
-      throw new Error('Please install "typescript" to use TypeScript-code in check files', { cause: err })
-    }
-    throw err
-  }
-}
-
-// typescript-estree only supports the TypeScript versions it was built for,
-// and only loads when TypeScript is installed. When it fails while standing in
-// for oxc-parser, oxc-parser failing to load is the root cause, so the error
-// names both. Syntax errors in the parsed file are passed through as they are.
-export function typescriptEstreeFallback (oxcError: unknown, load = typescriptEstreeParse): TsParse {
-  const message = (err: unknown) => err instanceof Error ? err.message : String(err)
-  const explain = (err: unknown) => new Error(
-    `${message(err)} (typescript-estree was used because oxc-parser failed to load: ${message(oxcError)})`,
-    { cause: err },
-  )
-
-  let parse: TsParse
-  try {
-    parse = load()
-  } catch (err) {
-    return () => {
-      throw explain(err)
-    }
-  }
-  return (filePath, contents) => {
-    try {
-      return parse(filePath, contents)
-    } catch (err: any) {
-      if (err?.name === 'TSError') {
-        throw err
-      }
-      throw explain(err)
-    }
-  }
-}
-
-let tsParse: TsParse | undefined
-function getTsParse (): TsParse {
-  if (tsParse) {
-    return tsParse
-  }
-
-  try {
-    // oxc-parser is a native (Rust) parser. It's much faster than
-    // typescript-estree, doesn't depend on the user's TypeScript version, and
-    // works without TypeScript installed.
-    tsParse = oxcParse(loadOxcParser())
-  } catch (err) {
-    // Its native binding can be missing, e.g. when optional dependencies
-    // weren't installed or node_modules was copied from another platform.
-    debug(`Failed to load oxc-parser, falling back to typescript-estree: ${err}`)
-    tsParse = typescriptEstreeFallback(err)
-  }
-  return tsParse
-}
+// oxc-parser is a native (Rust) parser that works whatever TypeScript version
+// the project uses, or none. When its native binding can't load (optional
+// dependencies not installed, node_modules copied from another platform), its
+// own error says how to reinstall. Any syntax error fails the file, so a
+// broken file doesn't yield partial dependencies.
+const oxcTsParse: TsParse = (filePath, contents) => parseWithOxc(loadOxcParser(), filePath, contents).program
 
 class RawDependencyCollector {
   #dependencies: RawDependency[] = []
@@ -570,7 +502,7 @@ export class Parser {
         })
         walk.simple(ast, Parser.jsNodeVisitor(dependencies))
       } else if (isTSExtension(extension)) {
-        const ast = (tsParse ?? getTsParse())(filePath, contents)
+        const ast = (tsParse ?? oxcTsParse)(filePath, contents)
         // The TypeScript AST is a superset of the ESTree acorn-walk expects.
         walk.simple(ast as acorn.Node, Parser.tsNodeVisitor(dependencies), tsWalkBase)
       }

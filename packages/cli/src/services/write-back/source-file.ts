@@ -1,6 +1,6 @@
 import path from 'node:path'
 import * as acorn from 'acorn'
-import type { TSESTree } from '@typescript-eslint/typescript-estree'
+import type { TSESTree } from '@typescript-eslint/types'
 
 import * as constructs from '../../constructs/index.js'
 import type { Construct } from '../../constructs/construct.js'

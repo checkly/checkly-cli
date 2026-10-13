@@ -1,16 +1,21 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
+import { parse } from '@typescript-eslint/typescript-estree'
 import { describe, expect, it } from 'vitest'
 
-import { Parser, typescriptEstreeFallback, typescriptEstreeParse } from '../parser.js'
+import { Parser, type TsParse } from '../parser.js'
 import { isTSExtension } from '../package-files/extension.js'
 
 // TypeScript files are parsed with oxc-parser, which replaced
 // typescript-estree. These tests make sure both find exactly the same
-// dependencies, so switching parsers doesn't change what gets bundled.
+// dependencies, so switching parsers (or upgrading oxc-parser) doesn't change
+// what gets bundled. typescript-estree is only a dev dependency, kept as the
+// reference.
 
-const estree = typescriptEstreeParse()
+const estree: TsParse = (filePath, contents) => parse(contents, {
+  jsx: path.extname(filePath).endsWith('x'),
+})
 
 function findTSFiles (dir: string): string[] {
   if (!fs.existsSync(dir)) {
@@ -149,44 +154,5 @@ describe('TypeScript dependency parsing', () => {
     const { error } = Parser.parseDependencies('broken.ts', syntaxError)
     expect(error).toBeInstanceOf(SyntaxError)
     expect(error.message).toMatch(/\(3:11\)$/)
-  })
-})
-
-describe('typescript-estree fallback', () => {
-  const oxcError = new Error('Cannot find native binding.')
-
-  it('finds dependencies like typescript-estree', () => {
-    const contents = edgeCases['imports.ts']!
-    const actual = Parser.parseDependencies('imports.ts', contents, typescriptEstreeFallback(oxcError))
-    const expected = Parser.parseDependencies('imports.ts', contents, estree)
-    expect(actual.error).toBeUndefined()
-    expect(actual.module.dependencies).toEqual(expected.module.dependencies)
-  })
-
-  it('reports syntax errors without mentioning oxc-parser', () => {
-    const { error } = Parser.parseDependencies(
-      'broken.ts', syntaxError, typescriptEstreeFallback(oxcError))
-    expect(error.name).toEqual('TSError')
-    expect(error.message).not.toContain('oxc-parser')
-  })
-
-  it('names the oxc-parser failure when typescript-estree fails to load', () => {
-    const fallback = typescriptEstreeFallback(oxcError, () => {
-      throw new Error('Please install "typescript" to use TypeScript-code in check files')
-    })
-    const { error } = Parser.parseDependencies('a.ts', 'import "./a"', fallback)
-    expect(error.message).toEqual('Please install "typescript" to use TypeScript-code in check files'
-      + ' (typescript-estree was used because oxc-parser failed to load: Cannot find native binding.)')
-  })
-
-  it('names the oxc-parser failure when typescript-estree fails to parse', () => {
-    // typescript-estree fails like this with TypeScript versions it doesn't support.
-    const fallback = typescriptEstreeFallback(oxcError, () => () => {
-      throw new TypeError('Cannot read properties of undefined (reading \'Cjs\')')
-    })
-    const { error } = Parser.parseDependencies('a.ts', 'import "./a"', fallback)
-    expect(error.message).toEqual('Cannot read properties of undefined (reading \'Cjs\')'
-      + ' (typescript-estree was used because oxc-parser failed to load: Cannot find native binding.)')
-    expect(error.cause).toBeInstanceOf(TypeError)
   })
 })
