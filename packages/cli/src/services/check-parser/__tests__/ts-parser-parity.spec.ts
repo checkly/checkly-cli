@@ -58,6 +58,7 @@ const edgeCases: Record<string, string> = {
     enum Color { Red, Green }
     abstract class Base<T extends object = {}> {
       @inject() accessor value!: T
+      accessor loaded = require('./accessor-initializer')
       constructor (private readonly dep: typeof import('./type-import')) {}
     }
     const config = { a: 1 } satisfies Record<string, number>
@@ -92,10 +93,22 @@ const edgeCases: Record<string, string> = {
     declare const styles: { readonly [key: string]: string }
     export default styles
   `,
-  'syntax-error.ts': `
-    import { a } from './a'
-    const b: = ;
-  `,
+}
+
+const syntaxError = `
+  import { a } from './a'
+  const b: = ;
+`
+
+// Grammar errors that typescript-estree leaves to the type checker, but oxc
+// reports while parsing. The files fail to parse; nearly all of them would also
+// fail at runtime.
+const grammarErrors: Record<string, string> = {
+  'const-without-initializer.ts': `import './a'\nconst x`,
+  'getter-with-parameter.ts': `import './a'\nclass C { get x (a) { return a } }`,
+  'rest-parameter-trailing-comma.ts': `import './a'\nfunction f (...a,) {}`,
+  'await-identifier.ts': `const a = require('./a')\nconst await = 1`,
+  'import-meta-in-commonjs.cts': `const a = require('./a')\nconsole.log(import.meta.url)`,
 }
 
 describe('TypeScript dependency parsing', () => {
@@ -117,14 +130,25 @@ describe('TypeScript dependency parsing', () => {
   it.each(Object.entries(edgeCases))('finds the same dependencies as typescript-estree in %s', (file, contents) => {
     const actual = Parser.parseDependencies(file, contents)
     const expected = Parser.parseDependencies(file, contents, estree)
+    expect(actual.error).toBeUndefined()
+    expect(expected.error).toBeUndefined()
     expect(actual.module.dependencies).toEqual(expected.module.dependencies)
-    expect(Boolean(actual.error)).toEqual(Boolean(expected.error))
+  })
+
+  it('fails a syntax error like typescript-estree', () => {
+    expect(Parser.parseDependencies('broken.ts', syntaxError).error).toBeDefined()
+    expect(Parser.parseDependencies('broken.ts', syntaxError, estree).error).toBeDefined()
+  })
+
+  it.each(Object.entries(grammarErrors))('fails a grammar error that typescript-estree accepts in %s', (file, contents) => {
+    expect(Parser.parseDependencies(file, contents).error).toBeInstanceOf(SyntaxError)
+    expect(Parser.parseDependencies(file, contents, estree).error).toBeUndefined()
   })
 
   it('reports syntax errors with their location', () => {
-    const { error } = Parser.parseDependencies('broken.ts', edgeCases['syntax-error.ts']!)
+    const { error } = Parser.parseDependencies('broken.ts', syntaxError)
     expect(error).toBeInstanceOf(SyntaxError)
-    expect(error.message).toMatch(/\(3:13\)$/)
+    expect(error.message).toMatch(/\(3:11\)$/)
   })
 })
 
@@ -141,7 +165,7 @@ describe('typescript-estree fallback', () => {
 
   it('reports syntax errors without mentioning oxc-parser', () => {
     const { error } = Parser.parseDependencies(
-      'broken.ts', edgeCases['syntax-error.ts']!, typescriptEstreeFallback(oxcError))
+      'broken.ts', syntaxError, typescriptEstreeFallback(oxcError))
     expect(error.name).toEqual('TSError')
     expect(error.message).not.toContain('oxc-parser')
   })
