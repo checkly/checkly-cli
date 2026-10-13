@@ -55,13 +55,13 @@
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^5.1.2",
-    "@oclif/plugin-help": "^7.0.2",
-    "@oclif/plugin-warn-if-update-available": "^4.0.1",
+    "@oclif/core": "^5.1.7",
+    "@oclif/plugin-help": "^7.0.4",
+    "@oclif/plugin-warn-if-update-available": "^4.0.3",
     "axios": "^1.20.0",
     "chalk": "^6.0.1",
     "debug": "^4.4.3",
-    "execa": "^10.0.1",
+    "execa": "^10.1.0",
     "giget": "^3.3.1",
     "jiti": "^2.7.0",
     "json5": "^2.2.3",
@@ -75,11 +75,11 @@
     "@types/debug": "^4.1.13",
     "@types/node": "^22.19.17",
     "@types/prompts": "^2.4.9",
-    "acorn": "^8.18.0",
+    "acorn": "^8.19.0",
     "cross-env": "^10.1.0",
     "rimraf": "^6.1.3",
     "typescript": "^6.0.3",
-    "uuid": "^14.0.2",
+    "uuid": "^14.0.3",
     "vitest": "^3.2.7"
   }
 }
