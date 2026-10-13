@@ -87,7 +87,8 @@ const DECLARATION_FILE = /\.d\.([^.\\/]+\.)?[cm]?ts$/
 function lineColumn (contents: string, offset: number): string {
   const before = contents.slice(0, offset)
   const line = before.split('\n').length
-  const column = offset - before.lastIndexOf('\n')
+  // 0-based column, like acorn's
+  const column = offset - before.lastIndexOf('\n') - 1
   return `${line}:${column}`
 }
 

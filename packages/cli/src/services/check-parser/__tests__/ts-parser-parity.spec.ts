@@ -124,6 +124,6 @@ describe('TypeScript dependency parsing', () => {
   it('reports syntax errors with their location', () => {
     const { error } = Parser.parseDependencies('broken.ts', edgeCases['syntax-error.ts']!)
     expect(error).toBeInstanceOf(SyntaxError)
-    expect(error.message).toMatch(/\(3:\d+\)$/)
+    expect(error.message).toMatch(/\(3:13\)$/)
   })
 })
