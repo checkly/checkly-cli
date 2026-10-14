@@ -52,7 +52,7 @@ describe('doubleCheck', () => {
 
   describe.each(constructs)('%s', (_name, create) => {
     it.each([
-      [true, 'RetryStrategyBuilder.fixedStrategy({'],
+      [true, 'RetryStrategyBuilder.singleRetry({'],
       [false, 'RetryStrategyBuilder.noRetries()'],
     ])('reports %j as removed with its retryStrategy equivalent', async (value, hint) => {
       const [diagnostic, ...rest] = await doubleCheckDiagnostics(create({ doubleCheck: value }))
