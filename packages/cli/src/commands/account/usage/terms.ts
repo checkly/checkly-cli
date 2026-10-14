@@ -4,7 +4,8 @@ import { describeUsageError, usageTermsListFlags, usageTermsParams } from '../..
 import * as api from '../../../rest/api.js'
 import type { OutputFormat } from '../../../formatters/render.js'
 import {
-  formatUsageTermsList, formatUsagePaginationInfo, formatUsageNavigationHints, usageListCommand,
+  formatUsageTermsList, formatUsagePaginationInfo, formatUsageNavigationHints,
+  usageListCommand,
 } from '../../../formatters/usage.js'
 
 export default class UsageTermsCommand extends AuthCommand {
@@ -36,10 +37,10 @@ export default class UsageTermsCommand extends AuthCommand {
       this.log([
         formatUsageTermsList(terms.data, fmt),
         formatUsagePaginationInfo(terms.data.length, terms.nextId, 'usage term'),
-        formatUsageNavigationHints(terms.nextId, usageListCommand('terms', params), fmt),
+        formatUsageNavigationHints(terms.nextId, usageListCommand('terms', params, fmt), fmt),
       ].filter(Boolean).join('\n\n'))
     } catch (err: unknown) {
-      this.style.longError('Failed to load usage terms.', describeUsageError(err) ?? (err instanceof Error ? err : String(err)))
+      this.style.longError('Failed to load usage terms.', describeUsageError(err))
       process.exitCode = 1
     }
   }

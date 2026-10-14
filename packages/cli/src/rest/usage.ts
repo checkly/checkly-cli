@@ -16,9 +16,6 @@ export type UsageCheckType =
   | 'URL' | 'DNS' | 'SSL' | 'GRPC' | 'TRACEROUTE'
 export type UsageCreditsUsed = number | null
 export type UsagePackageModel = 'limits' | 'credits'
-export type UsageErrorCode =
-  | 'ACCOUNT_NOT_IN_USAGE_TERMS' | 'INVALID_CURSOR' | 'INVALID_RANGE' | 'NO_USAGE_TERMS'
-  | 'USAGE_STORE_UNAVAILABLE' | 'USAGE_TERMS_CONFLICT'
 
 export interface UsagePeriod { from: string, to: string }
 export interface UsageCoverage { gaps: UsagePeriod[] }

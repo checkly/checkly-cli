@@ -29,10 +29,10 @@ export default class UsageProjectionsCommand extends AuthCommand {
         this.log(JSON.stringify(projections, null, 2))
         return
       }
-      const { data: term } = await api.usage.getTerm(id)
+      const term = await api.usage.getTerm(id).then(response => response.data).catch(() => undefined)
       this.log(formatUsageProjections(projections, flags.output === 'md' ? 'md' : 'terminal', term))
     } catch (err: unknown) {
-      this.style.longError('Failed to load usage projections.', describeUsageError(err, { termId: args.id }) ?? (err instanceof Error ? err : String(err)))
+      this.style.longError('Failed to load usage projections.', describeUsageError(err, { termId: args.id }))
       process.exitCode = 1
     }
   }

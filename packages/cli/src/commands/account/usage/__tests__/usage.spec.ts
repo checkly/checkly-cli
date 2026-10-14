@@ -1,4 +1,5 @@
 import { execFileSync } from 'node:child_process'
+import { Parser } from '@oclif/core'
 import { AxiosHeaders, type AxiosResponse } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -6,7 +7,7 @@ vi.mock('../../../../rest/api', () => ({
   usage: { listTerms: vi.fn(), getTerm: vi.fn(), getSummary: vi.fn(), getSeries: vi.fn(), getProjections: vi.fn() },
 }))
 import * as api from '../../../../rest/api.js'
-import { ForbiddenError, NotFoundError } from '../../../../rest/errors.js'
+import { ForbiddenError, MiscellaneousError, NotFoundError } from '../../../../rest/errors.js'
 import { loadUsageNames } from '../../../../helpers/usage.js'
 import { stripAnsi } from '../../../../formatters/render.js'
 import {
@@ -36,7 +37,6 @@ function context (parsed: unknown) {
 function expectHintArguments (output: string, label: string, expected: string[]) {
   const line = output.split('\n').map(value => value.trim()).find(value => value.startsWith(`${label}:`)) ?? ''
   expect(line).toContain('checkly account usage')
-  // POSIX shell replay is unavailable on the Windows CI runner.
   if (process.platform === 'win32') return
   const command = line.slice(line.indexOf(':') + 1).trim().replace(/^(`+)(.*)\1$/, '$2')
   const recovered = execFileSync('/bin/sh', ['-c', `set -- ${command}; printf '%s\\0' "$@"`], {
@@ -48,10 +48,10 @@ function expectHintArguments (output: string, label: string, expected: string[])
 const seriesFlags = { 'interval': 'day', 'group-by': 'account,checkType', 'limit': 100, 'output': 'table' }
 const originalColumns = process.stdout.columns
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
   process.exitCode = undefined
   Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 1000 })
-  vi.mocked(api.usage.listTerms).mockResolvedValue(response({ data: [termFixture], nextId: 'terms-next' }))
+  vi.mocked(api.usage.listTerms).mockResolvedValue(response({ data: [termFixture, renewalFixture], nextId: null }))
   vi.mocked(api.usage.getTerm).mockImplementation(id => Promise.resolve(response(
     id === RENEWAL_ID ? renewalFixture : termFixture,
   )))
@@ -66,6 +66,7 @@ afterEach(() => {
 
 describe('usage terms commands', () => {
   it('prints the list JSON envelope with supplied bounds and pagination', async () => {
+    vi.mocked(api.usage.listTerms).mockResolvedValue(response({ data: [termFixture], nextId: 'terms-next' }))
     const ctx = context({ flags: { from: '2026-01-01', to: '2026-12-31', limit: 25,
       cursor: 'previous', output: 'json' } })
     await Reflect.apply(UsageTermsCommand.prototype.run, ctx, [])
@@ -85,7 +86,7 @@ describe('usage terms commands', () => {
     expect(ctx.logged[0]).toContain('No usage terms found.')
     expectHintArguments(ctx.logged[0], 'Next page', [
       'checkly', 'account', 'usage', 'terms', '--from', '2026-01-01', '--limit', '100',
-      '--cursor', 'cursor\'with spaces',
+      '--output', 'md', '--cursor', 'cursor\'with spaces',
     ])
     expect(ctx.logged[0]).not.toContain('--to')
   })
@@ -134,15 +135,11 @@ describe('usage summary', () => {
     expect(api.usage.listTerms).not.toHaveBeenCalled()
   })
 
-  it('fetches selected IDs after the report and preserves filters and effective dates in the daily hint', async () => {
+  it('renders compact breakdown IDs and preserves filters and effective dates in the daily hint', async () => {
     const ctx = context({ flags: { 'output': 'detail', 'usage-terms-id': [TERM_ID, RENEWAL_ID],
       'account-id': [ACCOUNT_ID], 'pricing-rule': ['apiChecks'] } })
     await Reflect.apply(UsageSummaryCommand.prototype.run, ctx, [])
-    expect(api.usage.getTerm).toHaveBeenCalledWith(TERM_ID)
-    expect(api.usage.getTerm).toHaveBeenCalledWith(RENEWAL_ID)
-    expect(vi.mocked(api.usage.getSummary).mock.invocationCallOrder[0])
-      .toBeLessThan(vi.mocked(api.usage.getTerm).mock.invocationCallOrder[0])
-    expect(ctx.logged[0]).toContain('Acme Renewal')
+    expect(ctx.logged[0]).toContain(RENEWAL_ID)
     expectHintArguments(ctx.logged[0], 'Daily series', [
       'checkly', 'account', 'usage', 'series', '--from', '2026-06-30', '--to', '2026-07-02',
       '--interval', 'day', '--group-by', 'account,checkType', '--usage-terms-id', TERM_ID,
@@ -157,6 +154,21 @@ describe('usage summary', () => {
     expect(ctx.logged[0]).toContain('Coverage gaps (credits unavailable)')
     expect(ctx.logged[0]).toContain('2026-07-01')
     expect(api.usage.getTerm).not.toHaveBeenCalled()
+  })
+  it('prints compact summary credits and pricing breakdown without metadata requests', async () => {
+    vi.mocked(api.usage.listTerms).mockRejectedValue(new Error('Name discovery unavailable'))
+    vi.mocked(api.usage.getTerm).mockRejectedValue(new Error('Name detail unavailable'))
+    const ctx = context({ flags: { output: 'md' } })
+    await Reflect.apply(UsageSummaryCommand.prototype.run, ctx, [])
+    expect(ctx.logged[0]).toContain('0.6047')
+    expect(ctx.logged[0]).toContain('apiChecks')
+    expect(ctx.logged[0]).not.toContain('4,900')
+    expect(ctx.logged[0]).toContain(TERM_ID)
+    expect(api.usage.getSummary).toHaveBeenCalledTimes(1)
+    expect(api.usage.listTerms).not.toHaveBeenCalled()
+    expect(api.usage.getTerm).not.toHaveBeenCalled()
+    expect(ctx.style.longError).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 })
 
@@ -187,13 +199,16 @@ describe('usage series', () => {
     expect(api.usage.listTerms).not.toHaveBeenCalled()
   })
 
-  it('loads names by returned IDs beyond the terms discovery page and pins every continuation flag', async () => {
+  it('loads report names across discovery pages and pins every continuation flag', async () => {
+    vi.mocked(api.usage.listTerms)
+      .mockResolvedValueOnce(response({ data: [termFixture], nextId: 'name-page-2' }))
+      .mockResolvedValueOnce(response({ data: [renewalFixture], nextId: null }))
     const ctx = context({ flags: { ...seriesFlags, 'usage-terms-id': [RENEWAL_ID],
       'account-id': [ACCOUNT_ID], 'pricing-rule': ['apiChecks'], 'include': ['runs', 'calculations'],
       'cursor': 'old-cursor' } })
     await Reflect.apply(UsageSeriesCommand.prototype.run, ctx, [])
-    expect(api.usage.getTerm).toHaveBeenCalledExactlyOnceWith(RENEWAL_ID)
-    expect(api.usage.listTerms).not.toHaveBeenCalled()
+    expect(api.usage.listTerms).toHaveBeenCalledWith({ from: '2026-07-02', to: '2026-07-03', limit: 500, nextId: 'name-page-2' })
+    expect(api.usage.getTerm).not.toHaveBeenCalled()
     const output = ctx.logged[0]
     expect(output).toContain('Acme Renewal')
     expect(output).toContain('Acme Production')
@@ -216,7 +231,7 @@ describe('usage series', () => {
     expectHintArguments(ctx.logged[0], 'Next page', [
       'checkly', 'account', 'usage', 'series', '--from', '2026-07-02', '--to', '2026-07-03',
       '--limit', '100', '--interval', 'day', '--group-by', 'account,usageTerm,pricingRule,checkType',
-      '--cursor', 'opaque cursor',
+      '--output', 'md', '--cursor', 'opaque cursor',
     ])
     expect(api.usage.getTerm).not.toHaveBeenCalled()
   })
@@ -233,18 +248,34 @@ describe('usage series', () => {
     expect(api.usage.getTerm).not.toHaveBeenCalled()
   })
 
-  it('fails a human report when authoritative term metadata fails instead of silently relabeling it', async () => {
-    vi.mocked(api.usage.getTerm).mockRejectedValue(new Error('Term lookup failed'))
+  it.each([
+    new MiscellaneousError({ statusCode: 429, error: 'Too Many Requests', message: 'Rate limited' }),
+    new NotFoundError({ statusCode: 404, error: 'Not Found', message: 'Term lookup unavailable' }),
+    new Error('Connection reset'),
+  ])('retains the loaded report and raw IDs when name enrichment fails: %s', async error => {
+    vi.mocked(api.usage.listTerms).mockRejectedValue(error)
+    vi.mocked(api.usage.getTerm).mockRejectedValue(error)
     const ctx = context({ flags: seriesFlags })
     await Reflect.apply(UsageSeriesCommand.prototype.run, ctx, [])
-    expect(ctx.logged).toHaveLength(0)
-    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to load usage series.',
-      expect.objectContaining({ message: 'Term lookup failed' }))
-    expect(process.exitCode).toBe(1)
+    expect(ctx.logged[0]).toContain('0.1234')
+    expect(ctx.logged[0]).toContain(RENEWAL_ID)
+    expect(ctx.logged[0]).toContain(ACCOUNT_ID)
+    expect(ctx.style.longError).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 })
 
 describe('usage projections', () => {
+  it('requires an explicit term ID at the CLI parser boundary', async () => {
+    await expect(Parser.parse([], {
+      args: UsageProjectionsCommand.args, flags: UsageProjectionsCommand.flags,
+    })).rejects.toThrow('Missing 1 required arg')
+    const parsed = await Parser.parse([TERM_ID], {
+      args: UsageProjectionsCommand.args, flags: UsageProjectionsCommand.flags,
+    })
+    expect(parsed.args).toEqual({ id: TERM_ID })
+  })
+
   it('identifies a requested term that returns the coded no-terms error', async () => {
     vi.mocked(api.usage.getProjections).mockRejectedValue(new NotFoundError({
       statusCode: 404, error: 'Not Found', message: 'No usage terms found', code: 'NO_USAGE_TERMS',
@@ -260,6 +291,7 @@ describe('usage projections', () => {
     const ctx = context({ args: { id: TERM_ID }, flags: { output: 'json' } })
     await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
     expect(api.usage.getProjections).toHaveBeenCalledExactlyOnceWith(TERM_ID, {})
+    expect(api.usage.listTerms).not.toHaveBeenCalled()
     expect(JSON.parse(ctx.logged[0])).toEqual(projectionsFixture)
     expect(api.usage.getTerm).not.toHaveBeenCalled()
   })
@@ -271,6 +303,16 @@ describe('usage projections', () => {
     expect(api.usage.getTerm).toHaveBeenCalledExactlyOnceWith(TERM_ID)
     expect(ctx.logged[0]).toContain('Acme Corp')
     expect(ctx.logged[0]).toContain('-311.2584')
+  })
+
+  it('retains forecast precision and the term ID when optional detail lookup fails', async () => {
+    vi.mocked(api.usage.getTerm).mockRejectedValue(new Error('Detail lookup failed'))
+    const ctx = context({ args: { id: TERM_ID }, flags: { output: 'md' } })
+    await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
+    expect(ctx.logged[0]).toContain('-311.2584')
+    expect(ctx.logged[0]).toContain(TERM_ID)
+    expect(ctx.style.longError).not.toHaveBeenCalled()
+    expect(process.exitCode).toBeUndefined()
   })
 
   it('rejects today before calling the API', async () => {
@@ -307,30 +349,25 @@ describe('report failure paths', () => {
 })
 
 describe('authoritative metadata names', () => {
-  it('deduplicates requested IDs and falls back to account IDs when term names conflict', async () => {
-    vi.mocked(api.usage.getTerm).mockImplementation(id => Promise.resolve(response(
-      id === RENEWAL_ID ? { ...renewalFixture, accounts: [{ id: ACCOUNT_ID, name: 'Renamed account' }] } : termFixture,
-    )))
-    const names = await loadUsageNames([TERM_ID, RENEWAL_ID, TERM_ID])
-    expect(api.usage.getTerm).toHaveBeenCalledTimes(2)
-    expect(names.terms.get(RENEWAL_ID)).toBe('Acme Renewal')
-    expect(names.accounts.get(ACCOUNT_ID)).toBe(ACCOUNT_ID)
+  it('uses only selected terms and falls back to account IDs when authoritative names conflict', async () => {
+    const unrelatedId = '550e8400-e29b-41d4-a716-446655440009'
+    vi.mocked(api.usage.listTerms).mockResolvedValue(response({ data: [
+      termFixture,
+      { ...renewalFixture, accounts: [{ id: ACCOUNT_ID, name: 'Renamed account' }] },
+      { ...termFixture, id: unrelatedId, accounts: [{ id: 'other-account', name: 'Unselected account' }] },
+    ], nextId: null }))
+    const names = await loadUsageNames([TERM_ID, RENEWAL_ID, TERM_ID], summaryFixture.period)
+    expect([...names.terms.entries()]).toEqual([[TERM_ID, 'Acme Corp'], [RENEWAL_ID, 'Acme Renewal']])
+    expect([...names.accounts.entries()]).toEqual([[ACCOUNT_ID, ACCOUNT_ID]])
+    expect(api.usage.getTerm).not.toHaveBeenCalled()
   })
 
-  it('caps in-flight term lookups at five while resolving every selected ID', async () => {
-    let active = 0
-    let peak = 0
-    vi.mocked(api.usage.getTerm).mockImplementation(async id => {
-      active++
-      peak = Math.max(peak, active)
-      await new Promise(resolve => setTimeout(resolve, 1))
-      active--
-      return response({ ...termFixture, id })
-    })
-    const ids = Array.from({ length: 12 }, (_, index) => `550e8400-e29b-41d4-a716-${String(index).padStart(12, '0')}`)
-    const names = await loadUsageNames(ids)
-    expect(peak).toBeLessThanOrEqual(5)
-    expect(new Set(names.terms.keys())).toEqual(new Set(ids))
-    expect(api.usage.getTerm).toHaveBeenCalledTimes(12)
+  it('keeps successfully discovered names when a later metadata page fails', async () => {
+    vi.mocked(api.usage.listTerms)
+      .mockResolvedValueOnce(response({ data: [termFixture], nextId: 'failed-page' }))
+      .mockRejectedValueOnce(new Error('Rate limited'))
+    const names = await loadUsageNames([TERM_ID, RENEWAL_ID], summaryFixture.period)
+    expect([...names.terms.entries()]).toEqual([[TERM_ID, 'Acme Corp']])
+    expect([...names.accounts.entries()]).toEqual([[ACCOUNT_ID, 'Acme Production']])
   })
 })

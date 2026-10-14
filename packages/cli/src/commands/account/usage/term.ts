@@ -24,7 +24,7 @@ export default class UsageTermCommand extends AuthCommand {
         ? JSON.stringify(term, null, 2)
         : formatUsageTermDetail(term, flags.output === 'md' ? 'md' : 'terminal'))
     } catch (err: unknown) {
-      this.style.longError('Failed to load usage term.', describeUsageError(err, { termId: args.id }) ?? (err instanceof Error ? err : String(err)))
+      this.style.longError('Failed to load usage term.', describeUsageError(err, { termId: args.id }))
       process.exitCode = 1
     }
   }

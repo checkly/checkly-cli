@@ -184,32 +184,31 @@ function formatCalculation (
   ], calculation, format, level)
 }
 
-function formatBreakdown (breakdown: UsageBreakdown, format: OutputFormat, names?: UsageNames): string {
-  const fields: DetailField<UsageBreakdown>[] = [
-    { label: 'Usage term', value: value => namedId(value.usageTermsId, names?.terms) },
-    { label: 'Pricing rule', value: value => value.pricingRuleKey },
-    { label: 'Account', value: value => namedId(value.accountId, names?.accounts) },
-    { label: 'Period', value: value => dateRange(value.period) },
-    { label: 'Credits used', value: value => number(value.creditsUsed) },
-  ]
-  return [
-    renderDetailFields('Usage breakdown', fields, breakdown, format, 2),
-    formatPricingRule(breakdown.pricingRule, format, 3),
-    ...breakdown.calculations.map((value, index) => formatCalculation(value, index, format, 3)),
-  ].join('\n\n')
-}
-
-export function formatUsageSummary (summary: UsageSummary, format: OutputFormat, names?: UsageNames): string {
+export function formatUsageSummary (summary: UsageSummary, format: OutputFormat): string {
   const fields: DetailField<UsageSummary>[] = [
     { label: 'Period', value: value => dateRange(value.period) },
     { label: 'Usage term IDs', value: value => value.usageTermsIds.join(', ') || '-' },
     { label: 'Credits used', value: value => number(value.totals.creditsUsed) },
   ]
+  const columns: ColumnDef<UsageBreakdown>[] = [
+    { header: 'Period', truncate: false, value: row => dateRange(row.period) },
+  ]
+  if (summary.usageTermsIds.length !== 1) {
+    columns.push({ header: 'Usage term ID', minWidth: 38, truncate: false, value: row => row.usageTermsId })
+  }
+  if (summary.breakdown.some(row => row.accountId !== undefined)) {
+    columns.push({ header: 'Account ID', minWidth: 38, truncate: false, value: row => row.accountId ?? '-' })
+  }
+  columns.push(
+    { header: 'Pricing rule', truncate: false, value: row => row.pricingRuleKey },
+    { header: 'Credits used', align: 'right', value: row => number(row.creditsUsed) },
+  )
   return [
     renderDetailFields('Usage summary', fields, summary, format, 1),
     formatUsageCoverage(summary.coverage, format),
-    summary.breakdown.length === 0 ? 'No usage breakdowns for the requested range.' : '',
-    ...summary.breakdown.map(value => formatBreakdown(value, format, names)),
+    summary.breakdown.length === 0
+      ? 'No usage breakdowns for the requested range.'
+      : section('Usage breakdown', renderAdaptiveTable(columns, summary.breakdown, format), format),
   ].filter(Boolean).join('\n\n')
 }
 
@@ -236,7 +235,10 @@ export function formatUsageSeries (
   if (options.groupBy.includes('account')) {
     columns.push({
       header: 'Account', minWidth: 15, maxWidth: 60,
-      value: row => namedId(row.dimensions.accountId, options.names?.accounts),
+      value: row => options.names?.accounts.get(row.dimensions.accountId ?? '') ?? '-',
+    }, {
+      header: 'Account ID', minWidth: 38, truncate: false,
+      value: row => row.dimensions.accountId ?? '-',
     })
   }
   if (options.groupBy.includes('usageTerm')) {
@@ -324,7 +326,9 @@ export function formatUsagePaginationInfo (count: number, nextId: string | null,
   return chalk.dim(`Showing ${count} ${noun}${count === 1 ? '' : 's'}${nextId ? ' (more available)' : ''}`)
 }
 
-export function usageListCommand (kind: 'terms' | 'series', params: UsageTermsParams | UsageSeriesParams): string {
+export function usageListCommand (
+  kind: 'terms' | 'series', params: UsageTermsParams | UsageSeriesParams, format: OutputFormat = 'terminal',
+): string {
   const parts = ['checkly', 'account', 'usage', kind]
   const append = (flag: string, value: string | number | undefined) => {
     if (value !== undefined) parts.push(flag, String(value))
@@ -338,6 +342,7 @@ export function usageListCommand (kind: 'terms' | 'series', params: UsageTermsPa
   if ('accountIds' in params) for (const id of params.accountIds ?? []) append('--account-id', id)
   if ('pricingRuleKeys' in params) for (const key of params.pricingRuleKeys ?? []) append('--pricing-rule', key)
   if ('include' in params && params.include?.length) append('--include', params.include.join(','))
+  if (format === 'md') append('--output', 'md')
   return shellJoin(parts)
 }
 

@@ -35,7 +35,7 @@ export default class UsageSeriesCommand extends AuthCommand {
       }
       const wantsNames = series.data.length > 0
         && (series.groupBy.includes('account') || series.groupBy.includes('usageTerm'))
-      const names = wantsNames ? await loadUsageNames(series.usageTermsIds) : undefined
+      const names = wantsNames ? await loadUsageNames(series.usageTermsIds, series.period) : undefined
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
       const pinned = { ...params, ...series.period, interval: series.interval, groupBy: series.groupBy }
       this.log([
@@ -46,10 +46,10 @@ export default class UsageSeriesCommand extends AuthCommand {
           interval: series.interval, groupBy: series.groupBy, include: params.include ?? [], names,
         }),
         formatUsagePaginationInfo(series.data.length, series.nextId, 'usage row'),
-        formatUsageNavigationHints(series.nextId, usageListCommand('series', pinned), fmt),
+        formatUsageNavigationHints(series.nextId, usageListCommand('series', pinned, fmt), fmt),
       ].filter(Boolean).join('\n\n'))
     } catch (err: unknown) {
-      this.style.longError('Failed to load usage series.', describeUsageError(err) ?? (err instanceof Error ? err : String(err)))
+      this.style.longError('Failed to load usage series.', describeUsageError(err))
       process.exitCode = 1
     }
   }

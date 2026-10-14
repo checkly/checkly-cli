@@ -1,13 +1,14 @@
+import { Parser } from '@oclif/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { NotFoundError, UnauthorizedError, ValidationError } from '../../rest/errors.js'
 import {
-  describeUsageError, projectionsParams, usageRangeParams, usageSeriesParams,
+  describeUsageError, projectionsParams, usageRangeParams, usageSeriesFlags, usageSeriesParams,
   usageTermsParams, validateUsageTermId,
 } from '../usage.js'
 
 const id = '550e8400-e29b-41d4-a716-446655440000'
 const account = 'a1111111-1111-1111-1111-111111111111'
-const seriesFlags = { 'interval': 'day', 'group-by': 'account,checkType', 'limit': 100 }
+const seriesFlags = { 'interval': 'day', 'group-by': 'account,checkType', 'limit': 100 } as const
 afterEach(() => vi.useRealTimers())
 
 describe('usage input validation', () => {
@@ -76,7 +77,12 @@ describe('usage input validation', () => {
   it('rejects unknown enum values', () => {
     expect(() => usageRangeParams({ 'pricing-rule': ['API'] })).toThrow('--pricing-rule must be one of')
     expect(() => usageSeriesParams({ ...seriesFlags, include: ['meters'] })).toThrow('--include must be one of')
-    expect(() => usageSeriesParams({ ...seriesFlags, interval: 'hour' })).toThrow('--interval must be one of')
+  })
+
+  it('rejects an unsupported interval at the CLI parser boundary', async () => {
+    await expect(Parser.parse(['--interval', 'hour'], { flags: usageSeriesFlags() })).rejects.toThrow('hour')
+    const parsed = await Parser.parse(['--interval', 'week'], { flags: usageSeriesFlags() })
+    expect(usageSeriesParams(parsed.flags).interval).toBe('week')
   })
 
   it.each([0, 501, 1.5])('rejects page limit %s', limit => {
@@ -119,6 +125,8 @@ describe('usage error guidance', () => {
   })
   it('distinguishes a missing term from organization discovery failures', () => {
     expect(describeUsageError(new NotFoundError(body('')), { termId: id })).toBe(`Usage term ${id} was not found.`)
-    expect(describeUsageError(new Error('unrelated'))).toBeUndefined()
+    const failure = new Error('unrelated')
+    expect(describeUsageError(failure)).toBe(failure)
+    expect(describeUsageError('plain failure')).toBe('plain failure')
   })
 })

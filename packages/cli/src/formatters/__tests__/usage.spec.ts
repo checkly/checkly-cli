@@ -44,28 +44,11 @@ describe('usage terms display', () => {
 })
 
 describe('usage reports display', () => {
-  it('nests term pricing under its rule and summary details under each breakdown', () => {
+  it('nests term pricing under its rule', () => {
     expect(formatUsageTermDetail(termFixture, 'md').match(/^#+ .+$/gm)).toEqual([
       '# Usage term: Acme Corp', '## Accounts', '## apiChecks', '### Pricing rule',
       '#### Conditional rates', '## statusPages', '### Pricing rule',
       '## statusPageAdditionalServices', '### Pricing rule',
-    ])
-    const summary = {
-      ...summaryFixture,
-      breakdown: summaryFixture.breakdown.map(value => ({
-        ...value,
-        pricingRule: value.pricingRule?.method === 'per_unit'
-          ? { ...value.pricingRule, rates: [{ when: 'premium', credits: 0.5678 }] }
-          : value.pricingRule,
-        calculations: [...value.calculations, ...value.calculations],
-      })),
-    }
-    expect(formatUsageSummary(summary, 'md').match(/^#+ .+$/gm)).toEqual([
-      '# Usage summary', '## Coverage gaps (credits unavailable)',
-      '## Usage breakdown', '### Pricing rule', '#### Conditional rates',
-      '### Calculation 1', '### Calculation 2',
-      '## Usage breakdown', '### Pricing rule', '### Calculation 1', '### Calculation 2',
-      '## Usage breakdown', '### Pricing rule', '### Calculation 1', '### Calculation 2',
     ])
   })
 
@@ -90,37 +73,82 @@ describe('usage reports display', () => {
     ])
   })
 
-  it('retains distinct term UUIDs when shared long names are truncated in a narrow terminal', () => {
-    Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 60 })
-    const rows = [TERM_ID, RENEWAL_ID].map(usageTermsId => ({
-      ...seriesFixture.data[0], dimensions: { usageTermsId }, runs: undefined,
+  it.each([
+    { groupBy: 'usageTerm', dimension: 'usageTermsId', ids: [TERM_ID, RENEWAL_ID], width: 60,
+      header: 'USAGE TERM ID' },
+    { groupBy: 'account', dimension: 'accountId', ids: [ACCOUNT_ID, '55555555-5555-4555-8555-555555555555'],
+      width: 100, header: 'ACCOUNT ID' },
+  ] as const)('retains distinct $groupBy UUIDs and credit precision when shared names shrink', value => {
+    Object.defineProperty(process.stdout, 'columns', { configurable: true, value: value.width })
+    const rows = value.ids.map(id => ({
+      ...seriesFixture.data[0], dimensions: { [value.dimension]: id }, runs: undefined,
     }))
-    const name = 'The same unusually long organization name across both renewal terms'
+    const name = 'The same unusually long organization name across both accounts and renewal terms'
+    const names = new Map(value.ids.map(id => [id, name]))
     const output = stripAnsi(formatUsageSeries(rows, 'terminal', {
-      interval: 'day', groupBy: ['usageTerm'], include: [],
-      names: { terms: new Map([[TERM_ID, name], [RENEWAL_ID, name]]), accounts: new Map() },
+      interval: 'day', groupBy: [value.groupBy], include: [],
+      names: { terms: names, accounts: names },
     }))
-    expect(output).toContain('USAGE TERM ID')
-    expect(output).toContain(TERM_ID)
-    expect(output).toContain(RENEWAL_ID)
+    expect(output).toContain(value.header)
+    for (const id of value.ids) expect(output).toContain(id)
+    if (value.groupBy === 'account') {
+      for (const line of output.split('\n')) expect(visWidth(line)).toBeLessThanOrEqual(100)
+    }
     expect(output).toContain('…')
     expect(output).toContain('0.1234')
   })
 
-  it.each(['terminal', 'md'] as const)('retains gaps, precise charges, and all calculations in %s summary', format => {
-    const output = stripAnsi(formatUsageSummary(summaryFixture, format))
+  it.each(['terminal', 'md'] as const)('keeps summary gaps, identities and precise charges in compact %s output', format => {
+    Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 100 })
+    const summary = { ...summaryFixture, breakdown: summaryFixture.breakdown.map((row, index) => ({
+      ...row, creditsUsed: index === 2 ? null : row.creditsUsed,
+    })) }
+    const output = stripAnsi(formatUsageSummary(summary, format))
     expect(output).toContain('Coverage gaps (credits unavailable)')
     expect(output).toContain('2026-07-01')
+    expect(output).toContain(TERM_ID)
+    expect(output).toContain(RENEWAL_ID)
+    expect(output).toContain(ACCOUNT_ID)
     expect(output).toContain('0.6047')
     expect(output).toContain('2.0002')
-    expect(output).toContain('Default rate')
-    for (const label of ['Measured quantity', 'Included quantity', 'Billable quantity', 'Billable resource days',
-      'Applied daily credits', 'Scope', 'Billable block days', 'Applied daily credits per block',
-      'Proration days per year']) expect(output).toContain(label)
+    expect(output).not.toContain('Calculation')
     expect(output).not.toContain('Projections')
     expect(output).not.toContain('Meters')
-    if (format === 'md') expect(output).toContain('| Credits used | - |')
-    else expect(output).toMatch(/Credits used:\s+-/)
+    if (format === 'md') {
+      expect(output.match(/^#+ .+$/gm)).toEqual([
+        '# Usage summary', '## Coverage gaps (credits unavailable)', '## Usage breakdown',
+      ])
+      expect(output).toContain('| Credits used | - |')
+      expect(output).toContain([
+        '| Period | Usage term ID | Account ID | Pricing rule | Credits used |',
+        '| --- | --- | --- | --- | ---: |',
+        `| 2026-06-30 to 2026-06-30 | ${TERM_ID} | ${ACCOUNT_ID} | apiChecks | 0.6047 |`,
+        `| 2026-06-30 to 2026-06-30 | ${TERM_ID} | - | statusPages | 2.0002 |`,
+        `| 2026-07-02 to 2026-07-02 | ${RENEWAL_ID} | - | statusPageAdditionalServices | - |`,
+      ].join('\n'))
+    } else {
+      expect(output).toMatch(/Credits used:\s+-/)
+      expect(output).toContain('USAGE TERM ID')
+      expect(output).toContain('ACCOUNT ID')
+      expect(output).toContain('statusPageAdditionalServices')
+      expect(output.split('\n').filter(line => line.includes('Usage breakdown'))).toHaveLength(1)
+      expect(output.split('\n').length).toBeLessThan(30)
+    }
+  })
+
+  it('uses the summary context for a single term and omits unattributed account columns', () => {
+    const summary = { ...summaryFixture, usageTermsIds: [TERM_ID], breakdown: [{
+      ...summaryFixture.breakdown[0], accountId: undefined, creditsUsed: 0,
+    }] }
+    const output = formatUsageSummary(summary, 'md')
+    expect(output).toContain(`| Usage term IDs | ${TERM_ID} |`)
+    expect(output).toContain([
+      '| Period | Pricing rule | Credits used |',
+      '| --- | --- | ---: |',
+      '| 2026-06-30 to 2026-06-30 | apiChecks | 0 |',
+    ].join('\n'))
+    expect(output).not.toContain('Account ID')
+    expect(output).not.toContain('| Usage term ID |')
   })
 
   it('keeps empty summary metadata and coverage visible without inventing no terms', () => {
@@ -140,7 +168,7 @@ describe('usage reports display', () => {
     const output = formatUsageSeries([row], 'md', { interval: 'day', groupBy, include: [] })
     const headers = output.split('\n')[0]
     for (const [dimension, header] of [
-      ['account', 'Account'], ['usageTerm', 'Usage term'], ['usageTerm', 'Usage term ID'],
+      ['account', 'Account'], ['account', 'Account ID'], ['usageTerm', 'Usage term'], ['usageTerm', 'Usage term ID'],
       ['pricingRule', 'Pricing rule'], ['checkType', 'Check type'],
     ] as const) {
       expect(headers.includes(`| ${header} |`)).toBe(groupBy.includes(dimension))
@@ -154,8 +182,8 @@ describe('usage reports display', () => {
       interval: 'month', groupBy: ['checkType', 'pricingRule', 'usageTerm', 'account'], include: ['runs'],
       names: { terms: new Map([[RENEWAL_ID, 'Renewal']]), accounts: new Map([[ACCOUNT_ID, 'Production']]) },
     })
-    expect(output).toContain('| Period | Account | Usage term | Usage term ID | Pricing rule | Check type | Credits used |')
-    expect(output).toContain(`Production (${ACCOUNT_ID})`)
+    expect(output).toContain('| Period | Account | Account ID | Usage term | Usage term ID | Pricing rule | Check type | Credits used |')
+    expect(output).toContain(`| Production | ${ACCOUNT_ID} |`)
     expect(output).toContain(`| Renewal | ${RENEWAL_ID} |`)
     expect(output).toContain('| 13 | 10 | 3 | 1 | 2 | 4 | 5 | 6 | 7 |')
   })
@@ -173,7 +201,10 @@ describe('usage reports display', () => {
   })
 
   it('shows requested contribution calculations separately from measured run counters', () => {
-    const output = formatUsageSeries(seriesFixture.data, 'md', {
+    const row = seriesFixture.data[0]
+    const output = formatUsageSeries([{
+      ...row, contributions: [...row.contributions, ...summaryFixture.breakdown],
+    }], 'md', {
       interval: 'day', groupBy: ['pricingRule'], include: ['calculations'],
     })
     expect(output).toContain('Row 1 calculations (2026-07-02 to 2026-07-02)')
@@ -183,17 +214,14 @@ describe('usage reports display', () => {
     expect(output).toContain('| Billable quantity | 1,000 |')
     expect(output).toContain('| Period | 2026-07-02 to 2026-07-02 |')
     expect(output).toContain(RENEWAL_ID)
-  })
-
-  it('shrinks flexible names in a narrow terminal while retaining credit precision', () => {
-    Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 60 })
-    const output = stripAnsi(formatUsageSeries([{ ...seriesFixture.data[0], runs: undefined }], 'terminal', {
-      interval: 'day', groupBy: ['account'], include: [],
-      names: { terms: new Map(), accounts: new Map([[ACCOUNT_ID, 'An unusually long production account name']]) },
-    }))
-    for (const line of output.split('\n')) expect(visWidth(line)).toBeLessThanOrEqual(60)
-    expect(output).toContain('…')
-    expect(output).toContain('0.1234')
+    expect(output).toContain('| Rate condition | Default rate |')
+    expect(output).toContain('| Billable quantity | 4,900 |')
+    expect(output).toContain('| Billable resource days | 2 |')
+    expect(output).toContain('| Applied daily credits | 1.0001 |')
+    expect(output).toContain('| Proration days per year | 365 |')
+    expect(output).toContain('| Scope | statusPage |')
+    expect(output).toContain('| Billable block days | 2 |')
+    expect(output).toContain('| Applied daily credits per block | 0.1 |')
   })
 
   it('renders empty coverage and series independently', () => {
@@ -202,7 +230,6 @@ describe('usage reports display', () => {
       .toBe('No usage rows found for the requested range.')
   })
 })
-
 describe('projections display', () => {
   it('nests every forecast window under one projection report', () => {
     expect(formatUsageProjections(projectionsFixture, 'md').match(/^#+ .+$/gm)).toEqual([
@@ -249,7 +276,7 @@ describe('pagination display', () => {
   it.skipIf(process.platform === 'win32')('recovers every pagination argument and Markdown code delimiter safely', () => {
     const command = usageListCommand('series', { from: '2026-01-01', to: '2026-01-31', limit: 100,
       groupBy: [], interval: 'day', usageTermsIds: [TERM_ID], accountIds: [ACCOUNT_ID],
-      pricingRuleKeys: ['apiChecks'], include: ['runs', 'calculations'] })
+      pricingRuleKeys: ['apiChecks'], include: ['runs', 'calculations'] }, 'md')
     const cursor = 'opaque\'`$() with spaces;|\\'
     const output = formatUsageNavigationHints(cursor, command, 'md')
     expect(output).toMatch(/^Next page: ``checkly .+``$/)
@@ -260,7 +287,8 @@ describe('pagination display', () => {
     expect(recovered).toEqual([
       'checkly', 'account', 'usage', 'series', '--from', '2026-01-01', '--to', '2026-01-31',
       '--limit', '100', '--interval', 'day', '--group-by', 'none', '--usage-terms-id', TERM_ID,
-      '--account-id', ACCOUNT_ID, '--pricing-rule', 'apiChecks', '--include', 'runs,calculations', '--cursor', cursor,
+      '--account-id', ACCOUNT_ID, '--pricing-rule', 'apiChecks', '--include', 'runs,calculations',
+      '--output', 'md', '--cursor', cursor,
     ])
   })
 })

@@ -1,4 +1,4 @@
-import { Flags } from '@oclif/core'
+import { Flags, type Interfaces } from '@oclif/core'
 import { validate as isUuid } from 'uuid'
 import { ApiError, ForbiddenError, NotFoundError, UnauthorizedError } from '../rest/errors.js'
 import {
@@ -6,6 +6,8 @@ import {
   USAGE_INTERVALS,
   USAGE_PRICING_RULE_KEYS,
   USAGE_SERIES_INCLUDES,
+  type UsageInterval,
+  type UsagePeriod,
   type UsageRangeParams,
   type UsageSeriesParams,
   type UsageTermsParams,
@@ -44,7 +46,7 @@ export function usageRangeFlags () {
       multiple: true, delimiter: ',',
     }),
     'account-id': Flags.string({
-      description: 'Select account GUIDs (up to 100). Repeat the flag or comma-separate values.',
+      description: 'Filter covered account GUIDs (up to 100); CHECKLY_ACCOUNT_ID selects the authenticated account. Repeat or comma-separate values.',
       multiple: true, delimiter: ',',
     }),
     'pricing-rule': Flags.string({
@@ -56,10 +58,13 @@ export function usageRangeFlags () {
 }
 
 export function usageSeriesFlags () {
+  const interval: Interfaces.OptionFlag<UsageInterval> = Flags.option({
+    description: 'Aggregation interval.', options: USAGE_INTERVALS, default: 'day',
+  })()
   return {
     ...usageRangeFlags(),
     ...paginationFlags(),
-    'interval': Flags.string({ description: 'Aggregation interval.', options: USAGE_INTERVALS, default: 'day' }),
+    interval,
     'group-by': Flags.string({
       description: 'Comma-separated account, usageTerm, pricingRule, checkType dimensions, or none for no grouping.',
       default: 'account,checkType',
@@ -95,7 +100,7 @@ interface UsageRangeFlagValues extends UsageDateFlags {
   'check-type'?: string[]
 }
 interface UsageSeriesFlagValues extends UsageRangeFlagValues, UsagePaginationFlags {
-  'interval': string
+  'interval': UsageInterval
   'group-by': string
   'include'?: string[]
 }
@@ -178,7 +183,7 @@ export function usageSeriesParams (flags: UsageSeriesFlagValues): UsageSeriesPar
     : enumList([flags['group-by']], USAGE_GROUP_DIMENSIONS, '--group-by')
   return {
     ...usageRangeParams(flags),
-    interval: parseEnum(flags.interval, USAGE_INTERVALS, '--interval'),
+    interval: flags.interval,
     groupBy,
     include: enumList(flags.include, USAGE_SERIES_INCLUDES, '--include'),
     limit: validateIntegerRange(flags.limit, '--limit', 1, 500),
@@ -194,27 +199,38 @@ export function projectionsParams (flags: { 'as-of'?: string }): UsageProjection
   return asOf === undefined ? {} : { asOf }
 }
 
-export async function loadUsageNames (ids: string[]): Promise<UsageNames> {
+export async function loadUsageNames (ids: string[], period: UsagePeriod): Promise<UsageNames> {
   const terms = new Map<string, string>()
   const accounts = new Map<string, string>()
-  const uniqueIds = [...new Set(ids)]
-  for (let offset = 0; offset < uniqueIds.length; offset += 5) {
-    const responses = await Promise.all(uniqueIds.slice(offset, offset + 5).map(id => api.usage.getTerm(id)))
-    for (const { data: term } of responses) {
-      terms.set(term.id, term.name)
-      for (const account of term.accounts) {
-        const previous = accounts.get(account.id)
-        accounts.set(account.id, previous !== undefined && previous !== account.name ? account.id : account.name)
+  const selectedIds = new Set(ids)
+  if (selectedIds.size === 0) return { terms, accounts }
+  let nextId: string | undefined
+  try {
+    do {
+      const { data: page } = await api.usage.listTerms({
+        ...period, limit: 500, ...(nextId === undefined ? {} : { nextId }),
+      })
+      for (const term of page.data) {
+        if (!selectedIds.has(term.id)) continue
+        terms.set(term.id, term.name)
+        for (const account of term.accounts) {
+          const previous = accounts.get(account.id)
+          accounts.set(account.id, previous !== undefined && previous !== account.name ? account.id : account.name)
+        }
       }
-    }
+      if (terms.size === selectedIds.size) break
+      nextId = page.nextId ?? undefined
+    } while (nextId !== undefined)
+  } catch {
+    // Names are optional: retain the report and any names already loaded.
   }
   return { terms, accounts }
 }
 
 export interface UsageErrorContext { termId?: string }
 
-export function describeUsageError (err: unknown, context: UsageErrorContext = {}): string | undefined {
-  if (!(err instanceof ApiError)) return undefined
+export function describeUsageError (err: unknown, context: UsageErrorContext = {}): string | Error {
+  if (!(err instanceof ApiError)) return err instanceof Error ? err : String(err)
   switch (err.data.code) {
     case 'NO_USAGE_TERMS':
       if (context.termId) {
@@ -242,5 +258,5 @@ export function describeUsageError (err: unknown, context: UsageErrorContext = {
   }
   if (err instanceof ForbiddenError) return 'Usage reporting requires the usage:read permission on this account.'
   if (err instanceof NotFoundError && context.termId) return `Usage term ${context.termId} was not found.`
-  return undefined
+  return err
 }

@@ -1,6 +1,6 @@
 import { AuthCommand } from '../../authCommand.js'
 import { outputFlag } from '../../../helpers/flags.js'
-import { describeUsageError, loadUsageNames, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
+import { describeUsageError, usageRangeFlags, usageRangeParams } from '../../../helpers/usage.js'
 import * as api from '../../../rest/api.js'
 import { type OutputFormat, renderCommandHints } from '../../../formatters/render.js'
 import { formatUsageSummary, usageListCommand } from '../../../formatters/usage.js'
@@ -10,7 +10,7 @@ export default class UsageSummaryCommand extends AuthCommand {
   static readOnly = true
   static destructive = false
   static idempotent = true
-  static description = 'Show usage credits, pricing calculations, and coverage gaps across selected terms.'
+  static description = 'Show usage credits, pricing breakdowns, and coverage gaps across selected terms.'
   static flags = { ...usageRangeFlags(), output: outputFlag({ default: 'detail' }) }
 
   async run (): Promise<void> {
@@ -23,20 +23,19 @@ export default class UsageSummaryCommand extends AuthCommand {
         this.log(JSON.stringify(summary, null, 2))
         return
       }
-      const names = summary.breakdown.length > 0 ? await loadUsageNames(summary.usageTermsIds) : undefined
       const fmt: OutputFormat = flags.output === 'md' ? 'md' : 'terminal'
-      const output = [formatUsageSummary(summary, fmt, names)]
+      const output = [formatUsageSummary(summary, fmt)]
       if (fmt === 'terminal') {
         output.push(renderCommandHints([
           { label: 'Daily series', command: usageListCommand('series', {
             ...params, ...summary.period, interval: 'day', groupBy: ['account', 'checkType'],
-          }) },
+          }, fmt) },
           { label: 'Terms', command: 'checkly account usage terms' },
         ], { gap: 1 }))
       }
       this.log(output.join('\n\n'))
     } catch (err: unknown) {
-      this.style.longError('Failed to load usage summary.', describeUsageError(err) ?? (err instanceof Error ? err : String(err)))
+      this.style.longError('Failed to load usage summary.', describeUsageError(err))
       process.exitCode = 1
     }
   }
