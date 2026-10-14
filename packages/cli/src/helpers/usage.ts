@@ -202,6 +202,7 @@ export function projectionsParams (flags: { 'as-of'?: string }): UsageProjection
 export async function loadUsageNames (ids: string[], period: UsagePeriod): Promise<UsageNames> {
   const terms = new Map<string, string>()
   const accounts = new Map<string, string>()
+  const conflictingAccounts = new Set<string>()
   const selectedIds = new Set(ids)
   if (selectedIds.size === 0) return { terms, accounts }
   let nextId: string | undefined
@@ -214,16 +215,23 @@ export async function loadUsageNames (ids: string[], period: UsagePeriod): Promi
         if (!selectedIds.has(term.id)) continue
         terms.set(term.id, term.name)
         for (const account of term.accounts) {
+          if (conflictingAccounts.has(account.id)) continue
           const previous = accounts.get(account.id)
-          accounts.set(account.id, previous !== undefined && previous !== account.name ? account.id : account.name)
+          if (previous !== undefined && previous !== account.name) {
+            accounts.delete(account.id)
+            conflictingAccounts.add(account.id)
+          } else {
+            accounts.set(account.id, account.name)
+          }
         }
       }
       if (terms.size === selectedIds.size) break
       nextId = page.nextId ?? undefined
     } while (nextId !== undefined)
   } catch {
-    // Names are optional: retain the report and any names already loaded.
+    // Names are optional: retain the report and any term names already loaded.
   }
+  if (terms.size !== selectedIds.size) accounts.clear()
   return { terms, accounts }
 }
 

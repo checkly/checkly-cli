@@ -349,25 +349,33 @@ describe('report failure paths', () => {
 })
 
 describe('authoritative metadata names', () => {
-  it('uses only selected terms and falls back to account IDs when authoritative names conflict', async () => {
+  it('uses only selected terms and omits conflicting account names even if a later term matches', async () => {
     const unrelatedId = '550e8400-e29b-41d4-a716-446655440009'
+    const laterId = '550e8400-e29b-41d4-a716-446655440008'
     vi.mocked(api.usage.listTerms).mockResolvedValue(response({ data: [
       termFixture,
       { ...renewalFixture, accounts: [{ id: ACCOUNT_ID, name: 'Renamed account' }] },
+      { ...termFixture, id: laterId },
       { ...termFixture, id: unrelatedId, accounts: [{ id: 'other-account', name: 'Unselected account' }] },
     ], nextId: null }))
-    const names = await loadUsageNames([TERM_ID, RENEWAL_ID, TERM_ID], summaryFixture.period)
-    expect([...names.terms.entries()]).toEqual([[TERM_ID, 'Acme Corp'], [RENEWAL_ID, 'Acme Renewal']])
-    expect([...names.accounts.entries()]).toEqual([[ACCOUNT_ID, ACCOUNT_ID]])
+    const names = await loadUsageNames([TERM_ID, RENEWAL_ID, laterId, TERM_ID], summaryFixture.period)
+    expect([...names.terms.entries()]).toEqual([
+      [TERM_ID, 'Acme Corp'], [RENEWAL_ID, 'Acme Renewal'], [laterId, 'Acme Corp'],
+    ])
+    expect([...names.accounts.entries()]).toEqual([])
     expect(api.usage.getTerm).not.toHaveBeenCalled()
   })
 
-  it('keeps successfully discovered names when a later metadata page fails', async () => {
+  it.each(['failure', 'missing'] as const)('keeps term names but omits unchecked account names after a later page %s', async outcome => {
     vi.mocked(api.usage.listTerms)
-      .mockResolvedValueOnce(response({ data: [termFixture], nextId: 'failed-page' }))
-      .mockRejectedValueOnce(new Error('Rate limited'))
+      .mockResolvedValueOnce(response({ data: [termFixture], nextId: 'next-page' }))
+    if (outcome === 'failure') {
+      vi.mocked(api.usage.listTerms).mockRejectedValueOnce(new Error('Rate limited'))
+    } else {
+      vi.mocked(api.usage.listTerms).mockResolvedValueOnce(response({ data: [], nextId: null }))
+    }
     const names = await loadUsageNames([TERM_ID, RENEWAL_ID], summaryFixture.period)
     expect([...names.terms.entries()]).toEqual([[TERM_ID, 'Acme Corp']])
-    expect([...names.accounts.entries()]).toEqual([[ACCOUNT_ID, 'Acme Production']])
+    expect([...names.accounts.entries()]).toEqual([])
   })
 })

@@ -29,7 +29,7 @@ export default class UsageSummaryCommand extends AuthCommand {
         output.push(renderCommandHints([
           { label: 'Daily series', command: usageListCommand('series', {
             ...params, ...summary.period, interval: 'day', groupBy: ['account', 'checkType'],
-          }, fmt) },
+          }) },
           { label: 'Terms', command: 'checkly account usage terms' },
         ], { gap: 1 }))
       }
