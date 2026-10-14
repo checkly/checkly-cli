@@ -71,7 +71,7 @@ export function usageSeriesFlags () {
   }
 }
 
-export function parseDateOnly (value: string | undefined, label: string): string | undefined {
+function parseDateOnly (value: string | undefined, label: string): string | undefined {
   if (value === undefined) return undefined
   const trimmed = value.trim()
   const error = new Error(`${label} must be a valid calendar date in YYYY-MM-DD format.`)
@@ -142,7 +142,7 @@ export function validateUsageTermId (value: string, label = 'Usage term ID'): st
   return trimmed
 }
 
-export function rejectLegacyCheckType (flags: { 'check-type'?: string[] }): void {
+function rejectLegacyCheckType (flags: { 'check-type'?: string[] }): void {
   if (flags['check-type'] !== undefined) {
     throw new Error('Usage v2 does not support --check-type filtering. '
       + 'Use --pricing-rule to select charges or --group-by checkType on series for a check-type breakdown.')

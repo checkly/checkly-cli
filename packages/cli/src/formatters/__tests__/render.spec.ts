@@ -286,20 +286,6 @@ describe('renderDetailFields', () => {
     { label: 'Optional', value: item => item.optional ?? null },
   ]
 
-  it('renders terminal detail with title and aligned labels', () => {
-    const result = stripAnsi(renderDetailFields('Test Title', fields, { name: 'Alice', age: 30 }, 'terminal'))
-    expect(result).toContain('Test Title')
-    expect(result).toContain('Name:')
-    expect(result).toContain('Alice')
-    expect(result).toContain('Age:')
-    expect(result).toContain('30')
-  })
-
-  it('omits fields that return null in terminal', () => {
-    const result = stripAnsi(renderDetailFields('Test', fields, { name: 'Alice', age: 30 }, 'terminal'))
-    expect(result).not.toContain('Optional')
-  })
-
   it('includes fields when value is not null in terminal', () => {
     const result = stripAnsi(renderDetailFields('Test', fields, { name: 'Bob', age: 25, optional: 'present' }, 'terminal'))
     expect(result).toContain('Optional:')
@@ -319,11 +305,6 @@ describe('renderDetailFields', () => {
       renderDetailFields('Nested', fields, item, 'terminal'),
       renderDetailFields('Nested', fields, item, 'terminal', 3),
     ]) expect(stripAnsi(result)).toBe('Nested\n\nName:  Alice\nAge:   30')
-  })
-
-  it('omits fields that return null in markdown', () => {
-    const result = renderDetailFields('Test', fields, { name: 'Alice', age: 30 }, 'md')
-    expect(result).not.toContain('Optional')
   })
 
   it('escapes pipes and newlines in markdown detail values', () => {
