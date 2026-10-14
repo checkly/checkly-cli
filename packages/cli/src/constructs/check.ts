@@ -824,8 +824,10 @@ export abstract class Check extends Construct {
       // to make sure that the group gets unassigned from any group it may
       // already have belonged to.
       groupId: this.groupId ?? null,
-      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
-      retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
+      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead. An omitted
+      // strategy is sent as `null` too: deploy only updates the fields present in the payload, so leaving
+      // the key out would keep whatever strategy is already stored.
+      retryStrategy: !this.retryStrategy || this.retryStrategy.type === 'NO_RETRIES'
         ? null
         : this.retryStrategy,
       // The backend still takes the legacy `doubleCheck` flag, defaults it to `true`, and only consults it

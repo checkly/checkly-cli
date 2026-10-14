@@ -525,6 +525,16 @@ export class CheckGroupV1 extends Construct {
     return true
   }
 
+  /** The payload's `retryStrategy`; `undefined` leaves the field out. */
+  protected synthesizeRetryStrategy (): GroupRetryStrategy | null | undefined {
+    // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead. An omitted
+    // strategy is sent as `null` too: deploy only updates the fields present in the payload, so leaving
+    // the key out would keep whatever strategy is already stored.
+    return !this.retryStrategy || this.retryStrategy.type === 'NO_RETRIES'
+      ? null
+      : this.retryStrategy
+  }
+
   synthesize () {
     return {
       name: this.name,
@@ -542,10 +552,7 @@ export class CheckGroupV1 extends Construct {
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
-      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
-      retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
-        ? null
-        : this.retryStrategy,
+      retryStrategy: this.synthesizeRetryStrategy(),
       // The backend still takes the legacy `doubleCheck` flag, defaults it to `true`, and only consults it
       // when no retry strategy is stored (one retry). Any explicit strategy, including `NO_RETRIES` (sent as
       // null), turns it off; with no strategy, omitting it keeps the backend's single-retry default.

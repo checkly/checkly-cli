@@ -73,9 +73,11 @@ describe('doubleCheck', () => {
   // consults it when no retry strategy is stored, so both clear it whenever
   // they set a strategy.
   describe.each(constructs.filter(([name]) => name !== 'CheckGroupV2'))('%s payload', (_name, create) => {
-    it('leaves doubleCheck and retryStrategy out without a retry strategy', () => {
+    // Deploy only updates the fields present in the payload, so the strategy
+    // must be sent as null to clear one stored by an earlier deploy.
+    it('sends a null strategy and leaves doubleCheck out without a retry strategy', () => {
       const payload = create({}).synthesize()
-      expect(payload.retryStrategy).toBeUndefined()
+      expect(payload).toHaveProperty('retryStrategy', null)
       expect(payload.doubleCheck).toBeUndefined()
     })
 
@@ -90,9 +92,9 @@ describe('doubleCheck', () => {
     })
   })
 
-  it('keeps doubleCheck: false for monitors without a retry strategy', () => {
+  it('sends a null strategy and doubleCheck: false for monitors without a retry strategy', () => {
     const monitor = new UrlMonitor('url', { name: 'URL', request: { url: 'https://example.com' } })
-    expect(monitor.synthesize().doubleCheck).toBe(false)
+    expect(monitor.synthesize()).toMatchObject({ retryStrategy: null, doubleCheck: false })
   })
 
   // The backend defaults the flag to `false` for v2 groups, so they never send it.
@@ -105,6 +107,19 @@ describe('doubleCheck', () => {
       ['a typed strategy', { retryStrategy: fixed }],
     ])('leaves doubleCheck out with %s', (_label, extra) => {
       expect(create(extra).synthesize().doubleCheck).toBeUndefined()
+    })
+
+    // The backend defaults an omitted strategy to 'FALLBACK' for v2 groups,
+    // which lets each check keep its own.
+    it('leaves retryStrategy out without a retry strategy', () => {
+      expect(create({}).synthesize().retryStrategy).toBeUndefined()
+    })
+
+    it.each([
+      ['RetryStrategyBuilder.noRetries()', RetryStrategyBuilder.noRetries(), null],
+      ['a typed strategy', fixed, fixed],
+    ])('sends %s', (_label, retryStrategy, expected) => {
+      expect(create({ retryStrategy }).synthesize()).toHaveProperty('retryStrategy', expected)
     })
   })
 
