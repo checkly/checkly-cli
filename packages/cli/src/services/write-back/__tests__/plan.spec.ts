@@ -315,6 +315,37 @@ describe('planWriteBack', () => {
     expect(noRemote.skipped.map(describeSkip)).toEqual(['check api name: Checkly did not report the value it holds'])
   })
 
+  it('writes the single retry a cleared strategy leaves to doubleCheck', async () => {
+    await declare('api.check.ts', API_SOURCE, () => {
+      new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })
+    })
+    // The stored row went from a strategy to null with the flag set; the
+    // import format spells that as the flag's equivalent strategy.
+    const plan = await planWriteBack({
+      diff: [apiEntry({
+        before: {
+          ...apiEntry().before,
+          doubleCheck: true,
+          retryStrategy: { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false },
+        },
+        changes: [
+          { path: '/retryStrategy', origin: 'remote', after: null },
+          { path: '/retryStrategy/type', origin: 'remote', before: 'FIXED' },
+          { path: '/retryStrategy/maxRetries', origin: 'remote', before: 2 },
+        ],
+      })],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped.map(describeSkip)).toEqual([])
+    expect(plan.applied.map(line => [line.property, line.rendered])).toEqual([
+      ['retryStrategy', `RetryStrategyBuilder.singleRetry({
+    baseBackoffSeconds: 0,
+    sameRegion: false,
+  })`],
+    ])
+  })
+
   it('refuses what the table, the redactions and the change reports rule out', async () => {
     await declare('api.check.ts', API_SOURCE, () => {
       new ApiCheck('api', { name: 'API', request: { url: 'https://example.com', method: 'GET' } })

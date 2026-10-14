@@ -59,6 +59,7 @@ import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 import { hasEscalationPolicy } from '../../constructs/alert-escalation-policy-codegen.js'
 import { PLAYWRIGHT_CHECK_OMITTED_PROPS } from '../../constructs/playwright-check-codegen.js'
 import { blankRedacted, nodeAt, pointerSegments, UnshapeableError } from '../deploy-diff/import-shape.js'
+import { asStoredRetryStrategy } from '../deploy-diff/double-check.js'
 import { applyEdits, readsBack, type SourceEdit } from './apply-edits.js'
 import type { AssertionBuilderName } from './helper-edit.js'
 import { exportedNamesOf, findConstructOptions, parseSource, WriteBackSkipped } from './source-file.js'
@@ -954,13 +955,19 @@ function valueFor (
       return undefined
     }
   }
+  // Checked against the import format and against the stored row the
+  // changes were computed from, which differ where the import format spells
+  // the `doubleCheck` retry as a strategy; the value written is the import
+  // format's.
+  const stored = asStoredRetryStrategy(before)
   for (const { change, rule: own } of candidate.changes) {
     if (change.origin === 'both' && change.remote === undefined) {
       context.skip('Checkly did not report the value it holds', property)
       return undefined
     }
     const remaining = pointerSegments(change.path).slice(own.pointer.length)
-    if (!agrees(change, own, remaining, nodeAt(before, own.pointer))) {
+    if (!agrees(change, own, remaining, nodeAt(before, own.pointer))
+      && !agrees(change, own, remaining, nodeAt(stored, own.pointer))) {
       context.skip('Checkly reported two different current values', property)
       return undefined
     }

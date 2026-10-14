@@ -53,7 +53,15 @@ function scenario (checkOverrides: Record<string, unknown> = {}) {
   return { group, email, check, local }
 }
 
-/** The check as Checkly has it: the import format, the request at the deployed URL, its subscription row. */
+// A check without a strategy deploys as null beside the backend's default
+// `doubleCheck: true`, which the import format spells as a single retry.
+const doubleCheckRetry = { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false }
+
+/**
+ * The check as Checkly has it: the import format, the request at the deployed
+ * URL, its subscription row, and the single retry a check deployed without a
+ * strategy retries with.
+ */
 function deployed (overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'check-uuid',
@@ -61,6 +69,8 @@ function deployed (overrides: Record<string, unknown> = {}): Record<string, unkn
     name: 'API',
     activated: true,
     muted: false,
+    doubleCheck: true,
+    retryStrategy: doubleCheckRetry,
     groupId: 42,
     locations: [],
     tags: [],
@@ -176,6 +186,40 @@ describe('renderResourceDiff', () => {
       },
       local,
     )).toEqual(['payload format changed (CLI upgrade)'])
+  })
+
+  it('renders a check that retries through doubleCheck alike on both sides', () => {
+    const { local } = scenario()
+    expect(render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/retryStrategy', origin: 'code', after: null }],
+        before: deployed({ doubleCheck: true, retryStrategy: doubleCheckRetry }),
+        redactions: [],
+      },
+      local,
+    )).toEqual(['payload format changed (CLI upgrade)'])
+  })
+
+  it('shows a stored strategy the code no longer sets giving way to the doubleCheck retry', () => {
+    const { local } = scenario()
+    const stored = { type: 'FIXED', baseBackoffSeconds: 30, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
+    const text = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/retryStrategy', origin: 'code', after: null }],
+        before: deployed({ doubleCheck: true, retryStrategy: stored }),
+        redactions: [],
+      },
+      local,
+    ).join('\n')
+    expect(text).toContain('RetryStrategyBuilder.fixedStrategy(')
+    expect(text).toContain('RetryStrategyBuilder.singleRetry(')
+    expect(text).not.toContain('noRetries')
   })
 
   it('leaves a deployed snippet reference out of both sides', () => {
