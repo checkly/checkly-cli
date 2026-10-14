@@ -9,3 +9,8 @@ const check = new PlaywrightCheck('check', {
   group,
   playwrightConfigPath: './playwright.config.ts',
 })
+
+const ungroupedCheck = new PlaywrightCheck('ungrouped-check', {
+  name: 'Ungrouped Check',
+  playwrightConfigPath: './playwright.config.ts',
+})

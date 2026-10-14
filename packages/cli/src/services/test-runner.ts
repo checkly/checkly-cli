@@ -7,7 +7,6 @@ import { Check } from '../constructs/check.js'
 import { RetryStrategy, SharedFile } from '../constructs/index.js'
 import { ProjectBundle, ResourceDataBundle } from '../constructs/project-bundle.js'
 import { pullSnapshots, stripContentHashes } from '../services/snapshot-service.js'
-import { PlaywrightCheckBundle } from '../constructs/playwright-check-bundle.js'
 
 export default class TestRunner extends AbstractCheckRunner {
   projectBundle: ProjectBundle
@@ -64,11 +63,7 @@ export default class TestRunner extends AbstractCheckRunner {
     checks: Array<{ check: any, sequenceId: SequenceId }>
   }> {
     const checkRunJobs = this.checkBundles.map(({ construct: check, bundle }) => {
-      // Get the group reference - Playwright checks store it in the bundle,
-      // other checks store it in the check construct (as groupId)
-      const groupId = bundle instanceof PlaywrightCheckBundle
-        ? bundle.groupId
-        : check.groupId
+      const groupId = check.groupId
 
       return {
         // The content hashes describe uploads for a deploy to compare; a run

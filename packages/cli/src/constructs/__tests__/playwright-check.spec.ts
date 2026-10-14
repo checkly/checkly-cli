@@ -146,6 +146,15 @@ describe('PlaywrightCheck', () => {
                 },
               }),
             }),
+            // An ungrouped check must send null so deploy removes it from any
+            // group it belonged to before.
+            expect.objectContaining({
+              logicalId: 'ungrouped-check',
+              type: 'check',
+              payload: expect.objectContaining({
+                groupId: null,
+              }),
+            }),
           ]),
         }),
       }))
