@@ -22,6 +22,7 @@ import { IncidentTrigger } from './incident.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
+import { SINGLE_RETRY_ELSEWHERE } from './internal/default-retry-strategy.js'
 import {
   InvalidPropertyValueDiagnostic,
   MissingRunLocationDiagnostic,
@@ -332,6 +333,10 @@ export interface CheckProps {
 
   /**
    * Sets a retry policy for the check. Use RetryStrategyBuilder to create a retry policy.
+   *
+   * If neither the check nor a project or group default sets one, the check
+   * retries once, immediately, in a different location:
+   * `RetryStrategyBuilder.singleRetry({ baseBackoffSeconds: 0, sameRegion: false })`.
    *
    * @example
    * ```typescript
@@ -775,7 +780,16 @@ export abstract class Check extends Construct {
     return this.__checkFilePath
   }
 
+  /**
+   * The retry strategy the check gets when neither its code nor a project or
+   * group default sets one; `undefined` for a check type without retries.
+   */
+  protected defaultRetryStrategy (): CheckRetryStrategy | undefined {
+    return { ...SINGLE_RETRY_ELSEWHERE }
+  }
+
   synthesize () {
+    const retryStrategy = this.retryStrategy ?? this.defaultRetryStrategy()
     const triggerIncident = (() => {
       if (this.triggerIncident) {
         const { service, ...triggerIncident } = this.triggerIncident
@@ -824,14 +838,15 @@ export abstract class Check extends Construct {
       // to make sure that the group gets unassigned from any group it may
       // already have belonged to.
       groupId: this.groupId ?? null,
-      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
-      retryStrategy: this.retryStrategy?.type === 'NO_RETRIES'
+      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead. A check type
+      // without retries sends `null` too: deploy only updates the fields present in the payload, so leaving
+      // the key out would keep whatever strategy is already stored.
+      retryStrategy: retryStrategy === undefined || retryStrategy.type === 'NO_RETRIES'
         ? null
-        : this.retryStrategy,
-      // The backend still takes the legacy `doubleCheck` flag, defaults it to `true`, and only consults it
-      // when no retry strategy is stored (one retry). Any explicit strategy, including `NO_RETRIES` (sent as
-      // null), turns it off; with no strategy, omitting it keeps the backend's single-retry default.
-      doubleCheck: this.retryStrategy ? false : undefined,
+        : retryStrategy,
+      // The legacy flag the backend still takes defaults to `true`, and retries once beside a null strategy.
+      // The retry strategy alone decides, so the flag is always off.
+      doubleCheck: false,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,
       runParallel: this.runParallel,

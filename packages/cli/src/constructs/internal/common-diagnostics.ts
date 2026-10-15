@@ -28,10 +28,8 @@ async function validateDoubleCheck (
           `To match the behavior of doubleCheck: true, please use the `
           + `following retryStrategy instead:`
           + `\n\n`
-          + `  RetryStrategyBuilder.fixedStrategy({\n`
-          + `    maxRetries: 1,\n`
+          + `  RetryStrategyBuilder.singleRetry({\n`
           + `    baseBackoffSeconds: 0,\n`
-          + `    maxDurationSeconds: 600,\n`
           + `    sameRegion: false,\n`
           + `  })`,
         ),

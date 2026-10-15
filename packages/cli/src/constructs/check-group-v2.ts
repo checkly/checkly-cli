@@ -133,10 +133,15 @@ export class CheckGroupV2 extends CheckGroupV1 {
     // No-op
   }
 
+  // No default: the backend reads an omitted strategy as 'FALLBACK' for v2 groups, which lets each
+  // check keep its own.
+  protected defaultRetryStrategy (): undefined {
+    return undefined
+  }
+
   synthesize () {
     return {
       ...super.synthesize(),
-      doubleCheck: undefined,
       v: 2,
     }
   }

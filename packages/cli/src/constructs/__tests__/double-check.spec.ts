@@ -52,7 +52,7 @@ describe('doubleCheck', () => {
 
   describe.each(constructs)('%s', (_name, create) => {
     it.each([
-      [true, 'RetryStrategyBuilder.fixedStrategy({'],
+      [true, 'RetryStrategyBuilder.singleRetry({'],
       [false, 'RetryStrategyBuilder.noRetries()'],
     ])('reports %j as removed with its retryStrategy equivalent', async (value, hint) => {
       const [diagnostic, ...rest] = await doubleCheckDiagnostics(create({ doubleCheck: value }))
@@ -68,15 +68,14 @@ describe('doubleCheck', () => {
   })
 
   const fixed = RetryStrategyBuilder.fixedStrategy({ maxRetries: 1 })
+  const singleRetryElsewhere = { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false }
 
-  // The backend defaults the flag to `true` for checks and v1 groups and only
-  // consults it when no retry strategy is stored, so both clear it whenever
-  // they set a strategy.
+  // The backend still takes the legacy flag and defaults it to `true` for
+  // checks and v1 groups; every payload turns it off, so the retry strategy
+  // alone decides.
   describe.each(constructs.filter(([name]) => name !== 'CheckGroupV2'))('%s payload', (_name, create) => {
-    it('leaves doubleCheck and retryStrategy out without a retry strategy', () => {
-      const payload = create({}).synthesize()
-      expect(payload.retryStrategy).toBeUndefined()
-      expect(payload.doubleCheck).toBeUndefined()
+    it('sends the default single retry and doubleCheck: false without a retry strategy', () => {
+      expect(create({}).synthesize()).toMatchObject({ retryStrategy: singleRetryElsewhere, doubleCheck: false })
     })
 
     it('sends a null strategy and doubleCheck: false for RetryStrategyBuilder.noRetries()', () => {
@@ -90,21 +89,38 @@ describe('doubleCheck', () => {
     })
   })
 
-  it('keeps doubleCheck: false for monitors without a retry strategy', () => {
-    const monitor = new UrlMonitor('url', { name: 'URL', request: { url: 'https://example.com' } })
-    expect(monitor.synthesize().doubleCheck).toBe(false)
+  it('leaves the construct its own retry strategy, applying the default only to the payload', () => {
+    expect((constructs[0][1]({}) as unknown as { retryStrategy?: unknown }).retryStrategy).toBeUndefined()
   })
 
-  // The backend defaults the flag to `false` for v2 groups, so they never send it.
+  it('prefers the project default to the type default', () => {
+    Session.checkDefaults = { retryStrategy: fixed }
+    expect(constructs[0][1]({}).synthesize()).toMatchObject({ retryStrategy: fixed, doubleCheck: false })
+  })
+
+  it('sends no retries and doubleCheck: false for monitors without a retry strategy', () => {
+    const monitor = new UrlMonitor('url', { name: 'URL', request: { url: 'https://example.com' } })
+    expect(monitor.synthesize()).toMatchObject({ retryStrategy: null, doubleCheck: false })
+  })
+
   describe('CheckGroupV2 payload', () => {
     const create = constructs.find(([name]) => name === 'CheckGroupV2')![1]
 
+    // The backend defaults an omitted strategy to 'FALLBACK' for v2 groups,
+    // which lets each check keep its own.
+    it('leaves retryStrategy out and sends doubleCheck: false without a retry strategy', () => {
+      const payload = create({}).synthesize()
+      expect(payload.retryStrategy).toBeUndefined()
+      expect(payload.doubleCheck).toBe(false)
+    })
+
     it.each([
-      ['no retry strategy', {}],
-      ['RetryStrategyBuilder.noRetries()', { retryStrategy: RetryStrategyBuilder.noRetries() }],
-      ['a typed strategy', { retryStrategy: fixed }],
-    ])('leaves doubleCheck out with %s', (_label, extra) => {
-      expect(create(extra).synthesize().doubleCheck).toBeUndefined()
+      ['RetryStrategyBuilder.noRetries()', RetryStrategyBuilder.noRetries(), null],
+      ['a typed strategy', fixed, fixed],
+    ])('sends %s with doubleCheck: false', (_label, retryStrategy, expected) => {
+      const payload = create({ retryStrategy }).synthesize()
+      expect(payload).toHaveProperty('retryStrategy', expected)
+      expect(payload.doubleCheck).toBe(false)
     })
   })
 
@@ -112,6 +128,6 @@ describe('doubleCheck', () => {
     Session.checkDefaults = { doubleCheck: true } as typeof Session.checkDefaults
     const check = constructs[0][1]({})
     expect(await doubleCheckDiagnostics(check)).toEqual([])
-    expect(check.synthesize().doubleCheck).toBeUndefined()
+    expect(check.synthesize().doubleCheck).toBe(false)
   })
 })
