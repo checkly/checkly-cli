@@ -91,6 +91,12 @@ const result = await build({
   // scope (ApiCheck = class _ApiCheck), which leaks the renamed identifier
   // into user-visible output. keepNames restores the source names.
   keepNames: true,
+  // Minify: roughly halves the bundle (7.4 MB -> 3.5 MB, tarball 1.69 ->
+  // 1.32 MB gz) and keepNames keeps class and function names readable in
+  // stack traces; only local identifiers are mangled. Sourcemaps are not
+  // shipped: the split-bundle maps weigh ~13 MB, and Node only applies
+  // sourceMappingURL with --enable-source-maps anyway.
+  minify: true,
   // Bundled CJS dependencies (e.g. supports-color via debug) call require()
   // for node builtins at runtime. esbuild's ESM output can only resolve those
   // when a require function exists in scope; this banner supplies one.
