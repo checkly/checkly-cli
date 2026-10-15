@@ -1,6 +1,8 @@
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { packageRoot } from '../../services/package-root.js'
+
 /**
  * Finds the user file that declares a construct by looking at the call
  * stack of the construct's constructor.
@@ -45,11 +47,13 @@ import { fileURLToPath } from 'node:url'
  */
 
 /**
- * The directory holding the CLI's own code: `dist/` in the published package,
- * `src/` when running from source. Frames under it belong to the CLI, not to
- * the user's project.
+ * The CLI's own package root: everything under it — the esbuild bundle in
+ * dist/bundle/, the compiled tsc output in dist/, or TypeScript sources under
+ * src/ during development — belongs to the CLI, not to the user's project.
+ * Frames under it are therefore internal and skipped when searching for the
+ * file that declared a construct.
  */
-const OWN_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+const OWN_ROOT = packageRoot()
 
 /**
  * Frames to capture. The CLI's own constructor chain is at most five frames

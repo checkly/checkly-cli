@@ -1,13 +1,12 @@
 import chalk from 'chalk'
 import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
-import { join, dirname } from 'path'
+import { join } from 'path'
 import prompts from 'prompts'
-import { fileURLToPath } from 'node:url'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { packageRoot } from './package-root.js'
 
-export const SKILL_FILE_PATH = join(__dirname, '../ai-context/public-skills/checkly/SKILL.md')
+export const SKILL_FILE_PATH = join(packageRoot(), 'dist/ai-context/public-skills/checkly/SKILL.md')
 const SKILL_FILENAME = 'SKILL.md'
 
 export const PLATFORM_TARGETS: Record<string, string> = {

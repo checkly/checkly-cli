@@ -4,6 +4,13 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(),
 }))
 
+// skills.ts (imported for platform targets) resolves file locations from
+// package-root, which needs the real fs; this spec replaces fs wholesale,
+// so pin the root too.
+vi.mock('../../../services/package-root.js', () => ({
+  packageRoot: vi.fn(() => '/checkly-package-root'),
+}))
+
 vi.mock('../../../services/util', () => ({
   findPlaywrightConfigPath: vi.fn(),
 }))

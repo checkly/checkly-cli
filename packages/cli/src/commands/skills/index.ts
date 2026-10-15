@@ -1,14 +1,15 @@
 import { Args } from '@oclif/core'
 import { readFile, readdir } from 'fs/promises'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'path'
 
 import { ACTIONS, SKILL } from '../../ai-context/context.js'
+import { packageRoot } from '../../services/package-root.js'
 import { BaseCommand } from '../baseCommand.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-const REFERENCES_DIR = join(__dirname, '../../ai-context/skills-command/references')
+// Served by the `checkly skills [action] [reference]` command. Anchored at
+// the package root (not this module's own depth) so the path also resolves
+// when the CLI runs from the esbuild bundle in dist/bundle/.
+const REFERENCES_DIR = join(packageRoot(), 'dist/ai-context/skills-command/references')
 
 function referenceShortId (actionId: string, referenceId: string): string {
   return referenceId.replace(`${actionId}-`, '')

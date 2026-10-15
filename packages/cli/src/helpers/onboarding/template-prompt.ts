@@ -1,10 +1,11 @@
 import { readFile } from 'fs/promises'
-import { join, dirname } from 'path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'path'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
+import { packageRoot } from '../../services/package-root.js'
 
-const PROMPTS_DIR = join(__dirname, '../../ai-context/onboarding-prompts')
+// Anchored at the package root (not this module's own depth) so the path also
+// resolves when the CLI runs from the esbuild bundle in dist/bundle/.
+const PROMPTS_DIR = join(packageRoot(), 'dist/ai-context/onboarding-prompts')
 
 export type PromptVariables = Record<string, string>
 

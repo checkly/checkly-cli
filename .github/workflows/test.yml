@@ -92,6 +92,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
       # Test that the packaging works as well
       - run: pnpm -r pack
+      # Startup-time budget: catches new import-time work (e.g. a dependency
+      # doing real work at module load) that would otherwise silently slow
+      # every invocation without failing any test. Generous ceiling — this is
+      # a regression alarm, not a benchmark.
+      - run: pnpm --filter checkly run startup:check
       - run: pnpm run lint
 
   # ---------------------------------------------------------------------------

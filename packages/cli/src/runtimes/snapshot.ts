@@ -1,14 +1,14 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { fileURLToPath } from 'node:url'
 
+import { packageRoot } from '../services/package-root.js'
 import { Runtime } from './runtime.js'
-
-const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const SNAPSHOT_DATE = '20260130'
 
-const ASSETS_PATH = path.join(__dirname, '..', '..', 'assets')
+// Anchored at the package root (not this module's own depth) so the path also
+// resolves when the CLI runs from the esbuild bundle in dist/bundle/.
+const ASSETS_PATH = path.join(packageRoot(), 'assets')
 
 export async function loadSnapshot (): Promise<Runtime[]> {
   const data = await fs.readFile(path.join(

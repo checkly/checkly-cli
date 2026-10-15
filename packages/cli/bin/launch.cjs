@@ -1,16 +1,14 @@
 'use strict'
 
 // Required by ./run.cjs only after the Node version preflight has passed.
-// Everything is loaded with dynamic import() so this stays a CommonJS module:
-// require() of the ESM dist or @oclif/core would throw
-// ERR_REQUIRE_ASYNC_MODULE if any module in the graph ever adopted top-level
-// await. Loading dotenv before @oclif/core also means .env values are visible
-// to env vars read at import time (e.g. DEBUG, FORCE_COLOR).
+// The CLI is the esbuild bundle at dist/bundle/cli.js (see scripts/bundle.mjs):
+// it includes @oclif/core, all commands and every pure-JS dependency. Loading
+// it with dynamic import() keeps this file CommonJS. oclif later dynamic-imports
+// the same bundle path to resolve commands, which the Node module cache serves
+// from this load, so there is exactly one instance of every module. External
+// dependencies resolved at runtime (oxc-parser, typescript-estree) are looked
+// up from this package's node_modules exactly as before.
 void (async () => {
-  const { loadDotenvFile } = await import('../dist/services/load-dotenv.js')
-  await loadDotenvFile()
-
-  const { execute, settings } = await import('@oclif/core')
-  settings.enableAutoTranspile = false
-  await execute({ dir: __dirname })
+  const { default: runChecklyCli } = await import('../dist/bundle/cli.js')
+  await runChecklyCli()
 })()
