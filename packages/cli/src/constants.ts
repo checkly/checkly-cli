@@ -19,6 +19,16 @@ export const allCheckTypes = Object.values(CheckTypes)
 
 export const LOGICAL_ID_PATTERN = /^[A-Za-z0-9_\-/#.]+$/
 
+// The longest logicalId Checkly stores for a construct.
+export const LOGICAL_ID_MAX_LENGTH = 255
+
+// The longest logicalId Checkly stores for an alert channel subscription or a
+// private location assignment. The CLI composes those as
+// `<prefix>#<parent logicalId>#<target logicalId>`; the longest prefix,
+// `check-group-alert-channel-subscription`, is 38 characters, so two parts of
+// at most LOGICAL_ID_MAX_LENGTH each always fit.
+export const RELATION_LOGICAL_ID_MAX_LENGTH = 550
+
 // The construct type of the root Project.
 //
 // This is duplicated here (Project also exposes it as Project.__checklyType)
