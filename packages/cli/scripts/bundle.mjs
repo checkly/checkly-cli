@@ -84,6 +84,13 @@ const result = await build({
   // Shared code goes to dist/bundle/chunks/ so oclif's command glob over
   // dist/bundle/commands only ever sees command entries.
   chunkNames: 'chunks/[name]-[hash]',
+  // Runtime code relies on Function.name: the deploy preview prints
+  // construct.constructor.name (e.g. "ApiCheck"), and error messages and
+  // write-back checks name construct classes too. Without keepNames, esbuild
+  // renames classes whose name collides with their export binding in chunk
+  // scope (ApiCheck = class _ApiCheck), which leaks the renamed identifier
+  // into user-visible output. keepNames restores the source names.
+  keepNames: true,
   // Bundled CJS dependencies (e.g. supports-color via debug) call require()
   // for node builtins at runtime. esbuild's ESM output can only resolve those
   // when a require function exists in scope; this banner supplies one.

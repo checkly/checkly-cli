@@ -7,25 +7,25 @@
   "types": "dist/index.d.ts",
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/bundle/index.js",
-      "require": "./dist/bundle/index.js",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/bundle/index.js"
     },
     "./package.json": "./package.json",
     "./constructs": {
+      "types": "./dist/constructs/index.d.ts",
       "import": "./dist/bundle/constructs.js",
-      "require": "./dist/bundle/constructs.js",
-      "types": "./dist/constructs/index.d.ts"
+      "require": "./dist/bundle/constructs.js"
     },
     "./loader": {
+      "types": "./dist/loader/index.d.ts",
       "import": "./dist/bundle/loader.js",
-      "require": "./dist/bundle/loader.js",
-      "types": "./dist/loader/index.d.ts"
+      "require": "./dist/bundle/loader.js"
     },
     "./util": {
+      "types": "./dist/util/index.d.ts",
       "import": "./dist/bundle/util.js",
-      "require": "./dist/bundle/util.js",
-      "types": "./dist/util/index.d.ts"
+      "require": "./dist/bundle/util.js"
     }
   },
   "engines": {
