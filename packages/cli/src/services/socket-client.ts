@@ -7,7 +7,7 @@ const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 async function backOffConnect (url: string, options: mqtt.IClientOptions, retryCount = 0):
 Promise<mqtt.MqttClient> {
   try {
-    return mqtt.connectAsync(url, options, false)
+    return await mqtt.connectAsync(url, options, false)
   } catch (error) {
     if (retryCount > 3) {
       throw error
