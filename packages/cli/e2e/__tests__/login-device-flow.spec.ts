@@ -138,6 +138,10 @@ describe('login with the device flow (fake Auth0 + API)', () => {
         LOCALAPPDATA: path.join(homeDir, 'AppData', 'Local'),
         XDG_CONFIG_HOME: path.join(homeDir, '.config'),
         SystemRoot: process.env.SystemRoot,
+        // Without SHELL, @oclif/core spawns PowerShell on every Windows command
+        // to detect the shell, which costs far more than the command itself
+        // (see checklyEnv in run-checkly.ts).
+        SHELL: process.env.SHELL ?? 'powershell.exe',
         CHECKLY_ENV: 'local',
         CHECKLY_API_URL: fake.baseUrl,
         CHECKLY_AUTH_URL: fake.baseUrl,
