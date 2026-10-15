@@ -48,6 +48,8 @@ import Api from '../api.js'
 import TestSessionsList from '../test-sessions/list.js'
 import TestSessionsGet from '../test-sessions/get.js'
 import UsageTermsCommand from '../account/usage/terms.js'
+import UsageTermCommand from '../account/usage/term.js'
+import UsageProjectionsCommand from '../account/usage/projections.js'
 import UsageSummaryCommand from '../account/usage/summary.js'
 import UsageSeriesCommand from '../account/usage/series.js'
 
@@ -71,6 +73,8 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['test-sessions list', TestSessionsList],
   ['test-sessions get', TestSessionsGet],
   ['account usage terms', UsageTermsCommand],
+  ['account usage term', UsageTermCommand],
+  ['account usage projections', UsageProjectionsCommand],
   ['account usage summary', UsageSummaryCommand],
   ['account usage series', UsageSeriesCommand],
   ['incidents list', IncidentsList],

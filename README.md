@@ -89,6 +89,16 @@ npm install --save-dev checkly
 
 Official docs are over at [checklyhq.com/docs/cli](https://checklyhq.com/docs/cli/)
 
+## Account usage in v10
+
+Migration from v9:
+
+- Summary JSON renames `totals.credits.used` to `totals.creditsUsed` and removes `totals.credits.percentOfBudget` and embedded `projections`. Get forecasts with `checkly account usage projections <id>`.
+- Summary and series expose `usageTermsIds` instead of `usageTermsId`. Series replaces `warnings` with `coverage.gaps`.
+- Terms and series JSON use `{ data, pagination: { nextId, length } }`. Terms default to table output; use `term <id>` for detail.
+- `--from` and `--to` bound an inclusive UTC range. On `terms`, they select overlapping contracts rather than one contract covering `--to`.
+- `--check-type` is removed. Use `--pricing-rule` to select charges or `series --group-by checkType` for a check-type breakdown.
+
 # AI Agents & Coding Assistants
 
 The Checkly CLI is designed with AI-powered development in mind. With [**Monitoring as Code**](https://www.checklyhq.com/docs/concepts/monitoring-as-code/), your entire monitoring setup lives in TypeScript files — perfect for AI agents that can read, write, and reason about code.
