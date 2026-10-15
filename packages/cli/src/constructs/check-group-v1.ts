@@ -28,6 +28,7 @@ import { PrivateLocationGroupAssignment } from './private-location-group-assignm
 import { Ref } from './ref.js'
 import { Session } from './session.js'
 import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
+import { SINGLE_RETRY_ELSEWHERE } from './internal/default-retry-strategy.js'
 import { CheckRetryStrategy } from './check.js'
 import { MonitorRetryStrategy } from './monitor.js'
 
@@ -236,7 +237,9 @@ export interface CheckGroupV1Props {
    *
    * If set, all checks in the group use the group's retry strategy.
    *
-   * If not set, retries are disabled for all checks in the group.
+   * If not set, all checks in the group retry once, immediately, in a
+   * different location:
+   * `RetryStrategyBuilder.singleRetry({ baseBackoffSeconds: 0, sameRegion: false })`.
    */
   retryStrategy?: GroupRetryStrategy
 
@@ -525,17 +528,16 @@ export class CheckGroupV1 extends Construct {
     return true
   }
 
-  /** The payload's `retryStrategy`; `undefined` leaves the field out. */
-  protected synthesizeRetryStrategy (): GroupRetryStrategy | null | undefined {
-    // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead. An omitted
-    // strategy is sent as `null` too: deploy only updates the fields present in the payload, so leaving
-    // the key out would keep whatever strategy is already stored.
-    return !this.retryStrategy || this.retryStrategy.type === 'NO_RETRIES'
-      ? null
-      : this.retryStrategy
+  /**
+   * The retry strategy the group gets when its code sets none, which every
+   * check in it then uses; `undefined` leaves each check to its own.
+   */
+  protected defaultRetryStrategy (): GroupRetryStrategy | undefined {
+    return { ...SINGLE_RETRY_ELSEWHERE }
   }
 
   synthesize () {
+    const retryStrategy = this.retryStrategy ?? this.defaultRetryStrategy()
     return {
       name: this.name,
       activated: this.activated,
@@ -552,11 +554,11 @@ export class CheckGroupV1 extends Construct {
       localTearDownScript: this.localTearDownScript,
       apiCheckDefaults: this.apiCheckDefaults,
       environmentVariables: this.environmentVariables,
-      retryStrategy: this.synthesizeRetryStrategy(),
-      // The backend still takes the legacy `doubleCheck` flag, defaults it to `true`, and only consults it
-      // when no retry strategy is stored (one retry). Any explicit strategy, including `NO_RETRIES` (sent as
-      // null), turns it off; with no strategy, omitting it keeps the backend's single-retry default.
-      doubleCheck: this.retryStrategy ? false : undefined,
+      // The backend doesn't actually support the `NO_RETRIES` type, it uses `null` instead.
+      retryStrategy: retryStrategy?.type === 'NO_RETRIES' ? null : retryStrategy,
+      // The legacy flag the backend still takes defaults to `true` for v1 groups, and retries once beside a
+      // null strategy. The retry strategy alone decides, so the flag is always off.
+      doubleCheck: false,
       runParallel: this.runParallel,
       alertSettings: this.alertSettings,
       useGlobalAlertSettings: this.useGlobalAlertSettings,

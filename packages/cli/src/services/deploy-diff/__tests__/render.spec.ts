@@ -53,8 +53,9 @@ function scenario (checkOverrides: Record<string, unknown> = {}) {
   return { group, email, check, local }
 }
 
-// A check without a strategy deploys as null beside the backend's default
-// `doubleCheck: true`, which the import format spells as a single retry.
+// A check deployed without a strategy before the CLI sent a default one holds
+// null beside the backend's default `doubleCheck: true`, which the import
+// format spells as the default single retry.
 const doubleCheckRetry = { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false }
 
 /**
@@ -188,14 +189,21 @@ describe('renderResourceDiff', () => {
     )).toEqual(['payload format changed (CLI upgrade)'])
   })
 
-  it('renders a check that retries through doubleCheck alike on both sides', () => {
+  it('names the CLI upgrade that spells a doubleCheck retry as the default single retry', () => {
+    // The previous CLI sent neither a strategy nor the flag; this one sends
+    // the default strategy and turns the flag off.
     const { local } = scenario()
     expect(render(
       {
         type: 'check',
         logicalId: 'api',
         action: 'UPDATE',
-        changes: [{ path: '/retryStrategy', origin: 'code', after: null }],
+        changes: [
+          { path: '/doubleCheck', origin: 'code', after: false },
+          { path: '/retryStrategy/baseBackoffSeconds', origin: 'code', after: 0 },
+          { path: '/retryStrategy/sameRegion', origin: 'code', after: false },
+          { path: '/retryStrategy/type', origin: 'code', after: 'SINGLE_RETRY' },
+        ],
         before: deployed({ doubleCheck: true, retryStrategy: doubleCheckRetry }),
         redactions: [],
       },
@@ -203,7 +211,7 @@ describe('renderResourceDiff', () => {
     )).toEqual(['payload format changed (CLI upgrade)'])
   })
 
-  it('shows a stored strategy the code no longer sets giving way to the doubleCheck retry', () => {
+  it('shows a stored strategy the code no longer sets giving way to the default single retry', () => {
     const { local } = scenario()
     const stored = { type: 'FIXED', baseBackoffSeconds: 30, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
     const text = render(

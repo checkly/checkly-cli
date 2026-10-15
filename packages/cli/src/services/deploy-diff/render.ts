@@ -24,7 +24,6 @@ import {
 } from './import-shape.js'
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
 import { isShapeChangePath } from './shape-changes.js'
-import { DOUBLE_CHECK_RETRY_STRATEGY, retriesThroughDoubleCheck } from './double-check.js'
 import { diffLines, type DiffLine } from './diff-lines.js'
 import type { VariableNames } from './variable-names.js'
 
@@ -363,10 +362,6 @@ function renderShown (
   // what the shaped payload is in.
   const shaped = toImportResource(deployed.type, logicalId, local.payload, ids)
   fillUnchangedFromBefore(shaped.payload as Record<string, unknown>, before, entry.changes ?? [])
-  // Spelled the way the import format spells the deployed side.
-  if (retriesThroughDoubleCheck(type, local.payload)) {
-    (shaped.payload as Record<string, unknown>).retryStrategy = { ...DOUBLE_CHECK_RETRY_STRATEGY }
-  }
   const after: Resource = { ...shaped, payload: blankRedacted(shaped.payload, entry.redactions) }
   // Then the marks: the element whose secret moved reads `(changed)` on the
   // side that moved it, so the diff names the secret beside its key. Each

@@ -184,6 +184,11 @@ export class PlaywrightCheck extends RuntimeCheck {
     )
   }
 
+  // Playwright tests retry through their own configuration.
+  protected defaultRetryStrategy (): undefined {
+    return undefined
+  }
+
   // eslint-disable-next-line require-await
   protected async validateDoubleCheck (diagnostics: Diagnostics): Promise<void> {
     if (this.doubleCheck !== undefined) {
@@ -460,7 +465,6 @@ export class PlaywrightCheck extends RuntimeCheck {
     return {
       ...super.synthesize(),
       checkType: 'PLAYWRIGHT',
-      doubleCheck: false,
       ...this.engine ? { engine: this.engine.name, engineVersion: this.engine.version } : {},
     }
   }

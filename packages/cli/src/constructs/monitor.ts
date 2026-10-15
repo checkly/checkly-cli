@@ -12,9 +12,10 @@ import {
   FixedRetryStrategy,
   LinearRetryStrategy,
   NoRetriesRetryStrategy,
+  RetryStrategyBuilder,
   SingleRetryRetryStrategy,
 } from './retry-strategy.js'
-import { Check, CheckProps } from './check.js'
+import { Check, CheckProps, CheckRetryStrategy } from './check.js'
 import { Diagnostics } from './diagnostics.js'
 import { validateUnsupportedDoubleCheck } from './internal/common-diagnostics.js'
 
@@ -91,6 +92,9 @@ export interface MonitorProps extends CheckProps {
    * Sets a retry policy for the monitor. Use RetryStrategyBuilder to create a
    * suitable retry strategy.
    *
+   * If neither the monitor nor a project or group default sets one, the
+   * monitor does not retry.
+   *
    * @example
    * ```typescript
    * // Single retry
@@ -120,10 +124,7 @@ export abstract class Monitor extends Check {
     await validateUnsupportedDoubleCheck(diagnostics, this)
   }
 
-  synthesize () {
-    return {
-      ...super.synthesize(),
-      doubleCheck: false,
-    }
+  protected defaultRetryStrategy (): CheckRetryStrategy {
+    return RetryStrategyBuilder.noRetries()
   }
 }
