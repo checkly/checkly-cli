@@ -66,4 +66,12 @@ describe('PrivateLocation', () => {
       }),
     ]))
   })
+
+  describe('synthesize', () => {
+    it('sends a null proxy URL when the construct sets none', () => {
+      Session.project = new Project('project-id', { name: 'Test Project' })
+      const location = new PrivateLocation('loc', { name: 'Test', slugName: 'test' })
+      expect(location.synthesize()).toMatchObject({ proxyUrl: null })
+    })
+  })
 })

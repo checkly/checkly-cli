@@ -4,7 +4,11 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
 import { runCheckly } from '../run-checkly'
 
-describe('checkly checks get', () => {
+// `checks get` makes five API requests per run and usually finishes in 1-2s, but in
+// CI it has occasionally run past the global 15s test timeout. A test timeout above
+// runCheckly()'s 30s command timeout lets a slow run finish, or fail as an ExecaError
+// that carries the command's output instead of an opaque Vitest timeout.
+describe('checkly checks get', { timeout: 45_000 }, () => {
   let fixt: FixtureSandbox
   let checkId: string
 

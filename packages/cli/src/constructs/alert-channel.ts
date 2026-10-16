@@ -168,12 +168,15 @@ export abstract class AlertChannel extends Construct {
   }
 
   synthesize (): any | null {
+    // Every flag is sent with its documented default when unset: a deploy
+    // writes only the keys the payload carries, so an omitted flag would leave
+    // a stored value in place instead of the default the code implies.
     return {
-      sendRecovery: this.sendRecovery,
-      sendFailure: this.sendFailure,
-      sendDegraded: this.sendDegraded,
-      sslExpiry: this.sslExpiry,
-      sslExpiryThreshold: this.sslExpiryThreshold,
+      sendRecovery: this.sendRecovery ?? true,
+      sendFailure: this.sendFailure ?? true,
+      sendDegraded: this.sendDegraded ?? false,
+      sslExpiry: this.sslExpiry ?? false,
+      sslExpiryThreshold: this.sslExpiryThreshold ?? 30,
     }
   }
 }

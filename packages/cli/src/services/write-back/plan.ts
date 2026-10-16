@@ -6,7 +6,8 @@ import { isDeepStrictEqual } from 'node:util'
 import { ApiCheck, type ApiCheckDefaultConfig, type ApiCheckProps } from '../../constructs/api-check.js'
 import type { Request } from '../../constructs/api-request.js'
 import { BrowserCheck, type BrowserCheckProps } from '../../constructs/browser-check.js'
-import type { CheckProps, RuntimeCheckProps, ShouldFailProps } from '../../constructs/check.js'
+import { type CheckIntentResource, intentConstraints } from '../../constructs/check-codegen.js'
+import type { CheckIntentProps, CheckProps, RuntimeCheckProps, ShouldFailProps } from '../../constructs/check.js'
 import { CheckGroupV1, type CheckGroupV1Props } from '../../constructs/check-group-v1.js'
 import { CheckGroupV2, type CheckGroupV2Props } from '../../constructs/check-group-v2.js'
 import type { Construct } from '../../constructs/construct.js'
@@ -173,6 +174,13 @@ export interface Rule {
   /** Sibling keys of the property that make the edit wrong (`doubleCheck` beside `retryStrategy`). */
   unless?: string[]
   /**
+   * Respells the deployed value the way the construct takes it, before it is
+   * written: a check's intent is stored and reported as two outcome lists,
+   * which the construct spells as one `constraints` list. The changes are
+   * still checked against the deployed value as reported.
+   */
+  reshape?: (value: unknown) => unknown
+  /**
    * A rule that routes the changes at its pointer onto another rule's
    * target (the one whose `target` it shares) rather than anchoring a
    * candidate of its own: `/frequencyOffset` belongs to `frequency`,
@@ -251,6 +259,56 @@ const omit = <K extends string, O extends string>(keys: readonly K[], omitted: r
 // variables; a monitor would drop them when synthesized.
 const RUNTIME_CHECK_KEYS = ['runtimeId', 'environmentVariables'] as const satisfies readonly (keyof RuntimeCheckProps)[]
 const RUNTIME_CHECK_RULES: Rule[] = RUNTIME_CHECK_KEYS.map(key => identity(key))
+
+/**
+ * A check's intent as the construct spells it: one `constraints` list, left
+ * out when empty, as the import codegen writes it. The import format returns
+ * the list already (grouped by type, required outcomes first, the way Checkly
+ * stores it), so an intent written back loses the interleaving an author gave
+ * the constraints in code, and a goal edited in the web app rewrites the whole
+ * literal; the deploy diff reports an intent as one value, so that is the unit
+ * written. The two stored outcome lists are accepted too. `null` is returned
+ * as it is.
+ */
+function intentAsConstruct (value: unknown): unknown {
+  if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+    return value
+  }
+  const intent = value as CheckIntentResource
+  const constraints = intentConstraints(intent)
+  return constraints.length > 0 ? { goal: intent.goal, constraints } : { goal: intent.goal }
+}
+
+/**
+ * The deployed resource with its intent in the shape the diff reports, the
+ * two stored outcome lists, so that a reported change can be checked against
+ * it: the import format spells the constraints as one list. Without an
+ * intent, or with one already in that shape, the resource is returned as it
+ * is.
+ */
+function withStoredIntent (before: unknown): unknown {
+  if (before === null || typeof before !== 'object' || !('intent' in before)) {
+    return before
+  }
+  const { intent } = before as { intent: unknown }
+  if (intent === null || typeof intent !== 'object' || !('constraints' in intent)) {
+    return before
+  }
+  const { goal, constraints } = intent as CheckIntentResource & { constraints: NonNullable<CheckIntentResource['constraints']> }
+  return {
+    ...before,
+    intent: {
+      goal,
+      requiredOutcomes: constraints.filter(c => c.type === 'REQUIRED_OUTCOME').map(c => c.statement),
+      mustPreserve: constraints.filter(c => c.type === 'MUST_PRESERVE').map(c => c.statement),
+    },
+  }
+}
+// The runtime checks and the monitors that take an intent (every class but
+// the heartbeat, SSL and traceroute monitors, which root cause analysis and
+// repair do not read it for).
+const INTENT_KEYS = ['intent'] as const satisfies readonly (keyof CheckIntentProps)[]
+const INTENT_RULES: Rule[] = [{ ...identity('intent'), reshape: intentAsConstruct }]
 // Only ApiCheck, UrlMonitor and TcpMonitor take `shouldFail`.
 const SHOULD_FAIL_KEYS = ['shouldFail'] as const satisfies readonly (keyof ShouldFailProps)[]
 const SHOULD_FAIL_RULES: Rule[] = SHOULD_FAIL_KEYS.map(key => identity(key))
@@ -478,14 +536,20 @@ const AUTOMATION_RULE_RULES: Rule[] = [
 
 // What each class writes, at the top level of its props. `request`,
 // `apiCheckDefaults` and `themeColors` stand for every rule under them.
-const API_WRITTEN = [...CHECK_WRITTEN, ...SHOULD_FAIL_KEYS, ...RUNTIME_CHECK_KEYS, ...RESPONSE_TIME_KEYS, 'request'] as const
-const BROWSER_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...BROWSER_KEYS] as const
-const MULTI_STEP_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...MULTI_STEP_KEYS] as const
-const PLAYWRIGHT_WRITTEN = [...omit(CHECK_WRITTEN, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_KEYS] as const
-// The monitors with a request and response-time thresholds share one list.
+const API_WRITTEN = [
+  ...CHECK_WRITTEN, ...SHOULD_FAIL_KEYS, ...RUNTIME_CHECK_KEYS, ...INTENT_KEYS, ...RESPONSE_TIME_KEYS, 'request',
+] as const
+const BROWSER_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...INTENT_KEYS, ...BROWSER_KEYS] as const
+const MULTI_STEP_WRITTEN = [...CHECK_WRITTEN, ...RUNTIME_CHECK_KEYS, ...INTENT_KEYS, ...MULTI_STEP_KEYS] as const
+const PLAYWRIGHT_WRITTEN = [
+  ...omit(CHECK_WRITTEN, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_KEYS, ...INTENT_KEYS,
+] as const
+// The monitors with a request and response-time thresholds share one list;
+// the ones root cause analysis reads an intent for add it.
 const MONITOR_WRITTEN = [...CHECK_WRITTEN, ...RESPONSE_TIME_KEYS, 'request'] as const
-const SHOULD_FAIL_MONITOR_WRITTEN = [...MONITOR_WRITTEN, ...SHOULD_FAIL_KEYS] as const
-const ICMP_WRITTEN = [...CHECK_WRITTEN, ...PACKET_LOSS_KEYS, 'request'] as const
+const INTENT_MONITOR_WRITTEN = [...MONITOR_WRITTEN, ...INTENT_KEYS] as const
+const SHOULD_FAIL_MONITOR_WRITTEN = [...INTENT_MONITOR_WRITTEN, ...SHOULD_FAIL_KEYS] as const
+const ICMP_WRITTEN = [...CHECK_WRITTEN, ...PACKET_LOSS_KEYS, ...INTENT_KEYS, 'request'] as const
 const HEARTBEAT_WRITTEN = [...CHECK_WRITTEN, ...HEARTBEAT_KEYS] as const
 const GROUP_WRITTEN = [...GROUP_KEYS, ...GROUP_SET_KEYS, ...GROUP_HELPER_KEYS] as const
 const EMAIL_WRITTEN = [...ALERT_CHANNEL_KEYS, ...EMAIL_KEYS] as const
@@ -521,7 +585,7 @@ type BundleKey = 'playwrightConfigPath' | 'installCommand' | 'testCommand' | 'pw
 /** Never sent to the account. */
 type LocalOnlyKey = 'testOnly'
 /** Reported with the reason `NOT_WRITTEN` or `refusal` gives. */
-type NotWrittenKey = 'doubleCheck' | 'runParallel' | 'intent' | 'triggerIncident'
+type NotWrittenKey = 'doubleCheck' | 'runParallel' | 'triggerIncident'
 /** A group prop applied to its member checks, never a property of the group resource. */
 type GroupMemberKey = 'frequency' | 'browserChecks' | 'multiStepChecks'
 // Named per class below, writable in principle but not yet (`NOT_WRITTEN`
@@ -549,7 +613,11 @@ type Exact<T, Written extends PropertyKey, Left extends PropertyKey> = Covers<T,
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 const _everyPropIsListed: [
   Exact<CheckProps, typeof CHECK_WRITTEN[number], CheckLeftOut>,
-  Exact<RuntimeCheckProps, typeof CHECK_WRITTEN[number] | typeof RUNTIME_CHECK_KEYS[number], CheckLeftOut>,
+  Exact<
+    RuntimeCheckProps,
+    typeof CHECK_WRITTEN[number] | typeof RUNTIME_CHECK_KEYS[number] | typeof INTENT_KEYS[number],
+    CheckLeftOut
+  >,
   Exact<MonitorProps, typeof CHECK_WRITTEN[number], CheckLeftOut>,
   Exact<ApiCheckProps, typeof API_WRITTEN[number], CheckLeftOut | ContentKey>,
   Exact<BrowserCheckProps, typeof BROWSER_WRITTEN[number], CheckLeftOut | ContentKey | 'playwrightConfig'>,
@@ -557,8 +625,8 @@ const _everyPropIsListed: [
   Exact<PlaywrightCheckProps, typeof PLAYWRIGHT_WRITTEN[number], CheckLeftOut | BundleKey | 'engine'>,
   Exact<UrlMonitorProps, typeof SHOULD_FAIL_MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<TcpMonitorProps, typeof SHOULD_FAIL_MONITOR_WRITTEN[number], CheckLeftOut>,
-  Exact<DnsMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
-  Exact<GrpcMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<DnsMonitorProps, typeof INTENT_MONITOR_WRITTEN[number], CheckLeftOut>,
+  Exact<GrpcMonitorProps, typeof INTENT_MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<SslMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<TracerouteMonitorProps, typeof MONITOR_WRITTEN[number], CheckLeftOut>,
   Exact<IcmpMonitorProps, typeof ICMP_WRITTEN[number], CheckLeftOut>,
@@ -626,21 +694,31 @@ export type ConstructClass = abstract new (...args: any[]) => Construct
 
 export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new Map<ConstructClass, readonly Rule[]>([
   [ApiCheck, [
-    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RUNTIME_CHECK_RULES, ...RESPONSE_TIME_RULES,
+    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RUNTIME_CHECK_RULES, ...INTENT_RULES, ...RESPONSE_TIME_RULES,
     ...under('request', API_REQUEST_KEYS), assertions('AssertionBuilder', 'request'),
   ]],
-  [BrowserCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...BROWSER_KEYS.map(key => identity(key))]],
-  [MultiStepCheck, [...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...MULTI_STEP_KEYS.map(key => identity(key))]],
-  [PlaywrightCheck, [...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_RULES]],
+  [BrowserCheck, [
+    ...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...INTENT_RULES, ...BROWSER_KEYS.map(key => identity(key)),
+  ]],
+  [MultiStepCheck, [
+    ...CHECK_RULES, ...RUNTIME_CHECK_RULES, ...INTENT_RULES, ...MULTI_STEP_KEYS.map(key => identity(key)),
+  ]],
+  [PlaywrightCheck, [
+    ...omitting(CHECK_RULES, PLAYWRIGHT_CHECK_OMITTED_PROPS), ...RUNTIME_CHECK_RULES, ...INTENT_RULES,
+  ]],
   [UrlMonitor, [
-    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RESPONSE_TIME_RULES, ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
+    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...INTENT_RULES, ...RESPONSE_TIME_RULES,
+    ...under('request', URL_REQUEST_KEYS), assertions('UrlAssertionBuilder', 'request'),
   ]],
   [TcpMonitor, [
-    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...RESPONSE_TIME_RULES, ...under('request', TCP_REQUEST_KEYS), assertions('TcpAssertionBuilder', 'request'),
+    ...CHECK_RULES, ...SHOULD_FAIL_RULES, ...INTENT_RULES, ...RESPONSE_TIME_RULES,
+    ...under('request', TCP_REQUEST_KEYS), assertions('TcpAssertionBuilder', 'request'),
   ]],
-  [DnsMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, ...DNS_REQUEST_RULES, assertions('DnsAssertionBuilder', 'request')]],
+  [DnsMonitor, [
+    ...CHECK_RULES, ...INTENT_RULES, ...RESPONSE_TIME_RULES, ...DNS_REQUEST_RULES, assertions('DnsAssertionBuilder', 'request'),
+  ]],
   [GrpcMonitor, [
-    ...CHECK_RULES, ...RESPONSE_TIME_RULES, ...under('request', GRPC_REQUEST_KEYS),
+    ...CHECK_RULES, ...INTENT_RULES, ...RESPONSE_TIME_RULES, ...under('request', GRPC_REQUEST_KEYS),
     ...under(['request', 'grpcConfig'], GRPC_CONFIG_KEYS), assertions('GrpcAssertionBuilder', 'request'),
   ]],
   [SslMonitor, [...CHECK_RULES, ...RESPONSE_TIME_RULES, ...SSL_REQUEST_RULES, assertions('SslAssertionBuilder', 'request')]],
@@ -649,7 +727,7 @@ export const RULES_BY_CLASS: ReadonlyMap<ConstructClass, readonly Rule[]> = new 
     assertions('TracerouteAssertionBuilder', 'request'),
   ]],
   [IcmpMonitor, [
-    ...CHECK_RULES, ...PACKET_LOSS_KEYS.map(key => identity(key)),
+    ...CHECK_RULES, ...INTENT_RULES, ...PACKET_LOSS_KEYS.map(key => identity(key)),
     ...under('request', ICMP_REQUEST_KEYS), assertions('IcmpAssertionBuilder', 'request'),
   ]],
   [HeartbeatMonitor, [
@@ -684,8 +762,9 @@ export const WRITTEN_BY_CLASS: ReadonlyMap<ConstructClass, readonly string[]> =
   new Map<ConstructClass, readonly string[]>([
     [ApiCheck, API_WRITTEN], [BrowserCheck, BROWSER_WRITTEN], [MultiStepCheck, MULTI_STEP_WRITTEN],
     [PlaywrightCheck, PLAYWRIGHT_WRITTEN],
-    [UrlMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [TcpMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [DnsMonitor, MONITOR_WRITTEN],
-    [GrpcMonitor, MONITOR_WRITTEN], [SslMonitor, MONITOR_WRITTEN], [TracerouteMonitor, MONITOR_WRITTEN],
+    [UrlMonitor, SHOULD_FAIL_MONITOR_WRITTEN], [TcpMonitor, SHOULD_FAIL_MONITOR_WRITTEN],
+    [DnsMonitor, INTENT_MONITOR_WRITTEN], [GrpcMonitor, INTENT_MONITOR_WRITTEN],
+    [SslMonitor, MONITOR_WRITTEN], [TracerouteMonitor, MONITOR_WRITTEN],
     [IcmpMonitor, ICMP_WRITTEN],
     [HeartbeatMonitor, HEARTBEAT_WRITTEN], [CheckGroupV1, GROUP_WRITTEN], [CheckGroupV2, GROUP_WRITTEN],
     [EmailAlertChannel, EMAIL_WRITTEN], [SlackAlertChannel, SLACK_WRITTEN], [SlackAppAlertChannel, SLACK_APP_WRITTEN],
@@ -827,9 +906,6 @@ function refusal (change: DiffChange, segments: readonly string[]): string | und
   if (notWritten !== undefined) {
     return notWritten
   }
-  if (segments[0] === 'intent') {
-    return 'the intent is ordered by the author; edit it by hand'
-  }
   return undefined
 }
 
@@ -889,7 +965,12 @@ function candidates (context: EntryContext, rules: readonly Rule[]): Candidate[]
     }
     const primary = rule === undefined ? undefined : primaryOf(rule)
     if (rule === undefined || primary === undefined) {
-      context.skip('not a property this tool can update', change.path)
+      // An intent on a class that takes none (a heartbeat, SSL or traceroute
+      // monitor, which root cause analysis and repair do not read it for) has
+      // nothing in the code to hold it; the deploy clears it.
+      context.skip(segments[0] === 'intent' && rule === undefined
+        ? 'this construct takes no intent; the deploy clears the one Checkly holds'
+        : 'not a property this tool can update', change.path)
       continue
     }
     const key = primary.target.join('.')
@@ -957,23 +1038,26 @@ function valueFor (
   }
   // Checked against the import format and against the stored row the
   // changes were computed from, which differ where the import format spells
-  // the `doubleCheck` retry as a strategy; the value written is the import
-  // format's.
-  const stored = asStoredRetryStrategy(before)
+  // the `doubleCheck` retry as a strategy or an intent's constraints as one
+  // list; the value written is the import format's.
+  const views = [before, asStoredRetryStrategy(before), withStoredIntent(before)]
   for (const { change, rule: own } of candidate.changes) {
     if (change.origin === 'both' && change.remote === undefined) {
       context.skip('Checkly did not report the value it holds', property)
       return undefined
     }
     const remaining = pointerSegments(change.path).slice(own.pointer.length)
-    if (!agrees(change, own, remaining, nodeAt(before, own.pointer))
-      && !agrees(change, own, remaining, nodeAt(stored, own.pointer))) {
+    if (!views.some(view => agrees(change, own, remaining, nodeAt(view, own.pointer)))) {
       context.skip('Checkly reported two different current values', property)
       return undefined
     }
   }
   const raw = nodeAt(before, rule.pointer)
-  const found: Found = { value: raw, helper: rule.helper, unless: rule.unless }
+  const found: Found = {
+    value: rule.reshape === undefined ? raw : rule.reshape(raw),
+    helper: rule.helper,
+    unless: rule.unless,
+  }
   switch (rule.helper?.kind) {
     case 'frequency':
       // A whole-minute schedule stays a number where the code spells it as

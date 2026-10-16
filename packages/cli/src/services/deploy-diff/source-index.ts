@@ -1,6 +1,6 @@
 import fs from 'node:fs'
 
-import type { TSESTree } from '@typescript-eslint/typescript-estree'
+import type { TSESTree } from '@typescript-eslint/types'
 
 import type { Construct } from '../../constructs/construct.js'
 import {

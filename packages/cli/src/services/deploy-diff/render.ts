@@ -420,7 +420,7 @@ function renderShown (
   // the CLI upgrade spelling the same construct differently; the paths alone
   // cannot tell an upgrade from a user editing the same property, so a real
   // edit shows up as construct lines above and never gets here.
-  if (shown.length > 0 && shown.every(change => change.origin === 'code' && isShapeChangePath(change.path))) {
+  if (shown.length > 0 && shown.every(change => change.origin === 'code' && isShapeChangePath(change.path, type))) {
     return [note('payload format changed (CLI upgrade)')]
   }
   // Otherwise what changed lives outside the construct (a script in its own

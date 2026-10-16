@@ -34,7 +34,7 @@ import Cancel from './cancel.js'
 import Usage from './usage.js'
 import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
-import { detectOperator } from '../helpers/cli-mode.js'
+import { detectCliMode, detectOperator } from '../helpers/cli-mode.js'
 import { accountOverrideNotAvailable } from '../helpers/accounts.js'
 
 export function getDefaults () {
@@ -117,7 +117,12 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
     config.headers['x-checkly-account'] = accountId
   }
 
-  config.headers['x-checkly-source'] = 'CLI'
+  // Declare who is driving the CLI: `AGENT` in agent mode, `CLI` otherwise.
+  // Agents and humans share API keys, so this is the backend's only way to tell
+  // them apart. It classifies every request (usage analytics, the provenance of
+  // checks created through the API, import plans), and uncommitted import plans
+  // marked `AGENT` are garbage-collected after a few days.
+  config.headers['x-checkly-source'] = detectCliMode() === 'agent' ? 'AGENT' : 'CLI'
   config.headers['x-checkly-ci-name'] = CIname
   config.headers['x-checkly-operator'] = detectOperator()
 

@@ -145,7 +145,9 @@ export class PrivateLocation extends Construct {
       name: this.name,
       slugName: this.slugName,
       icon: this.icon,
-      proxyUrl: this.proxyUrl,
+      // Sent as null when unset: a deploy writes only the keys the payload
+      // carries, so an omitted key would leave a stored proxy in place.
+      proxyUrl: this.proxyUrl ?? null,
     }
   }
 }

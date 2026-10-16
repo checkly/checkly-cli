@@ -42,6 +42,19 @@ export interface CheckIntentResource {
   mustPreserve?: string[]
 }
 
+/**
+ * The constraints of an intent as the construct spells them, from either form
+ * the import format may carry: the `constraints` list itself, or the two
+ * outcome lists Checkly stores (`requiredOutcomes`, `mustPreserve`), required
+ * outcomes first.
+ */
+export function intentConstraints (intent: CheckIntentResource): NonNullable<CheckIntentResource['constraints']> {
+  return intent.constraints ?? [
+    ...(intent.requiredOutcomes ?? []).map(statement => ({ type: 'REQUIRED_OUTCOME' as const, statement })),
+    ...(intent.mustPreserve ?? []).map(statement => ({ type: 'MUST_PRESERVE' as const, statement })),
+  ]
+}
+
 export interface CheckResource {
   id: string
   checkType: string
@@ -144,10 +157,7 @@ export function buildCheckProps (
     builder.object('intent', builder => {
       builder.string('goal', intent.goal)
 
-      const constraints = intent.constraints ?? [
-        ...(intent.requiredOutcomes ?? []).map(statement => ({ type: 'REQUIRED_OUTCOME' as const, statement })),
-        ...(intent.mustPreserve ?? []).map(statement => ({ type: 'MUST_PRESERVE' as const, statement })),
-      ]
+      const constraints = intentConstraints(intent)
       if (constraints.length > 0) {
         builder.array('constraints', builder => {
           for (const constraint of constraints) {
@@ -161,12 +171,10 @@ export function buildCheckProps (
     })
   }
 
-  if (options.includeAutomaticCheckRepair && resource.aiAutoRepairEnabled !== undefined) {
-    if (resource.aiAutoRepairEnabled === null) {
-      builder.null('aiAutoRepairEnabled')
-    } else {
-      builder.boolean('aiAutoRepairEnabled', resource.aiAutoRepairEnabled)
-    }
+  // Null inherits the account setting, which is what an unset property means
+  // too, so only an override is written.
+  if (options.includeAutomaticCheckRepair && typeof resource.aiAutoRepairEnabled === 'boolean') {
+    builder.boolean('aiAutoRepairEnabled', resource.aiAutoRepairEnabled)
   }
 
   // For activated, muted, shouldFail, locations and tags, a prop is left out

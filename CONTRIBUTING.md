@@ -202,6 +202,10 @@ If an enum makes sense for a particular use case (internal code), you can explic
 // eslint-disable-next-line no-restricted-syntax
 ```
 
+#### Synthesized payloads
+
+A construct's `synthesize()` sends every property with an explicit value, the default included, so that a deploy is a complete description of the resource; see "Construct Conventions" in `AGENTS.md` for the rule and why omission may not preserve what the account holds.
+
 ## ESLint rules and commit messages
 
 Projects are configured to check code linting for staged files before each commit. Also, the commit message must follow config conventions.

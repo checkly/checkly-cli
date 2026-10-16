@@ -1,4 +1,4 @@
-import type { TSESTree } from '@typescript-eslint/typescript-estree'
+import type { TSESTree } from '@typescript-eslint/types'
 
 import { hasEscalationPolicy, valueForAlertEscalation } from '../../constructs/alert-escalation-policy-codegen.js'
 import { valueForAssertion } from '../../constructs/api-assertion-codegen.js'

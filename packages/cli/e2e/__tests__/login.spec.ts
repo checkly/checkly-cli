@@ -8,17 +8,25 @@ import { FixtureSandbox } from '../../src/testing/fixture-sandbox'
 import { checklyEnv, runCheckly } from '../run-checkly'
 
 // Run a CLI command that is expected to hang (e.g. waiting for OAuth callback),
-// kill the process tree after a delay, and return stdout/stderr collected so far.
+// kill it after a delay, and return stdout/stderr collected so far.
+//
+// The CLI entry point runs directly under node rather than through
+// `pnpm checkly`, so the subprocess is the CLI process itself and a plain
+// kill stops it on every platform. Going through pnpm puts a process tree
+// (cmd.exe shims, pnpm, node) in between, which on Windows can only be
+// stopped with `taskkill /T`. That walks recorded parent PIDs, which Windows
+// reuses, so it can also kill CLI runs of unrelated test files executing in
+// parallel workers; those fail with exit code 1 and no output.
 async function runAndKill (
   fixt: FixtureSandbox,
   args: string[],
   options: { delay: number, env?: Record<string, string | undefined>, promptsInjection?: (string | boolean)[] },
 ): Promise<{ stdout: string, stderr: string }> {
   const { delay, env, promptsInjection } = options
-  const subprocess = execa('pnpm', ['checkly', ...args], {
+  const bin = fixt.abspath('node_modules/checkly/bin/run.cjs')
+  const subprocess = execa(process.execPath, [bin, ...args], {
     cwd: fixt.root,
     extendEnv: false,
-    detached: process.platform !== 'win32',
     env: {
       ...checklyEnv({ promptsInjection }),
       ...env,
@@ -39,16 +47,7 @@ async function runAndKill (
 
   await new Promise(resolve => setTimeout(resolve, delay))
 
-  // Kill the entire process tree. On Windows, taskkill /T kills pnpm and
-  // its grandchild node process. detached: true breaks stdio on Windows so
-  // we only use it on Unix where negative PID kills the process group.
-  if (process.platform === 'win32') {
-    await execa('taskkill', ['/F', '/T', '/PID', String(subprocess.pid)], { reject: false })
-  } else {
-    try {
-      process.kill(-subprocess.pid!, 'SIGKILL')
-    } catch { /* already dead */ }
-  }
+  subprocess.kill('SIGKILL')
 
   await done
   return { stdout, stderr }

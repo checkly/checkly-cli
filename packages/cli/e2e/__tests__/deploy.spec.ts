@@ -239,6 +239,47 @@ describe('deploy', { timeout: 45_000 }, () => {
         .filter(({ slugName }: { slugName: string }) => slugName.startsWith(privateLocationSlugname)).length).toEqual(1)
     })
 
+    it('owns the intent and the automatic-repair override: a redeploy clears what was set in Checkly', async () => {
+      const env = {
+        PROJECT_LOGICAL_ID: projectLogicalId,
+        PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
+        CHECKLY_E2E_CLI_VERSION: undefined,
+      }
+      const first = await runDeploy(fixt, ['--force'], { env })
+      expect(first.stderr).toBe('')
+      const api = axios.create({
+        baseURL: config.get('baseURL'),
+        headers: { 'x-checkly-account': config.get('accountId'), 'Authorization': `Bearer ${config.get('apiKey')}` },
+      })
+      // Every concurrent run deploys this fixture into the same account, so the
+      // check is found through this run's group: the one assigned this run's
+      // private location.
+      const groups = await getAllResources('check-groups')
+      const ownGroupIds = new Set(groups
+        .filter(({ privateLocations }: { privateLocations: string[] }) =>
+          privateLocations.some(slugName => slugName.startsWith(privateLocationSlugname)))
+        .map(({ id }: { id: string }) => id))
+      const checks = await getAllResources('checks')
+      const homePage = checks.find(({ name, groupId }: { name: string, groupId: string | null }) =>
+        name === 'Home page' && groupId !== null && ownGroupIds.has(groupId))
+      expect(homePage).toBeDefined()
+      // Set in Checkly, outside the code: the browser check's code sets neither property.
+      await api.put(`/v1/checks/${homePage.id}`, {
+        intent: { goal: 'Set in Checkly', requiredOutcomes: ['the page renders'], mustPreserve: [] },
+        aiAutoRepairEnabled: true,
+      })
+      const { data: edited } = await api.get(`/v1/checks/${homePage.id}`)
+      expect(edited.intent?.goal).toBe('Set in Checkly')
+      expect(edited.aiAutoRepairEnabled).toBe(true)
+      // Unchanged code: the row moved since the last deploy, so the plan writes
+      // the check and the code's unset values win.
+      const second = await runDeploy(fixt, ['--force'], { env })
+      expect(second.stderr).toBe('')
+      const { data: redeployed } = await api.get(`/v1/checks/${homePage.id}`)
+      expect(redeployed.intent).toBeNull()
+      expect(redeployed.aiAutoRepairEnabled).toBeNull()
+    })
+
     it('deploys without a plan under --no-plan', async () => {
       const { stderr, stdout } = await runDeploy(fixt, ['--no-plan', '--force'], {
         env: {

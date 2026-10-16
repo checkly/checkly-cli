@@ -3,6 +3,7 @@ import { EventEmitter } from 'node:events'
 
 import { Events } from '../abstract-check-runner.js'
 import { registerTestSessionCancelHandler } from '../test-session-cancel.js'
+import { captureStderr } from '../../testing/capture-stderr.js'
 
 function makeReporter () {
   return {
@@ -50,5 +51,67 @@ describe('registerTestSessionCancelHandler', () => {
 
     expect(reporter.onCancel).toHaveBeenCalledTimes(1)
     expect(cancelClient.cancelTestSession).not.toHaveBeenCalled()
+  })
+
+  it('keeps a failed cancel request from becoming an unhandled rejection', async () => {
+    const runner = new EventEmitter()
+    const reporter = makeReporter()
+    const cancelClient = {
+      cancelTestSession: vi.fn().mockRejectedValue(new Error('network down')),
+    }
+
+    const unhandled: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandled.push(reason)
+    }
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      // The listener runs detached from the emitter, which cannot await it:
+      // a rejection inside it must not take the process down mid-cancellation.
+      const stderr = await captureStderr(async () => {
+        registerTestSessionCancelHandler(runner, [reporter], cancelClient)
+        runner.emit(Events.CANCEL, 'ts-playwright')
+        await new Promise(resolve => setTimeout(resolve, 10))
+      })
+
+      expect(unhandled).toEqual([])
+      expect(reporter.onCancel).toHaveBeenCalledTimes(1)
+      expect(cancelClient.cancelTestSession).toHaveBeenCalledWith({ testSessionId: 'ts-playwright' })
+      expect(stderr.join('')).toContain('failed to cancel test session')
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
+  })
+
+  it('keeps a throwing reporter from stopping the others or the cancel request', async () => {
+    const runner = new EventEmitter()
+    const failingReporter = makeReporter()
+    failingReporter.onCancel.mockImplementation(() => {
+      throw new Error('stdout closed')
+    })
+    const reporter = makeReporter()
+    const cancelClient = {
+      cancelTestSession: vi.fn().mockResolvedValue(undefined),
+    }
+
+    const unhandled: unknown[] = []
+    const onUnhandledRejection = (reason: unknown) => {
+      unhandled.push(reason)
+    }
+    process.on('unhandledRejection', onUnhandledRejection)
+    try {
+      const stderr = await captureStderr(async () => {
+        registerTestSessionCancelHandler(runner, [failingReporter, reporter], cancelClient)
+        runner.emit(Events.CANCEL, 'ts-playwright')
+        await new Promise(resolve => setTimeout(resolve, 10))
+      })
+
+      expect(unhandled).toEqual([])
+      expect(reporter.onCancel).toHaveBeenCalledTimes(1)
+      expect(cancelClient.cancelTestSession).toHaveBeenCalledWith({ testSessionId: 'ts-playwright' })
+      expect(stderr.join('')).toContain('a reporter failed to report the cancellation: stdout closed')
+    } finally {
+      process.off('unhandledRejection', onUnhandledRejection)
+    }
   })
 })

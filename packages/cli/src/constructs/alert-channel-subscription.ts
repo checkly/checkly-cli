@@ -1,4 +1,5 @@
 import { Ref } from './ref.js'
+import { RELATION_LOGICAL_ID_MAX_LENGTH } from '../constants.js'
 import { Construct } from './construct.js'
 import { Session } from './session.js'
 
@@ -46,6 +47,10 @@ export class AlertChannelSubscription extends Construct {
     this.groupId = props.groupId
     this.activated = props.activated
     Session.registerConstruct(this)
+  }
+
+  protected get maxLogicalIdLength (): number {
+    return RELATION_LOGICAL_ID_MAX_LENGTH
   }
 
   describe (): string {
