@@ -117,9 +117,11 @@ export function requestInterceptor (config: InternalAxiosRequestConfig) {
     config.headers['x-checkly-account'] = accountId
   }
 
-  // Declare who is driving the CLI. An agent run reports `AGENT` so the backend
-  // can tell agent-created import plans apart from human ones (same API key) —
-  // it keys the abandoned-reservation GC off this. Everything else is `CLI`.
+  // Declare who is driving the CLI: `AGENT` in agent mode, `CLI` otherwise.
+  // Agents and humans share API keys, so this is the backend's only way to tell
+  // them apart. It classifies every request (usage analytics, the provenance of
+  // checks created through the API, import plans), and uncommitted import plans
+  // marked `AGENT` are garbage-collected after a few days.
   config.headers['x-checkly-source'] = detectCliMode() === 'agent' ? 'AGENT' : 'CLI'
   config.headers['x-checkly-ci-name'] = CIname
   config.headers['x-checkly-operator'] = detectOperator()
