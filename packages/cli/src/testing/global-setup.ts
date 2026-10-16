@@ -1,3 +1,6 @@
+// The template sandboxes are built in the main process, which setupFiles
+// don't reach; clear git's repository variables here too.
+import './clear-git-env.js'
 import { FixtureTemplate } from './fixture-sandbox.js'
 
 export async function setup () {
