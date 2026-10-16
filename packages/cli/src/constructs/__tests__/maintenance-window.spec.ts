@@ -29,9 +29,9 @@ describe('MaintenanceWindow', () => {
   })
 
   describe('synthesize', () => {
-    it('sends a null timezone when none is set, so a removed timezone resets to UTC', () => {
+    it('sends UTC when no timezone is set, so a removed timezone resets to UTC', () => {
       const window = new MaintenanceWindow('maintenance-window', baseProps)
-      expect(window.synthesize()).toHaveProperty('timezone', null)
+      expect(window.synthesize()).toHaveProperty('timezone', 'UTC')
     })
 
     it('sends the configured timezone', () => {
