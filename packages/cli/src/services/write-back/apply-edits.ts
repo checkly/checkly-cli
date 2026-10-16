@@ -1,4 +1,4 @@
-import type { TSESTree } from '@typescript-eslint/typescript-estree'
+import type { TSESTree } from '@typescript-eslint/types'
 
 import {
   ASSERTION_BUILDERS,

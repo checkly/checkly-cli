@@ -1,4 +1,4 @@
-import type { TSESTree } from '@typescript-eslint/typescript-estree'
+import type { TSESTree } from '@typescript-eslint/types'
 
 import { indentationAt, lineEndingOf } from './literal-edit.js'
 import {
@@ -10,7 +10,7 @@ import {
   type ParsedSource,
   type Splice,
   stringOf,
-  tokensBetween,
+  gapTokens,
   usesIdentifier,
 } from './source-file.js'
 
@@ -92,7 +92,7 @@ interface Declaration {
 function constructsDeclaration (source: ParsedSource): Declaration | undefined {
   const { program } = source
   const brace = (start: number, end: number, value: '{' | '}'): number | undefined =>
-    tokensBetween(source, start, end).find(token => token.kind === 'token' && token.value === value)?.range[0]
+    gapTokens(source, start, end).find(token => token.kind === 'token' && token.value === value)?.range[0]
   for (const statement of program.body) {
     if (statement.type === 'ImportDeclaration' && statement.source.value === CONSTRUCTS_MODULE
       && statement.importKind !== 'type') {
@@ -116,7 +116,13 @@ function constructsDeclaration (source: ParsedSource): Declaration | undefined {
         const properties = declarator.id.properties.filter(property => property.type === 'Property')
         if (properties.length > 0) {
           const pattern = declarator.id
-          return { last: properties[properties.length - 1], open: pattern.range[0], close: pattern.range[1] - 1 }
+          const last = properties[properties.length - 1]
+          // A TypeScript annotation (`const { … }: T = require(…)`) is part of
+          // the pattern's range; the closing brace comes before it.
+          const close = brace(last.range[1], pattern.typeAnnotation?.range[0] ?? pattern.range[1], '}')
+          if (close !== undefined) {
+            return { last, open: pattern.range[0], close }
+          }
         }
       }
     }
