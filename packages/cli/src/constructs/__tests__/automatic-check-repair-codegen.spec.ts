@@ -44,7 +44,7 @@ describe('automatic check repair codegen', () => {
     await rm(rootDirectory, { recursive: true, force: true })
   })
 
-  it.each([true, false, null])('emits BrowserCheck ownership %j', async aiAutoRepairEnabled => {
+  it.each([true, false])('emits a BrowserCheck override of %j', async aiAutoRepairEnabled => {
     const resource: BrowserCheckResource = {
       id: `browser-${String(aiAutoRepairEnabled)}`,
       checkType: 'BROWSER',
@@ -57,7 +57,7 @@ describe('automatic check repair codegen', () => {
     expect(source).toContain(`aiAutoRepairEnabled: ${String(aiAutoRepairEnabled)}`)
   })
 
-  it.each([true, false, null])('emits MultiStepCheck ownership %j', async aiAutoRepairEnabled => {
+  it.each([true, false])('emits a MultiStepCheck override of %j', async aiAutoRepairEnabled => {
     const resource: MultiStepCheckResource = {
       id: `multi-step-${String(aiAutoRepairEnabled)}`,
       checkType: 'MULTI_STEP',
@@ -68,6 +68,19 @@ describe('automatic check repair codegen', () => {
 
     const source = await renderResource(rootDirectory, program => new MultiStepCheckCodegen(program), resource)
     expect(source).toContain(`aiAutoRepairEnabled: ${String(aiAutoRepairEnabled)}`)
+  })
+
+  it.each([null, undefined])('leaves out a BrowserCheck setting of %j, which inherits the account default', async aiAutoRepairEnabled => {
+    const resource: BrowserCheckResource = {
+      id: 'browser-inherit',
+      checkType: 'BROWSER',
+      name: 'Browser check',
+      script: 'console.log("browser")',
+      aiAutoRepairEnabled,
+    }
+
+    const source = await renderResource(rootDirectory, program => new BrowserCheckCodegen(program), resource)
+    expect(source).not.toContain('aiAutoRepairEnabled')
   })
 
   it('does not emit automatic repair for API checks before support lands', async () => {

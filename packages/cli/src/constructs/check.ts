@@ -123,10 +123,10 @@ export interface CheckIntentProps {
   /**
    * Durable guidance for root cause analysis and check repair.
    *
-   * - Omit this property to leave an existing backend-authored intent unchanged.
-   * - Provide an object to set or update intent.
-   * - Set it to `null` to explicitly clear intent.
+   * Provide an object to set the intent. Left unset, or set to `null`, the
+   * check has no intent.
    *
+   * @defaultValue null
    * @example
    * ```typescript
    * intent: {
@@ -151,9 +151,9 @@ export interface AutomaticCheckRepairProps {
   /**
    * Determines whether automatic check repair is enabled for this check.
    *
-   * - Omit this property to leave an existing backend-authored setting unchanged.
-   * - Set it to `true` or `false` to override the account default for this check.
-   * - Set it to `null` to explicitly inherit the account-level setting.
+   * Set it to `true` or `false` to override the account default for this
+   * check. Left unset, or set to `null`, the check inherits the account-level
+   * setting.
    *
    * @defaultValue null (inherit the account setting)
    */
@@ -800,29 +800,26 @@ export abstract class Check extends Construct {
       }
     })()
 
-    const intent = this.#intent === undefined
-      ? {}
+    // Both are sent for every check class, at `null` when the code leaves them
+    // unset, so that a deploy owns them like every other property: the payload
+    // is a complete description of the check, and a value set in Checkly on a
+    // property the code does not set is cleared by the deploy (the plan lists
+    // it first). A class that does not expose the property sends `null` too.
+    const intent = this.#intent == null
+      ? null
       : {
-          intent: this.#intent === null
-            ? null
-            : {
-                goal: this.#intent.goal.trim(),
-                constraints: (this.#intent.constraints ?? []).map(constraint => ({
-                  type: constraint.type,
-                  statement: constraint.statement.trim(),
-                })),
-              },
+          goal: this.#intent.goal.trim(),
+          constraints: (this.#intent.constraints ?? []).map(constraint => ({
+            type: constraint.type,
+            statement: constraint.statement.trim(),
+          })),
         }
-
-    const automaticRepair = this.#aiAutoRepairEnabled === undefined
-      ? {}
-      : { aiAutoRepairEnabled: this.#aiAutoRepairEnabled }
 
     return {
       name: this.name,
-      ...(this.description != null && { description: this.description }),
-      ...intent,
-      ...automaticRepair,
+      description: this.description ?? null,
+      intent,
+      aiAutoRepairEnabled: this.#aiAutoRepairEnabled ?? null,
       activated: this.activated,
       muted: this.muted,
       shouldFail: this.shouldFail,
