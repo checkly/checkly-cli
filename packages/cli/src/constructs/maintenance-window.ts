@@ -43,9 +43,11 @@ export interface MaintenanceWindowProps {
    * Occurrences keep the same local time across daylight-saving changes.
    *
    * `startsAt` and `endsAt` remain absolute instants; the time zone does not reinterpret them.
-   * UTC offsets such as `'+05:00'` or `'Etc/GMT+5'` are not accepted. When omitted, the window is
-   * scheduled in UTC, and removing a previously set time zone resets the window to UTC on the next
-   * deploy. The time zone cannot be changed while a maintenance is active.
+   * UTC offsets such as `'+05:00'` or `'Etc/GMT+5'` are not accepted. Removing a previously set
+   * time zone resets the window to UTC on the next deploy. The time zone cannot be changed while a
+   * maintenance is active.
+   *
+   * @defaultValue 'UTC'
    */
   timezone?: TimeZone
   /**
@@ -79,7 +81,7 @@ export class MaintenanceWindow extends Construct {
   repeatInterval?: number
   repeatUnit?: MaintenanceWindowRepeatUnit
   repeatEndsAt?: Date
-  timezone?: TimeZone
+  timezone: TimeZone
   pauseAllChecks?: boolean
   silenceAlertsTags?: Array<string>
   silenceAllAlerts?: boolean
@@ -103,7 +105,7 @@ export class MaintenanceWindow extends Construct {
     this.repeatInterval = props.repeatInterval
     this.repeatUnit = props.repeatUnit
     this.repeatEndsAt = props.repeatEndsAt
-    this.timezone = props.timezone
+    this.timezone = props.timezone ?? 'UTC'
     this.pauseAllChecks = props.pauseAllChecks
     this.silenceAlertsTags = props.silenceAlertsTags
     this.silenceAllAlerts = props.silenceAllAlerts
@@ -117,7 +119,7 @@ export class MaintenanceWindow extends Construct {
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
-    if (this.timezone !== undefined && !isValidTimeZone(this.timezone)) {
+    if (!isValidTimeZone(this.timezone)) {
       diagnostics.add(new InvalidPropertyValueDiagnostic(
         'timezone',
         new Error(
@@ -150,8 +152,7 @@ export class MaintenanceWindow extends Construct {
       repeatUnit: this.repeatUnit,
       // An omitted end date keeps the stored one on update, so null is sent to clear it.
       repeatEndsAt: this.repeatEndsAt ?? null,
-      // An omitted timezone keeps the stored value on update, so null is sent to reset it to UTC.
-      timezone: this.timezone ?? null,
+      timezone: this.timezone,
       pauseAllChecks: this.pauseAllChecks,
       silenceAlertsTags: this.silenceAlertsTags,
       silenceAllAlerts: this.silenceAllAlerts,
