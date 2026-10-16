@@ -15,7 +15,8 @@ export default class SyncPlaywright extends BaseCommand {
 
   async run (): Promise<void> {
     if (this.fancy) {
-      ux.action.start('Syncing Playwright config to the Checkly config file', undefined, { stdout: true })
+      // oclif renders the spinner on stderr by default, keeping stdout clean.
+      ux.action.start('Syncing Playwright config to the Checkly config file')
     }
 
     const configFile = await getChecklyConfigFile()

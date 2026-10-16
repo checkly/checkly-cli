@@ -1,12 +1,12 @@
 import chalk from 'chalk'
 import AbstractListReporter from './abstract-list.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
-import { print, printLn } from './util.js'
+import { print, printLnErr } from './util.js'
 
 export default class DotReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
+    printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
   }
 
   onEnd () {

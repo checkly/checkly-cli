@@ -19,7 +19,7 @@ import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } fro
 import { createReporters, ReporterType } from '../reporters/reporter.js'
 import commonMessages from '../messages/common-messages.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
-import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util.js'
+import { printLn, printLnErr, formatCheckTitle, CheckStatus } from '../reporters/util.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { isEntrypoint } from '../constructs/construct.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
@@ -457,7 +457,7 @@ export default class Test extends AuthCommand {
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {
     const numRetries = retries ?? configRetries ?? 0
     if (numRetries > MAX_RETRIES) {
-      printLn(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
+      printLnErr(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
     }
     return numRetries
       ? RetryStrategyBuilder.fixedStrategy({

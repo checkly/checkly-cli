@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
 import { CheckRunId, SequenceId } from '../services/abstract-check-runner.js'
-import { CheckStatus, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import { CheckStatus, getTestSessionUrl, printLn, printLnErr, resultToCheckStatus } from './util.js'
 
 const outputFile = './checkly-json-report.json'
 
@@ -155,7 +155,7 @@ export class JsonBuilder {
 export default class JsonReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, checkRunId: CheckRunId, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
+    printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
   }
 
   onEnd () {
