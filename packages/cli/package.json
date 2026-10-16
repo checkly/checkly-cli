@@ -3,13 +3,30 @@
   "version": "0.0.1-dev",
   "type": "module",
   "description": "Checkly CLI",
-  "main": "dist/index.js",
+  "main": "dist/bundle/index.js",
   "types": "dist/index.d.ts",
   "exports": {
-    ".": "./dist/index.js",
-    "./constructs": "./dist/constructs/index.js",
-    "./loader": "./dist/loader/index.js",
-    "./util": "./dist/util/index.js"
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/bundle/index.js",
+      "require": "./dist/bundle/index.js"
+    },
+    "./package.json": "./package.json",
+    "./constructs": {
+      "types": "./dist/constructs/index.d.ts",
+      "import": "./dist/bundle/constructs.js",
+      "require": "./dist/bundle/constructs.js"
+    },
+    "./loader": {
+      "types": "./dist/loader/index.d.ts",
+      "import": "./dist/bundle/loader.js",
+      "require": "./dist/bundle/loader.js"
+    },
+    "./util": {
+      "types": "./dist/util/index.d.ts",
+      "import": "./dist/bundle/util.js",
+      "require": "./dist/bundle/util.js"
+    }
   },
   "engines": {
     "node": ">=22.13.0"
@@ -20,7 +37,9 @@
     "clean": "pnpm run clean:dist && pnpm run clean:gen",
     "prepack": "pnpm exec oclif manifest",
     "prepare:ai-context": "cross-env CHECKLY_SKIP_AUTH=1 CHECKLY_E2E_CLI_VERSION=99.0.0 ./bin/run.cjs import plan --root gen --debug-import-plan-input-file ./src/ai-context/context.fixtures.json && jiti ./scripts/prepare-ai-context.ts",
-    "prepare:dist": "tsc --build",
+    "bundle": "node scripts/bundle.mjs",
+    "startup:check": "node scripts/startup-check.mjs",
+    "prepare:dist": "tsc --build && pnpm run bundle",
     "prepare": "pnpm run clean && pnpm run prepare:dist && pnpm run prepare:ai-context",
     "test": "pnpm pack && pnpm run test:types && vitest --run",
     "test:types": "tsc -p tsconfig.type-tests.json --noEmit",
@@ -40,6 +59,9 @@
   "files": [
     "/bin",
     "/dist",
+    "!/dist/**/*.js",
+    "!/dist/**/*.js.map",
+    "/dist/bundle",
     "/assets",
     "/constructs.js",
     "/constructs.d.ts",
@@ -47,7 +69,7 @@
   ],
   "oclif": {
     "bin": "checkly",
-    "commands": "./dist/commands",
+    "commands": "./dist/bundle/commands",
     "topicSeparator": " ",
     "additionalHelpFlags": [
       "-h"
@@ -56,13 +78,10 @@
       "-v",
       "version"
     ],
-    "plugins": [
-      "@oclif/plugin-help",
-      "@oclif/plugin-warn-if-update-available"
-    ],
     "hooks": {
-      "command_not_found": "./dist/hooks/command-not-found",
-      "finally": "./dist/hooks/parse-error"
+      "init": "./dist/bundle/hooks/check-update.js",
+      "command_not_found": "./dist/bundle/hooks/command-not-found.js",
+      "finally": "./dist/bundle/hooks/parse-error.js"
     },
     "warn-if-update-available": {
       "timeoutInDays": 30,
@@ -106,53 +125,19 @@
         "description": "Inspect recorded test sessions."
       }
     },
-    "helpClass": "./dist/help/help-extension.js"
+    "helpClass": "./dist/bundle/help/help-extension.js"
   },
   "bin": {
     "checkly": "./bin/run.cjs"
   },
   "homepage": "https://github.com/checkly/checkly-cli#readme",
   "dependencies": {
-    "@oclif/core": "^5.1.7",
-    "@oclif/plugin-help": "^7.0.4",
-    "@oclif/plugin-warn-if-update-available": "^4.0.3",
-    "acorn": "^8.19.0",
-    "acorn-walk": "^8.3.5",
-    "archiver": "^8.0.0",
-    "ast-types": "^0.16.3",
-    "axios": "^1.20.0",
-    "chalk": "^6.0.1",
-    "ci-info": "^4.4.0",
-    "conf": "^15.1.0",
-    "debug": "^4.4.3",
-    "dotenv": "^18.0.7",
-    "execa": "^10.1.0",
-    "git-repo-info": "^2.1.1",
-    "glob": "^13.0.6",
-    "http-proxy-agent": "^9.1.0",
-    "https-proxy-agent": "^9.1.0",
-    "indent-string": "^5.0.0",
     "jiti": "^2.7.0",
-    "json-stream-stringify": "^3.1.7",
-    "json5": "^2.2.3",
-    "jwt-decode": "^4.0.0",
-    "log-symbols": "^7.0.1",
-    "luxon": "^3.7.2",
-    "minimatch": "^10.2.6",
-    "mqtt": "^5.16.0",
-    "open": "^11.0.4",
-    "oxc-parser": "0.153.0",
-    "p-queue": "^9.3.4",
-    "prompts": "^2.4.2",
-    "proxy-from-env": "^2.1.0",
-    "recast": "^0.24.0",
-    "semver": "^7.8.5",
-    "socks-proxy-agent": "^10.1.0",
-    "string-width": "^8.3.0",
-    "uuid": "^14.0.3",
-    "yaml": "^2.9.1"
+    "oxc-parser": "0.153.0"
   },
   "devDependencies": {
+    "@oclif/core": "^5.1.7",
+    "@oclif/plugin-warn-if-update-available": "^4.0.3",
     "@playwright/test": "^1.64.0",
     "@types/archiver": "^8.0.0",
     "@types/debug": "^4.1.13",
@@ -163,13 +148,47 @@
     "@types/ws": "^8.18.2",
     "@typescript-eslint/types": "^8.71.1",
     "@typescript-eslint/typescript-estree": "^8.71.1",
+    "acorn": "^8.19.0",
+    "acorn-walk": "^8.3.5",
+    "archiver": "^8.0.0",
+    "ast-types": "^0.16.3",
+    "axios": "^1.20.0",
+    "chalk": "^6.0.1",
+    "ci-info": "^4.4.0",
+    "conf": "^15.1.0",
     "config": "^5.0.1",
     "cross-env": "^10.1.0",
+    "debug": "^4.4.3",
+    "dotenv": "^18.0.7",
+    "esbuild": "^0.28.2",
+    "execa": "^10.1.0",
+    "git-repo-info": "^2.1.1",
+    "glob": "^13.0.6",
+    "http-proxy-agent": "^9.1.0",
+    "https-proxy-agent": "^9.1.0",
+    "indent-string": "^5.0.0",
+    "json-stream-stringify": "^3.1.7",
+    "json5": "^2.2.3",
+    "jwt-decode": "^4.0.0",
+    "log-symbols": "^7.0.1",
+    "luxon": "^3.7.2",
+    "minimatch": "^10.2.6",
+    "mqtt": "^5.16.0",
     "nanoid": "^6.0.2",
     "oclif": "^6.0.8",
+    "open": "^11.0.4",
+    "p-queue": "^9.3.4",
+    "prompts": "^2.4.2",
+    "proxy-from-env": "^2.1.0",
+    "recast": "^0.24.0",
     "rimraf": "^6.1.3",
+    "semver": "^7.8.5",
+    "socks-proxy-agent": "^10.1.0",
+    "string-width": "^8.3.0",
     "tar": "^7.5.22",
     "typescript": "^6.0.3",
-    "vitest": "^3.2.7"
+    "uuid": "^14.0.3",
+    "vitest": "^3.2.7",
+    "yaml": "^2.9.1"
   }
 }

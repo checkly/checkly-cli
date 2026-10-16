@@ -1,20 +1,19 @@
 import { existsSync, readFileSync, writeFileSync, cpSync } from 'fs'
 import { execSync } from 'child_process'
-import { join, dirname } from 'path'
+import { join } from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
-import { fileURLToPath } from 'node:url'
 
+import { packageRoot } from '../../services/package-root.js'
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
 import { makeOnCancel, successMessage } from './prompts-helpers.js'
 import { getRepoUrlFromGit } from '../../services/util.js'
 import { quote } from '../../sourcegen/string.js'
 
-const __dirname = dirname(fileURLToPath(import.meta.url))
-
-// Path resolves at runtime from dist/helpers/onboarding/ to dist/ai-context/onboarding-boilerplate/
-const CONFIG_TEMPLATE_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/checkly-config-template.ts')
-const BOILERPLATE_CHECKS_PATH = join(__dirname, '../../ai-context/onboarding-boilerplate/__checks__')
+// Anchored at the package root (not this module's own depth) so the path also
+// resolves when the CLI runs from the esbuild bundle in dist/bundle/.
+const CONFIG_TEMPLATE_PATH = join(packageRoot(), 'dist/ai-context/onboarding-boilerplate/checkly-config-template.ts')
+const BOILERPLATE_CHECKS_PATH = join(packageRoot(), 'dist/ai-context/onboarding-boilerplate/__checks__')
 
 export interface DepsInstallOptions {
   skipPrompts?: boolean

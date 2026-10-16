@@ -70,22 +70,30 @@ describe('Node version floor', () => {
     })).not.toThrow()
   })
 
-  it('requires only dependency-free siblings before the version check', () => {
+  it('requires only the preflight, a Node builtin and the launcher before the version check', () => {
     // Requiring anything outside bin/ from the entry would evaluate code that
-    // unsupported runtimes may not be able to load.
+    // unsupported runtimes may not be able to load. The node:module builtin
+    // (for the V8 compile cache) is safe: it ships with the runtime.
     const binRun = stripLineComments(readBin('run.cjs'))
     const requires = [...binRun.matchAll(/require\(([^)]*)\)/g)].map(match => match[1])
-    expect(requires).toEqual(['\'./check-node-version.cjs\'', '\'./launch.cjs\''])
+    expect(requires).toEqual(['\'./check-node-version.cjs\'', '\'node:module\'', '\'./launch.cjs\''])
     expect(stripLineComments(readBin('check-node-version.cjs'))).not.toMatch(/\brequire\(/)
   })
 
   it('loads the CLI only via dynamic import after the version check', () => {
     const launch = readBin('launch.cjs')
-    // The dotenv loading step is otherwise unasserted (the spawn tests pass
-    // without it), and require() of the ESM dist or @oclif/core would break
-    // if their graphs ever adopted top-level await.
-    expect(launch).toMatch(/await import\('\.\.\/dist\/services\/load-dotenv\.js'\)/)
+    // require() of the ESM bundle would break if its graph ever adopted
+    // top-level await; dynamic import() keeps the launcher CommonJS.
+    expect(launch).toMatch(/await import\('\.\.\/dist\/bundle\/cli\.js'\)/)
     expect(stripLineComments(launch)).not.toMatch(/\brequire\(/)
+    // The dotenv step moved inside the bundle entry; keep it ordered before
+    // @oclif/core so .env values are visible to env vars read at import
+    // time (e.g. DEBUG, FORCE_COLOR).
+    const cliEntry = fs.readFileSync(path.join(packageDir, 'src', 'cli.ts'), 'utf8')
+    const dotenv = cliEntry.indexOf('import(\'./services/load-dotenv.js\')')
+    const oclif = cliEntry.indexOf('import(\'@oclif/core\')')
+    expect(dotenv).toBeGreaterThan(-1)
+    expect(oclif).toBeGreaterThan(dotenv)
   })
 
   function runBinWithPatchedVersions (
