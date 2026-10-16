@@ -4,7 +4,7 @@ import { DateTime } from 'luxon'
 
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Reporter } from './reporter.js'
-import { CheckStatus, formatCheckResult, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import { CheckStatus, formatCheckResult, formatCheckTitle, getTestSessionUrl, printLn, printLnErr, resultToCheckStatus } from './util.js'
 import type { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
 import { Check } from '../constructs/check.js'
 import { testSessions } from '../rest/api.js'
@@ -129,10 +129,11 @@ export default abstract class AbstractListReporter implements Reporter {
         sourceFile: check.getSourceFile?.() || 'Playwright Test',
         name: check.name || check.logicalId || 'Unknown Test',
       }
-      printLn(formatCheckTitle(CheckStatus.RUNNING, displayCheck, { includeSourceFile: true }))
+      printLnErr(formatCheckTitle(CheckStatus.RUNNING, displayCheck, { includeSourceFile: true }))
     }
 
-    // Format and display each log with proper indentation and timestamp handling
+    // Streamed logs are progress output: they belong on stderr, next to the
+    // live summary. Check results (with their full logs) stay on stdout.
     logList.forEach(logEntry => {
       // Format timestamp from Unix timestamp to HH:mm:ss.SSS format
       const timestamp = DateTime.fromMillis(logEntry.timestamp).toFormat('HH:mm:ss.SSS')
@@ -141,11 +142,11 @@ export default abstract class AbstractListReporter implements Reporter {
       messageLines.forEach(line => {
         // Each line gets its own timestamp for clarity
         const formattedLine = `[${timestamp}] ${line}`
-        printLn(indentString(formattedLine, 4))
+        printLnErr(indentString(formattedLine, 4))
       })
     })
 
-    this._printSummary()
+    this._printSummary({ stream: 'stderr' })
   }
 
   onCancel (): void {
@@ -169,20 +170,23 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   private _shouldRenderLiveSummary (): boolean {
-    return process.stdout.isTTY === true
+    // The live summary renders on stderr, so redraws (and the ANSI erase
+    // codes that back them) belong to that stream.
+    return process.stderr.isTTY === true
   }
 
-  // Clear the summary which was printed by _printStatus from stdout
+  // Clear the live summary which was printed by _printSummary from stderr.
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
   _clearSummary () {
     if (this._clearString) {
-      printLn(this._clearString)
+      printLnErr(this._clearString)
       this._clearString = ''
     }
   }
 
-  _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean } = {}) {
+  _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean, stream?: 'stdout' | 'stderr' } = {}) {
+    const write = opts.stream === 'stderr' ? printLnErr : printLn
     const counts = {
       numFailed: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
       numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,
@@ -264,7 +268,7 @@ export default abstract class AbstractListReporter implements Reporter {
     status.push('')
 
     const statusString = status.join('\n')
-    printLn(statusString)
+    write(statusString)
     if (this._shouldRenderLiveSummary()) {
       // Ansi escape code for erasing the line and moving the cursor up.
       this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)

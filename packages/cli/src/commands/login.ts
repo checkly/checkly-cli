@@ -899,7 +899,7 @@ export default class Login extends BaseCommand {
    * command's own output on a terminal; otherwise prints `message` as a plain
    * line, so piped output gets no animation frames and a login another
    * command started keeps its output on stderr (the spinner writes to
-   * stdout). `report` shows a note while waiting.
+   * stderr, too). `report` shows a note while waiting.
    */
   async #whileWaiting<T> (message: string, wait: (report: (note: string) => void) => Promise<T>): Promise<T> {
     if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stdout.isTTY) {

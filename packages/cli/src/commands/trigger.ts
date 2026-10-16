@@ -18,7 +18,7 @@ import {
 } from '../services/abstract-check-runner.js'
 import config from '../services/config.js'
 import { createReporters, ReporterType } from '../reporters/reporter.js'
-import { printLn } from '../reporters/util.js'
+import { printLnErr } from '../reporters/util.js'
 import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Session, RetryStrategyBuilder } from '../constructs/index.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
@@ -284,7 +284,7 @@ export default class Trigger extends AuthCommand {
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {
     const numRetries = retries ?? configRetries ?? 0
     if (numRetries > MAX_RETRIES) {
-      printLn(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
+      printLnErr(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
     }
     return numRetries
       ? RetryStrategyBuilder.fixedStrategy({

@@ -17,12 +17,14 @@ vi.mock('../../rest/api.js', () => ({
 }))
 
 const printLnMock = vi.fn()
+const printLnErrMock = vi.fn()
 
 vi.mock('../util.js', async () => {
   const actual = await vi.importActual<typeof import('../util.js')>('../util.js')
   return {
     ...actual,
     printLn: (...args: Parameters<typeof actual.printLn>) => printLnMock(...args),
+    printLnErr: (...args: Parameters<typeof actual.printLnErr>) => printLnErrMock(...args),
   }
 })
 
@@ -61,17 +63,23 @@ function countOccurrences (text: string, substring: string): number {
   return text.split(substring).length - 1
 }
 
-function withStdoutTty<T> (isTTY: boolean, callback: () => T): T {
-  const stdoutDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
-  Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: isTTY })
+function outputOf (mock: typeof printLnMock): string {
+  return mock.mock.calls.map(([text]: [string]) => text).join('\n')
+}
+
+type TtyStream = typeof process.stdout | typeof process.stderr
+
+function withTty (stream: TtyStream, isTTY: boolean, callback: () => void): void {
+  const descriptor = Object.getOwnPropertyDescriptor(stream, 'isTTY')
+  Object.defineProperty(stream, 'isTTY', { configurable: true, value: isTTY })
 
   try {
-    return callback()
+    callback()
   } finally {
-    if (stdoutDescriptor) {
-      Object.defineProperty(process.stdout, 'isTTY', stdoutDescriptor)
+    if (descriptor) {
+      Object.defineProperty(stream, 'isTTY', descriptor)
     } else {
-      delete (process.stdout as { isTTY?: boolean }).isTTY
+      delete (stream as { isTTY?: boolean }).isTTY
     }
   }
 }
@@ -79,6 +87,7 @@ function withStdoutTty<T> (isTTY: boolean, callback: () => T): T {
 describe('AbstractListReporter', () => {
   beforeEach(() => {
     printLnMock.mockClear()
+    printLnErrMock.mockClear()
     vi.mocked(api.testSessions.getShortLink).mockReset()
   })
 
@@ -102,24 +111,47 @@ describe('AbstractListReporter', () => {
     expect(output).not.toContain('Open session:')
   })
 
-  it('should call printLn with check status output after onCheckEnd', () => {
-    const { reporter, check } = makeReporterWithOneCheck()
+  it('should send run progress to stderr and results to stdout', () => {
+    const { reporter, check } = makeReporterWithOneCheck(TEST_SESSION_ID)
+
+    // onBegin: "Running N checks" and the live summary are progress.
+    expect(printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n'))
+      .toContain(`Running 1 checks in ${PUBLIC_RUN_LOCATION.region}`)
+    expect(printLnMock.mock.calls.map(([text]: [string]) => text).join('\n'))
+      .not.toContain(`Running 1 checks`)
 
     reporter.onCheckInProgress(check, SEQUENCE_ID)
     reporter.onCheckEnd(SEQUENCE_ID, makePassingResult())
+    reporter.onEnd()
 
-    expect(printLnMock).toHaveBeenCalled()
-    const calls = printLnMock.mock.calls.map(([text]: [string]) => text)
-    expect(calls.some(text => text.includes('My API Check'))).toBe(true)
+    const stderr = printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n')
+    const stdout = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+
+    // Progress: live summaries (with the check title) stay on stderr.
+    expect(stderr).toContain('My API Check')
+    // Results: the final summary and session reference stay on stdout.
+    expect(stdout).toContain('My API Check')
+    expect(stdout).toContain('1 passed, 1 total')
+    expect(stdout).toContain(`Test session ID: ${TEST_SESSION_ID}`)
   })
 
-  it('should populate _clearString after _printSummary runs', () => {
-    withStdoutTty(true, () => {
+  it('should populate _clearString after a live summary renders on a TTY stderr', () => {
+    withTty(process.stderr, true, () => {
       const { reporter } = makeReporterWithOneCheck()
 
-      reporter._printSummary()
+      reporter._printSummary({ stream: 'stderr' })
 
       expect(reporter._clearString).not.toBe('')
+    })
+  })
+
+  it('should not populate _clearString without a TTY stderr', () => {
+    withTty(process.stderr, false, () => {
+      const { reporter } = makeReporterWithOneCheck()
+
+      reporter._printSummary({ stream: 'stderr' })
+
+      expect(reporter._clearString).toBe('')
     })
   })
 
@@ -157,17 +189,33 @@ describe('AbstractListReporter', () => {
   })
 
   it('does not redraw the check list for detached non-TTY output', () => {
-    withStdoutTty(false, () => {
+    withTty(process.stderr, false, () => {
       const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
+      printLnMock.mockClear()
+      printLnErrMock.mockClear()
       reporter.onDetach()
 
-      const summary = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
-      expect(countOccurrences(summary, SOURCE_FILE)).toBe(1)
-      expect(countOccurrences(summary, 'My API Check')).toBe(1)
+      const summary = outputOf(printLnMock)
+      expect(countOccurrences(summary, SOURCE_FILE)).toBe(0)
+      expect(countOccurrences(summary, 'My API Check')).toBe(0)
       expect(summary).toContain('Checks will continue running in the cloud.')
       expect(summary).toContain('1 scheduling, 1 total')
       expect(summary).not.toContain('\x1B[K')
+      expect(printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n')).not.toContain('\x1B[K')
     })
+  })
+
+  it('should send streamed logs to stderr', () => {
+    const { reporter, check } = makeReporterWithOneCheck()
+    printLnMock.mockClear()
+    printLnErrMock.mockClear()
+
+    reporter.onStreamLogs(check, SEQUENCE_ID, [{ timestamp: 0, message: 'hello from the check' }])
+
+    const stderr = outputOf(printLnErrMock)
+    const stdout = outputOf(printLnMock)
+    expect(stderr).toContain('hello from the check')
+    expect(stdout).not.toContain('hello from the check')
   })
 
   it('should render existing detailed session summary link output', async () => {
