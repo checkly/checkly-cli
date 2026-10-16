@@ -172,6 +172,15 @@ async function runDeploy (fixt: FixtureSandbox, args: string[], options?: RunOpt
   return result
 }
 
+// A successful deploy may print warnings (construct diagnostics) to stderr —
+// that is their stream under the CLI's output contract — but never an error
+// report. log-symbols renders the error glyph as ✖ on POSIX and × on Windows.
+function expectStderrWithoutErrors (stderr: string): void {
+  // eslint-disable-next-line no-control-regex
+  const plain = stderr.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '')
+  expect(plain).not.toMatch(/^[✖×]/m)
+}
+
 /**
  * A regex for consecutive rows of the plan's overview table, one per
  * `[marker, type, logicalId]`, whatever the column padding. A row ends with
@@ -223,7 +232,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
 
-      expect(stderr).toBe('')
+      expectStderrWithoutErrors(stderr)
       // expect not to change version since the version is specified
       expect(stdout).not.toContain('Notice: replacing version')
 
@@ -246,7 +255,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         CHECKLY_E2E_CLI_VERSION: undefined,
       }
       const first = await runDeploy(fixt, ['--force'], { env })
-      expect(first.stderr).toBe('')
+      expectStderrWithoutErrors(first.stderr)
       const api = axios.create({
         baseURL: config.get('baseURL'),
         headers: { 'x-checkly-account': config.get('accountId'), 'Authorization': `Bearer ${config.get('apiKey')}` },
@@ -274,7 +283,7 @@ describe('deploy', { timeout: 45_000 }, () => {
       // Unchanged code: the row moved since the last deploy, so the plan writes
       // the check and the code's unset values win.
       const second = await runDeploy(fixt, ['--force'], { env })
-      expect(second.stderr).toBe('')
+      expectStderrWithoutErrors(second.stderr)
       const { data: redeployed } = await api.get(`/v1/checks/${homePage.id}`)
       expect(redeployed.intent).toBeNull()
       expect(redeployed.aiAutoRepairEnabled).toBeNull()
@@ -288,7 +297,7 @@ describe('deploy', { timeout: 45_000 }, () => {
           CHECKLY_E2E_CLI_VERSION: undefined,
         },
       })
-      expect(stderr).toBe('')
+      expectStderrWithoutErrors(stderr)
       // Without a plan the deploy writes every resource, whether or not it
       // changed, so a deploy of what is already deployed is never "up to date".
       expect(stdout).not.toContain('No changes.')
@@ -303,7 +312,7 @@ describe('deploy', { timeout: 45_000 }, () => {
           CHECKLY_E2E_CLI_VERSION: undefined,
         },
       })
-      expect(stderr).toBe('')
+      expectStderrWithoutErrors(stderr)
       // Non-interactive runs should no longer emit the local-dev version notice.
       expect(stdout).not.toContain('Notice: replacing version')
 
@@ -408,7 +417,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
 
-      expect(stderr).toBe('')
+      expectStderrWithoutErrors(stderr)
     })
   })
 
