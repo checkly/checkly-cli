@@ -15,13 +15,10 @@
  *
  * Only native or resolution-sensitive dependencies stay external:
  * - oxc-parser: Rust native bindings resolved per platform at runtime.
- * - @typescript-eslint/typescript-estree: a peer-dependent parser that
- *   resolves the *user's project's* TypeScript via createRequire, so it must
- *   stay an installed runtime dependency.
  * - jiti: lazy-requires sibling files from its own package at runtime
  *   (e.g. dist/babel.cjs), which cannot be satisfied from a bundle.
- * - typescript: never bundled (peer of the above, resolved from the user's
- *   project when needed).
+ * - typescript: never bundled (only resolved from a user's project, if at
+ *   all, since write-back moved to oxc-parser).
  */
 import { build } from 'esbuild'
 import { readdirSync, rmSync, mkdirSync } from 'node:fs'
