@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 
 import { applyEdits } from '../apply-edits.js'
 import { detectStyle, evaluateLiteral, isPlainLiteral, resolvePath, templateLiteral } from '../literal-edit.js'
+import { oxcLoadError } from '../../oxc-parser.js'
 import { findConstructOptions, parseSource, spelledOutPaths, gapTokens, walk, WriteBackSkipped } from '../source-file.js'
 
 /**
@@ -98,10 +99,20 @@ describe('findConstructOptions', () => {
 
   it('skips TypeScript and JSX files when oxc-parser cannot load, and still reads JavaScript', () => {
     const load = () => {
-      throw new Error('Cannot find native binding.')
+      throw oxcLoadError(new Error('Cannot find native binding. npm has a bug related to optional dependencies.'))
     }
-    expect(() => parseSource('a.ts', 'const a = 1', load))
-      .toThrow('oxc-parser, which reads TypeScript and JSX files, failed to load; reinstall the project\'s dependencies')
+    expect(() => parseSource('a.ts', 'const a = 1', load)).toThrow('oxc-parser, which reads TypeScript and JSX files,'
+      + ' failed to load (Cannot find native binding.); reinstall the project\'s dependencies')
+    const missing = () => {
+      throw oxcLoadError(new Error('Cannot find module \'oxc-parser\'\nRequire stack:\n- /a/oxc-parser.js'))
+    }
+    expect(() => parseSource('a.ts', 'const a = 1', missing)).toThrow('oxc-parser, which reads TypeScript and JSX files,'
+      + ' failed to load (Cannot find module \'oxc-parser\'); reinstall the project\'s dependencies')
+    const odd = () => {
+      throw oxcLoadError('boom')
+    }
+    expect(() => parseSource('a.ts', 'const a = 1', odd)).toThrow('oxc-parser, which reads TypeScript and JSX files,'
+      + ' failed to load (boom); reinstall the project\'s dependencies')
     expect(parseSource('a.js', 'const a = 1', load).program.body).toHaveLength(1)
   })
 })

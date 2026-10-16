@@ -3,12 +3,10 @@ import path from 'node:path'
 
 import type { ParseResult, ParserOptions } from 'oxc-parser'
 
-/**
- * TypeScript, TSX and JSX parsing with oxc-parser, a native (Rust) parser
- * that needs no TypeScript installed and works whatever the project's
- * TypeScript version. Its AST is ESTree-compatible (`astType: 'ts'` gives
- * the same nodes typescript-estree does).
- */
+// TypeScript, TSX and JSX parsing with oxc-parser, a native (Rust) parser
+// that needs no TypeScript installed and works whatever the project's
+// TypeScript version. With `astType: 'ts'` its AST is ESTree with the
+// TypeScript nodes `@typescript-eslint/types` describes.
 
 export type ParseSync = (filename: string, source: string, options?: ParserOptions) => ParseResult
 

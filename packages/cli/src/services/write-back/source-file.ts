@@ -13,9 +13,9 @@ import { loadOxcParser, parseWithOxc, type ParseSync } from '../oxc-parser.js'
  *
  * Two parsers, one AST shape: `.js`/`.mjs`/`.cjs` go through acorn and
  * TypeScript and JSX through oxc-parser, as the check dependency parser reads
- * them. Both produce ESTree nodes carrying `range` (oxc the same nodes
- * typescript-estree does), and only `range` and the node types below are
- * read. Recast (which edits `checkly.config.ts` elsewhere in the CLI) is not
+ * them. Both produce ESTree nodes carrying `range` (oxc's TypeScript nodes
+ * are the ones `@typescript-eslint/types` describes), and only `range` and
+ * the node types below are read. Recast (which edits `checkly.config.ts` elsewhere in the CLI) is not
  * used: its acorn parser cannot read TypeScript, and reprinting a touched
  * node re-quotes it, whereas splicing by range leaves every other byte of the
  * file exactly as the user wrote it.
@@ -125,8 +125,12 @@ export function parseSource (filePath: string, text: string, loadParser = loadOx
     let parseSync: ParseSync
     try {
       parseSync = loadParser()
-    } catch {
-      throw new WriteBackSkipped('oxc-parser, which reads TypeScript and JSX files, failed to load;'
+    } catch (err: any) {
+      // oxc-parser's own reason, e.g. "Cannot find native binding.", without
+      // the reinstall instructions or require stack that follow it.
+      const cause = err?.cause ?? err
+      const reason = String(cause instanceof Error ? cause.message : cause).split('\n')[0].split(/(?<=\.)\s/)[0]
+      throw new WriteBackSkipped(`oxc-parser, which reads TypeScript and JSX files, failed to load (${reason});`
         + ' reinstall the project\'s dependencies')
     }
     // Without `preserveParens`, a parenthesized expression's range excludes
