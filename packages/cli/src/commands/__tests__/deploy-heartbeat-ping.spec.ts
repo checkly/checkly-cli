@@ -184,7 +184,7 @@ describe('deploy heartbeat ping URLs', () => {
     )
   })
 
-  it('routes a failed heartbeat ping URL fetch through the deploy error handling', async () => {
+  it('reports a failed heartbeat ping URL fetch as a warning, not a failed deploy', async () => {
     vi.mocked(api.heartbeatCheck.get).mockRejectedValue(new Error('fetch failed'))
     const context = createCommandContext()
     const unhandled: unknown[] = []
@@ -193,16 +193,20 @@ describe('deploy heartbeat ping URLs', () => {
     }
     process.on('unhandledRejection', onUnhandledRejection)
     try {
-      await expect(Deploy.prototype.run.call(context as any)).rejects.toThrow('EXIT_1')
+      await Deploy.prototype.run.call(context as any)
 
-      // The failure belongs to the deploy command's error handling, not to
-      // the process's unhandled rejection path.
+      // The failure belongs to the deploy command, not to the process's
+      // unhandled rejection path.
       await new Promise(resolve => setTimeout(resolve, 10))
       expect(unhandled).toEqual([])
 
-      expect(context.style.actionFailure).toHaveBeenCalled()
-      expect(context.style.longError).toHaveBeenCalledWith(
-        'Your project could not be deployed.',
+      // The deploy was written before the fetch, so it is not reported as failed.
+      expect(context.style.actionSuccess).toHaveBeenCalled()
+      expect(context.style.actionFailure).not.toHaveBeenCalled()
+      expect(context.style.longError).not.toHaveBeenCalled()
+      expect(context.exit).not.toHaveBeenCalled()
+      expect(context.style.longWarning).toHaveBeenCalledWith(
+        'The project was deployed, but the ping URL of heartbeat check "heartbeat-1" could not be retrieved.',
         expect.objectContaining({ message: 'fetch failed' }),
       )
     } finally {
