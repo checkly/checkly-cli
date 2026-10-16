@@ -1,4 +1,5 @@
 import { Ref } from './ref.js'
+import { RELATION_LOGICAL_ID_MAX_LENGTH } from '../constants.js'
 import { Construct } from './construct.js'
 import { Session } from './session.js'
 
@@ -31,6 +32,10 @@ export class PrivateLocationGroupAssignment extends Construct {
     this.privateLocationId = props.privateLocationId
     this.groupId = props.groupId
     Session.registerConstruct(this)
+  }
+
+  protected get maxLogicalIdLength (): number {
+    return RELATION_LOGICAL_ID_MAX_LENGTH
   }
 
   describe (): string {

@@ -1,7 +1,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 
-import { LOGICAL_ID_PATTERN } from '../constants.js'
+import { LOGICAL_ID_MAX_LENGTH, LOGICAL_ID_PATTERN } from '../constants.js'
 import { InvalidPropertyValueDiagnostic } from './construct-diagnostics.js'
 import { Diagnostics } from './diagnostics.js'
 import { Session } from './session.js'
@@ -186,6 +186,21 @@ export abstract class Construct implements Validate, Bundle {
         new Error(`"${this.logicalId}" contains invalid characters. Only A-Z, a-z, 0-9, _, -, /, #, and . are allowed.`),
       ))
     }
+
+    if (this.logicalId.length > this.maxLogicalIdLength) {
+      diagnostics.add(new InvalidPropertyValueDiagnostic(
+        'logicalId',
+        new Error(`"${this.logicalId}" is ${this.logicalId.length} characters long. The maximum is ${this.maxLogicalIdLength}.`),
+      ))
+    }
+  }
+
+  /**
+   * The longest logicalId the construct may have. Only the relation
+   * constructs, whose logicalId the CLI composes from two others, allow more.
+   */
+  protected get maxLogicalIdLength (): number {
+    return LOGICAL_ID_MAX_LENGTH
   }
 
   /**
