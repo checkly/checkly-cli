@@ -339,15 +339,19 @@ export class Dashboard extends Construct {
   }
 
   synthesize (): any | null {
+    // The text properties are sent as their cleared value when unset (the
+    // empty string where a new dashboard's row holds one, null elsewhere): a
+    // deploy writes only the keys the payload carries, so an omitted key would
+    // leave a stored value in place.
     return {
       tags: this.tags,
-      customUrl: this.customUrl,
-      customDomain: this.customDomain,
-      logo: this.logo,
-      favicon: this.favicon,
-      link: this.link,
-      header: this.header,
-      description: this.description,
+      customUrl: this.customUrl ?? null,
+      customDomain: this.customDomain ?? null,
+      logo: this.logo ?? '',
+      favicon: this.favicon ?? null,
+      link: this.link ?? null,
+      header: this.header ?? '',
+      description: this.description ?? null,
       width: this.width,
       refreshRate: this.refreshRate,
       paginate: this.paginate,

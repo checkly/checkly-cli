@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { ApiCheck } from '../../../constructs/api-check.js'
 import { RetryStrategyBuilder } from '../../../constructs/retry-strategy.js'
 import { CheckGroupV2 } from '../../../constructs/check-group-v2.js'
+import { Dashboard } from '../../../constructs/dashboard.js'
 import { EmailAlertChannel } from '../../../constructs/email-alert-channel.js'
+import { PrivateLocation } from '../../../constructs/private-location.js'
 import { IncidentioAlertChannel } from '../../../constructs/incidentio-alert-channel.js'
 import { MSTeamsAlertChannel } from '../../../constructs/msteams-alert-channel.js'
 import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel.js'
@@ -12,6 +14,7 @@ import { Session } from '../../../constructs/session.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
 import { idKey, physicalIdsFromPlan } from '../import-shape.js'
 import { renderResourceDiff, type RenderedLine } from '../render.js'
+import { isShapeChangePath } from '../shape-changes.js'
 
 /**
  * The lines printed under an updated resource (`render.ts`): which of the
@@ -1400,5 +1403,155 @@ describe('renderResourceDiff for a Playwright check suite', () => {
     ], 'Renamed')
     expect(lines.join('\n')).toContain('+  name: \'Renamed\'')
     expect(lines.slice(-2)).toEqual(['/codeBundle: changed (code bundle)', '/playwrightVersion: changed (playwright version)'])
+  })
+})
+
+// Keys a construct used to leave out of the payload when unset and now sends
+// with a default or cleared value: the first plan after the upgrade reports
+// each as a code-origin change from an absent leaf, and both renderings elide
+// the value, so the resource prints the upgrade note rather than raw notes.
+describe('properties the upgraded CLI started sending', () => {
+  const UPGRADE = ['payload format changed (CLI upgrade)']
+
+  it('names the CLI upgrade for an alert channel whose flags the code never set', () => {
+    const channel = new EmailAlertChannel('email', { address: 'ops@example.com' })
+    const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'email', member: true, payload: channel.synthesize() }]
+    expect(render(
+      {
+        type: 'alert-channel',
+        logicalId: 'email',
+        physicalId: 7,
+        action: 'UPDATE',
+        changes: [
+          { path: '/sendRecovery', origin: 'code', after: true },
+          { path: '/sendFailure', origin: 'code', after: true },
+          { path: '/sendDegraded', origin: 'code', after: false },
+          { path: '/sslExpiry', origin: 'code', after: false },
+          { path: '/sslExpiryThreshold', origin: 'code', after: 30 },
+        ],
+        before: {
+          id: 7,
+          type: 'EMAIL',
+          config: { address: 'ops@example.com' },
+          sendRecovery: true,
+          sendFailure: true,
+          sendDegraded: false,
+          sslExpiry: false,
+          sslExpiryThreshold: 30,
+        },
+        redactions: [],
+      },
+      local,
+    )).toEqual(UPGRADE)
+  })
+
+  it('still shows a flag the web app set differently from the default the code now sends', () => {
+    const channel = new EmailAlertChannel('email', { address: 'ops@example.com' })
+    const local: ResourceSync[] = [{ type: 'alert-channel', logicalId: 'email', member: true, payload: channel.synthesize() }]
+    const lines = render(
+      {
+        type: 'alert-channel',
+        logicalId: 'email',
+        physicalId: 7,
+        action: 'UPDATE',
+        changes: [{ path: '/sendDegraded', origin: 'code', after: false }],
+        before: {
+          id: 7,
+          type: 'EMAIL',
+          config: { address: 'ops@example.com' },
+          sendRecovery: true,
+          sendFailure: true,
+          sendDegraded: true,
+          sslExpiry: false,
+          sslExpiryThreshold: 30,
+        },
+        redactions: [],
+      },
+      local,
+    )
+    expect(lines).not.toEqual(UPGRADE)
+    expect(lines.join('\n')).toContain('-  sendDegraded: true,')
+  })
+
+  describe('a private location whose proxy URL the code never set', () => {
+    const location = () => {
+      const construct = new PrivateLocation('loc', { name: 'Office', slugName: 'office' })
+      const local: ResourceSync[] = [{ type: 'private-location', logicalId: 'loc', member: true, payload: construct.synthesize() }]
+      return local
+    }
+    const before = { id: 'pl-uuid', name: 'Office', slugName: 'office', icon: 'location', proxyUrl: '' }
+    const redactions = [{ path: '/proxyUrl', kind: 'value' as const }]
+
+    it('names the CLI upgrade when the API reports the first null plainly, as it does for a row without a proxy', () => {
+      expect(render(
+        {
+          type: 'private-location',
+          logicalId: 'loc',
+          physicalId: 'pl-uuid',
+          action: 'UPDATE',
+          changes: [{ path: '/proxyUrl', origin: 'code', after: null }],
+          before,
+          redactions,
+        },
+        location(),
+      )).toEqual(UPGRADE)
+    })
+
+    it('shows the masked change the API reports for a proxy the deploy clears', () => {
+      const lines = render(
+        {
+          type: 'private-location',
+          logicalId: 'loc',
+          physicalId: 'pl-uuid',
+          action: 'UPDATE',
+          changes: [{ path: '/proxyUrl', origin: 'code', after: { $masked: 'changed' }, secret: true }],
+          before,
+          redactions,
+        },
+        location(),
+      )
+      expect(lines).not.toEqual(UPGRADE)
+      expect(lines.join('\n')).toContain('+  proxyUrl: \'******** (changed)\',')
+    })
+  })
+
+  it('names the CLI upgrade for a dashboard whose empty text properties the code now clears', () => {
+    const dashboard = new Dashboard('board', { customUrl: 'my-status' })
+    const local: ResourceSync[] = [{ type: 'dashboard', logicalId: 'board', member: true, payload: dashboard.synthesize() }]
+    expect(render(
+      {
+        type: 'dashboard',
+        logicalId: 'board',
+        physicalId: 'db-uuid',
+        action: 'UPDATE',
+        // The key was absent from the snapshot's code side, so no `before`.
+        changes: [
+          { path: '/favicon', origin: 'code', after: null },
+          { path: '/link', origin: 'code', after: null },
+          { path: '/description', origin: 'code', after: null },
+        ],
+        before: {
+          id: 'db-uuid',
+          dashboardId: 'abc',
+          tags: [],
+          customUrl: 'my-status',
+          customDomain: null,
+          logo: '',
+          favicon: '',
+          link: '',
+          header: '',
+          description: '',
+        },
+        redactions: [],
+      },
+      local,
+    )).toEqual(UPGRADE)
+  })
+
+  it('treats a path as a shape change only for the resource type that started sending it', () => {
+    expect(isShapeChangePath('/description', 'dashboard')).toBe(true)
+    expect(isShapeChangePath('/description', 'check')).toBe(false)
+    expect(isShapeChangePath('/retryStrategy/type', 'check')).toBe(true)
+    expect(isShapeChangePath('/retryStrategy/type', 'dashboard')).toBe(true)
   })
 })

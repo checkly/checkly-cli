@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { AlertChannel, AlertChannelProps, Diagnostics } from '../index.js'
+import { AlertChannel, AlertChannelProps, Diagnostics, EmailAlertChannel } from '../index.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
 
@@ -73,5 +73,37 @@ describe('AlertChannel', () => {
         message: expect.stringContaining('Value must be a number.'),
       }),
     ]))
+  })
+
+  describe('synthesize', () => {
+    it('sends every flag with its default when the construct sets none', () => {
+      Session.project = new Project('project-id', { name: 'Test Project' })
+      const channel = new EmailAlertChannel('email', { address: 'ops@example.com' })
+      expect(channel.synthesize()).toMatchObject({
+        sendRecovery: true,
+        sendFailure: true,
+        sendDegraded: false,
+        sslExpiry: false,
+        sslExpiryThreshold: 30,
+      })
+    })
+
+    it('sends the flags the construct sets', () => {
+      Session.project = new Project('project-id', { name: 'Test Project' })
+      const channel = new EmailAlertChannel('email', {
+        address: 'ops@example.com',
+        sendRecovery: false,
+        sendDegraded: true,
+        sslExpiry: true,
+        sslExpiryThreshold: 7,
+      })
+      expect(channel.synthesize()).toMatchObject({
+        sendRecovery: false,
+        sendFailure: true,
+        sendDegraded: true,
+        sslExpiry: true,
+        sslExpiryThreshold: 7,
+      })
+    })
   })
 })

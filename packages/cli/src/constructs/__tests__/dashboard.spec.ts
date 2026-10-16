@@ -48,4 +48,34 @@ describe('Dashboard', () => {
       })
     })
   })
+
+  describe('synthesize', () => {
+    it('sends the cleared value of every text property the construct leaves unset', async () => {
+      Session.project = new Project('project-id', { name: 'Test Project' })
+      const dashboard = new Dashboard('test-dashboard', { customUrl: 'my-status' })
+      const bundler = await Bundler.create({ cacheHash: 'foo' })
+      const bundle = await dashboard.bundle(bundler)
+      expect(bundle.synthesize()).toMatchObject({
+        customUrl: 'my-status',
+        customDomain: null,
+        logo: '',
+        favicon: null,
+        link: null,
+        header: '',
+        description: null,
+      })
+    })
+
+    it('sends a null custom URL beside a custom domain', async () => {
+      Session.project = new Project('project-id', { name: 'Test Project' })
+      const dashboard = new Dashboard('test-dashboard', { customDomain: 'status.example.com', header: 'Status' })
+      const bundler = await Bundler.create({ cacheHash: 'foo' })
+      const bundle = await dashboard.bundle(bundler)
+      expect(bundle.synthesize()).toMatchObject({
+        customUrl: null,
+        customDomain: 'status.example.com',
+        header: 'Status',
+      })
+    })
+  })
 })
