@@ -52,8 +52,6 @@ export interface DashboardProps {
 
   /**
    * A URL pointing to an image file for the dashboard logo.
-   * Like every other text property of the dashboard, leaving it unset clears a
-   * value set in the Checkly web app on the next deploy.
    *
    * @example 'https://example.com/logo.png'
    */
@@ -343,8 +341,8 @@ export class Dashboard extends Construct {
   synthesize (): any | null {
     // The text properties are sent as their cleared value when unset (the
     // empty string where a new dashboard's row holds one, null elsewhere): a
-    // deploy updates only the keys it receives, so an omitted key would keep
-    // a value set from the web app.
+    // deploy writes only the keys the payload carries, so an omitted key would
+    // leave a stored value in place.
     return {
       tags: this.tags,
       customUrl: this.customUrl ?? null,

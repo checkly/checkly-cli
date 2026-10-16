@@ -44,7 +44,6 @@ export interface PrivateLocationProps {
   icon?: PrivateLocationIcon
   /**
    * Define a proxy for outgoing API check HTTP calls from your private location.
-   * Leaving it unset clears a proxy set in the Checkly web app on the next deploy.
    */
   proxyUrl?: string
 }
@@ -146,8 +145,8 @@ export class PrivateLocation extends Construct {
       name: this.name,
       slugName: this.slugName,
       icon: this.icon,
-      // Sent as null when unset: a deploy updates only the keys it receives,
-      // so an omitted key would keep a proxy set from the web app.
+      // Sent as null when unset: a deploy writes only the keys the payload
+      // carries, so an omitted key would leave a stored proxy in place.
       proxyUrl: this.proxyUrl ?? null,
     }
   }

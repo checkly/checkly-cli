@@ -169,8 +169,8 @@ export abstract class AlertChannel extends Construct {
 
   synthesize (): any | null {
     // Every flag is sent with its documented default when unset: a deploy
-    // updates only the keys it receives, so an omitted flag would keep a
-    // value set from the web app instead of the default the code implies.
+    // writes only the keys the payload carries, so an omitted flag would leave
+    // a stored value in place instead of the default the code implies.
     return {
       sendRecovery: this.sendRecovery ?? true,
       sendFailure: this.sendFailure ?? true,
