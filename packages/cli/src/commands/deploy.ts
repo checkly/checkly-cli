@@ -825,15 +825,23 @@ export default class Deploy extends AuthCommand {
         ].join('\n'))
       }
 
-      // Print the ping URL for heartbeat checks.
+      // Print the ping URL for heartbeat checks. Awaited, so that the lines are
+      // part of the run's output. The deploy has been written by now: a failed
+      // fetch is a warning about that one check, never a failed deploy.
       const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
-      const heartbeatCheckIds = data.diff.filter(check => heartbeatLogicalIds.includes(check.logicalId))
-        .map(check => check?.physicalId)
+      const heartbeatChecks = data.diff.filter(check => heartbeatLogicalIds.includes(check.logicalId))
 
-      heartbeatCheckIds.forEach(async id => {
-        const { data: { pingUrl, name } } = await api.heartbeatCheck.get(id as string)
-        this.log(`Ping URL of heartbeat check ${chalk.green(name)} is ${chalk.italic.underline.blue(pingUrl)}.`)
-      })
+      for (const { logicalId, physicalId } of heartbeatChecks) {
+        try {
+          const { data: { pingUrl, name } } = await api.heartbeatCheck.get(physicalId as string)
+          this.log(`Ping URL of heartbeat check ${chalk.green(name)} is ${chalk.italic.underline.blue(pingUrl)}.`)
+        } catch (err: any) {
+          this.style.longWarning(
+            `The project was deployed, but the ping URL of heartbeat check "${logicalId}" could not be retrieved.`,
+            err,
+          )
+        }
+      }
     } catch (err: any) {
       this.style.actionFailure()
       if (err instanceof ProjectPlanStaleError) {
