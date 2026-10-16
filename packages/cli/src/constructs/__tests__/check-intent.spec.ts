@@ -118,8 +118,8 @@ describe('check intent', () => {
       expect(playwright.synthesize()).toHaveProperty('intent', synthesizedCompleteIntent)
     })
 
-    it('omits undefined intent so deployments do not take ownership of existing intent', () => {
-      expect(apiCheck().synthesize()).not.toHaveProperty('intent')
+    it('synthesizes an unset intent as null, so a deploy owns the property', () => {
+      expect(apiCheck().synthesize()).toHaveProperty('intent', null)
     })
 
     it('synthesizes null to explicitly clear intent', () => {

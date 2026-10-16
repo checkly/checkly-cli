@@ -1023,6 +1023,82 @@ new CheckGroupV1('own', { name: 'Own', alertEscalationPolicy: AlertEscalationBui
     expect(WRITTEN_BY_CLASS.size).toBe(RULES_BY_CLASS.size)
   })
 
+  it('writes an intent set in Checkly as the construct spells it, and refuses it on a class that takes none', async () => {
+    await declare('intent.check.ts', `import { ApiCheck, HeartbeatMonitor } from 'checkly/constructs'
+new ApiCheck('api', { name: 'Api', request: { url: 'https://example.com', method: 'GET' } })
+new ApiCheck('goal', {
+  name: 'Goal',
+  intent: { goal: 'Old goal', constraints: [{ type: 'REQUIRED_OUTCOME', statement: 'Stays' }] },
+  request: { url: 'https://example.com', method: 'GET' },
+})
+new ApiCheck('bare', { name: 'Bare', request: { url: 'https://example.com', method: 'GET' } })
+new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: 'hours', grace: 30, graceUnit: 'minutes' })
+`, () => {
+      new ApiCheck('api', { name: 'Api', request: { url: 'https://example.com', method: 'GET' } })
+      new ApiCheck('goal', {
+        name: 'Goal',
+        intent: { goal: 'Old goal', constraints: [{ type: 'REQUIRED_OUTCOME', statement: 'Stays' }] },
+        request: { url: 'https://example.com', method: 'GET' },
+      })
+      new ApiCheck('bare', { name: 'Bare', request: { url: 'https://example.com', method: 'GET' } })
+      new HeartbeatMonitor('beat', { name: 'Beat', period: 1, periodUnit: 'hours', grace: 30, graceUnit: 'minutes' })
+    })
+    // The diff reports an intent as one value in the shape Checkly stores it
+    // (two outcome lists); the deployed resource in the import format spells
+    // the constraints as one list, grouped by type.
+    const stored = { goal: 'Log in and reach the dashboard', requiredOutcomes: ['the dashboard renders'], mustPreserve: ['the login assertion'] }
+    const imported = {
+      goal: stored.goal,
+      constraints: [
+        { type: 'REQUIRED_OUTCOME', statement: 'the dashboard renders' },
+        { type: 'MUST_PRESERVE', statement: 'the login assertion' },
+      ],
+    }
+    const check = (logicalId: string, checkType: string, changes: DiffEntry['changes'], before: object): DiffEntry =>
+      ({ type: 'check', logicalId, action: 'UPDATE', changes, before: { checkType, name: logicalId, ...before }, redactions: [] })
+    const plan = await planWriteBack({
+      diff: [
+        check('api', 'API', [{ path: '/intent', origin: 'remote', before: null, after: stored }], { intent: imported }),
+        // A goal edited in the web app arrives as the whole intent, and is written as the whole literal.
+        check('goal', 'API', [{
+          path: '/intent',
+          origin: 'remote',
+          before: { goal: 'Old goal', requiredOutcomes: ['Stays'], mustPreserve: [] },
+          after: { goal: 'New goal', requiredOutcomes: ['Stays'], mustPreserve: [] },
+        }], { intent: { goal: 'New goal', constraints: [{ type: 'REQUIRED_OUTCOME', statement: 'Stays' }] } }),
+        // A goal alone: the empty constraints list is left out, as the import codegen writes it.
+        check('bare', 'API', [{
+          path: '/intent', origin: 'remote', before: null, after: { goal: 'Only a goal', requiredOutcomes: [], mustPreserve: [] },
+        }], { intent: { goal: 'Only a goal', constraints: [] } }),
+        check('beat', 'HEARTBEAT', [{ path: '/intent', origin: 'remote', before: null, after: stored }], { intent: imported }),
+      ],
+      project,
+      cwd: dir,
+    })
+    expect(plan.skipped.map(describeSkip)).toEqual([
+      'check beat /intent: this construct takes no intent; the deploy clears the one Checkly holds',
+    ])
+    expect(plan.applied.map(line => [line.logicalId, line.property])).toEqual([
+      ['api', 'intent'], ['goal', 'intent'], ['bare', 'intent'],
+    ])
+    const [whole, goal, bare] = plan.applied.map(line => line.rendered)
+    expect(whole).toContain('goal: \'Log in and reach the dashboard\'')
+    expect(whole).toContain('type: \'REQUIRED_OUTCOME\'')
+    expect(whole).toContain('statement: \'the dashboard renders\'')
+    expect(whole).toContain('type: \'MUST_PRESERVE\'')
+    expect(whole).not.toContain('requiredOutcomes')
+    expect(goal).toContain('goal: \'New goal\'')
+    expect(goal).toContain('statement: \'Stays\'')
+    expect(bare).toContain('goal: \'Only a goal\'')
+    expect(bare).not.toContain('constraints')
+    await applyWriteBack(plan)
+    const written = await fs.readFile(path.join(dir, 'intent.check.ts'), 'utf8')
+    expect(written).toContain('the dashboard renders')
+    expect(written).toContain('New goal')
+    expect(written).not.toContain('Old goal')
+    expect(written).toContain('Only a goal')
+  })
+
   it('writes the literal props of browser and multistep checks, keeping a multi-line string a template', async () => {
     await declare('literal.check.ts', `import { BrowserCheck, MultiStepCheck } from 'checkly/constructs'
 new BrowserCheck('browser', { name: 'Browser', sslCheckDomain: 'example.com', code: { content: '' } })

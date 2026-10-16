@@ -27,10 +27,15 @@ const SHAPE_CHANGE_PATHS: ReadonlySet<string> = new Set([
 
 // Keys the construct used to leave out of the payload when unset and now
 // sends with its default or cleared value, so that a deploy resets what the
-// web app set. The first plan after the upgrade reports each as a
-// code-origin change from an absent leaf. A private location's proxy URL is
-// sensitive: the API reports its first null plainly only when the row holds
-// no proxy, so a proxy the deploy clears still renders as a secret change.
+// web app set. For a row that holds another value the API reports the first
+// plan after the upgrade as a change made in Checkly (it knows the value the
+// CLI sends for an unset property), which renders as a construct diff and is
+// offered for write-back, so the list is not consulted for it. It is for the
+// first plan of a resource the API compares with the deployed row alone (no
+// snapshot), where such a difference still arrives as a code-origin change
+// from an absent leaf. A private location's proxy URL is sensitive: the API
+// reports its first null plainly only when the row holds no proxy, so a
+// proxy the deploy clears still renders as a secret change.
 const SHAPE_CHANGE_PATHS_BY_TYPE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
   ['alert-channel', new Set(['/sendRecovery', '/sendFailure', '/sendDegraded', '/sslExpiry', '/sslExpiryThreshold'])],
   ['private-location', new Set(['/proxyUrl'])],

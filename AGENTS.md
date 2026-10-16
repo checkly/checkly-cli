@@ -37,6 +37,22 @@ If an older command does not follow this yet, do not spread the inconsistency to
 new commands. Either follow the canonical shape above or explain the deviation
 in the PR.
 
+## Construct Conventions
+
+- Every property of a construct is synthesized with an explicit value, the
+  default included: a property the code leaves unset is sent as its default
+  (`null`, `[]`, the documented default), never left out of the payload. A
+  deploy is a complete description of the resource, and a project destroyed
+  and deployed again must come back as it was. Do not make omission mean
+  "keep whatever the account holds", for any property, even deliberately: a
+  value set in the web app on a property the code does not set is drift, which
+  the deploy plan reports and offers to write back, not something the deploy
+  steps around. Relations assigned through their own resources (alert channel
+  subscriptions, private location assignments) are not properties of the
+  payload and are not meant here. If an existing construct still leaves a key
+  out on purpose, treat it as a defect to fix or ticket, and explain any
+  deviation a PR has to keep in the PR.
+
 ## Review Checklist for CLI Additions
 
 - Compare flag names, default limits, pagination behavior, JSON shape, and table

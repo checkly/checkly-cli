@@ -19,7 +19,7 @@ describe('automatic check repair', () => {
     Session.reset()
   })
 
-  it.each([true, false, null])('supports BrowserCheck ownership %j', aiAutoRepairEnabled => {
+  it.each([true, false, null])('sends a BrowserCheck setting of %j', aiAutoRepairEnabled => {
     const check = new BrowserCheck(`browser-${String(aiAutoRepairEnabled)}`, {
       name: 'Browser check',
       code: { content: 'console.log("browser")' },
@@ -30,7 +30,7 @@ describe('automatic check repair', () => {
     expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', aiAutoRepairEnabled)
   })
 
-  it.each([true, false, null])('supports MultiStepCheck ownership %j', aiAutoRepairEnabled => {
+  it.each([true, false, null])('sends a MultiStepCheck setting of %j', aiAutoRepairEnabled => {
     const check = new MultiStepCheck(`multi-step-${String(aiAutoRepairEnabled)}`, {
       name: 'MultiStep check',
       code: { content: 'console.log("multi-step")' },
@@ -41,18 +41,18 @@ describe('automatic check repair', () => {
     expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', aiAutoRepairEnabled)
   })
 
-  it('omits automatic repair when the construct does not take ownership', () => {
-    const browser = new BrowserCheck('browser-omitted', {
+  it('synthesizes an unset override as null (inherit the account setting), so a deploy owns the property', () => {
+    const browser = new BrowserCheck('browser-unset', {
       name: 'Browser check',
       code: { content: 'console.log("browser")' },
     })
-    const multiStep = new MultiStepCheck('multi-step-omitted', {
+    const multiStep = new MultiStepCheck('multi-step-unset', {
       name: 'MultiStep check',
       code: { content: 'console.log("multi-step")' },
     })
 
-    expect(browser.synthesize()).not.toHaveProperty('aiAutoRepairEnabled')
-    expect(multiStep.synthesize()).not.toHaveProperty('aiAutoRepairEnabled')
+    expect(browser.synthesize()).toHaveProperty('aiAutoRepairEnabled', null)
+    expect(multiStep.synthesize()).toHaveProperty('aiAutoRepairEnabled', null)
   })
 })
 
@@ -66,18 +66,14 @@ describe.each([['BrowserCheck', BrowserCheck], ['MultiStepCheck', MultiStepCheck
 
     afterEach(() => Session.reset())
 
-    it.each([true, false, null, undefined])('accepts %j and preserves its ownership state', async value => {
+    it.each([true, false, null, undefined])('accepts %j and sends it, an unset value as null', async value => {
       const check = new CheckClass('check', {
         name: 'Check', code: { content: 'console.log("check")' }, aiAutoRepairEnabled: value,
       })
       const diagnostics = new Diagnostics()
       await check.validate(diagnostics)
       expect(diagnostics.isFatal()).toBe(false)
-      if (value === undefined) {
-        expect(check.synthesize()).not.toHaveProperty('aiAutoRepairEnabled')
-      } else {
-        expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', value)
-      }
+      expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', value ?? null)
     })
 
     it.each(['false', 'true', 0, 1, {}, []])('rejects invalid JavaScript input %j before deploy', async value => {
@@ -93,7 +89,7 @@ describe.each([['BrowserCheck', BrowserCheck], ['MultiStepCheck', MultiStepCheck
       )
     })
 
-    it('validates reassignment and can relinquish ownership after an explicit override', async () => {
+    it('validates reassignment, and an override unset again is sent as null', async () => {
       const check = new CheckClass('check', { name: 'Check', code: { content: 'console.log("check")' } })
       check.aiAutoRepairEnabled = 'false' as unknown as boolean
       const diagnostics = new Diagnostics()
@@ -104,7 +100,7 @@ describe.each([['BrowserCheck', BrowserCheck], ['MultiStepCheck', MultiStepCheck
         expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', value)
       }
       check.aiAutoRepairEnabled = undefined
-      expect(check.synthesize()).not.toHaveProperty('aiAutoRepairEnabled')
+      expect(check.synthesize()).toHaveProperty('aiAutoRepairEnabled', null)
     })
   },
 )
