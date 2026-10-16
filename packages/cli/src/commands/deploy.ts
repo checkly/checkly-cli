@@ -825,15 +825,17 @@ export default class Deploy extends AuthCommand {
         ].join('\n'))
       }
 
-      // Print the ping URL for heartbeat checks.
+      // Print the ping URL for heartbeat checks. Awaited: a rejection from the
+      // fetch is the deploy command's to report like any other, not an
+      // unhandled one, and the line it prints is part of the run's output.
       const heartbeatLogicalIds = project.getHeartbeatLogicalIds()
       const heartbeatCheckIds = data.diff.filter(check => heartbeatLogicalIds.includes(check.logicalId))
         .map(check => check?.physicalId)
 
-      heartbeatCheckIds.forEach(async id => {
+      for (const id of heartbeatCheckIds) {
         const { data: { pingUrl, name } } = await api.heartbeatCheck.get(id as string)
         this.log(`Ping URL of heartbeat check ${chalk.green(name)} is ${chalk.italic.underline.blue(pingUrl)}.`)
-      })
+      }
     } catch (err: any) {
       this.style.actionFailure()
       if (err instanceof ProjectPlanStaleError) {
