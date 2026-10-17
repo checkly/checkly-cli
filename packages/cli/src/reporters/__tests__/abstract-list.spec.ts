@@ -116,17 +116,15 @@ describe('AbstractListReporter', () => {
     const { reporter, check } = makeReporterWithOneCheck(TEST_SESSION_ID)
 
     // onBegin: "Running N checks" and the live summary are progress.
-    expect(printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n'))
-      .toContain(`Running 1 checks in ${PUBLIC_RUN_LOCATION.region}`)
-    expect(printLnMock.mock.calls.map(([text]: [string]) => text).join('\n'))
-      .not.toContain(`Running 1 checks`)
+    expect(outputOf(printLnErrMock)).toContain(`Running 1 checks in ${PUBLIC_RUN_LOCATION.region}`)
+    expect(outputOf(printLnMock)).not.toContain(`Running 1 checks`)
 
     reporter.onCheckInProgress(check, SEQUENCE_ID)
     reporter.onCheckEnd(SEQUENCE_ID, makePassingResult())
     reporter.onEnd()
 
-    const stderr = printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n')
-    const stdout = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+    const stderr = outputOf(printLnErrMock)
+    const stdout = outputOf(printLnMock)
 
     // Progress: live summaries (with the check title) stay on stderr.
     expect(stderr).toContain('My API Check')
@@ -156,21 +154,51 @@ describe('AbstractListReporter', () => {
     })
   })
 
+  it('should not register erase codes for a final summary on stdout, even with a TTY stderr', () => {
+    withTty(process.stderr, true, () => {
+      const { reporter } = makeReporterWithOneCheck()
+      // Erase the live summary that onBegin drew; erase codes pair only with
+      // live summaries, so the final stdout summary must not register new ones.
+      reporter._clearSummary()
+
+      reporter._printSummary()
+
+      expect(reporter._clearString).toBe('')
+    })
+  })
+
+  it('should redraw the cancellation summary on stderr when stderr is a TTY', () => {
+    withTty(process.stderr, true, () => {
+      const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
+      printLnMock.mockClear()
+      printLnErrMock.mockClear()
+
+      reporter.onCancel()
+
+      // The run is still winding down: the cancel notice is a live redraw, and
+      // the final (cancelled) summary arrives later via onEnd on stdout.
+      expect(outputOf(printLnErrMock)).toContain('Cancelling checks')
+      expect(printLnMock).not.toHaveBeenCalled()
+      expect(reporter._clearString).not.toBe('')
+    })
+  })
+
   it('should include cancellation message with --detach hint after onCancel', () => {
-    const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
+    withTty(process.stderr, false, () => {
+      const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
 
-    reporter.onCancel()
+      reporter.onCancel()
 
-    const calls = printLnMock.mock.calls.map(([text]: [string]) => text)
-    const summary = calls.join('\n')
-    expect(summary).toContain('Cancelling checks')
-    expect(summary).toContain('--detach')
-    expect(summary).toContain(`Test session ID: ${TEST_SESSION_ID}`)
-    expect(summary).toContain(`Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)
-    expect(summary).toContain(`Open session: ${TEST_SESSION_URL}`)
-    expect(countOccurrences(summary, `Test session ID: ${TEST_SESSION_ID}`)).toBe(1)
-    expect(countOccurrences(summary, `Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)).toBe(1)
-    expect(countOccurrences(summary, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
+      const summary = outputOf(printLnMock)
+      expect(summary).toContain('Cancelling checks')
+      expect(summary).toContain('--detach')
+      expect(summary).toContain(`Test session ID: ${TEST_SESSION_ID}`)
+      expect(summary).toContain(`Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)
+      expect(summary).toContain(`Open session: ${TEST_SESSION_URL}`)
+      expect(countOccurrences(summary, `Test session ID: ${TEST_SESSION_ID}`)).toBe(1)
+      expect(countOccurrences(summary, `Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)).toBe(1)
+      expect(countOccurrences(summary, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
+    })
   })
 
   it('should include detach message after onDetach', () => {

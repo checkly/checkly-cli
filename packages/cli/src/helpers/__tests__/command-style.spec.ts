@@ -60,8 +60,10 @@ describe('CommandStyle.longError', () => {
 })
 
 describe('CommandStyle output streams', () => {
-  const startSpy = vi.spyOn(ux.action, 'start')
-  const stopSpy = vi.spyOn(ux.action, 'stop')
+  // Mocked implementations: a real oclif spinner would write to the test
+  // runner's stderr.
+  const startSpy = vi.spyOn(ux.action, 'start').mockImplementation(() => {})
+  const stopSpy = vi.spyOn(ux.action, 'stop').mockImplementation(() => {})
 
   afterEach(() => {
     startSpy.mockClear()
