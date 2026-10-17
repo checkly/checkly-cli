@@ -1,9 +1,11 @@
+import { Errors } from '@oclif/core'
 import logSymbols from 'log-symbols'
 
 export function makeOnCancel (log: (msg: string) => void) {
   return () => {
     log('\nSetup cancelled. Run npx checkly init anytime to try again.')
-    process.exit(0)
+    // Unlike process.exit(), oclif unwinds this into a clean exit that flushes output.
+    throw new Errors.ExitError(0)
   }
 }
 

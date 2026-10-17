@@ -1,5 +1,4 @@
 import { Flags } from '@oclif/core'
-import { isCI } from 'ci-info'
 
 import * as api from '../rest/api.js'
 import { AuthCommand } from './authCommand.js'
@@ -22,7 +21,7 @@ import { printLn } from '../reporters/util.js'
 import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Session, RetryStrategyBuilder } from '../constructs/index.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
-import { validateDetachReporterTypes } from '../helpers/test-helper.js'
+import { prepareReportersTypes, validateDetachReporterTypes } from '../helpers/test-helper.js'
 import { registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 const MAX_RETRIES = 3
@@ -159,7 +158,7 @@ export default class Trigger extends AuthCommand {
       privateRunLocation,
     })
     const verbose = this.prepareVerboseFlag(verboseFlag, checklyConfig?.cli?.verbose)
-    const reporterTypes = this.prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig?.cli?.reporters)
+    const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig?.cli?.reporters)
     if (detach) {
       validateDetachReporterTypes(reporterTypes)
     }
@@ -214,7 +213,6 @@ export default class Trigger extends AuthCommand {
     )
     runner.on(Events.ERROR, err => {
       if (err instanceof NoMatchingChecksError) {
-        // For consistency with `checkly test`, we log a message and exit with code 0.
         this.log('No matching checks were found.')
         if (failOnNoMatching) {
           process.exitCode = 1
@@ -272,13 +270,6 @@ export default class Trigger extends AuthCommand {
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {
     return verboseFlag ?? cliVerboseFlag ?? false
-  }
-
-  prepareReportersTypes (reporterFlag: ReporterType[] | undefined, cliReporters: ReporterType[] = []): ReporterType[] {
-    if (!reporterFlag?.length && !cliReporters.length) {
-      return [isCI ? 'ci' : 'list']
-    }
-    return reporterFlag?.length ? reporterFlag : cliReporters
   }
 
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {

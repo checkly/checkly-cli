@@ -1,5 +1,9 @@
-import { afterEach, describe, it, expect, beforeEach } from 'vitest'
+import { afterEach, describe, it, expect, beforeEach, vi } from 'vitest'
 import { detectOperator } from '../../helpers/cli-mode.js'
+
+// ci-info reads the environment once at import, so without this the suite
+// would see the CI that runs it rather than the environment each test sets up.
+vi.mock('ci-info', () => ({ isCI: false, name: null }))
 
 describe('detectOperator', () => {
   const envVarsToClean = [

@@ -108,6 +108,18 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     let socketClient = null
     let sigintHandler: (() => void) | null = null
     let previousSigintListeners: Array<(...args: any[]) => void> = []
+    // Puts back the SIGINT listeners that were in place before the run.
+    const restoreSigintListeners = () => {
+      if (!sigintHandler) {
+        return
+      }
+      process.off('SIGINT', sigintHandler)
+      sigintHandler = null
+      for (const listener of previousSigintListeners) {
+        process.on('SIGINT', listener)
+      }
+      previousSigintListeners = []
+    }
     const schedulingWatchAbort = new AbortController()
     try {
       const checkRunSuiteId = uuid.v4()
@@ -143,7 +155,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Remove pre-existing SIGINT listeners (e.g. from `when-exit`, a transitive
       // dependency via conf → atomically) that would re-raise the signal and
       // terminate the process — especially on Windows where process.kill(pid, 'SIGINT')
-      // is a hard kill. The listeners are restored in the finally block.
+      // is a hard kill. `restoreSigintListeners` puts them back.
       previousSigintListeners = process.rawListeners('SIGINT') as Array<(...args: any[]) => void>
       process.removeAllListeners('SIGINT')
 
@@ -157,7 +169,11 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         lastSigintAt = now
 
         if (hasCancelled) {
-          process.exit(1)
+          // Second Ctrl+C: re-raise SIGINT to the listeners from before the run
+          // (or Node's default), so they get to clean up. On Windows this
+          // terminates the process immediately, without running any handlers.
+          restoreSigintListeners()
+          process.kill(process.pid, 'SIGINT')
         } else {
           hasCancelled = true
           this.emit(Events.CANCEL, testSessionId)
@@ -202,12 +218,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Stop any in-flight scheduling long-poll so it doesn't hold the
       // process open after the run has settled.
       schedulingWatchAbort.abort()
-      if (sigintHandler) {
-        process.off('SIGINT', sigintHandler)
-        for (const listener of previousSigintListeners) {
-          process.on('SIGINT', listener)
-        }
-      }
+      restoreSigintListeners()
       if (socketClient) {
         await socketClient.endAsync()
       }
