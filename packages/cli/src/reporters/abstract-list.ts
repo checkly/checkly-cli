@@ -152,8 +152,11 @@ export default abstract class AbstractListReporter implements Reporter {
   onCancel (): void {
     this._isCancelling = true
     if (this._shouldRenderLiveSummary()) {
+      // Cancelling is not the end of the run: the cancelled results and the
+      // final summary (onEnd, on stdout) still arrive, so this is a live
+      // redraw and belongs on stderr like every other redraw.
       this._clearSummary()
-      this._printSummary()
+      this._printSummary({ stream: 'stderr' })
       return
     }
     this._printSummary({ includeCheckTitles: false })
@@ -269,7 +272,10 @@ export default abstract class AbstractListReporter implements Reporter {
 
     const statusString = status.join('\n')
     write(statusString)
-    if (this._shouldRenderLiveSummary()) {
+    // Only a live summary on stderr joins the redraw loop: a final summary on
+    // stdout may go to a pipe, so erase codes registered for it would wipe
+    // unrelated lines from the terminal.
+    if (opts.stream === 'stderr' && this._shouldRenderLiveSummary()) {
       // Ansi escape code for erasing the line and moving the cursor up.
       this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
     }
@@ -303,12 +309,9 @@ export default abstract class AbstractListReporter implements Reporter {
       `${this.numChecks} total`,
     ].filter(Boolean).join(', '))
     status.push('')
-    const statusString = status.join('\n')
-    printLn(statusString)
-    if (this._shouldRenderLiveSummary()) {
-      // Ansi escape code for erasing the line and moving the cursor up.
-      this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
-    }
+    // The brief summary is final output on stdout (onEnd), so it never joins
+    // the redraw loop and must not register erase codes.
+    printLn(status.join('\n'))
   }
 
   // Checks that fail with a run error (e.g. the CLI timing out while waiting for a result)
