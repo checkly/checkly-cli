@@ -161,13 +161,14 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     expect(cancelEvents[0]).toBe('ts-cancel')
   })
 
-  it('calls process.exit(1) on second SIGINT after cancellation', async () => {
+  it('re-raises SIGINT on the second one after cancellation', async () => {
     let sigintHandler: (() => void) | undefined
     vi.spyOn(process, 'on').mockImplementation((event: string | symbol, listener: any) => {
       if (event === 'SIGINT') sigintHandler = listener
       return process
     })
     vi.spyOn(process, 'off').mockReturnValue(process)
+    const killSpy = vi.spyOn(process, 'kill').mockReturnValue(true)
     const exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
 
     const runner = makeRunner(false)
@@ -178,7 +179,9 @@ describe('AbstractCheckRunner — SIGINT / cancellation', () => {
     await new Promise(resolve => setTimeout(resolve, 110))
 
     sigintHandler?.()
-    expect(exitSpy).toHaveBeenCalledWith(1)
+
+    expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGINT')
+    expect(exitSpy).not.toHaveBeenCalled()
   })
 
   it('debounces duplicate SIGINTs delivered within 100ms', async () => {

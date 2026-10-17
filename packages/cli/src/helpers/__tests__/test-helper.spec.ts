@@ -1,7 +1,13 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { prepareReportersTypes, validateDetachReporterTypes } from '../test-helper.js'
+import type { CliMode } from '../cli-mode.js'
 
-vi.mock('ci-info', () => ({ isCI: false }))
+const cliMode = vi.hoisted(() => ({ value: 'interactive' as CliMode }))
+vi.mock('../cli-mode.js', () => ({ detectCliMode: () => cliMode.value }))
+
+afterEach(() => {
+  cliMode.value = 'interactive'
+})
 
 describe('prepareReportersTypes', () => {
   it('returns list reporter by default', () => {
@@ -12,6 +18,21 @@ describe('prepareReportersTypes', () => {
   it('returns list reporter when flag is empty', () => {
     const result = prepareReportersTypes([], [])
     expect(result).toEqual(['list'])
+  })
+
+  it('returns the ci reporter by default in CI', () => {
+    cliMode.value = 'ci'
+    expect(prepareReportersTypes(undefined, [])).toEqual(['ci'])
+  })
+
+  it('returns the ci reporter by default for an agent', () => {
+    cliMode.value = 'agent'
+    expect(prepareReportersTypes(undefined, [])).toEqual(['ci'])
+  })
+
+  it('still honours an explicit reporter in CI', () => {
+    cliMode.value = 'ci'
+    expect(prepareReportersTypes(['list'], [])).toEqual(['list'])
   })
 
   it('returns a single reporter when one flag is passed', () => {
