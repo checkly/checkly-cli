@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs'
+import { isCI } from 'ci-info'
 
 export type CliMode = 'interactive' | 'ci' | 'agent'
 
@@ -99,7 +100,9 @@ export function detectOperator (fileExists: (path: string) => boolean = existsSy
   // CI wins over broad IDE/workspace signals; strong agent signals above still win over CI.
   if (process.env.GITHUB_ACTIONS) return 'github-actions'
   if (process.env.GITLAB_CI) return 'gitlab-ci'
-  if (process.env.CI) return 'ci'
+  // ci-info also knows vendors that set no CI variable (Jenkins, TeamCity, ...), but
+  // reads the environment only at import, so CI is still read live as well.
+  if (isCI || isEnvFlagSet(process.env.CI)) return 'ci'
 
   if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
   if (process.env.TERM_PROGRAM === 'kiro') return 'kiro'

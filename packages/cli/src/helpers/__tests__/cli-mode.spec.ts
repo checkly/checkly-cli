@@ -1,5 +1,10 @@
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { canLogInInline, isPersonAtTerminal, detectOperator, detectCliMode, platformForOperator } from '../cli-mode.js'
+
+// ci-info reads the environment once at import, so the suite would otherwise
+// see the CI that runs it rather than the environment each test sets up.
+const ciInfo = vi.hoisted(() => ({ isCI: false }))
+vi.mock('ci-info', () => ciInfo)
 
 const operatorEnvVars = [
   'AI_AGENT', 'AGENT', 'CLAUDECODE', 'CLAUDE_CODE', 'CLAUDE_CODE_IS_COWORK',
@@ -18,6 +23,7 @@ const noAgentFiles = () => false
 
 beforeEach(() => {
   for (const key of operatorEnvVars) delete process.env[key]
+  ciInfo.isCI = false
 })
 
 afterEach(() => {
@@ -199,6 +205,16 @@ describe('detectOperator', () => {
   it('detects generic CI', () => {
     process.env.CI = 'true'
     expect(detectOperator(noAgentFiles)).toBe('ci')
+  })
+
+  it('detects a CI vendor that sets no CI variable', () => {
+    ciInfo.isCI = true
+    expect(detectOperator(noAgentFiles)).toBe('ci')
+  })
+
+  it('does not detect CI when CI is explicitly disabled', () => {
+    process.env.CI = 'false'
+    expect(detectOperator(noAgentFiles)).toBe('manual')
   })
 
   it('prioritizes Cline over VS Code (Cline is a VS Code extension)', () => {

@@ -2,7 +2,7 @@ import { PrivateRunLocation, RunLocation } from '../services/abstract-check-runn
 import { Session } from '../constructs/index.js'
 import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
-import { isCI } from 'ci-info'
+import { detectCliMode } from './cli-mode.js'
 import { DEFAULT_REGION } from './constants.js'
 
 const unsupportedDetachedReporterTypes: ReporterType[] = ['json', 'github']
@@ -59,7 +59,8 @@ export function prepareReportersTypes (
   cliReporters: ReporterType[] = [],
 ): ReporterType[] {
   if (!reporterFlag?.length && !cliReporters.length) {
-    return [isCI ? 'ci' : 'list']
+    // The list reporter redraws with ANSI escapes; CI logs and agents get the append-only one.
+    return [detectCliMode() === 'interactive' ? 'list' : 'ci']
   }
   return reporterFlag?.length ? reporterFlag : cliReporters
 }
