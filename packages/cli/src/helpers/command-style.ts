@@ -27,7 +27,9 @@ export class CommandStyle {
 
   actionStart (message: string) {
     if (this.c.fancy) {
-      ux.action.start(message, undefined, { stdout: true })
+      // No `{ stdout: true }`: oclif renders the spinner on stderr by default,
+      // which keeps stdout reserved for command output.
+      ux.action.start(message)
     }
   }
 
@@ -40,14 +42,14 @@ export class CommandStyle {
   actionSuccess () {
     if (this.c.fancy) {
       ux.action.stop(`✅`)
-      this.c.log()
+      this.c.logToStderr()
     }
   }
 
   actionFailure () {
     if (this.c.fancy) {
       ux.action.stop(`❌`)
-      this.c.log()
+      this.c.logToStderr()
     }
   }
 
@@ -81,15 +83,17 @@ export class CommandStyle {
   }
 
   longWarning (title: string, message: string | Error) {
-    this.c.log(`${logSymbols.warning} ${title}`)
-    this.c.log()
-    this.c.log(chalk.yellow(this.#formatDescription(message)))
-    this.c.log()
+    // Warnings are never the command's result: they go to stderr so they
+    // cannot pollute machine-readable stdout.
+    this.c.logToStderr(`${logSymbols.warning} ${title}`)
+    this.c.logToStderr()
+    this.c.logToStderr(chalk.yellow(this.#formatDescription(message)))
+    this.c.logToStderr()
   }
 
   shortWarning (message: string) {
-    this.c.log(`${logSymbols.warning} ${chalk.yellow(message)}`)
-    this.c.log()
+    this.c.logToStderr(`${logSymbols.warning} ${chalk.yellow(message)}`)
+    this.c.logToStderr()
   }
 
   longError (title: string, message: string | Error) {

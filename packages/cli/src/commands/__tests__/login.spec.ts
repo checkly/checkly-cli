@@ -1238,14 +1238,14 @@ describe('checkly login', () => {
         const cmd = createCommand()
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-        expect(ux.action.start).toHaveBeenCalledWith('Waiting for you to finish in the browser', undefined, { stdout: true })
+        expect(ux.action.start).toHaveBeenCalledWith('Waiting for you to finish in the browser')
         expect(ux.action.stop).toHaveBeenCalledWith('✅')
         expect(loggedLines(cmd)).not.toContain('Waiting for you to finish in the browser…')
-        // The spinner line itself is drawn by oclif, between the two empty
-        // lines; actionSuccess's empty line separates the result, no second one.
+        // The spinner and its trailing empty line are drawn by oclif on
+        // stderr, so stdout carries only the result lines; actionSuccess's
+        // empty line separates the result on the terminal, not on stdout.
         expect(loggedLines(cmd)).toEqual([
           'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
-          '',
           '',
           'Logged in as Ada Lovelace to Acme.',
           '',
@@ -1265,7 +1265,7 @@ describe('checkly login', () => {
         expect(lines[lines.indexOf('Logged in as Ada Lovelace to Globex.') - 1]).toBe('')
       })
 
-      it('keeps a login another command started off the spinner, which writes to stdout', async () => {
+      it('keeps a login another command started off the spinner, which writes to stderr', async () => {
         const cmd = createCommand()
         await expect(cmd.login({ inline: true })).resolves.toBe(true)
 
