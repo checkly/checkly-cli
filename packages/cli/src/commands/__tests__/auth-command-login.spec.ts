@@ -4,7 +4,7 @@ vi.mock('../../rest/api', () => ({
   validateAuthentication: vi.fn(),
 }))
 vi.mock('../../services/config', () => ({
-  default: { hasValidCredentials: vi.fn(), getCredentialSource: vi.fn() },
+  default: { hasValidCredentials: vi.fn(), getCredentialSource: vi.fn(), pinEnvironment: vi.fn() },
 }))
 vi.mock('../../helpers/cli-mode', async importOriginal => ({
   ...await importOriginal<typeof import('../../helpers/cli-mode.js')>(),
@@ -283,5 +283,26 @@ describe('AuthCommand.catch', () => {
     await cmd.init()
 
     await expect((cmd as any).catch(new Error('Boom'))).rejects.toThrow(/^Boom$/)
+  })
+})
+
+describe('AuthCommand.init credential pinning', () => {
+  it('pins the credential variables once authentication has passed', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    vi.mocked(api.validateAuthentication).mockImplementationOnce(() => {
+      expect(config.pinEnvironment).not.toHaveBeenCalled()
+      return Promise.resolve({ id: 'acc-1', name: 'Acme', features: [] } as any)
+    })
+
+    await createCommand().init()
+    expect(config.pinEnvironment).toHaveBeenCalledTimes(1)
+  })
+
+  it('pins nothing when authentication fails', async () => {
+    vi.mocked(config.hasValidCredentials).mockReturnValue(true)
+    vi.mocked(api.validateAuthentication).mockRejectedValueOnce(new Error('Authentication failed'))
+
+    await expect(createCommand().init()).rejects.toThrow('Authentication failed')
+    expect(config.pinEnvironment).not.toHaveBeenCalled()
   })
 })

@@ -5,7 +5,7 @@ vi.mock('../../rest/api', () => ({
 }))
 // Stored credentials exist, so init never needs the inline login flow here.
 vi.mock('../../services/config', () => ({
-  default: { hasValidCredentials: () => true },
+  default: { hasValidCredentials: () => true, pinEnvironment: vi.fn() },
 }))
 
 import * as api from '../../rest/api.js'

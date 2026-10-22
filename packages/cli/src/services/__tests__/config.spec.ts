@@ -94,4 +94,104 @@ describe('config', () => {
       expect(config.getCredentialSource()).toBe('login')
     })
   })
+
+  describe('pinEnvironment', () => {
+    // A fresh module per test, so a pin never leaks into other tests.
+    async function freshConfig (store: { apiKey?: string, accountId?: string } = {}) {
+      vi.resetModules()
+      const { default: fresh } = await import('../config.js')
+      vi.spyOn(fresh, 'auth', 'get').mockReturnValue({ get: () => store.apiKey } as any)
+      vi.spyOn(fresh, 'data', 'get').mockReturnValue({ get: (key: string) => (store as any)[key] } as any)
+      return fresh
+    }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.restoreAllMocks()
+    })
+
+    it('keeps the credential variables from the time of pinning', async () => {
+      const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-1')
+      const fresh = await freshConfig()
+      fresh.pinEnvironment()
+
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_other')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      expect(fresh.getApiKey()).toBe('cu_env')
+      expect(fresh.getAccountId()).toBe('acc-1')
+      expect(fresh.getCredentialSource()).toBe('environment')
+
+      delete process.env.CHECKLY_API_KEY
+      delete process.env.CHECKLY_ACCOUNT_ID
+      expect(fresh.getApiKey()).toBe('cu_env')
+      expect(fresh.getAccountId()).toBe('acc-1')
+      expect(fresh.getCredentialSource()).toBe('environment')
+      expect(stderr).toHaveBeenCalledTimes(2)
+    })
+
+    it('keeps variables unset at the time of pinning unset, while stored values stay live', async () => {
+      const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+      delete process.env.CHECKLY_API_KEY
+      delete process.env.CHECKLY_ACCOUNT_ID
+      const store: { apiKey?: string, accountId?: string } = { apiKey: 'cak_login', accountId: 'acc-1' }
+      const fresh = await freshConfig(store)
+      fresh.pinEnvironment()
+
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      expect(fresh.getCredentialSource()).toBe('login')
+      expect(fresh.getApiKey()).toBe('cak_login')
+      expect(fresh.getAccountId()).toBe('acc-1')
+
+      // `checkly switch` stores a new default during the run.
+      store.accountId = 'acc-3'
+      expect(fresh.getAccountId()).toBe('acc-3')
+
+      const warnings = stderr.mock.calls.map(([message]) => String(message))
+      expect(warnings).toHaveLength(2)
+      expect(warnings.some(w => w.includes('`CHECKLY_ACCOUNT_ID` changed') && w.includes('"acc-1"'))).toBe(true)
+      expect(warnings.some(w => w.includes('`CHECKLY_API_KEY` changed'))).toBe(true)
+      expect(warnings.join('')).not.toContain('cu_env')
+      expect(warnings.join('')).not.toContain('cak_login')
+    })
+
+    it('keeps API requests on the pinned credentials and endpoint', async () => {
+      vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-1')
+      vi.stubEnv('CHECKLY_ENV', 'production')
+      const fresh = await freshConfig()
+      const { getDefaults } = await import('../../rest/api.js')
+      fresh.pinEnvironment()
+
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_other')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      vi.stubEnv('CHECKLY_ENV', 'local')
+      vi.stubEnv('CHECKLY_API_URL', 'http://127.0.0.1:4000')
+      vi.stubEnv('CHECKLY_MQTT_URL', 'ws://127.0.0.1:4001')
+      expect(getDefaults()).toMatchObject({
+        accountId: 'acc-1',
+        Authorization: 'Bearer cu_env',
+        baseURL: 'https://api.checklyhq.com',
+      })
+      expect(fresh.getMqttUrl()).toBe('wss://events.checklyhq.com')
+    })
+
+    it('does not warn while the variables are unchanged', async () => {
+      const stderr = vi.spyOn(process.stderr, 'write').mockReturnValue(true)
+      vi.stubEnv('CHECKLY_API_KEY', '')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-1')
+      const fresh = await freshConfig({ apiKey: 'cak_login' })
+      fresh.pinEnvironment()
+
+      // An empty value counts as unset, as it does before pinning.
+      delete process.env.CHECKLY_API_KEY
+      expect(fresh.getApiKey()).toBe('cak_login')
+      expect(fresh.getAccountId()).toBe('acc-1')
+      expect(fresh.getCredentialSource()).toBe('account_override')
+      expect(stderr).not.toHaveBeenCalled()
+    })
+  })
 })
