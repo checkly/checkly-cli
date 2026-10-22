@@ -52,6 +52,9 @@ export default defineConfig([
     '**/syntax-error*',
     'examples/*',
     'benchmarks/*',
+    // Scratch space for agents (benchmarks, screenshots, attachments);
+    // gitignored and not part of any package.
+    '**/.context/',
     '**/*fixtures/',
   ]),
   {

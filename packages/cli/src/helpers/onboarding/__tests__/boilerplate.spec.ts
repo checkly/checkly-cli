@@ -7,6 +7,12 @@ vi.mock('fs', () => ({
   cpSync: vi.fn(),
 }))
 
+// boilerplate.ts resolves its template locations from package-root, which
+// needs the real fs; this spec replaces fs wholesale, so pin the root too.
+vi.mock('../../../services/package-root.js', () => ({
+  packageRoot: vi.fn(() => '/checkly-package-root'),
+}))
+
 vi.mock('child_process', () => ({
   execSync: vi.fn(),
 }))

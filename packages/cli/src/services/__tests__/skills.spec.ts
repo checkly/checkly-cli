@@ -10,6 +10,12 @@ vi.mock('fs', () => ({
   existsSync: vi.fn(),
 }))
 
+// skills.ts resolves its file locations from package-root, which needs the
+// real fs; this spec replaces fs wholesale, so pin the root too.
+vi.mock('../package-root.js', () => ({
+  packageRoot: vi.fn(() => '/checkly-package-root'),
+}))
+
 import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join } from 'path'

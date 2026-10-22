@@ -29,4 +29,18 @@ if (!skipRequested && isCheckableNodeRuntime && belowMinimumVersion(currentVersi
   process.exit(1)
 }
 
+// Cache V8 bytecode for the CLI bundle across runs (Node >= 22.8), so warm
+// runs skip re-parsing the bundle entirely. Best effort: a no-op when the
+// runtime does not provide it or the cache directory is not writable.
+// Old-syntax only (var, no optional chaining): like the rest of this file,
+// it must parse on runtimes old enough to need the version message above.
+/* eslint-disable no-var */
+try {
+  var nodeModule = require('node:module')
+  if (nodeModule && typeof nodeModule.enableCompileCache === 'function') {
+    nodeModule.enableCompileCache()
+  }
+// eslint-disable-next-line no-empty
+} catch (err) {} /* eslint-enable no-var */
+
 require('./launch.cjs')
