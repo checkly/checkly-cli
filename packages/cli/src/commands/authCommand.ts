@@ -100,6 +100,7 @@ export abstract class AuthCommand extends BaseCommand {
     await super.init()
     this.loggedInInline = await loginInlineIfNeeded(this)
     this.#account = await api.validateAuthentication()
+    config.pinEnvironment()
     // Constructs validate against account-specific limits and have no access to
     // the command instance.
     Session.accountFeatures = this.#account?.features ?? []

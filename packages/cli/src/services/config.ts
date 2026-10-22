@@ -24,9 +24,18 @@ enum Env {
 
 export type CredentialSource = 'login' | 'account_override' | 'environment'
 
+// What `pinEnvironment()` freezes: the credentials and the endpoints they are sent to.
+const PINNED_VARIABLES = [
+  'CHECKLY_API_KEY', 'CHECKLY_ACCOUNT_ID', 'CHECKLY_ENV', 'CHECKLY_API_URL', 'CHECKLY_MQTT_URL',
+] as const
+type PinnedVariable = typeof PINNED_VARIABLES[number]
+type PinnedEnv = Record<PinnedVariable, string | undefined>
+
 class ChecklyConfig {
   private _auth?: Conf<{ apiKey: unknown, pendingDeviceAuthorization: unknown }>
   private _data?: Conf<{ accountId: unknown, accountName: unknown }>
+  private pinnedEnv?: PinnedEnv
+  private warnedEnv = new Set<PinnedVariable>()
 
   // Accessing auth or data will cause a config file to be created.
   // We should avoid doing this unless absolutely necessary, since this operation can fail due to file permissions.
@@ -59,7 +68,7 @@ class ChecklyConfig {
 
   getEnv (): Env {
     const environments = ['production', 'development', 'staging', 'local']
-    const env = process.env.CHECKLY_ENV as string || environments[0] as string
+    const env = this.env('CHECKLY_ENV') || environments[0] as string
 
     if (!(env in Env)) {
       throw new Error('Invalid CHECKLY_ENV')
@@ -68,12 +77,48 @@ class ChecklyConfig {
     return env as Env
   }
 
+  /**
+   * Freezes the variables that decide which credentials the CLI sends and
+   * where it sends them, at their current values for the rest of the run.
+   * Commands call this once authentication has passed, before they load user
+   * code: check files and Playwright configs run in the CLI's process, and one
+   * that loads another .env file (e.g. `dotenv.config({ override: true })`)
+   * would otherwise switch the key or account of every later request, or send
+   * the authenticated key to another host. A variable unset at this point
+   * stays unset. Stored credentials are unaffected; only the CLI changes them.
+   */
+  pinEnvironment (): void {
+    this.pinnedEnv = Object.fromEntries(PINNED_VARIABLES.map(name => [name, process.env[name]])) as PinnedEnv
+    this.warnedEnv.clear()
+  }
+
+  /** A pinned variable's value: the value at pinning once pinned, warning once if it has changed since. */
+  private env (name: PinnedVariable): string | undefined {
+    if (this.pinnedEnv === undefined) {
+      return process.env[name]
+    }
+    const pinned = this.pinnedEnv[name]
+    if ((process.env[name] || undefined) !== (pinned || undefined) && !this.warnedEnv.has(name)) {
+      this.warnedEnv.add(name)
+      // Never the key itself, and not a URL either: it may carry credentials.
+      const account = name === 'CHECKLY_ACCOUNT_ID' && (pinned || this.getStoredAccountId())
+      const kept = name === 'CHECKLY_API_KEY'
+        ? 'the API key it authenticated with'
+        : account ? `account "${account}"` : 'the value it authenticated with'
+      process.stderr.write(`Warning: \`${name}\` changed after the CLI authenticated (for example, a config file `
+        + `loaded another .env file). The CLI keeps using ${kept} for this run. To use another value, set it `
+        + 'before the CLI starts: on the command line, in your shell, or in the .env file of the directory you run '
+        + 'the CLI from (a value set in the shell takes precedence over .env).\n')
+    }
+    return pinned
+  }
+
   getApiKey (): string {
-    return process.env.CHECKLY_API_KEY || this.auth.get<string>('apiKey') as string || ''
+    return this.env('CHECKLY_API_KEY') || this.auth.get<string>('apiKey') as string || ''
   }
 
   getAccountId (): string {
-    return process.env.CHECKLY_ACCOUNT_ID || this.getStoredAccountId()
+    return this.env('CHECKLY_ACCOUNT_ID') || this.getStoredAccountId()
   }
 
   /** The account `checkly login` stored as the default, ignoring the environment. */
@@ -105,15 +150,15 @@ class ChecklyConfig {
    * - `login`: neither is set; the stored key and default account apply.
    */
   getCredentialSource (): CredentialSource {
-    if (process.env.CHECKLY_API_KEY) {
+    if (this.env('CHECKLY_API_KEY')) {
       return 'environment'
     }
-    return process.env.CHECKLY_ACCOUNT_ID ? 'account_override' : 'login'
+    return this.env('CHECKLY_ACCOUNT_ID') ? 'account_override' : 'login'
   }
 
   getApiUrl (): string {
     const environments = {
-      local: process.env.CHECKLY_API_URL || 'http://127.0.0.1:3000',
+      local: this.env('CHECKLY_API_URL') || 'http://127.0.0.1:3000',
       development: 'https://api-dev.checklyhq.com',
       staging: 'https://api-test.checklyhq.com',
       production: 'https://api.checklyhq.com',
@@ -137,7 +182,7 @@ class ChecklyConfig {
     const environments = {
       // Overridable for local development setups whose event stream is served
       // from a different broker, mirroring how CHECKLY_API_URL overrides the API.
-      local: process.env.CHECKLY_MQTT_URL || 'wss://events-local.checklyhq.com',
+      local: this.env('CHECKLY_MQTT_URL') || 'wss://events-local.checklyhq.com',
       development: 'wss://events-dev.checklyhq.com',
       staging: 'wss://events-test.checklyhq.com',
       production: 'wss://events.checklyhq.com',
