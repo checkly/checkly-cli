@@ -217,6 +217,28 @@ describe('detectOperator', () => {
     expect(detectOperator(noAgentFiles)).toBe('manual')
   })
 
+  it.each([
+    { key: 'GITHUB_ACTIONS', value: 'true' },
+    { key: 'GITLAB_CI', value: 'true' },
+  ])('lets an explicit CI=false override $key', ({ key, value }) => {
+    process.env[key] = value
+    process.env.CI = 'false'
+    expect(detectOperator(noAgentFiles)).toBe('manual')
+    expect(detectCliMode(noAgentFiles)).toBe('interactive')
+  })
+
+  it('lets an explicit CI=false override ci-info', () => {
+    ciInfo.isCI = true
+    process.env.CI = '0'
+    expect(detectOperator(noAgentFiles)).toBe('manual')
+  })
+
+  it('keeps detecting agents when CI is explicitly disabled', () => {
+    process.env.CLAUDECODE = '1'
+    process.env.CI = 'false'
+    expect(detectCliMode(noAgentFiles)).toBe('agent')
+  })
+
   it('prioritizes Cline over VS Code (Cline is a VS Code extension)', () => {
     process.env.CLINE_ACTIVE = '1'
     process.env.TERM_PROGRAM = 'vscode'

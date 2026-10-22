@@ -36,10 +36,19 @@ const GENERIC_AGENT_VALUES: ReadonlySet<string> = new Set(['1', 'true', 'yes', '
 const RESERVED_OPERATOR_NAMES: ReadonlySet<string> = new Set(['manual'])
 const VALID_OPERATOR_NAME = /^[a-z0-9][a-z0-9_-]{0,63}$/
 
+/**
+ * Reads an environment flag: false for an explicit off (0, false, no, off),
+ * true for any other value, undefined when unset or empty.
+ */
+export function readEnvFlag (value: string | undefined): boolean | undefined {
+  const normalized = value?.trim().toLowerCase()
+  if (!normalized) return undefined
+  return !DISABLED_AGENT_VALUES.has(normalized)
+}
+
 /** True for a set environment flag: any value except empty or an explicit off (0, false, no, off). */
 export function isEnvFlagSet (value: string | undefined): boolean {
-  const normalized = value?.trim().toLowerCase()
-  return !!normalized && !DISABLED_AGENT_VALUES.has(normalized)
+  return readEnvFlag(value) === true
 }
 
 function normalizeExplicitAgent (value: string | undefined): string | undefined {
@@ -98,11 +107,15 @@ export function detectOperator (fileExists: (path: string) => boolean = existsSy
   if (explicitAgent === 'agent') return 'agent'
 
   // CI wins over broad IDE/workspace signals; strong agent signals above still win over CI.
-  if (process.env.GITHUB_ACTIONS) return 'github-actions'
-  if (process.env.GITLAB_CI) return 'gitlab-ci'
-  // ci-info also knows vendors that set no CI variable (Jenkins, TeamCity, ...), but
-  // reads the environment only at import, so CI is still read live as well.
-  if (isCI || isEnvFlagSet(process.env.CI)) return 'ci'
+  // An explicit CI=false opts out of every CI signal, vendor variables included.
+  const ciFlag = readEnvFlag(process.env.CI)
+  if (ciFlag !== false) {
+    if (process.env.GITHUB_ACTIONS) return 'github-actions'
+    if (process.env.GITLAB_CI) return 'gitlab-ci'
+    // ci-info also knows vendors that set no CI variable (Jenkins, TeamCity, ...), but
+    // reads the environment only at import, so CI is still read live as well.
+    if (ciFlag || isCI) return 'ci'
+  }
 
   if (process.env.TERM_PROGRAM === 'vscode') return 'vscode'
   if (process.env.TERM_PROGRAM === 'kiro') return 'kiro'
