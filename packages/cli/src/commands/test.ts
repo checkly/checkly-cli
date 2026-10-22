@@ -339,7 +339,8 @@ export default class Test extends AuthCommand {
 
     if (!checkBundles.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
-      if (failOnNoMatching) {
+      // --list only reports what matches, so an empty answer is not a failure.
+      if (failOnNoMatching && !list) {
         process.exitCode = 1
       }
       return

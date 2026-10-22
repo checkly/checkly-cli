@@ -105,6 +105,11 @@ describe('test', { timeout: 45000 }, () => {
       expect(result.stdout).toContain('Listing all checks')
     })
 
+    it('Should terminate successfully with `--list` when no checks are found', async () => {
+      const result = await runTest(fixt, ['does-not-exist.js', '--list'])
+      expect(result.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+    })
+
     it('Should use the ci reporter when asked to', async () => {
       // The default reporter follows the CLI mode, which the e2e harness forces
       // to interactive, so the ci reporter is only exercised when named.
