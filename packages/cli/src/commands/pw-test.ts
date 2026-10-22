@@ -285,6 +285,7 @@ export default class PwTestCommand extends AuthCommand {
     if (!checkBundles.length) {
       this.style.shortError('Unable to find checks to run.')
       this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
+      process.exitCode = 1
       return
     }
 

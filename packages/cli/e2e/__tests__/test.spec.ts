@@ -81,14 +81,41 @@ describe('test', { timeout: 45000 }, () => {
       }
     })
 
-    it('Should terminate when no checks are found', async () => {
-      const result = await runTest(fixt, ['does-not-exist.js'])
+    it('Should fail when no checks are found', async () => {
+      expect.assertions(2)
+      try {
+        await runTest(fixt, ['does-not-exist.js'])
+      } catch (err) {
+        if (err instanceof ExecaError) {
+          expect(err.exitCode).toBe(1)
+          expect(err.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+        } else {
+          throw err
+        }
+      }
+    })
+
+    it('Should terminate successfully when no checks are found and --no-fail-on-no-matching is set', async () => {
+      const result = await runTest(fixt, ['does-not-exist.js', '--no-fail-on-no-matching'])
       expect(result.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
     })
 
     it('Should list checks and not execute them with `--list`', async () => {
       const result = await runTest(fixt, ['--list'])
       expect(result.stdout).toContain('Listing all checks')
+    })
+
+    it('Should terminate successfully with `--list` when no checks are found', async () => {
+      const result = await runTest(fixt, ['does-not-exist.js', '--list'])
+      expect(result.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+    })
+
+    it('Should use the ci reporter when asked to', async () => {
+      // The default reporter follows the CLI mode, which the e2e harness forces
+      // to interactive, so the ci reporter is only exercised when named.
+      const result = await runTest(fixt, ['secret.check.ts', '--reporter', 'ci'])
+      expect(result.stdout).toContain('Finished running all checks:')
+      expect(result.stdout).toContain('1 passed, 1 total')
     })
 
     it('Should use Github reporter and show test-session link', async () => {

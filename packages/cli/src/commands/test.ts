@@ -84,6 +84,11 @@ export default class Test extends AuthCommand {
       description: 'Always show the full logs of the checks.',
       allowNo: true,
     }),
+    'fail-on-no-matching': Flags.boolean({
+      description: 'Exit with a failing status code when there are no matching checks. Enabled by default.',
+      default: true,
+      allowNo: true,
+    }),
     'reporter': Flags.string({
       char: 'r',
       description: 'A list of custom reporters for the test output.',
@@ -154,6 +159,7 @@ export default class Test extends AuthCommand {
       list,
       timeout,
       verbose: verboseFlag,
+      'fail-on-no-matching': failOnNoMatching,
       reporter: reporterFlag,
       config: configFilename,
       record: shouldRecord,
@@ -333,6 +339,10 @@ export default class Test extends AuthCommand {
 
     if (!checkBundles.length) {
       this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
+      // --list only reports what matches, so an empty answer is not a failure.
+      if (failOnNoMatching && !list) {
+        process.exitCode = 1
+      }
       return
     }
 
