@@ -76,11 +76,6 @@ export default class PwTestCommand extends AuthCommand {
     'verbose': Flags.boolean({
       description: 'Always show the full logs of the checks.',
     }),
-    'fail-on-no-matching': Flags.boolean({
-      description: 'Exit with a failing status code when there are no matching tests. Enabled by default.',
-      default: true,
-      allowNo: true,
-    }),
     'reporter': Flags.string({
       description: 'A list of custom reporters for the test output.',
       options: ['list', 'dot', 'ci', 'github', 'json'],
@@ -146,7 +141,6 @@ export default class PwTestCommand extends AuthCommand {
       'env-file': envFile,
       timeout,
       verbose: verboseFlag,
-      'fail-on-no-matching': failOnNoMatching,
       reporter: reporterFlag,
       config: configFilename,
       record,
@@ -291,9 +285,7 @@ export default class PwTestCommand extends AuthCommand {
     if (!checkBundles.length) {
       this.style.shortError('Unable to find checks to run.')
       this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')
-      if (failOnNoMatching) {
-        process.exitCode = 1
-      }
+      process.exitCode = 1
       return
     }
 
