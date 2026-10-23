@@ -7,6 +7,9 @@ import { buffer } from 'node:stream/consumers'
 import { AuthCommand } from './authCommand.js'
 import { api } from '../rest/api.js'
 import { parseFields } from '../helpers/api-fields.js'
+import { accountNotAvailable } from '../helpers/accounts.js'
+import { ACCOUNT_NOT_ACCESSIBLE } from '../rest/errors.js'
+import config from '../services/config.js'
 
 const WRITE_METHODS = new Set(['POST', 'PUT', 'PATCH'])
 
@@ -165,6 +168,7 @@ export default class Api extends AuthCommand {
     const isJson = contentType === 'application/json' || contentType.endsWith('+json')
     const isAttachment = /^\s*attachment(?:;|$)/i.test(String(response.headers['content-disposition'] ?? ''))
 
+    let errorCode: unknown
     if (!flags.jq && (!isJson || isAttachment)) {
       for await (const chunk of response.data) {
         await writeBody(chunk)
@@ -172,6 +176,7 @@ export default class Api extends AuthCommand {
     } else {
       const body = await buffer(response.data)
       const responseData = body.length > 0 ? parseJson(body) : null
+      errorCode = (responseData as { errorCode?: unknown } | null | undefined)?.errorCode
 
       if (responseData === undefined) {
         if (flags.jq) {
@@ -192,6 +197,8 @@ export default class Api extends AuthCommand {
       this.logToStderr('Endpoint not found. See available endpoints at https://www.checklyhq.com/docs/api')
     } else if (response.status === 401) {
       this.logToStderr('Authentication failed — run "checkly login" or set CHECKLY_API_KEY.')
+    } else if (response.status === 403 && errorCode === ACCOUNT_NOT_ACCESSIBLE) {
+      this.logToStderr(accountNotAvailable(config.getAccountId()))
     } else if (response.status === 403) {
       this.logToStderr('Permission denied — verify your account role and API key scope.')
     }

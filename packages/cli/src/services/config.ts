@@ -121,6 +121,11 @@ class ChecklyConfig {
     return this.env('CHECKLY_ACCOUNT_ID') || this.getStoredAccountId()
   }
 
+  /** Whether `CHECKLY_ACCOUNT_ID` picks the account, rather than the stored default. */
+  hasAccountIdInEnvironment (): boolean {
+    return Boolean(this.env('CHECKLY_ACCOUNT_ID'))
+  }
+
   /** The account `checkly login` stored as the default, ignoring the environment. */
   getStoredAccountId (): string {
     return this.data.get<string>('accountId') as string || ''

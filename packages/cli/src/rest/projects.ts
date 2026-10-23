@@ -3,7 +3,9 @@ import { Readable } from 'node:stream'
 import type { GitInformation } from '../services/util.js'
 import { compressJSONPayload } from './util.js'
 import { SharedFile } from '../constructs/index.js'
-import { ConflictError, ForbiddenError, handleErrorResponse, NotFoundError, RequestTimeoutError } from './errors.js'
+import {
+  ConflictError, ForbiddenError, handleErrorResponse, isAccountNotAccessible, NotFoundError, RequestTimeoutError,
+} from './errors.js'
 import { parseRetryAfter } from './retry.js'
 
 export interface Project {
@@ -1176,7 +1178,7 @@ class Projects {
     try {
       return await this.api.delete<void>(`/next/projects/imports/${importPlanId}`)
     } catch (err) {
-      if (err instanceof ForbiddenError) {
+      if (err instanceof ForbiddenError && !isAccountNotAccessible(err)) {
         throw new InvalidImportPlanStateError()
       }
 
@@ -1196,7 +1198,7 @@ class Projects {
     try {
       return await this.api.post<void>(`/next/projects/imports/${importPlanId}/apply`)
     } catch (err) {
-      if (err instanceof ForbiddenError) {
+      if (err instanceof ForbiddenError && !isAccountNotAccessible(err)) {
         throw new InvalidImportPlanStateError()
       }
 
@@ -1216,7 +1218,7 @@ class Projects {
     try {
       return await this.api.post<void>(`/next/projects/imports/${importPlanId}/commit`)
     } catch (err) {
-      if (err instanceof ForbiddenError) {
+      if (err instanceof ForbiddenError && !isAccountNotAccessible(err)) {
         throw new InvalidImportPlanStateError()
       }
 

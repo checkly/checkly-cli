@@ -5,6 +5,7 @@ vi.mock('../../services/config', () => ({
     getCredentialSource: vi.fn(),
     getApiKey: vi.fn(),
     getAccountId: vi.fn(),
+    hasAccountIdInEnvironment: vi.fn(),
     getApiUrl: vi.fn(() => 'http://127.0.0.1:3000'),
   },
 }))
@@ -129,12 +130,30 @@ describe('validateAuthentication() with rejected credentials', () => {
       + 'Fix `CHECKLY_ACCOUNT_ID` where it is set (the command line, your shell or .env).')
   })
 
-  it.each(accountGone)('passes the error on unchanged for environment credentials (%s)', async (_, error) => {
+  it.each(accountGone)('names the account and CHECKLY_ACCOUNT_ID for environment credentials (%s)', async (_, error) => {
     vi.mocked(config.getCredentialSource).mockReturnValue('environment')
+    vi.mocked(config.hasAccountIdInEnvironment).mockReturnValue(true)
     const original = error()
     vi.spyOn(api.accounts, 'get').mockRejectedValue(original)
 
-    await expect(validateAuthentication()).rejects.toBe(original)
+    const thrown = await validateAuthentication().catch(e => e)
+
+    expect(thrown.message).toBe('Account "acc-1" from `CHECKLY_ACCOUNT_ID` is not available with `CHECKLY_API_KEY`. '
+      + 'Set `CHECKLY_ACCOUNT_ID` to an account the key can access, or `CHECKLY_API_KEY` to a key that can '
+      + 'access account "acc-1" (on the command line, in your shell or in .env).')
+    expect(thrown.cause).toBe(original)
+  })
+
+  it('names the stored default for an API key without CHECKLY_ACCOUNT_ID', async () => {
+    vi.mocked(config.getCredentialSource).mockReturnValue('environment')
+    vi.mocked(config.hasAccountIdInEnvironment).mockReturnValue(false)
+    vi.spyOn(api.accounts, 'get').mockRejectedValue(accountGone[1][1]())
+
+    const thrown = await validateAuthentication().catch(e => e)
+
+    expect(thrown.message).toBe('Account "acc-1", the default stored by `checkly login`, is not available with '
+      + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to an account the key can access (on the command line, '
+      + 'in your shell or in .env).')
   })
 
   it.each(accountGone)('passes the error on unchanged while trying another account (%s)', async (_, error) => {
