@@ -35,7 +35,7 @@ import Usage from './usage.js'
 import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
 import { detectCliMode, detectOperator } from '../helpers/cli-mode.js'
-import { accountOverrideNotAvailable } from '../helpers/accounts.js'
+import { accountNotAvailable } from '../helpers/accounts.js'
 
 export function getDefaults () {
   const apiKey = config.getApiKey()
@@ -94,13 +94,13 @@ export async function validateAuthentication (
       throw new Error(`Authentication failed with account id "${accountId}" and API key "...${apiKey.slice(-4)}".`
         + (relogin ? ' Run `npx checkly login` to log in again.' : ''), { cause: err })
     }
-    if (relogin && (err instanceof ForbiddenError || err instanceof NotFoundError)) {
-      if (source === 'account_override') {
-        const available = await accounts.getAll().then(({ data }) => data, () => undefined)
-        throw new Error(accountOverrideNotAvailable(accountId, available), { cause: err })
-      }
-      throw new Error(`Account "${accountId}" is not available with the stored login. `
-        + 'Run `npx checkly login` to log in again.', { cause: err })
+    // Name where the account comes from, except while switching: the account
+    // checked then is not the configured one.
+    if (suggestLogin && (err instanceof ForbiddenError || err instanceof NotFoundError)) {
+      const available = source === 'account_override'
+        ? await accounts.getAll().then(({ data }) => data, () => undefined)
+        : undefined
+      throw new Error(accountNotAvailable(accountId, available), { cause: err })
     }
 
     throw err

@@ -28,3 +28,29 @@ export function accountOverrideNotAvailable (
     + (accounts ? ` This login works with: ${formatAccounts(accounts)}.` : '')
     + ' Fix `CHECKLY_ACCOUNT_ID` where it is set (the command line, your shell or .env).'
 }
+
+/**
+ * Why the credentials cannot use `accountId`, worded for where the account
+ * and the key come from, so the message says what to fix. `accounts` lists
+ * the accounts a login works with, when they are known.
+ */
+export function accountNotAvailable (
+  accountId: string, accounts?: Array<{ id: string, name: string }>,
+): string {
+  switch (config.getCredentialSource()) {
+    case 'account_override':
+      return accountOverrideNotAvailable(accountId, accounts)
+    case 'login':
+      return `Account "${accountId}" is not available with the stored login. Run \`npx checkly login\` to log in again.`
+    case 'environment':
+      // An API key without `CHECKLY_ACCOUNT_ID` falls back to the account
+      // stored by `checkly login`, which need not be the key's account.
+      if (config.hasAccountIdInEnvironment()) {
+        return `Account "${accountId}" from \`CHECKLY_ACCOUNT_ID\` is not available with \`CHECKLY_API_KEY\`. `
+          + 'Fix them where they are set (the command line, your shell or .env).'
+      }
+      return `Account "${accountId}", the default stored by \`checkly login\`, is not available with `
+        + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to the account the key belongs to (on the command line, '
+        + 'in your shell or in .env).'
+  }
+}

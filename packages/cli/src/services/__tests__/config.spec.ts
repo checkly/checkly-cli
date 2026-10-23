@@ -95,6 +95,20 @@ describe('config', () => {
     })
   })
 
+  describe('hasAccountIdInEnvironment', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('tells CHECKLY_ACCOUNT_ID apart from the stored default', () => {
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-2')
+      expect(config.hasAccountIdInEnvironment()).toBe(true)
+
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', '')
+      expect(config.hasAccountIdInEnvironment()).toBe(false)
+    })
+  })
+
   describe('pinEnvironment', () => {
     // A fresh module per test, so a pin never leaks into other tests.
     async function freshConfig (store: { apiKey?: string, accountId?: string } = {}) {
