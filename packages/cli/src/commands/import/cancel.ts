@@ -16,6 +16,7 @@ import {
 
 export default class ImportCancelCommand extends AuthCommand {
   static hidden = false
+  static parsesProject = true
   static destructive = true
   static idempotent = true
   static description = 'Cancels an ongoing import plan that has not been committed yet.'

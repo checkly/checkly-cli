@@ -45,6 +45,7 @@ import { registerTestSessionCancelHandler } from '../services/test-session-cance
 export default class PwTestCommand extends AuthCommand {
   static coreCommand = true
   static hidden = false
+  static parsesProject = true
   static readOnly = true
   static idempotent = true
   static description = 'Test your Playwright Tests on Checkly.'

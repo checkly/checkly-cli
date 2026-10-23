@@ -13,6 +13,7 @@ import {
   UnsupportedPropertyDiagnostic,
 } from '../constructs/construct-diagnostics.js'
 import { ConfigFileDiagnostics, InvalidConfigError } from './config-diagnostics.js'
+import { defaultFilenames } from './checkly-config-filenames.js'
 import { validateRemovedDoubleCheck } from '../constructs/internal/common-diagnostics.js'
 import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
@@ -439,14 +440,7 @@ export class ConfigNotFoundError extends Error {
   }
 }
 
-export const defaultFilenames = [
-  'checkly.config.ts',
-  'checkly.config.mts',
-  'checkly.config.cts',
-  'checkly.config.js',
-  'checkly.config.mjs',
-  'checkly.config.cjs',
-]
+export { defaultFilenames }
 
 /**
  * Loads and validates the Checkly config file.

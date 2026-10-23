@@ -53,6 +53,12 @@ export abstract class BaseCommand extends Command {
   static readOnly = false
   static destructive = false
   static idempotent = false
+  /**
+   * Whether the command imports the project's config and check files. The
+   * launcher runs such commands with the project's own `checkly` install
+   * when it is a different one (see services/project-cli.ts).
+   */
+  static parsesProject = false
   fancy = true
   style = new CommandStyle(this)
   #packageJsonLoader?: Promise<PackageJsonFile | undefined>

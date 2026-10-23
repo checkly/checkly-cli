@@ -16,16 +16,15 @@ describe('noSkillWarning', () => {
     it('tells the user to run the project-local CLI through npx', () => {
       const note = localCliNote()
       expect(note).toContain('npx checkly')
-      expect(note).toMatch(/global/i)
+      expect(note).toContain('project\'s own CLI')
     })
 
     it('is part of the manual and the agent footer, wrapped to the footer width', () => {
       for (const text of [footer(), agentFooter('claude', false, false)]) {
         expect(text).toContain('npx checkly <command>')
-        expect(text).toContain('cannot load this project')
         // eslint-disable-next-line no-control-regex
         const plain = text.replace(/\u001b\[[0-9;]*m/g, '')
-        const noteLines = plain.split('\n').filter(line => /npx checkly <command>|cannot load/.test(line))
+        const noteLines = plain.split('\n').filter(line => /npx checkly <command>|CLI is used/.test(line))
         expect(noteLines.length).toBeGreaterThanOrEqual(2)
         for (const line of noteLines) expect(line.length).toBeLessThanOrEqual(80)
       }

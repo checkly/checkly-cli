@@ -43,6 +43,7 @@ type FriendExports = {
 
 export default class ImportPlanCommand extends AuthCommand {
   static hidden = false
+  static parsesProject = true
   static readOnly = true
   static idempotent = true
   static description = `\
