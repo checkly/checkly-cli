@@ -1,6 +1,6 @@
 import { Flags, type Interfaces } from '@oclif/core'
 import { validate as isUuid } from 'uuid'
-import { ApiError, ForbiddenError, NotFoundError, UnauthorizedError } from '../rest/errors.js'
+import { ApiError, ForbiddenError, isAccountNotAccessible, NotFoundError, UnauthorizedError } from '../rest/errors.js'
 import {
   USAGE_GROUP_DIMENSIONS,
   USAGE_INTERVALS,
@@ -264,6 +264,8 @@ export function describeUsageError (err: unknown, context: UsageErrorContext = {
   if (err instanceof UnauthorizedError) {
     return 'Usage reporting requires a user or service API key; legacy account API keys are not accepted.'
   }
+  // Already explained where the error was made; only a bare 403 means the role lacks the permission.
+  if (isAccountNotAccessible(err)) return err
   if (err instanceof ForbiddenError) return 'Usage reporting requires the usage:read permission on this account.'
   if (err instanceof NotFoundError && context.termId) return `Usage term ${context.termId} was not found.`
   return err

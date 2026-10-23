@@ -1,6 +1,6 @@
 import { Parser } from '@oclif/core'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { NotFoundError, UnauthorizedError, ValidationError } from '../../rest/errors.js'
+import { ForbiddenError, NotFoundError, UnauthorizedError, ValidationError } from '../../rest/errors.js'
 import {
   describeUsageError, projectionsParams, usageRangeParams, usageSeriesFlags, usageSeriesParams,
   usageTermsParams, validateUsageTermId,
@@ -122,6 +122,12 @@ describe('usage error guidance', () => {
     expect(describeUsageError(new ValidationError(body('INVALID_CURSOR')))).toContain('effective --from and --to')
     expect(describeUsageError(new ValidationError(body('USAGE_STORE_UNAVAILABLE')))).toContain('temporarily unavailable')
     expect(describeUsageError(new UnauthorizedError(body('')))).toContain('user or service API key')
+  })
+  it('blames a missing permission only on a 403 without a code', () => {
+    expect(describeUsageError(new ForbiddenError(body(''))))
+      .toBe('Usage reporting requires the usage:read permission on this account.')
+    const inaccessible = new ForbiddenError({ ...body(''), errorCode: 'ERR_ACCOUNT_NOT_ACCESSIBLE' })
+    expect(describeUsageError(inaccessible)).toBe(inaccessible)
   })
   it('distinguishes a missing term from organization discovery failures', () => {
     expect(describeUsageError(new NotFoundError(body('')), { termId: id })).toBe(`Usage term ${id} was not found.`)
