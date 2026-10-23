@@ -21,8 +21,8 @@ import { printLn } from '../reporters/util.js'
 import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Session, RetryStrategyBuilder } from '../constructs/index.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
-import { prepareReportersTypes, validateDetachReporterTypes } from '../helpers/test-helper.js'
-import { registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
+import { prepareMaxFailures, prepareReportersTypes, validateDetachReporterTypes } from '../helpers/test-helper.js'
+import { cancelTestSessionBestEffort, registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 const MAX_RETRIES = 3
 
@@ -115,6 +115,12 @@ export default class Trigger extends AuthCommand {
       description: 'Start checks in the cloud and exit after printing the test session ID.',
       default: false,
     }),
+    'max-failures': Flags.integer({
+      description: 'Stop waiting for the remaining checks once this many checks have failed, and exit with an error.'
+        + ' Overrides cli.maxFailures in the Checkly config.',
+      min: 1,
+      exclusive: ['detach'],
+    }),
   }
 
   async run (): Promise<void> {
@@ -136,6 +142,7 @@ export default class Trigger extends AuthCommand {
       retries,
       'refresh-cache': refreshCache,
       'detach': detach,
+      'max-failures': maxFailuresFlag,
     } = flags
     const envVars = await getEnvs(envFile, env)
     const { configDirectory, configFilenames } = splitConfigFilePath(configFilename)
@@ -162,6 +169,7 @@ export default class Trigger extends AuthCommand {
     if (detach) {
       validateDetachReporterTypes(reporterTypes)
     }
+    const { maxFailures } = prepareMaxFailures(maxFailuresFlag, checklyConfig?.cli?.maxFailures, { detach })
     const reporters = createReporters(reporterTypes, location, verbose)
     const testRetryStrategy = this.prepareTestRetryStrategy(retries, checklyConfig?.cli?.retries)
 
@@ -183,6 +191,7 @@ export default class Trigger extends AuthCommand {
       testRetryStrategy,
       refreshCache,
       detach,
+      maxFailures,
     )
     // TODO: This is essentially the same for `checkly test`. Maybe reuse code.
     runner.on(Events.RUN_STARTED,
@@ -224,7 +233,11 @@ export default class Trigger extends AuthCommand {
     })
     registerTestSessionCancelHandler(runner, reporters)
     runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
+    runner.on(Events.MAX_FAILURES_REACHED, (limit: number) => reporters.forEach(r => r.onMaxFailuresReached(limit)))
     await runner.run()
+    if (runner.maxFailuresReached && runner.testSessionId) {
+      await cancelTestSessionBestEffort(runner.testSessionId)
+    }
   }
 
   // TODO: Reuse prepare* methods from the `checkly test command`

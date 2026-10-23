@@ -34,13 +34,24 @@ export function registerTestSessionCancelHandler (
 
     // The run is already stopping: report that the session was not cancelled,
     // and a second Ctrl+C still forces the exit.
-    try {
-      // Cancellation is intentionally test-session scoped. The backend resolves
-      // which running results are cancellable (currently Playwright),
-      // so the CLI must not narrow the request by check type or sequence ID here.
-      await cancelClient.cancelTestSession({ testSessionId })
-    } catch (err: any) {
-      process.stderr.write(`Warning: failed to cancel test session ${testSessionId}: ${err?.message ?? err}\n`)
-    }
+    await cancelTestSessionBestEffort(testSessionId, cancelClient)
   })
+}
+
+/**
+ * Asks the backend to cancel a test session, and only warns if that fails:
+ * the run is ending either way.
+ */
+export async function cancelTestSessionBestEffort (
+  testSessionId: string,
+  cancelClient: TestSessionCancelClient = cancel,
+): Promise<void> {
+  try {
+    // Cancellation is intentionally test-session scoped. The backend resolves
+    // which running results are cancellable (currently Playwright),
+    // so the CLI must not narrow the request by check type or sequence ID here.
+    await cancelClient.cancelTestSession({ testSessionId })
+  } catch (err: any) {
+    process.stderr.write(`Warning: failed to cancel test session ${testSessionId}: ${err?.message ?? err}\n`)
+  }
 }

@@ -217,6 +217,10 @@ more information.`))
               if (cli.retries !== undefined) {
                 builder.number('retries', cli.retries)
               }
+
+              if (cli.maxFailures !== undefined) {
+                builder.number('maxFailures', cli.maxFailures)
+              }
             })
           }
         })

@@ -344,6 +344,45 @@ describe('test', { timeout: 45000 }, () => {
     }, 120_000)
   })
 
+  describe('max-failures-project', () => {
+    let fixt: FixtureSandbox
+
+    beforeAll(async () => {
+      fixt = await FixtureSandbox.create({
+        source: path.join(__dirname, 'fixtures', 'max-failures-project'),
+        template: 'playwright',
+      })
+    }, 180_000)
+
+    afterAll(async () => {
+      await fixt?.destroy()
+    })
+
+    // The slow check passes only after 90 seconds. The test's own timeout is
+    // longer than that, so a run that waits for it fails the elapsed-time
+    // assertion rather than timing out.
+    it('Should stop waiting for the remaining checks once the limit is reached', async () => {
+      expect.assertions(5)
+      const startedAt = Date.now()
+      try {
+        await fixt.run('pnpm', ['checkly', 'test', '--max-failures=1', '--reporter=json'], {
+          timeout: 140_000,
+          env: checklyEnv(),
+        })
+      } catch (err) {
+        if (!(err instanceof ExecaError)) {
+          throw err
+        }
+        expect(err.exitCode).toBe(1)
+        expect(Date.now() - startedAt).toBeLessThan(80_000)
+        const report = JSON.parse(fs.readFileSync(path.join(fixt.root, 'checkly-json-report.json'), 'utf8'))
+        expect(report.stoppedEarly).toEqual({ reason: 'maxFailures', maxFailures: 1 })
+        expect(report.checks.find((check: any) => check.name === 'Failing check').result).toBe('Fail')
+        expect(report.checks.find((check: any) => check.name === 'Slow passing check').result).toBe('Not finished')
+      }
+    }, 150_000)
+  })
+
   describe('shared-constructs-project', () => {
     let fixt: FixtureSandbox
 
