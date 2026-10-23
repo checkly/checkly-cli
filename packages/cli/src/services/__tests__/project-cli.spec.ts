@@ -19,6 +19,8 @@ import {
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..')
 const CLI_BIN = path.join(CLI_PACKAGE_ROOT, 'bin', 'run.cjs')
+// The notice shows the install's path with the platform's separators.
+const nodeModulesCheckly = path.join('node_modules', 'checkly')
 
 // Stands in for a project's own checkly install: reports how it was started
 // and then behaves as FAKE_MODE asks.
@@ -337,7 +339,7 @@ describe('launcher hand-off', () => {
     expect(result.code).toBe(3)
     // The project's install is newer, so there is nothing to install.
     expect(result.stderr).toContain(
-      'Using checkly 1.2.3 from this project (node_modules/checkly) instead of checkly 0.0.1-dev.\n',
+      `Using checkly 1.2.3 from this project (${nodeModulesCheckly}) instead of checkly 0.0.1-dev.\n`,
     )
   })
 
@@ -348,7 +350,7 @@ describe('launcher hand-off', () => {
 
     expect(report(result.stdout)?.marker).toBe('fake-project-cli')
     expect(result.stderr).toContain(
-      'Using checkly 0.0.0 from this project (node_modules/checkly) instead of checkly 0.0.1-dev. '
+      `Using checkly 0.0.0 from this project (${nodeModulesCheckly}) instead of checkly 0.0.1-dev. `
       + 'To use 0.0.1-dev, install it in this project.',
     )
   })
