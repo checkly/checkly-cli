@@ -12,16 +12,16 @@
     "test:e2e": "pnpm -r run test:e2e"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.3",
-    "@commitlint/config-conventional": "^21.2.3",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "^21.2.4",
     "@eslint/js": "^10.0.1",
     "@stylistic/eslint-plugin": "^5.10.0",
-    "eslint": "^10.12.0",
+    "eslint": "^10.13.0",
     "globals": "^17.13.0",
     "lint-staged": "^16.4.0",
     "rimraf": "^6.1.3",
     "simple-git-hooks": "^2.14.0",
-    "typescript-eslint": "^8.71.1"
+    "typescript-eslint": "^8.72.0"
   },
   "simple-git-hooks": {
     "commit-msg": "pnpm exec commitlint --edit",
