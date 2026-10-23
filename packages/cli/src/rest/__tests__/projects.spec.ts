@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { Readable } from 'node:stream'
 import type { AxiosInstance } from 'axios'
-import Projects, { ProjectDeployCancelledError, ProjectDeployFailedError, type ProjectSync } from '../projects.js'
-import { ConflictError, NotFoundError, RequestTimeoutError } from '../errors.js'
+import Projects, {
+  InvalidImportPlanStateError, ProjectDeployCancelledError, ProjectDeployFailedError, type ProjectSync,
+} from '../projects.js'
+import { ConflictError, ForbiddenError, NotFoundError, RequestTimeoutError } from '../errors.js'
 
 function makeAxiosMock (): AxiosInstance {
   return {
@@ -479,5 +481,30 @@ describe('Projects.deleteProject', () => {
       expect.objectContaining({ params: { maxWaitSeconds: 30 } }),
     )
     expect(deletes).toBe(2)
+  })
+})
+
+describe('Projects import plan operations', () => {
+  const operations = [
+    ['cancelImportPlan', 'delete'],
+    ['applyImportPlan', 'post'],
+    ['commitImportPlan', 'post'],
+  ] as const
+
+  it.each(operations)('%s reports a bare 403 as an out-of-order operation', async (operation, method) => {
+    const api = makeAxiosMock()
+    vi.mocked(api[method]).mockRejectedValue(new ForbiddenError({ statusCode: 403, error: 'Forbidden', message: 'Forbidden' }))
+
+    await expect(new Projects(api)[operation]('plan-1')).rejects.toBeInstanceOf(InvalidImportPlanStateError)
+  })
+
+  it.each(operations)('%s passes on a 403 for an account the credentials cannot access', async (operation, method) => {
+    const api = makeAxiosMock()
+    const inaccessible = new ForbiddenError({
+      statusCode: 403, error: 'Forbidden', message: 'Account "acc-1" is not available.', errorCode: 'ERR_ACCOUNT_NOT_ACCESSIBLE',
+    })
+    vi.mocked(api[method]).mockRejectedValue(inaccessible)
+
+    await expect(new Projects(api)[operation]('plan-1')).rejects.toBe(inaccessible)
   })
 })

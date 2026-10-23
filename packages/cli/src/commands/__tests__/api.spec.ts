@@ -191,6 +191,29 @@ describe('checkly api', () => {
       )
     })
 
+    it('names the account instead of the role when the credentials cannot access it', async () => {
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-1')
+      vi.mocked(api.request).mockResolvedValue({
+        data: Readable.from([Buffer.from('{"statusCode":403,"error":"Forbidden",'
+          + '"message":"The selected account is not accessible with the provided credentials.",'
+          + '"errorCode":"ERR_ACCOUNT_NOT_ACCESSIBLE"}')]),
+        status: 403,
+        statusText: 'Forbidden',
+        headers: { 'content-type': 'application/json' },
+        config: {} as any,
+      })
+      const cmd = createCommand('/v1/checks')
+      try {
+        await expect(cmd.run()).rejects.toThrow('EXIT_1')
+      } finally {
+        vi.unstubAllEnvs()
+      }
+      expect(cmd.logToStderr).toHaveBeenCalledWith('Account "acc-1" from `CHECKLY_ACCOUNT_ID` is not available with '
+        + '`CHECKLY_API_KEY`. Fix them where they are set (the command line, your shell or .env).')
+      expect(cmd.logToStderr).not.toHaveBeenCalledWith(expect.stringContaining('Permission denied'))
+    })
+
     it('outputs error body before exiting', async () => {
       vi.mocked(api.request).mockResolvedValue({
         data: Readable.from([Buffer.from('{"message":"Not found"}')]),

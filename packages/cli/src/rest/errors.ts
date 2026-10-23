@@ -1,5 +1,7 @@
 import { isAxiosError, type InternalAxiosRequestConfig } from 'axios'
 import { getProxyUrl } from '../services/proxy.js'
+import config from '../services/config.js'
+import { accountNotAvailable } from '../helpers/accounts.js'
 
 export abstract class ApiError extends Error {
   data: ErrorData
@@ -66,6 +68,16 @@ export class ForbiddenError extends ApiError {
     super(data, options)
     this.name = 'ForbiddenError'
   }
+}
+
+/**
+ * The `errorCode` of a 403 for credentials that cannot access the account
+ * the request named. A bare 403 (no code) means the role lacks a permission.
+ */
+export const ACCOUNT_NOT_ACCESSIBLE = 'ERR_ACCOUNT_NOT_ACCESSIBLE'
+
+export function isAccountNotAccessible (err: unknown): boolean {
+  return err instanceof ForbiddenError && err.data.errorCode === ACCOUNT_NOT_ACCESSIBLE
 }
 
 /**
@@ -370,6 +382,11 @@ export function handleErrorResponse (err: Error): never {
       }
 
       if (statusCode === 403) {
+        // The API's message names neither the account nor where it came
+        // from; requests always name the configured account.
+        if (errorData.errorCode === ACCOUNT_NOT_ACCESSIBLE) {
+          errorData.message = accountNotAvailable(config.getAccountId())
+        }
         throw new ForbiddenError(errorData, { cause: err })
       }
 
