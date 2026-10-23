@@ -39,8 +39,9 @@ export default class TestRunner extends AbstractCheckRunner {
     streamLogs?: boolean,
     refreshCache?: boolean,
     detach?: boolean,
+    maxFailures?: number,
   ) {
-    super(accountId, timeout, verbose, detach ?? false)
+    super(accountId, timeout, verbose, detach ?? false, maxFailures)
     this.projectBundle = projectBundle
     this.checkBundles = checkBundles
     this.sharedFiles = sharedFiles
