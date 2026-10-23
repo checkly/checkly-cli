@@ -23,10 +23,12 @@ import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { isEntrypoint } from '../constructs/construct.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
-import { prepareReportersTypes, prepareRunLocation, validateDetachReporterTypes } from '../helpers/test-helper.js'
+import {
+  prepareMaxFailures, prepareReportersTypes, prepareRunLocation, validateDetachReporterTypes,
+} from '../helpers/test-helper.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
-import { registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
+import { cancelTestSessionBestEffort, registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 const MAX_RETRIES = 3
 
@@ -132,6 +134,12 @@ export default class Test extends AuthCommand {
       description: 'Start checks in the cloud and exit after printing the test session ID.',
       default: false,
     }),
+    'max-failures': Flags.integer({
+      description: 'Stop waiting for the remaining checks once this many checks have failed, and exit with an error.'
+        + ' Overrides cli.maxFailures in the Checkly config.',
+      min: 1,
+      exclusive: ['detach', 'update-snapshots'],
+    }),
   }
 
   static args = {
@@ -169,6 +177,7 @@ export default class Test extends AuthCommand {
       'verify-runtime-dependencies': verifyRuntimeDependencies,
       'refresh-cache': refreshCache,
       'detach': detach,
+      'max-failures': maxFailuresFlag,
     } = flags
     const filePatterns = argv as string[]
 
@@ -190,6 +199,11 @@ export default class Test extends AuthCommand {
     const reporterTypes = prepareReportersTypes(reporterFlag as ReporterType[], checklyConfig.cli?.reporters)
     if (detach) {
       validateDetachReporterTypes(reporterTypes)
+    }
+    const { maxFailures, notice: maxFailuresNotice } = prepareMaxFailures(
+      maxFailuresFlag, checklyConfig.cli?.maxFailures, { detach, updateSnapshots })
+    if (maxFailuresNotice) {
+      this.log(maxFailuresNotice)
     }
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
@@ -373,9 +387,11 @@ export default class Test extends AuthCommand {
       undefined,
       refreshCache,
       detach,
+      maxFailures,
     )
 
     registerTestSessionCancelHandler(runner, reporters)
+    runner.on(Events.MAX_FAILURES_REACHED, (limit: number) => reporters.forEach(r => r.onMaxFailuresReached(limit)))
 
     runner.on(Events.DETACH, () => reporters.forEach(r => r.onDetach()))
 
@@ -429,6 +445,9 @@ export default class Test extends AuthCommand {
       process.exitCode = 1
     })
     await runner.run()
+    if (runner.maxFailuresReached && runner.testSessionId) {
+      await cancelTestSessionBestEffort(runner.testSessionId)
+    }
   }
 
   prepareVerboseFlag (verboseFlag?: boolean, cliVerboseFlag?: boolean) {

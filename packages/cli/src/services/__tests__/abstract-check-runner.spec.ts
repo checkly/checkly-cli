@@ -760,3 +760,261 @@ describe('AbstractCheckRunner — per-check timeouts vs scheduling delay', () =>
     expect(successes).toEqual(['seq-1'])
   })
 })
+
+describe('AbstractCheckRunner — max failures', () => {
+  const TIMEOUT_SECONDS = 60
+
+  class ApiChecksRunner extends AbstractCheckRunner {
+    constructor (private sequenceIds: string[], maxFailures?: number) {
+      super('acc-1', TIMEOUT_SECONDS, false, false, maxFailures)
+    }
+
+    scheduleChecks (): Promise<{
+      testSessionId?: string
+      checks: Array<{ check: any, sequenceId: SequenceId }>
+    }> {
+      return Promise.resolve({
+        testSessionId: 'ts-max',
+        checks: this.sequenceIds.map(sequenceId => ({ check: { logicalId: sequenceId }, sequenceId })),
+      })
+    }
+  }
+
+  const flush = async () => {
+    for (let i = 0; i < 25; i++) await Promise.resolve()
+  }
+
+  const topic = (sequenceId: string, subtopic: string) =>
+    `account/acc-1/ad-hoc-check-results/suite-1/${sequenceId}/run-1/${subtopic}`
+
+  const final = (result: Record<string, unknown>) => JSON.stringify({ result, testResultId: 'tr-1', resultType: 'FINAL' })
+
+  let messageHandler: ((topic: string, raw: string) => void) | undefined
+  let events: string[]
+
+  const record = (runner: AbstractCheckRunner) => {
+    for (const event of [
+      Events.CHECK_SUCCESSFUL, Events.CHECK_FAILED, Events.CHECK_ATTEMPT_RESULT,
+      Events.MAX_FAILURES_REACHED, Events.RUN_FINISHED,
+    ]) {
+      runner.on(event, (arg: any) => {
+        events.push(arg === undefined ? event : `${event}:${arg}`)
+      })
+    }
+  }
+
+  const start = async (runner: AbstractCheckRunner) => {
+    record(runner)
+    let settled = false
+    const run = runner.run().then(() => {
+      settled = true
+    })
+    await flush()
+    expect(messageHandler).toBeDefined()
+    return { run, isSettled: () => settled }
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.useFakeTimers()
+    events = []
+    messageHandler = undefined
+    vi.mocked(assets.getLogs).mockResolvedValue([] as any)
+    vi.mocked(assets.getCheckRunData).mockResolvedValue({} as any)
+    vi.mocked(SocketClient.connect).mockResolvedValue({
+      on: vi.fn((_event: string, handler: any) => {
+        messageHandler = handler
+      }),
+      subscribeAsync: vi.fn().mockResolvedValue(undefined),
+      endAsync: vi.fn().mockResolvedValue(undefined),
+    } as any)
+    vi.spyOn(process, 'rawListeners').mockReturnValue([])
+    vi.spyOn(process, 'removeAllListeners').mockReturnValue(process)
+    vi.spyOn(process, 'on').mockReturnValue(process)
+    vi.spyOn(process, 'off').mockReturnValue(process)
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    vi.restoreAllMocks()
+  })
+
+  it('stops waiting for the remaining checks once the limit of failed checks is reached', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b', 'seq-c'], 2)
+    const { run, isSettled } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: true }))
+    await flush()
+    expect(isSettled()).toBe(false)
+
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: true }))
+    await run
+
+    expect(runner.maxFailuresReached).toBe(true)
+    expect(events).toEqual([
+      `${Events.CHECK_SUCCESSFUL}:seq-a`,
+      `${Events.CHECK_SUCCESSFUL}:seq-b`,
+      `${Events.MAX_FAILURES_REACHED}:2`,
+      `${Events.RUN_FINISHED}:ts-max`,
+    ])
+
+    // A result that arrives after the stop is not reported, and no timeout
+    // fires for the check that was not waited for.
+    messageHandler!(topic('seq-c', 'result'), final({ hasFailures: true }))
+    await vi.advanceTimersByTimeAsync((TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000)
+    expect(events).toHaveLength(4)
+  })
+
+  it('does not count failed attempts that are retried', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b'], 1)
+    const { run, isSettled } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), JSON.stringify({
+      result: { hasFailures: true }, testResultId: 'tr-1', resultType: 'ATTEMPT',
+    }))
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: false }))
+    await flush()
+    expect(isSettled()).toBe(false)
+
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: false }))
+    await run
+    expect(runner.maxFailuresReached).toBe(false)
+    expect(events).not.toContain(`${Events.MAX_FAILURES_REACHED}:1`)
+  })
+
+  it('does not count cancelled results', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b'], 1)
+    const { run, isSettled } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: true, isCancelled: true }))
+    await flush()
+    expect(isSettled()).toBe(false)
+
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: false }))
+    await run
+    expect(runner.maxFailuresReached).toBe(false)
+  })
+
+  it('does not count degraded checks', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b'], 1)
+    const { run, isSettled } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: false, isDegraded: true }))
+    await flush()
+    expect(isSettled()).toBe(false)
+
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: false }))
+    await run
+    expect(runner.maxFailuresReached).toBe(false)
+  })
+
+  it('counts run errors and timed-out checks as failed', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b', 'seq-c'], 2)
+    const { run } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'error'), JSON.stringify('runner crashed'))
+    messageHandler!(topic('seq-b', 'run-start'), JSON.stringify({}))
+    await flush()
+    await vi.advanceTimersByTimeAsync(TIMEOUT_SECONDS * 1000)
+    await run
+
+    expect(runner.maxFailuresReached).toBe(true)
+    expect(events).toEqual([
+      `${Events.CHECK_FAILED}:seq-a`,
+      `${Events.CHECK_FAILED}:seq-b`,
+      `${Events.MAX_FAILURES_REACHED}:2`,
+      `${Events.RUN_FINISHED}:ts-max`,
+    ])
+  })
+
+  it('finishes normally when the failure that reaches the limit is the last check', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b'], 1)
+    const { run } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: false }))
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: true }))
+    await run
+
+    expect(runner.maxFailuresReached).toBe(false)
+    expect(events).toEqual([
+      `${Events.CHECK_SUCCESSFUL}:seq-a`,
+      `${Events.CHECK_SUCCESSFUL}:seq-b`,
+      `${Events.RUN_FINISHED}:ts-max`,
+    ])
+  })
+
+  it('does not report a result that was being fetched when the run stopped', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b', 'seq-c'], 1)
+    let resolveLogs!: (value: unknown) => void
+    vi.mocked(assets.getLogs).mockReturnValueOnce(new Promise(resolve => {
+      resolveLogs = resolve
+    }) as any)
+    const { run } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'run-start'), JSON.stringify({}))
+    await flush()
+    // seq-b's failed result waits on its logs while seq-a times out.
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: true, assets: { logs: 'logs.json' } }))
+    await flush()
+    expect(assets.getLogs).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(TIMEOUT_SECONDS * 1000)
+    await run
+    resolveLogs([])
+    await flush()
+
+    expect(events).toEqual([
+      `${Events.CHECK_FAILED}:seq-a`,
+      `${Events.MAX_FAILURES_REACHED}:1`,
+      `${Events.RUN_FINISHED}:ts-max`,
+    ])
+  })
+
+  it('does not report results queued behind the failure that reached the limit', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b', 'seq-c'], 1)
+    const { run } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'error'), JSON.stringify('runner crashed'))
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: true }))
+    messageHandler!(topic('seq-c', 'error'), JSON.stringify('runner crashed'))
+    await run
+    await flush()
+
+    expect(events).toEqual([
+      `${Events.CHECK_FAILED}:seq-a`,
+      `${Events.MAX_FAILURES_REACHED}:1`,
+      `${Events.RUN_FINISHED}:ts-max`,
+    ])
+  })
+
+  it.each([0, -1])('treats a limit of %d as no limit', async maxFailures => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b'], maxFailures)
+    const { run, isSettled } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: true }))
+    await flush()
+    expect(isSettled()).toBe(false)
+
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: false }))
+    await run
+    expect(runner.maxFailuresReached).toBe(false)
+  })
+
+  it('waits for every check when no limit is set', async () => {
+    const runner = new ApiChecksRunner(['seq-a', 'seq-b'])
+    const { run, isSettled } = await start(runner)
+
+    messageHandler!(topic('seq-a', 'result'), final({ hasFailures: true }))
+    await flush()
+    expect(isSettled()).toBe(false)
+
+    messageHandler!(topic('seq-b', 'result'), final({ hasFailures: true }))
+    await run
+    expect(runner.maxFailuresReached).toBe(false)
+    expect(events).toEqual([
+      `${Events.CHECK_SUCCESSFUL}:seq-a`,
+      `${Events.CHECK_SUCCESSFUL}:seq-b`,
+      `${Events.RUN_FINISHED}:ts-max`,
+    ])
+  })
+})

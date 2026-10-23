@@ -68,6 +68,8 @@ type JsonBuilderOptions = {
   numChecks: number
   runLocation: string
   checkFilesMap: checkFilesMap
+  // Set to the limit when the run stopped early after that many failed checks.
+  maxFailuresReached?: number
 }
 
 export class JsonBuilder {
@@ -75,6 +77,7 @@ export class JsonBuilder {
   numChecks: number
   runLocation: string
   checkFilesMap: checkFilesMap
+  maxFailuresReached?: number
   hasFilenames: boolean
 
   constructor (options: JsonBuilderOptions) {
@@ -82,6 +85,7 @@ export class JsonBuilder {
     this.numChecks = options.numChecks
     this.runLocation = options.runLocation
     this.checkFilesMap = options.checkFilesMap
+    this.maxFailuresReached = options.maxFailuresReached
     this.hasFilenames = !(options.checkFilesMap.size === 1 && options.checkFilesMap.has(undefined))
   }
 
@@ -92,11 +96,29 @@ export class JsonBuilder {
       runLocation: this.runLocation,
       checks: [],
     }
+    if (this.maxFailuresReached) {
+      testSessionSummary.stoppedEarly = { reason: 'maxFailures', maxFailures: this.maxFailuresReached }
+    }
 
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     for (const [_, checkMap] of this.checkFilesMap.entries()) {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      for (const [_, { result, testResultId, numRetries }] of checkMap.entries()) {
+      for (const [_, { check: construct, result, testResultId, numRetries }] of checkMap.entries()) {
+        if (!result) {
+          // Only a run that stopped early leaves checks without a result.
+          testSessionSummary.checks.push({
+            result: 'Not finished',
+            name: (construct as any)?.name ?? null,
+            // Checks fetched for `checkly trigger` carry their type; local constructs do not.
+            checkType: (construct as any)?.checkType ?? null,
+            durationMilliseconds: null,
+            filename: this.hasFilenames ? (construct?.getSourceFile?.() ?? null) : null,
+            link: null,
+            runError: null,
+            retries: numRetries,
+          })
+          continue
+        }
         const checkStatus = resultToCheckStatus(result)
         const check: any = {
           result: checkStatus === CheckStatus.FAILED ? 'Fail' : checkStatus === CheckStatus.DEGRADED ? 'Degraded' : 'Pass',
@@ -143,6 +165,7 @@ export default class JsonReporter extends AbstractListReporter {
       numChecks: this.numChecks!,
       runLocation: this._runLocationString(),
       checkFilesMap: this.checkFilesMap!,
+      maxFailuresReached: this.maxFailuresReached,
     })
 
     const json = jsonBuilder.render()

@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import { EventEmitter } from 'node:events'
 
 import { Events } from '../abstract-check-runner.js'
-import { registerTestSessionCancelHandler } from '../test-session-cancel.js'
+import { cancelTestSessionBestEffort, registerTestSessionCancelHandler } from '../test-session-cancel.js'
 import { captureStderr } from '../../testing/capture-stderr.js'
 
 function makeReporter () {
@@ -17,6 +17,7 @@ function makeReporter () {
     onStreamLogs: vi.fn(),
     onCancel: vi.fn(),
     onDetach: vi.fn(),
+    onMaxFailuresReached: vi.fn(),
   }
 }
 
@@ -113,5 +114,23 @@ describe('registerTestSessionCancelHandler', () => {
     } finally {
       process.off('unhandledRejection', onUnhandledRejection)
     }
+  })
+})
+
+describe('cancelTestSessionBestEffort', () => {
+  it('cancels the whole test session', async () => {
+    const cancelClient = { cancelTestSession: vi.fn().mockResolvedValue(undefined) }
+
+    await cancelTestSessionBestEffort('ts-1', cancelClient)
+
+    expect(cancelClient.cancelTestSession).toHaveBeenCalledWith({ testSessionId: 'ts-1' })
+  })
+
+  it('warns instead of failing when the cancel request fails', async () => {
+    const cancelClient = { cancelTestSession: vi.fn().mockRejectedValue(new Error('network down')) }
+
+    const stderr = await captureStderr(() => cancelTestSessionBestEffort('ts-1', cancelClient))
+
+    expect(stderr.join('')).toContain('Warning: failed to cancel test session ts-1: network down')
   })
 })

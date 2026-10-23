@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ListReporter from '../list.js'
+import CiReporter from '../ci.js'
 import * as api from '../../rest/api.js'
 import type { SequenceId } from '../../services/abstract-check-runner.js'
 
@@ -190,5 +191,50 @@ describe('AbstractListReporter', () => {
     expect(countOccurrences(output, `Test session ID: ${TEST_SESSION_ID}`)).toBe(1)
     expect(countOccurrences(output, `Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)).toBe(1)
     expect(countOccurrences(output, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
+  })
+
+  describe('after the run stopped at the max failures limit', () => {
+    function makeStoppedReporter (reporter = new ListReporter(PUBLIC_RUN_LOCATION, false)) {
+      const failing = { name: 'Failing Check', getSourceFile: () => SOURCE_FILE }
+      const unfinished = { name: 'Slow Check', getSourceFile: () => SOURCE_FILE }
+      reporter.onBegin([
+        { check: failing, sequenceId: 'seq-failing' },
+        { check: unfinished, sequenceId: 'seq-slow' },
+      ])
+      reporter.onCheckInProgress(unfinished, 'seq-slow')
+      reporter.onCheckEnd('seq-failing', { ...makePassingResult(), name: 'Failing Check', hasFailures: true })
+      reporter.onMaxFailuresReached(1)
+      printLnMock.mockClear()
+      return reporter
+    }
+
+    it('shows checks without a result as not finished in the summary', () => {
+      withStdoutTty(false, () => {
+        makeStoppedReporter()._printSummary()
+
+        const summary = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+        expect(summary).toContain('… Slow Check')
+        expect(summary).toContain('1 failed, 1 not finished, 2 total')
+        expect(summary).not.toContain('running')
+        expect(summary).toContain('Stopped after 1 failed check (max failures limit).')
+      })
+    })
+
+    it('shows checks without a result as not finished in the brief summary', () => {
+      makeStoppedReporter()._printBriefSummary()
+
+      const summary = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+      expect(summary).toContain('1 failed, 1 not finished, 2 total')
+      expect(summary).not.toContain('pending')
+      expect(summary).toContain('Stopped after 1 failed check (max failures limit).')
+    })
+
+    it('says the ci reporter stopped instead of finishing all checks', () => {
+      makeStoppedReporter(new CiReporter(PUBLIC_RUN_LOCATION, false)).onEnd()
+
+      const output = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+      expect(output).toContain('Stopped running checks:')
+      expect(output).not.toContain('Finished running all checks')
+    })
   })
 })

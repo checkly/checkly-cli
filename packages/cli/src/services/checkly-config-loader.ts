@@ -371,6 +371,17 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
     verbose?: boolean
     reporters?: ReporterType[]
     retries?: number
+    /**
+     * Stop waiting for the remaining checks once this many checks have
+     * failed, and exit with an error. Checks that passed after a retry do
+     * not count. The `--max-failures` flag of `checkly test` and
+     * `checkly trigger` overrides this value.
+     *
+     * The CLI asks Checkly to cancel the remaining checks, but only some
+     * check types (currently Playwright) can be cancelled once running;
+     * other checks may still run to completion in Checkly.
+     */
+    maxFailures?: number
     loader?: FileLoader
   }
 }

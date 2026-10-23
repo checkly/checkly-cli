@@ -27,6 +27,7 @@ export enum Events {
   STREAM_LOGS = 'STREAM_LOGS',
   CANCEL = 'CANCEL',
   DETACH = 'DETACH',
+  MAX_FAILURES_REACHED = 'MAX_FAILURES_REACHED',
 }
 
 export type PrivateRunLocation = {
@@ -80,12 +81,17 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   verbose: boolean
   protected detach: boolean
   queue: PQueue
+  // Stop waiting for the remaining checks once this many checks have failed.
+  readonly maxFailures?: number
+  // Set when the run stopped early; results that arrive afterwards are dropped.
+  private _maxFailuresReached = false
 
   constructor (
     accountId: string,
     timeout: number,
     verbose: boolean,
     detach: boolean = false,
+    maxFailures?: number,
   ) {
     super()
     this.checks = new Map()
@@ -95,6 +101,11 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     this.verbose = verbose
     this.accountId = accountId
     this.detach = detach
+    this.maxFailures = maxFailures
+  }
+
+  get maxFailuresReached (): boolean {
+    return this._maxFailuresReached
   }
 
   abstract scheduleChecks (checkRunSuiteId: string): Promise<{
@@ -193,6 +204,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // `allChecksFinished` should be started before processing check results in `queue.start()`.
       // Otherwise, there could be a race condition causing check results to be missed by `allChecksFinished()`.
       const allChecksFinished = this.allChecksFinished()
+      const maxFailuresReached = this.maxFailuresReachedOrNever()
       // The server dispatches the check runs in the background after the 202;
       // watch the scheduling operation so a dispatch failure fails the run
       // immediately with the real error instead of waiting out the per-check
@@ -209,7 +221,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Start the queue after the test session run rest call is completed to avoid race conditions
       this.queue.start()
 
-      await Promise.race([allChecksFinished, schedulingFailed])
+      await Promise.race([allChecksFinished, maxFailuresReached, schedulingFailed])
+      if (this.maxFailuresReached) {
+        this.emit(Events.MAX_FAILURES_REACHED, this.maxFailures)
+      }
       this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
       this.disableAllTimeouts()
@@ -291,7 +306,8 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
     }
 
     if (!this.timeouts.has(sequenceId)) {
-      // The check has already timed out. We return early to avoid reporting a duplicate result.
+      // The check has already timed out (or the run stopped at its max failures limit, which clears every
+      // timeout). We return early to avoid reporting a duplicate or late result.
       return
     }
 
@@ -318,12 +334,20 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           await this.processCheckResult(result)
           links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
         } catch (err: any) {
+          if (this._maxFailuresReached) {
+            // The run stopped while this result was being fetched.
+            return
+          }
           // Fail loudly, unlike for an ATTEMPT: for the final result this also
           // covers pulling snapshots with --update-snapshots, which must not be
           // skipped silently.
           this.emit(Events.CHECK_FAILED, sequenceId, check,
             `Failed to process the check result: ${err?.message ?? err}`)
           this.emit(Events.CHECK_FINISHED, check)
+          return
+        }
+        if (this._maxFailuresReached) {
+          // The run stopped while this result was being fetched.
           return
         }
         // Emitted outside the try: an exception from a listener is a reporter
@@ -379,6 +403,48 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.on(Events.CHECK_FINISHED, () => {
         finishedCheckCount++
         if (finishedCheckCount === numChecks) resolve()
+      })
+    })
+  }
+
+  /**
+   * Resolves once `maxFailures` checks have failed while other checks are
+   * still unfinished; never resolves otherwise (including when the failure
+   * that reaches the limit is the last check, which finishes the run
+   * normally). A failure is a check's final outcome: failed retry attempts
+   * and cancelled results do not count, so a check that passes on retry never
+   * stops the run.
+   *
+   * The stop happens synchronously in the CHECK_FINISHED listener, which every
+   * terminal path emits right after the outcome event. Stopping before the
+   * promise resolves keeps any result processed in the meantime from being
+   * reported.
+   */
+  private maxFailuresReachedOrNever (): Promise<void> {
+    const maxFailures = this.maxFailures
+    if (!maxFailures || maxFailures < 1) {
+      return new Promise(() => {})
+    }
+    const numChecks = this.checks.size
+    let numFailed = 0
+    let numFinished = 0
+    return new Promise(resolve => {
+      this.on(Events.CHECK_SUCCESSFUL, (_sequenceId: SequenceId, _check: any, result: any) => {
+        // Matches how reporters classify results: a cancelled result is not a failure.
+        if (result?.hasFailures && !result.isCancelled) numFailed++
+      })
+      this.on(Events.CHECK_FAILED, () => {
+        numFailed++
+      })
+      this.on(Events.CHECK_FINISHED, () => {
+        numFinished++
+        if (this._maxFailuresReached || numFailed < maxFailures || numFinished === numChecks) {
+          return
+        }
+        this._maxFailuresReached = true
+        this.disableAllTimeouts()
+        this.queue.clear()
+        resolve()
       })
     })
   }

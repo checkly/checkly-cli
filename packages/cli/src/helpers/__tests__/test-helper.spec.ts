@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
-import { prepareReportersTypes, validateDetachReporterTypes } from '../test-helper.js'
+import { prepareMaxFailures, prepareReportersTypes, validateDetachReporterTypes } from '../test-helper.js'
 import type { CliMode } from '../cli-mode.js'
 
 const cliMode = vi.hoisted(() => ({ value: 'interactive' as CliMode }))
@@ -73,5 +73,33 @@ describe('validateDetachReporterTypes', () => {
     expect(() => validateDetachReporterTypes(['list', 'json', 'github'])).toThrow(
       '--detach does not support --reporter json, --reporter github',
     )
+  })
+})
+
+describe('prepareMaxFailures', () => {
+  it('has no limit when neither the flag nor the config sets one', () => {
+    expect(prepareMaxFailures(undefined, undefined)).toEqual({})
+  })
+
+  it('uses the configured limit', () => {
+    expect(prepareMaxFailures(undefined, 3)).toEqual({ maxFailures: 3 })
+  })
+
+  it('prefers the flag over the configured limit', () => {
+    expect(prepareMaxFailures(1, 3)).toEqual({ maxFailures: 1 })
+  })
+
+  it.each([0, -2, 1.5, '2'])('rejects a configured limit of %j', value => {
+    expect(() => prepareMaxFailures(undefined, value as any)).toThrow('Invalid cli.maxFailures value')
+  })
+
+  it('ignores the configured limit for a detached run', () => {
+    expect(prepareMaxFailures(undefined, 3, { detach: true })).toEqual({})
+  })
+
+  it('ignores the configured limit with a notice when updating snapshots', () => {
+    const { maxFailures, notice } = prepareMaxFailures(undefined, 3, { updateSnapshots: true })
+    expect(maxFailures).toBeUndefined()
+    expect(notice).toContain('--update-snapshots')
   })
 })

@@ -89,4 +89,23 @@ describe('GithubMdBuilder', () => {
     expect(markdown).toContain('|❌ Fail (1 retry)|Broken check|')
     expect(markdown).toContain('|✅ Pass|Clean check|')
   })
+
+  test('reports checks without a result as not finished when the run stopped early', () => {
+    const map = generateMapAndTestResultIds({ includeTestResultIds: true })
+    map.get('folder/api.check.ts')!.set('seq-slow', {
+      check: { name: 'Slow Check', getSourceFile: () => 'folder/api.check.ts' } as any,
+      titleString: 'Slow Check',
+      numRetries: 0,
+    })
+    const markdown = new GithubMdBuilder({
+      testSessionId: '0c4c64b3-79c5-44a6-ae07-b580ce73f328',
+      numChecks: 3,
+      runLocation: 'eu-west-1',
+      checkFilesMap: map,
+      maxFailuresReached: 2,
+    }).render()
+
+    expect(markdown).toContain('Stopped after **2** failed checks (max failures limit)')
+    expect(markdown).toContain('|⏹️ Not finished|Slow Check|-|`folder/api.check.ts`|- ||')
+  })
 })

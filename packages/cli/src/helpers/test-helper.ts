@@ -77,6 +77,39 @@ export function validateDetachReporterTypes (reporterTypes: ReporterType[]): voi
   }
 }
 
+/**
+ * Resolves the max failures limit for a run: the `--max-failures` flag wins
+ * over `cli.maxFailures` from the config. A configured limit does not apply
+ * to detached runs, which never wait for results, or to snapshot updates,
+ * where checks the run stops waiting for would silently keep their old
+ * snapshots. The flag itself is rejected together with those options.
+ */
+export function prepareMaxFailures (
+  maxFailuresFlag: number | undefined,
+  configMaxFailures: number | undefined,
+  { detach = false, updateSnapshots = false }: { detach?: boolean, updateSnapshots?: boolean } = {},
+): { maxFailures?: number, notice?: string } {
+  if (maxFailuresFlag !== undefined) {
+    return { maxFailures: maxFailuresFlag }
+  }
+  if (configMaxFailures === undefined) {
+    return {}
+  }
+  if (!Number.isInteger(configMaxFailures) || configMaxFailures < 1) {
+    throw new Error(`Invalid cli.maxFailures value ${JSON.stringify(configMaxFailures)} in the Checkly config. `
+      + 'Expected a whole number of 1 or more.')
+  }
+  if (detach) {
+    return {}
+  }
+  if (updateSnapshots) {
+    return {
+      notice: 'Ignoring cli.maxFailures from the Checkly config: --update-snapshots waits for every check.',
+    }
+  }
+  return { maxFailures: configMaxFailures }
+}
+
 export function splitChecklyAndPlaywrightFlags (args: string[]) {
   const separatorIndex = args.indexOf('--')
   let checklyFlags: string[]

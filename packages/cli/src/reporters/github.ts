@@ -12,6 +12,8 @@ type GithubMdBuilderOptions = {
   numChecks: number
   runLocation: string
   checkFilesMap: checkFilesMap
+  // Set to the limit when the run stopped early after that many failed checks.
+  maxFailuresReached?: number
 }
 
 function nonNullable<T> (value: T): value is NonNullable<T> {
@@ -23,6 +25,7 @@ export class GithubMdBuilder {
   numChecks: number
   runLocation: string
   checkFilesMap: checkFilesMap
+  maxFailuresReached?: number
   subHeader: Array<string>
   tableHeaders: Array<string>
   extraTableHeadersWithLinks: Array<string>
@@ -38,6 +41,7 @@ export class GithubMdBuilder {
     this.numChecks = options.numChecks
     this.runLocation = options.runLocation
     this.checkFilesMap = options.checkFilesMap
+    this.maxFailuresReached = options.maxFailuresReached
 
     this.subHeader = []
     this.hasFilenames = !(options.checkFilesMap.size === 1 && options.checkFilesMap.has(undefined))
@@ -54,6 +58,11 @@ export class GithubMdBuilder {
 
   render (): string {
     this.subHeader.push(`Ran **${this.numChecks}** checks in **${this.runLocation}**.`)
+    if (this.maxFailuresReached) {
+      this.subHeader.push(`Stopped after **${this.maxFailuresReached}** failed `
+        + `${this.maxFailuresReached === 1 ? 'check' : 'checks'} (max failures limit); `
+        + 'checks that had not finished were not waited for.')
+    }
 
     if (this.testSessionId) {
       this.subHeader.push(`[View detailed test session summary](${getTestSessionUrl(this.testSessionId)})`)
@@ -64,7 +73,20 @@ export class GithubMdBuilder {
     }
 
     for (const [, checkMap] of this.checkFilesMap.entries()) {
-      for (const [, { result, testResultId, numRetries }] of checkMap.entries()) {
+      for (const [, { check, result, testResultId, numRetries }] of checkMap.entries()) {
+        if (!result) {
+          // Only a run that stopped early leaves checks without a result.
+          this.tableRows.push(this.tableSeparator + [
+            '⏹️ Not finished',
+            `${(check as any)?.name}`,
+            // Checks fetched for `checkly trigger` carry their type; local constructs do not.
+            `${(check as any)?.checkType ?? '-'}`,
+            this.hasFilenames ? `\`${check?.getSourceFile?.()}\`` : undefined,
+            '- ',
+            this.testSessionId ? '' : undefined,
+          ].filter(nonNullable).join(this.tableSeparator) + this.tableSeparator)
+          continue
+        }
         const checkStatus = resultToCheckStatus(result)
         const statusCell = checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
         const tableRow: Array<string> = [
@@ -120,6 +142,7 @@ export default class GithubReporter extends AbstractListReporter {
       numChecks: this.numChecks!,
       runLocation: this._runLocationString(),
       checkFilesMap: this.checkFilesMap!,
+      maxFailuresReached: this.maxFailuresReached,
     })
 
     const markDown = githubMdBuilder.render()

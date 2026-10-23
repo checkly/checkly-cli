@@ -22,6 +22,8 @@ export enum CheckStatus {
   SUCCESSFUL,
   DEGRADED,
   CANCELLED,
+  // The run stopped early (max failures) before this check reported a result.
+  NOT_FINISHED,
 }
 
 export function formatDuration (ms: number): string {
@@ -65,6 +67,9 @@ export function formatCheckTitle (
   } else if (status === CheckStatus.CANCELLED) {
     statusString = '⊘'
     format = chalk.bold
+  } else if (status === CheckStatus.NOT_FINISHED) {
+    statusString = '…'
+    format = chalk.bold.dim
   } else {
     statusString = '-'
     format = chalk.bold.dim
