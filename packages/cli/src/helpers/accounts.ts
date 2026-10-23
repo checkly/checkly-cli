@@ -44,13 +44,14 @@ export function accountNotAvailable (
       return `Account "${accountId}" is not available with the stored login. Run \`npx checkly login\` to log in again.`
     case 'environment':
       // An API key without `CHECKLY_ACCOUNT_ID` falls back to the account
-      // stored by `checkly login`, which need not be the key's account.
+      // stored by `checkly login`, which the key need not be able to access.
       if (config.hasAccountIdInEnvironment()) {
         return `Account "${accountId}" from \`CHECKLY_ACCOUNT_ID\` is not available with \`CHECKLY_API_KEY\`. `
-          + 'Fix them where they are set (the command line, your shell or .env).'
+          + 'Set `CHECKLY_ACCOUNT_ID` to an account the key can access, or `CHECKLY_API_KEY` to a key that can '
+          + `access account "${accountId}" (on the command line, in your shell or in .env).`
       }
       return `Account "${accountId}", the default stored by \`checkly login\`, is not available with `
-        + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to the account the key belongs to (on the command line, '
+        + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to an account the key can access (on the command line, '
         + 'in your shell or in .env).'
   }
 }

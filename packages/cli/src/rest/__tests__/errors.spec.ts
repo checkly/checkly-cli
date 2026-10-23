@@ -137,7 +137,8 @@ describe('handleErrorResponse for a 403 response', () => {
     })
 
     expect(err.message).toBe('Account "acc-1" from `CHECKLY_ACCOUNT_ID` is not available with `CHECKLY_API_KEY`. '
-      + 'Fix them where they are set (the command line, your shell or .env).')
+      + 'Set `CHECKLY_ACCOUNT_ID` to an account the key can access, or `CHECKLY_API_KEY` to a key that can '
+      + 'access account "acc-1" (on the command line, in your shell or in .env).')
     expect(err.data.errorCode).toBe('ERR_ACCOUNT_NOT_ACCESSIBLE')
     expect(isAccountNotAccessible(err)).toBe(true)
   })

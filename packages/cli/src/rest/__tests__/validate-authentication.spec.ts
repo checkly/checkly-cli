@@ -139,7 +139,8 @@ describe('validateAuthentication() with rejected credentials', () => {
     const thrown = await validateAuthentication().catch(e => e)
 
     expect(thrown.message).toBe('Account "acc-1" from `CHECKLY_ACCOUNT_ID` is not available with `CHECKLY_API_KEY`. '
-      + 'Fix them where they are set (the command line, your shell or .env).')
+      + 'Set `CHECKLY_ACCOUNT_ID` to an account the key can access, or `CHECKLY_API_KEY` to a key that can '
+      + 'access account "acc-1" (on the command line, in your shell or in .env).')
     expect(thrown.cause).toBe(original)
   })
 
@@ -151,7 +152,7 @@ describe('validateAuthentication() with rejected credentials', () => {
     const thrown = await validateAuthentication().catch(e => e)
 
     expect(thrown.message).toBe('Account "acc-1", the default stored by `checkly login`, is not available with '
-      + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to the account the key belongs to (on the command line, '
+      + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to an account the key can access (on the command line, '
       + 'in your shell or in .env).')
   })
 

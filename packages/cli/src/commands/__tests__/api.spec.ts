@@ -210,7 +210,8 @@ describe('checkly api', () => {
         vi.unstubAllEnvs()
       }
       expect(cmd.logToStderr).toHaveBeenCalledWith('Account "acc-1" from `CHECKLY_ACCOUNT_ID` is not available with '
-        + '`CHECKLY_API_KEY`. Fix them where they are set (the command line, your shell or .env).')
+        + '`CHECKLY_API_KEY`. Set `CHECKLY_ACCOUNT_ID` to an account the key can access, or `CHECKLY_API_KEY` to a '
+        + 'key that can access account "acc-1" (on the command line, in your shell or in .env).')
       expect(cmd.logToStderr).not.toHaveBeenCalledWith(expect.stringContaining('Permission denied'))
     })
 
