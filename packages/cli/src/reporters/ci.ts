@@ -13,7 +13,7 @@ export default class CiReporter extends AbstractListReporter {
   }
 
   onEnd () {
-    printLn('Finished running all checks:', 2)
+    printLn(this.maxFailuresReached ? 'Stopped running checks:' : 'Finished running all checks:', 2)
     this._printSummary()
     this._printTestSessionsUrl()
   }

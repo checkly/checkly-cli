@@ -17,6 +17,7 @@ export interface Reporter {
   onStreamLogs(check: any, sequenceId: SequenceId, logs: Array<{ timestamp: number, message: string }>): void
   onCancel(): void
   onDetach(): void
+  onMaxFailuresReached(maxFailures: number): void
 }
 
 export type ReporterType = 'list' | 'dot' | 'ci' | 'github' | 'json'

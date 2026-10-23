@@ -36,6 +36,8 @@ export default abstract class AbstractListReporter implements Reporter {
   private hasPrintedTestSessionReference = false
   _isSchedulingDelayExceeded?: boolean
   showStreamingHeaders: boolean
+  // Set to the limit when the run stopped early after that many failed checks.
+  maxFailuresReached?: number
 
   constructor (
     runLocation: RunLocation,
@@ -158,6 +160,28 @@ export default abstract class AbstractListReporter implements Reporter {
     this._printSummary({ includeCheckTitles: false })
   }
 
+  onMaxFailuresReached (maxFailures: number): void {
+    this.maxFailuresReached = maxFailures
+    for (const [, checkMap] of this.checkFilesMap!.entries()) {
+      for (const [, entry] of checkMap.entries()) {
+        if (entry.result) {
+          continue
+        }
+        entry.checkStatus = CheckStatus.NOT_FINISHED
+        entry.titleString = formatCheckTitle(CheckStatus.NOT_FINISHED, entry.check)
+      }
+    }
+  }
+
+  _getMaxFailuresMessage (): string | undefined {
+    if (!this.maxFailuresReached) {
+      return
+    }
+    const failedChecks = this.maxFailuresReached === 1 ? '1 failed check' : `${this.maxFailuresReached} failed checks`
+    return chalk.yellow(`Stopped after ${failedChecks} (max failures limit). `
+      + 'Checks that had not finished were not waited for and may still run in Checkly.')
+  }
+
   onDetach (): void {
     this._isDetaching = true
     if (this._shouldRenderLiveSummary()) {
@@ -185,7 +209,7 @@ export default abstract class AbstractListReporter implements Reporter {
   _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean } = {}) {
     const counts = {
       numFailed: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
-      numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0,
+      numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0, numNotFinished: 0,
     }
     const status = []
     const includeCheckTitles = opts.includeCheckTitles ?? true
@@ -195,7 +219,9 @@ export default abstract class AbstractListReporter implements Reporter {
     for (const [sourceFile, checkMap] of this.checkFilesMap!.entries()) {
       if (includeCheckTitles && sourceFile) status.push(sourceFile)
       for (const [, { titleString, result, checkStatus, numRetries }] of checkMap.entries()) {
-        if (checkStatus === CheckStatus.SCHEDULING) {
+        if (checkStatus === CheckStatus.NOT_FINISHED) {
+          counts.numNotFinished++
+        } else if (checkStatus === CheckStatus.SCHEDULING) {
           counts.scheduling++
         } else if (checkStatus === CheckStatus.RETRIED) {
           counts.numRetrying++
@@ -233,6 +259,12 @@ export default abstract class AbstractListReporter implements Reporter {
         }
       }
 
+      const maxFailuresMessage = this._getMaxFailuresMessage()
+      if (maxFailuresMessage) {
+        status.push('')
+        status.push(maxFailuresMessage)
+      }
+
       if (this._isDetaching) {
         status.push('')
         status.push(chalk.yellow('Checks will continue running in the cloud.'))
@@ -252,6 +284,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         counts.numFlaky ? chalk.bold.yellow(`${counts.numFlaky} flaky`) : undefined,
         counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
+        counts.numNotFinished ? chalk.bold.grey(`${counts.numNotFinished} not finished`) : undefined,
         `${this.numChecks} total`,
       ].filter(Boolean).join(', '))
 
@@ -272,11 +305,13 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   _printBriefSummary () {
-    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0 }
+    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0, numNotFinished: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
-      for (const [, { result }] of checkMap.entries()) {
-        if (!result) {
+      for (const [, { result, checkStatus }] of checkMap.entries()) {
+        if (checkStatus === CheckStatus.NOT_FINISHED) {
+          counts.numNotFinished++
+        } else if (!result) {
           counts.numPending++
         } else if (result.hasFailures) {
           counts.numFailed++
@@ -296,8 +331,13 @@ export default abstract class AbstractListReporter implements Reporter {
       counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
       counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
       counts.numPending ? chalk.bold.magenta(`${counts.numPending} pending`) : undefined,
+      counts.numNotFinished ? chalk.bold.grey(`${counts.numNotFinished} not finished`) : undefined,
       `${this.numChecks} total`,
     ].filter(Boolean).join(', '))
+    const maxFailuresMessage = this._getMaxFailuresMessage()
+    if (maxFailuresMessage) {
+      status.push(maxFailuresMessage)
+    }
     status.push('')
     const statusString = status.join('\n')
     printLn(statusString)

@@ -106,6 +106,45 @@ describe('JsonBuilder', () => {
     expect(byType.SSL.diagnostics.sslCheckResult.chainTrusted).toBe(false)
     expect(byType.SSL.diagnostics.sslCheckResult.hostnameVerified).toBe(false)
   })
+  test('reports checks without a result as not finished when the run stopped early', () => {
+    const map = generateMapAndTestResultIds({ includeTestResultIds: false })
+    map.get('folder/api.check.ts')!.set('seq-slow', {
+      check: { name: 'Slow Check', getSourceFile: () => 'folder/api.check.ts' } as any,
+      titleString: 'Slow Check',
+      numRetries: 0,
+    })
+    const summary = JSON.parse(new JsonBuilder({
+      testSessionId: undefined,
+      numChecks: 3,
+      runLocation,
+      checkFilesMap: map,
+      maxFailuresReached: 1,
+    }).render())
+
+    expect(summary.stoppedEarly).toEqual({ reason: 'maxFailures', maxFailures: 1 })
+    expect(summary.checks).toHaveLength(3)
+    expect(summary.checks).toContainEqual({
+      result: 'Not finished',
+      name: 'Slow Check',
+      checkType: null,
+      durationMilliseconds: null,
+      filename: 'folder/api.check.ts',
+      link: null,
+      runError: null,
+      retries: 0,
+    })
+  })
+
+  test('omits stoppedEarly when the run finished', () => {
+    const checkFilesMap = generateMapAndTestResultIds({ includeTestResultIds: false })
+    const summary = JSON.parse(new JsonBuilder({
+      testSessionId: undefined,
+      numChecks: checkFilesMap.size,
+      runLocation,
+      checkFilesMap,
+    }).render())
+    expect(summary).not.toHaveProperty('stoppedEarly')
+  })
 })
 
 describe('buildPerTypeDiagnostics()', () => {
