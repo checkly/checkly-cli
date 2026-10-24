@@ -39,6 +39,51 @@ export interface ProjectCli {
   binPath: string
 }
 
+/**
+ * The short boolean flags of the commands that take `-c`. In a group of
+ * short flags (`-pc path`), oclif lets each boolean letter pass and reads
+ * the next letter, so a `c` after them is still `--config`. Installs from
+ * before a new boolean short flag was added do not know it, and search from
+ * the working directory when it is grouped with `c`.
+ */
+export const booleanShortFlags = new Set(['d', 'f', 'o', 'p', 'u', 'v'])
+
+/**
+ * The value of `--config` (or its short form `-c`) in raw command arguments,
+ * in any form oclif accepts: `--config v`, `--config=v`, `-c v`, `-c=v`,
+ * `-cv`, and `c` after boolean short flags in one group (`-pc v`, `-pcv`).
+ * Arguments after `--` are not flags.
+ *
+ * Every command that takes a config file calls the flag `config` with the
+ * short form `-c`, and other checkly installs read it here before handing a
+ * command over, so the flag has to keep that meaning in every release.
+ */
+export function findConfigFlag (args: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    if (arg === '--') {
+      return undefined
+    }
+    if (arg === '--config') {
+      return args[i + 1] || undefined
+    }
+    if (arg.startsWith('--config=')) {
+      return arg.slice('--config='.length) || undefined
+    }
+    if (arg.startsWith('-') && !arg.startsWith('--')) {
+      let j = 1
+      while (booleanShortFlags.has(arg[j])) {
+        j++
+      }
+      if (arg[j] === 'c') {
+        const value = arg.slice(arg[j + 1] === '=' ? j + 2 : j + 1)
+        return (value || args[i + 1]) || undefined
+      }
+    }
+  }
+  return undefined
+}
+
 async function exists (filePath: string): Promise<boolean> {
   try {
     await fs.access(filePath)
@@ -117,7 +162,7 @@ async function isSameDirectory (a: string, b: string): Promise<boolean> {
  * install can load the project: when the running CLI is another install
  * (global, `pnpx`, an `npx` of another version), its `Session` would never
  * see them. Every command is handed off, which makes any install behave like
- * `npx checkly` run in the same directory.
+ * `npx checkly` run in the project's directory.
  */
 export async function findProjectCliHandOff (
   self: Install,
@@ -209,7 +254,10 @@ export async function runWithProjectCli (args: string[], self?: Install): Promis
   let projectCli: ProjectCli | undefined
   try {
     self ??= await readOwnInstall()
-    projectCli = await findProjectCliHandOff(self)
+    // The project is where the commands load it from: the config file's
+    // directory, or the working directory (splitConfigFilePath in util.ts).
+    const configFile = findConfigFlag(args)
+    projectCli = await findProjectCliHandOff(self, configFile ? path.dirname(path.resolve(configFile)) : undefined)
   } catch (err) {
     // Nothing has been handed off yet, so the command can still run here.
     debug('looking for the project\'s checkly install failed: %O', err)

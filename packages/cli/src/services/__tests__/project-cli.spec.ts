@@ -3,11 +3,14 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { Config, Flags, Parser } from '@oclif/core'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
 import {
+  booleanShortFlags,
   childNodeOptions,
+  findConfigFlag,
   findProjectCli,
   findProjectCliHandOff,
   NO_DELEGATION_ENV,
@@ -85,6 +88,94 @@ describe('childNodeOptions', () => {
       nodeOptions: '--max-old-space-size=4096 --no-warnings',
     })
     expect(childNodeOptions([], undefined)).toEqual({ execArgv: [], nodeOptions: undefined })
+  })
+})
+
+describe('findConfigFlag', () => {
+  const cases: Array<[string[], string | undefined]> = [
+    [['--config', 'a.ts'], 'a.ts'],
+    [['--config=a.ts'], 'a.ts'],
+    [['-c', 'a.ts'], 'a.ts'],
+    [['-c=a.ts'], 'a.ts'],
+    [['-ca.ts'], 'a.ts'],
+    [['-pc', 'a.ts'], 'a.ts'],
+    [['-poca.ts'], 'a.ts'],
+    [['-pc=a.ts'], 'a.ts'],
+    [['-vp', '-c', 'a.ts'], 'a.ts'],
+    [['-gca.ts'], undefined],
+    [['test', 'home', '--grep', 'x', '-c', 'a.ts'], 'a.ts'],
+    [['--config', 'a.ts', '--config', 'b.ts'], 'a.ts'],
+    [['--', '--config', 'a.ts'], undefined],
+    [['--configure', 'a.ts'], undefined],
+    [['--config'], undefined],
+    [['--config='], undefined],
+    [[], undefined],
+  ]
+
+  it.each(cases)('reads %j', (args, expected) => {
+    expect(findConfigFlag(args)).toBe(expected)
+  })
+
+  it('reads the value oclif parses', async () => {
+    for (const [args, expected] of cases) {
+      const { flags } = await Parser.parse(args, {
+        flags: {
+          config: Flags.string({ char: 'c' }),
+          grep: Flags.string({ char: 'g' }),
+          preview: Flags.boolean({ char: 'p' }),
+          output: Flags.boolean({ char: 'o' }),
+          verbose: Flags.boolean({ char: 'v' }),
+        },
+        args: {},
+        strict: false,
+      }).catch(() => ({ flags: { config: undefined } }))
+      // oclif rejects a repeated flag; reading the first one is enough. An
+      // empty value means the working directory either way.
+      if (flags.config !== undefined || expected === undefined) {
+        expect(flags.config || undefined).toBe(expected)
+      }
+    }
+  })
+
+  describe('matches every command', () => {
+    let config: Config
+
+    beforeAll(async () => {
+      config = await Config.load(CLI_PACKAGE_ROOT)
+    })
+
+    it('-c is always the config file', () => {
+      const shortC = config.commands.flatMap(command =>
+        Object.entries(command.flags)
+          .filter(([, flag]) => flag.char === 'c')
+          .map(([name]) => `${command.id} --${name}`))
+
+      expect(shortC.length).toBeGreaterThan(0)
+      for (const flag of shortC) {
+        // Other checkly installs rely on this to find the project.
+        expect(flag).toMatch(/ --config$/)
+      }
+    })
+
+    it('booleanShortFlags are exactly the boolean short flags of commands with -c', () => {
+      const booleans = new Set<string>()
+      const values = new Set<string>()
+      for (const command of config.commands) {
+        if (command.flags.config?.char !== 'c') {
+          continue
+        }
+        for (const flag of Object.values(command.flags)) {
+          if (flag.char && flag.char !== 'c') {
+            (flag.type === 'boolean' ? booleans : values).add(flag.char)
+          }
+        }
+      }
+
+      expect([...booleans].sort()).toEqual([...booleanShortFlags].sort())
+      // A letter that takes a value on one of these commands would end a
+      // group there, which the scan cannot tell apart.
+      expect([...values].filter(char => booleanShortFlags.has(char))).toEqual([])
+    })
   })
 })
 
@@ -266,6 +357,16 @@ describe('launcher hand-off', () => {
       expect(report((await runCli(args)).stdout)?.argv).toEqual(args)
     }
     expect(report((await runCli(['deploy'], { cwd: nested })).stdout)?.argv).toEqual(['deploy'])
+  })
+
+  it('looks for the install from the directory of --config', async () => {
+    const otherProject = path.join(tempDir, 'packages', 'checks')
+    await fs.mkdir(otherProject, { recursive: true })
+    const dir = await writeFakeInstall(otherProject)
+
+    const result = await runCli(['deploy', '-c', 'packages/checks/checkly.config.ts'])
+
+    expect(report(result.stdout)).toMatchObject({ handedOffTo: dir })
   })
 
   it(`runs the command itself with ${NO_DELEGATION_ENV}=1`, async () => {
