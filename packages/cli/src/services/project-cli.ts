@@ -6,6 +6,7 @@ import { normalizeArgv } from '@oclif/core/help'
 import Debug from 'debug'
 import semver from 'semver'
 import { defaultFilenames } from './checkly-config-filenames.js'
+import { lineage } from './check-parser/package-files/walk.js'
 
 const debug = Debug('checkly:cli:project-cli')
 
@@ -97,36 +98,33 @@ async function readJsonIfExists (filePath: string): Promise<any> {
  * install the project's imports would resolve to.
  */
 export async function findProjectCli (directory: string): Promise<ProjectCli | undefined> {
-  let current = path.resolve(directory)
-  while (true) {
-    if (path.basename(current) !== 'node_modules') {
-      const dir = path.join(current, 'node_modules', 'checkly')
-      const packageJson = await readJsonIfExists(path.join(dir, 'package.json'))
-      if (packageJson) {
-        if (packageJson.name !== 'checkly') {
-          debug('%s is not the checkly package', dir)
-          return undefined
-        }
-        const bin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.checkly
-        if (typeof bin !== 'string') {
-          debug('%s has no checkly bin', dir)
-          return undefined
-        }
-        const binPath = path.join(dir, bin)
-        if (!await exists(binPath)) {
-          debug('the checkly bin of %s is missing at %s', dir, binPath)
-          return undefined
-        }
-        return { dir, version: String(packageJson.version), binPath }
-      }
+  for (const current of lineage(directory)) {
+    if (path.basename(current) === 'node_modules') {
+      continue
     }
-
-    const parent = path.dirname(current)
-    if (parent === current) {
+    const dir = path.join(current, 'node_modules', 'checkly')
+    const packageJson = await readJsonIfExists(path.join(dir, 'package.json'))
+    if (!packageJson) {
+      continue
+    }
+    if (packageJson.name !== 'checkly') {
+      debug('%s is not the checkly package', dir)
       return undefined
     }
-    current = parent
+    const bin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.checkly
+    if (typeof bin !== 'string') {
+      debug('%s has no checkly bin', dir)
+      return undefined
+    }
+    const binPath = path.join(dir, bin)
+    if (!await exists(binPath)) {
+      debug('the checkly bin of %s is missing at %s', dir, binPath)
+      return undefined
+    }
+    return { dir, version: String(packageJson.version), binPath }
   }
+
+  return undefined
 }
 
 async function isSameDirectory (a: string, b: string): Promise<boolean> {
