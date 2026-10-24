@@ -19,6 +19,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const CLI_PACKAGE_ROOT = path.resolve(__dirname, '..', '..', '..')
 const CLI_BIN = path.join(CLI_PACKAGE_ROOT, 'bin', 'run.cjs')
 const OLD_MESSAGE = 'Unable to create a construct \'ApiCheck\' outside a Checkly CLI project.'
+// Explanations show paths with the platform's separators.
+const nodeModulesCheckly = path.join('node_modules', 'checkly')
 
 /**
  * A checkly install that stands in for another, older copy: its constructs
@@ -161,7 +163,7 @@ describe('creating a construct outside a project', () => {
 
     expect(err).toBeInstanceOf(OutsideProjectError)
     expect(err.message).toMatch(new RegExp(`^${OLD_MESSAGE.replace(/[.']/g, '\\$&')}\n\n`))
-    expect(err.message).toContain('but checkly 9.4.0 from global/node_modules/checkly runs this command')
+    expect(err.message).toContain(`but checkly 9.4.0 from ${path.join('global', nodeModulesCheckly)} runs this command`)
   })
 
   it('keeps the message when this install runs the command, or no checkly does', async () => {
@@ -193,7 +195,7 @@ describe('loading a file whose constructs come from another install', () => {
 
     const err = await loadWithError(new Error(OLD_MESSAGE))
 
-    expect(err.message).toContain(`${OLD_MESSAGE}\n\nThe project's files import checkly 1.2.3 from node_modules/checkly`)
+    expect(err.message).toContain(`${OLD_MESSAGE}\n\nThe project's files import checkly 1.2.3 from ${nodeModulesCheckly}`)
     expect(err.message.split(TWO_INSTALLS_MARKER)).toHaveLength(2)
     expect(err.message).not.toContain('    at ')
     expect(err.cause).toBeUndefined()
@@ -263,7 +265,10 @@ describe('a project whose checkly is another install', () => {
     })
     await new Promise(resolve => child.on('close', resolve))
 
-    expect(output).toContain('The project\'s files import checkly 1.2.3 from node_modules/checkly, but checkly 0.0.1-dev')
+    // The output is JSON, which escapes the backslashes of Windows paths.
+    expect(output.replaceAll('\\\\', '\\')).toContain(
+      `The project's files import checkly 1.2.3 from ${nodeModulesCheckly}, but checkly 0.0.1-dev`,
+    )
     expect(output).toContain(`${NO_DELEGATION_ENV}=1 is set`)
     expect(output.split(TWO_INSTALLS_MARKER)).toHaveLength(2)
   })
