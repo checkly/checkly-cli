@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process'
+import fsSync from 'node:fs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -25,7 +26,7 @@ export const NO_DELEGATION_ENV = 'CHECKLY_NO_DELEGATION'
 const HANDED_OFF_TO_ENV = 'CHECKLY_HANDED_OFF_TO'
 
 /** The root of the checkly package this module belongs to. */
-const ownRoot = fileURLToPath(new URL('../..', import.meta.url))
+export const ownRoot = fileURLToPath(new URL('../..', import.meta.url))
 
 export interface Install {
   root: string
@@ -145,8 +146,14 @@ export async function findProjectCli (directory: string): Promise<ProjectCli | u
   return undefined
 }
 
-async function isSameDirectory (a: string, b: string): Promise<boolean> {
-  const [realA, realB] = await Promise.all([fs.realpath(a), fs.realpath(b)])
+/** Whether `version` is a development or canary build rather than a release. */
+export function isDevelopmentBuild (version: string): boolean {
+  return version === '0.0.1-dev' || version.startsWith('0.0.0')
+}
+
+/** Whether two paths are the same directory. Throws when either cannot be resolved. */
+export function isSameDirectory (a: string, b: string): boolean {
+  const [realA, realB] = [fsSync.realpathSync(a), fsSync.realpathSync(b)]
   // Windows paths compare case-insensitively; realpath can return either
   // casing of a drive letter or folder name.
   return process.platform === 'win32'
@@ -186,18 +193,26 @@ export async function findProjectCliHandOff (
     return undefined
   }
 
-  if (await isSameDirectory(projectCli.dir, self.root)) {
+  if (isSameDirectory(projectCli.dir, self.root)) {
     debug('running from the project\'s install at %s', projectCli.dir)
     return undefined
   }
 
   const handedOffTo = process.env[HANDED_OFF_TO_ENV]
-  if (handedOffTo && await isSameDirectory(projectCli.dir, handedOffTo).catch(() => false)) {
+  if (handedOffTo && isSameDirectoryOrFalse(projectCli.dir, handedOffTo)) {
     debug('already handed off to %s', projectCli.dir)
     return undefined
   }
 
   return projectCli
+}
+
+function isSameDirectoryOrFalse (a: string, b: string): boolean {
+  try {
+    return isSameDirectory(a, b)
+  } catch {
+    return false
+  }
 }
 
 const forwardedSignals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
