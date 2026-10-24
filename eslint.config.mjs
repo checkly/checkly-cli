@@ -46,6 +46,9 @@ export default defineConfig([
     // Holds git worktrees, each a full checkout of the repo with its own
     // in-progress code that must not be linted as part of this checkout.
     '**/.claude/',
+    // Scratch space for coding agents (session transcripts, demo tooling),
+    // never part of the shipped code.
+    '**/.context/',
     '**/dist/',
     `**/gen/`,
     '**/__checks__/**/*.spec.{js,ts,mjs}',

@@ -3,26 +3,28 @@ import chalk from 'chalk'
 
 import AbstractListReporter from './abstract-list.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util.js'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, printLnErr, resultToCheckStatus } from './util.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 
 export default class ListReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
-    this._printSummary()
+    // "Running N checks" and the live summary are progress output: they go
+    // to stderr so stdout carries only the results of the run.
+    printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
+    this._printSummary({ stream: 'stderr' })
   }
 
   onCheckInProgress (check: any, sequenceId: SequenceId) {
     super.onCheckInProgress(check, sequenceId)
     this._clearSummary()
-    this._printSummary()
+    this._printSummary({ stream: 'stderr' })
   }
 
   onSchedulingDelayExceeded () {
     super.onSchedulingDelayExceeded()
     this._clearSummary()
-    this._printSummary()
+    this._printSummary({ stream: 'stderr' })
   }
 
   onEnd () {
@@ -50,7 +52,7 @@ export default class ListReporter extends AbstractListReporter {
       printLn('')
     }
 
-    this._printSummary()
+    this._printSummary({ stream: 'stderr' })
   }
 
   onCheckEnd (sequenceId: SequenceId, checkResult: any, testResultId?: string, links?: TestResultsShortLinks) {
@@ -84,7 +86,7 @@ export default class ListReporter extends AbstractListReporter {
       printLn('')
     }
 
-    this._printSummary()
+    this._printSummary({ stream: 'stderr' })
   }
 
   onError (err: Error) {

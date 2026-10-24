@@ -37,6 +37,22 @@ If an older command does not follow this yet, do not spread the inconsistency to
 new commands. Either follow the canonical shape above or explain the deviation
 in the PR.
 
+## Output Streams
+
+stdout carries the command's result document only; stderr carries progress,
+spinners, banners, warnings, and hints. The full contract, including envelope
+shapes and the exit-code table, lives in `docs/output-contract.md`.
+
+- Print results, JSON documents, and envelopes via `this.log` / `style` /
+  `printLn` (stdout).
+- Print spinners via `style.actionStart` (it renders on stderr), warnings via
+  `style.longWarning` / `style.shortWarning` (stderr), and run-progress via
+  `printLnErr` (stderr). Do not call `ux.action.start(..., { stdout: true })`.
+- Never print anything to stdout around a `--output json` document; a piped
+  `| jq` must always parse.
+- Terminal users see both streams, so moving chatter to stderr does not change
+  the interactive experience — that is the default for new output.
+
 ## Construct Conventions
 
 - Every property of a construct is synthesized with an explicit value, the

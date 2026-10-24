@@ -17,6 +17,7 @@ vi.mock('../../rest/api.js', () => ({
 
 const printMock = vi.fn()
 const printLnMock = vi.fn()
+const printLnErrMock = vi.fn()
 
 vi.mock('../util.js', async () => {
   const actual = await vi.importActual<typeof import('../util.js')>('../util.js')
@@ -24,6 +25,7 @@ vi.mock('../util.js', async () => {
     ...actual,
     print: (...args: Parameters<typeof actual.print>) => printMock(...args),
     printLn: (...args: Parameters<typeof actual.printLn>) => printLnMock(...args),
+    printLnErr: (...args: Parameters<typeof actual.printLnErr>) => printLnErrMock(...args),
   }
 })
 
@@ -72,6 +74,19 @@ describe('DotReporter', () => {
   beforeEach(() => {
     printMock.mockClear()
     printLnMock.mockClear()
+    printLnErrMock.mockClear()
+  })
+
+  it('prints the run announcement on stderr and results on stdout', () => {
+    const { reporter } = makeReporterWithOneCheck()
+    reporter.onCheckEnd(SEQUENCE_ID, makeResult())
+    reporter.onEnd()
+
+    const dots = stripAnsi(printMock.mock.calls.map(([text]: [string]) => text).join(''))
+    expect(dots).toContain('.')
+    expect(stripAnsi(printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n')))
+      .toContain(`Running 1 checks in ${PUBLIC_RUN_LOCATION.region}`)
+    expect(printedOutput()).not.toContain('Running 1 checks')
   })
 
   it('should print execution error details for a check that failed with a run error', () => {
