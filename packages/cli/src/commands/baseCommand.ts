@@ -11,6 +11,7 @@ import { InvalidConfigError } from '../services/config-diagnostics.js'
 import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
+import { isDevelopmentBuild } from '../services/project-cli.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -27,7 +28,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 export async function resolveReportedCliVersion (configVersion: string): Promise<string> {
   let version = process.env.CHECKLY_E2E_CLI_VERSION ?? configVersion
 
-  if (version === '0.0.1-dev' || version.startsWith('0.0.0')) {
+  if (isDevelopmentBuild(version)) {
     try {
       const registryUrl = 'https://registry.npmjs.org/checkly/latest'
       const { data: packageInformation } = await axios.get(

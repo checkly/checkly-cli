@@ -449,5 +449,8 @@ describe('project with its own checkly install', () => {
     const result = await parseProjectWithOtherInstall({ [NO_DELEGATION_ENV]: '1' })
 
     expect(result.stdout).toContain('Unable to create a construct \'ApiCheck\' outside a Checkly CLI project.')
+    // Both installs explain it, so it must only be said once.
+    expect(result.stdout.split('Constructs only register with the checkly install').length).toBe(2)
+    expect(result.stdout).toContain(`${NO_DELEGATION_ENV}=1 is set`)
   })
 })

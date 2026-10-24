@@ -21,6 +21,7 @@ import { Runtime } from '../runtimes/index.js'
 import { EmbeddedPackagesMaterializer } from '../services/embedded-packages/materializer.js'
 import { PlaywrightProjectBundler } from '../services/playwright-project-bundler.js'
 import { PROJECT_CONSTRUCT_TYPE } from '../constants.js'
+import { explainFromConstructSide, explainFromRunningSide, TWO_INSTALLS_MARKER } from '../services/two-installs.js'
 
 // Construct classes are imported as TYPES ONLY. Session lives in its own module
 // (rather than in project.js) precisely so that the construct base classes can
@@ -30,6 +31,15 @@ import { PROJECT_CONSTRUCT_TYPE } from '../constants.js'
 // initialisation failures it causes under bundlers such as Vite/vitest).
 import type { Project } from './project.js'
 import type { Check } from './check.js'
+
+/**
+ * A construct created outside a project, thrown by this copy of checkly.
+ * Another copy's (or an older version's) error is not an instance, which is
+ * how loadFile tells that a project's files use a different install.
+ */
+export class OutsideProjectError extends Error {}
+
+const OUTSIDE_PROJECT_MESSAGE = 'outside a Checkly CLI project.'
 
 export interface ConstructExport {
   type: string
@@ -168,8 +178,38 @@ export class Session {
         )
       }
 
+      const twoInstallsMessage = this.explainOtherInstall(filePath, err)
+      if (twoInstallsMessage) {
+        // The other install's stack and a cause would only repeat the
+        // message (oclif prints the cause chain), so neither is attached.
+        // eslint-disable-next-line preserve-caught-error
+        throw new Error(`Error loading file '${filePath}'\n${twoInstallsMessage}`)
+      }
+
       throw new Error(`Error loading file '${filePath}'\n${err.stack}`, { cause: err })
     }
+  }
+
+  /**
+   * The message to report when loading `filePath` failed because its
+   * constructs come from another checkly install, or `undefined`.
+   */
+  private static explainOtherInstall (filePath: string, err: any): string | undefined {
+    const message = typeof err?.message === 'string' ? err.message : undefined
+    if (!message?.includes(OUTSIDE_PROJECT_MESSAGE) || err instanceof OutsideProjectError) {
+      return undefined
+    }
+    if (message.includes(TWO_INSTALLS_MARKER)) {
+      // The other install explained it already.
+      return message
+    }
+    // The project's directory is the config file's (what the hand-off
+    // searches from), which is the file itself while it loads.
+    const projectDir = this.loadingChecklyConfigFile || !this.checkFilesDirectory
+      ? path.dirname(filePath)
+      : this.checkFilesDirectory
+    const explanation = explainFromRunningSide(filePath, projectDir)
+    return explanation && `${message}\n\n${explanation}`
   }
 
   static registerConstruct (construct: Construct) {
@@ -192,7 +232,9 @@ export class Session {
     } else if (Session.loadingChecklyConfigFile) {
       throw new Error(`Creating a ${construct.constructor.name} construct in the Checkly config file isn't supported.`)
     } else {
-      throw new Error(`Unable to create a construct '${construct.constructor.name}' outside a Checkly CLI project.`)
+      const message = `Unable to create a construct '${construct.constructor.name}' ${OUTSIDE_PROJECT_MESSAGE}`
+      const explanation = explainFromConstructSide()
+      throw new OutsideProjectError(explanation ? `${message}\n\n${explanation}` : message)
     }
   }
 
