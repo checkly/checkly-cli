@@ -1,0 +1,333 @@
+import { spawn } from 'node:child_process'
+import fs from 'node:fs/promises'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import Debug from 'debug'
+import semver from 'semver'
+import { lineage } from './check-parser/package-files/walk.js'
+
+// The launcher runs this module before oclif loads, so it must stay light:
+// nothing here may import the commands or the constructs.
+
+const debug = Debug('checkly:cli:project-cli')
+
+/**
+ * Set to `1` to always run the invoked CLI, even when the project has its own
+ * `checkly` install.
+ */
+export const NO_DELEGATION_ENV = 'CHECKLY_NO_DELEGATION'
+
+/**
+ * The install a hand-off started, set in its environment. That install never
+ * hands off to itself again, while a checkly it starts for another project
+ * still can.
+ */
+const HANDED_OFF_TO_ENV = 'CHECKLY_HANDED_OFF_TO'
+
+/** The root of the checkly package this module belongs to. */
+const ownRoot = fileURLToPath(new URL('../..', import.meta.url))
+
+export interface Install {
+  root: string
+  version: string
+}
+
+export interface ProjectCli {
+  /** The install's directory as found, i.e. `<dir>/node_modules/checkly`. */
+  dir: string
+  version: string
+  binPath: string
+}
+
+/**
+ * The short boolean flags of the commands that take `-c`. In a group of
+ * short flags (`-pc path`), oclif lets each boolean letter pass and reads
+ * the next letter, so a `c` after them is still `--config`. Installs from
+ * before a new boolean short flag was added do not know it, and search from
+ * the working directory when it is grouped with `c`.
+ */
+export const booleanShortFlags = new Set(['d', 'f', 'o', 'p', 'u', 'v'])
+
+/**
+ * The value of `--config` (or its short form `-c`) in raw command arguments,
+ * in any form oclif accepts: `--config v`, `--config=v`, `-c v`, `-c=v`,
+ * `-cv`, and `c` after boolean short flags in one group (`-pc v`, `-pcv`).
+ * Arguments after `--` are not flags.
+ *
+ * Every command that takes a config file calls the flag `config` with the
+ * short form `-c`, and other checkly installs read it here before handing a
+ * command over, so the flag has to keep that meaning in every release.
+ */
+export function findConfigFlag (args: string[]): string | undefined {
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    if (arg === '--') {
+      return undefined
+    }
+    if (arg === '--config') {
+      return args[i + 1] || undefined
+    }
+    if (arg.startsWith('--config=')) {
+      return arg.slice('--config='.length) || undefined
+    }
+    if (arg.startsWith('-') && !arg.startsWith('--')) {
+      let j = 1
+      while (booleanShortFlags.has(arg[j])) {
+        j++
+      }
+      if (arg[j] === 'c') {
+        const value = arg.slice(arg[j + 1] === '=' ? j + 2 : j + 1)
+        return (value || args[i + 1]) || undefined
+      }
+    }
+  }
+  return undefined
+}
+
+async function exists (filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** Resolves to `undefined` when the file does not exist; throws on any other error. */
+async function readJsonIfExists (filePath: string): Promise<any> {
+  let content: string
+  try {
+    content = await fs.readFile(filePath, 'utf8')
+  } catch (err: any) {
+    if (err.code === 'ENOENT' || err.code === 'ENOTDIR') {
+      return undefined
+    }
+    throw err
+  }
+  return JSON.parse(content)
+}
+
+/**
+ * The `checkly` install that a bare `checkly` import in `directory` resolves
+ * to: the nearest `node_modules/checkly`, searched upwards like Node does.
+ * NODE_PATH and global folders are deliberately not searched, because ES
+ * module resolution of the project's files never uses them. Throws when a
+ * candidate's package.json cannot be read, rather than skipping past the
+ * install the project's imports would resolve to.
+ */
+export async function findProjectCli (directory: string): Promise<ProjectCli | undefined> {
+  for (const current of lineage(directory)) {
+    if (path.basename(current) === 'node_modules') {
+      continue
+    }
+    const dir = path.join(current, 'node_modules', 'checkly')
+    const packageJson = await readJsonIfExists(path.join(dir, 'package.json'))
+    if (!packageJson) {
+      continue
+    }
+    if (packageJson.name !== 'checkly') {
+      debug('%s is not the checkly package', dir)
+      return undefined
+    }
+    const bin = typeof packageJson.bin === 'string' ? packageJson.bin : packageJson.bin?.checkly
+    if (typeof bin !== 'string') {
+      debug('%s has no checkly bin', dir)
+      return undefined
+    }
+    const binPath = path.join(dir, bin)
+    if (!await exists(binPath)) {
+      debug('the checkly bin of %s is missing at %s', dir, binPath)
+      return undefined
+    }
+    return { dir, version: String(packageJson.version), binPath }
+  }
+
+  return undefined
+}
+
+async function isSameDirectory (a: string, b: string): Promise<boolean> {
+  const [realA, realB] = await Promise.all([fs.realpath(a), fs.realpath(b)])
+  // Windows paths compare case-insensitively; realpath can return either
+  // casing of a drive letter or folder name.
+  return process.platform === 'win32'
+    ? realA.toLowerCase() === realB.toLowerCase()
+    : realA === realB
+}
+
+/**
+ * The project's own CLI to run the command with instead of `self`, if any.
+ *
+ * Constructs in a project's config and check files register with the
+ * `Session` of the `checkly` install the project resolves, so only that
+ * install can load the project: when the running CLI is another install
+ * (global, `pnpx`, an `npx` of another version), its `Session` would never
+ * see them. Every command is handed off, which makes any install behave like
+ * `npx checkly` run in the project's directory.
+ */
+export async function findProjectCliHandOff (
+  self: Install,
+  directory = process.cwd(),
+): Promise<ProjectCli | undefined> {
+  if (process.env[NO_DELEGATION_ENV] === '1') {
+    debug('hand-off disabled via %s=1', NO_DELEGATION_ENV)
+    return undefined
+  }
+
+  if (process.versions.deno) {
+    // A child started from process.execPath would run without the
+    // permission flags given to the outer `deno run`.
+    debug('hand-off not supported on Deno')
+    return undefined
+  }
+
+  const projectCli = await findProjectCli(directory)
+  if (!projectCli) {
+    debug('no checkly install found from %s', directory)
+    return undefined
+  }
+
+  if (await isSameDirectory(projectCli.dir, self.root)) {
+    debug('running from the project\'s install at %s', projectCli.dir)
+    return undefined
+  }
+
+  const handedOffTo = process.env[HANDED_OFF_TO_ENV]
+  if (handedOffTo && await isSameDirectory(projectCli.dir, handedOffTo).catch(() => false)) {
+    debug('already handed off to %s', projectCli.dir)
+    return undefined
+  }
+
+  return projectCli
+}
+
+const forwardedSignals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
+
+function startFailed (self: Install, err: Error): false {
+  process.stderr.write(
+    `Could not start the checkly install of this project (${err.message}); running checkly ${self.version}.\n`,
+  )
+  return false
+}
+
+const isInspectorFlag = (arg: string) => /^--(inspect|debug)/.test(arg)
+
+/**
+ * Node options for the project's CLI: this process's, minus inspector flags,
+ * which would make the child compete with this process for the debugger
+ * port. Use CHECKLY_NO_DELEGATION=1 to debug a hand-off case.
+ */
+export function childNodeOptions (
+  execArgv: string[],
+  nodeOptions: string | undefined,
+): { execArgv: string[], nodeOptions: string | undefined } {
+  return {
+    execArgv: execArgv.filter(arg => !isInspectorFlag(arg)),
+    nodeOptions: nodeOptions?.split(/\s+/).filter(arg => arg && !isInspectorFlag(arg)).join(' '),
+  }
+}
+
+function versionNotice (projectCli: ProjectCli, self: Install): string | undefined {
+  if (projectCli.version === self.version) {
+    return undefined
+  }
+  const displayDir = path.relative(process.cwd(), projectCli.dir) || projectCli.dir
+  const notice = `Using checkly ${projectCli.version} from this project (${displayDir}) `
+    + `instead of checkly ${self.version}.`
+  // Only worth acting on when the invoked version is the newer one.
+  return semver.valid(self.version) && semver.valid(projectCli.version)
+    && semver.gt(self.version, projectCli.version)
+    ? `${notice} To use ${self.version}, install it in this project.`
+    : notice
+}
+
+async function readOwnInstall (): Promise<Install> {
+  const packageJson = await readJsonIfExists(path.join(ownRoot, 'package.json'))
+  return { root: ownRoot, version: String(packageJson?.version) }
+}
+
+/**
+ * Runs `args` with the project's own CLI when {@link findProjectCliHandOff}
+ * finds one, and exits with its exit status. Resolves to `false` when this
+ * CLI should run the command itself.
+ */
+export async function runWithProjectCli (args: string[], self?: Install): Promise<boolean> {
+  let projectCli: ProjectCli | undefined
+  try {
+    self ??= await readOwnInstall()
+    // The project is where the commands load it from: the config file's
+    // directory, or the working directory (splitConfigFilePath in util.ts).
+    const configFile = findConfigFlag(args)
+    projectCli = await findProjectCliHandOff(self, configFile ? path.dirname(path.resolve(configFile)) : undefined)
+  } catch (err) {
+    // Nothing has been handed off yet, so the command can still run here.
+    debug('looking for the project\'s checkly install failed: %O', err)
+    process.stderr.write(
+      `Could not read the checkly install of this project (${(err as Error).message}); `
+      + `running checkly${self ? ` ${self.version}` : ''}.\n`,
+    )
+    return false
+  }
+  if (!projectCli) {
+    return false
+  }
+
+  debug('handing off to checkly %s at %s', projectCli.version, projectCli.dir)
+  const notice = versionNotice(projectCli, self)
+  if (notice) {
+    process.stderr.write(`${notice}\n`)
+  }
+
+  let child: ReturnType<typeof spawn>
+  try {
+    // With the environment including .env values: installs before 8.0.0
+    // do not load .env themselves, and later ones never override a set key.
+    const { execArgv, nodeOptions } = childNodeOptions(process.execArgv, process.env.NODE_OPTIONS)
+    const env: NodeJS.ProcessEnv = { ...process.env, [HANDED_OFF_TO_ENV]: projectCli.dir }
+    if (nodeOptions === undefined) {
+      delete env.NODE_OPTIONS
+    } else {
+      env.NODE_OPTIONS = nodeOptions
+    }
+    child = spawn(process.execPath, [...execArgv, projectCli.binPath, ...args], { stdio: 'inherit', env })
+  } catch (err) {
+    return startFailed(self, err as Error)
+  }
+
+  // Keep this process alive until the child exits. A Ctrl+C in a terminal
+  // reaches both processes; the forwarded copy is a duplicate the CLI's
+  // SIGINT handling ignores. Signals sent to this process alone (a CI runner
+  // stopping a job) only reach the child through the forwarding. On Windows
+  // console events already reach the child, and kill() would terminate it
+  // outright, so nothing is forwarded there.
+  const forward = (signal: NodeJS.Signals) => {
+    if (process.platform !== 'win32' && child.pid !== undefined) {
+      child.kill(signal)
+    }
+  }
+  for (const signal of forwardedSignals) {
+    process.on(signal, forward)
+  }
+  const stopForwarding = () => {
+    for (const signal of forwardedSignals) {
+      process.off(signal, forward)
+    }
+  }
+
+  const result = await new Promise<{ code: number | null, signal: NodeJS.Signals | null } | Error>(resolve => {
+    child.once('error', resolve)
+    child.once('exit', (code, signal) => resolve({ code, signal }))
+  })
+  stopForwarding()
+
+  if (result instanceof Error) {
+    // The child never started (spawn errors precede any output of its own).
+    return startFailed(self, result)
+  }
+
+  if (result.signal) {
+    // Exit the way the child did, so callers see the same signal.
+    process.kill(process.pid, result.signal)
+    return true
+  }
+  process.exit(result.code ?? 1)
+}

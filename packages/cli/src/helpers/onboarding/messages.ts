@@ -65,12 +65,12 @@ export function greeting (version: string): string {
 
 /**
  * The project now carries its own copy of the CLI, and only that copy can
- * load the project's constructs. A globally installed `checkly` fails with a
- * misleading "outside a Checkly CLI project" error.
+ * load the project's constructs. Other installs hand every command over to
+ * it, as npx does, but global installs from before that hand-off existed fail
+ * with a misleading "outside a Checkly CLI project" error.
  */
 export function localCliNote (): string {
-  return 'Run Checkly from this folder as `npx checkly <command>` so the project\'s own CLI is used. '
-    + 'A globally installed `checkly` cannot load this project.'
+  return 'Run Checkly from this folder as `npx checkly <command>` so the project\'s own CLI is used.'
 }
 
 function localCliNoteBlock (): string[] {

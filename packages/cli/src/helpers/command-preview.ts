@@ -96,8 +96,8 @@ export function buildConfirmCommand (
   args?: Record<string, unknown>,
   flagMetadata?: FlagMetadata,
 ): string {
-  // Through npx so the project's own CLI copy runs; a global install cannot
-  // load the project's constructs.
+  // Through npx so the project's own CLI copy runs directly; only that copy
+  // can load the project's constructs.
   const parts = ['npx', 'checkly', command]
 
   if (args) {
