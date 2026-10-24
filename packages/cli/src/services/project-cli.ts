@@ -1,12 +1,13 @@
 import { spawn } from 'node:child_process'
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import type { Command, Config } from '@oclif/core'
-import { normalizeArgv } from '@oclif/core/help'
+import { fileURLToPath } from 'node:url'
 import Debug from 'debug'
 import semver from 'semver'
-import { defaultFilenames } from './checkly-config-filenames.js'
 import { lineage } from './check-parser/package-files/walk.js'
+
+// The launcher runs this module before oclif loads, so it must stay light:
+// nothing here may import the commands or the constructs.
 
 const debug = Debug('checkly:cli:project-cli')
 
@@ -23,47 +24,19 @@ export const NO_DELEGATION_ENV = 'CHECKLY_NO_DELEGATION'
  */
 const HANDED_OFF_TO_ENV = 'CHECKLY_HANDED_OFF_TO'
 
+/** The root of the checkly package this module belongs to. */
+const ownRoot = fileURLToPath(new URL('../..', import.meta.url))
+
+export interface Install {
+  root: string
+  version: string
+}
+
 export interface ProjectCli {
   /** The install's directory as found, i.e. `<dir>/node_modules/checkly`. */
   dir: string
   version: string
   binPath: string
-}
-
-/** The command `args` invoke, and the arguments that follow its id. */
-export function findInvokedCommand (
-  config: Config,
-  args: string[],
-): { command: Command.Loadable, rest: string[] } | undefined {
-  // normalizeArgv may rewrite the array it is given.
-  const [id, ...rest] = normalizeArgv(config, [...args])
-  const command = id === undefined ? undefined : config.findCommand(id)
-  return command && { command, rest }
-}
-
-/**
- * The value of a string flag in raw command arguments, in any form oclif
- * accepts: `--name v`, `--name=v`, `-c v`, `-c=v` and `-cv`.
- */
-export function findFlagValue (args: string[], name: string, char?: string): string | undefined {
-  for (let i = 0; i < args.length; i++) {
-    const arg = args[i]
-    if (arg === '--') {
-      break
-    }
-    if (arg === `--${name}` || (char && arg === `-${char}`)) {
-      return args[i + 1]
-    }
-    if (arg.startsWith(`--${name}=`)) {
-      return arg.slice(name.length + 3)
-    }
-    if (char && arg.startsWith(`-${char}`) && !arg.startsWith('--')) {
-      const value = arg.slice(2)
-      return value.startsWith('=') ? value.slice(1) : value
-    }
-  }
-
-  return undefined
 }
 
 async function exists (filePath: string): Promise<boolean> {
@@ -137,15 +110,19 @@ async function isSameDirectory (a: string, b: string): Promise<boolean> {
 }
 
 /**
- * The project's own CLI to run `args` with instead of this one, if any.
+ * The project's own CLI to run the command with instead of `self`, if any.
  *
- * Commands marked `parsesProject` import the project's config and check
- * files. The constructs in them register with the `Session` of the `checkly`
- * install the project resolves, so only that install can run the command:
- * when this CLI is another install (global, `pnpx`, an `npx` of another
- * version), its `Session` would never see them.
+ * Constructs in a project's config and check files register with the
+ * `Session` of the `checkly` install the project resolves, so only that
+ * install can load the project: when the running CLI is another install
+ * (global, `pnpx`, an `npx` of another version), its `Session` would never
+ * see them. Every command is handed off, which makes any install behave like
+ * `npx checkly` run in the same directory.
  */
-export async function findProjectCliHandOff (config: Config, args: string[]): Promise<ProjectCli | undefined> {
+export async function findProjectCliHandOff (
+  self: Install,
+  directory = process.cwd(),
+): Promise<ProjectCli | undefined> {
   if (process.env[NO_DELEGATION_ENV] === '1') {
     debug('hand-off disabled via %s=1', NO_DELEGATION_ENV)
     return undefined
@@ -158,39 +135,13 @@ export async function findProjectCliHandOff (config: Config, args: string[]): Pr
     return undefined
   }
 
-  const invoked = findInvokedCommand(config, args)
-  if (!invoked?.command.parsesProject) {
-    return undefined
-  }
-
-  // Help runs no project code, so it needs no hand-off; and it should not
-  // start code from a project's node_modules either.
-  const flags = invoked.rest.includes('--') ? invoked.rest.slice(0, invoked.rest.indexOf('--')) : invoked.rest
-  if (flags.includes('--help') || flags.includes('-h')) {
-    return undefined
-  }
-
-  // Commands read the --config file, or a default config file in the
-  // working directory. Without one there is no project whose files would be
-  // imported, and nothing to hand off for.
-  const configFlag = findFlagValue(invoked.rest, 'config', invoked.command.flags.config?.char)
-  const configFiles = configFlag
-    ? [path.resolve(configFlag)]
-    : defaultFilenames.map(filename => path.resolve(filename))
-  const hasConfigFile = (await Promise.all(configFiles.map(exists))).includes(true)
-  if (!hasConfigFile) {
-    debug('no Checkly config file found')
-    return undefined
-  }
-  const projectDirectory = path.dirname(configFiles[0])
-
-  const projectCli = await findProjectCli(projectDirectory)
+  const projectCli = await findProjectCli(directory)
   if (!projectCli) {
-    debug('no checkly install found from %s', projectDirectory)
+    debug('no checkly install found from %s', directory)
     return undefined
   }
 
-  if (await isSameDirectory(projectCli.dir, config.root)) {
+  if (await isSameDirectory(projectCli.dir, self.root)) {
     debug('running from the project\'s install at %s', projectCli.dir)
     return undefined
   }
@@ -206,9 +157,9 @@ export async function findProjectCliHandOff (config: Config, args: string[]): Pr
 
 const forwardedSignals: NodeJS.Signals[] = ['SIGINT', 'SIGTERM', 'SIGHUP']
 
-function startFailed (config: Config, err: Error): false {
+function startFailed (self: Install, err: Error): false {
   process.stderr.write(
-    `Could not start the checkly install of this project (${err.message}); running checkly ${config.version}.\n`,
+    `Could not start the checkly install of this project (${err.message}); running checkly ${self.version}.\n`,
   )
   return false
 }
@@ -230,18 +181,23 @@ export function childNodeOptions (
   }
 }
 
-function versionNotice (projectCli: ProjectCli, config: Config): string | undefined {
-  if (projectCli.version === config.version) {
+function versionNotice (projectCli: ProjectCli, self: Install): string | undefined {
+  if (projectCli.version === self.version) {
     return undefined
   }
   const displayDir = path.relative(process.cwd(), projectCli.dir) || projectCli.dir
   const notice = `Using checkly ${projectCli.version} from this project (${displayDir}) `
-    + `instead of checkly ${config.version}.`
+    + `instead of checkly ${self.version}.`
   // Only worth acting on when the invoked version is the newer one.
-  return semver.valid(config.version) && semver.valid(projectCli.version)
-    && semver.gt(config.version, projectCli.version)
-    ? `${notice} To use ${config.version}, install it in this project.`
+  return semver.valid(self.version) && semver.valid(projectCli.version)
+    && semver.gt(self.version, projectCli.version)
+    ? `${notice} To use ${self.version}, install it in this project.`
     : notice
+}
+
+async function readOwnInstall (): Promise<Install> {
+  const packageJson = await readJsonIfExists(path.join(ownRoot, 'package.json'))
+  return { root: ownRoot, version: String(packageJson?.version) }
 }
 
 /**
@@ -249,16 +205,17 @@ function versionNotice (projectCli: ProjectCli, config: Config): string | undefi
  * finds one, and exits with its exit status. Resolves to `false` when this
  * CLI should run the command itself.
  */
-export async function runWithProjectCli (config: Config, args: string[]): Promise<boolean> {
+export async function runWithProjectCli (args: string[], self?: Install): Promise<boolean> {
   let projectCli: ProjectCli | undefined
   try {
-    projectCli = await findProjectCliHandOff(config, args)
+    self ??= await readOwnInstall()
+    projectCli = await findProjectCliHandOff(self)
   } catch (err) {
     // Nothing has been handed off yet, so the command can still run here.
     debug('looking for the project\'s checkly install failed: %O', err)
     process.stderr.write(
       `Could not read the checkly install of this project (${(err as Error).message}); `
-      + `running checkly ${config.version}.\n`,
+      + `running checkly${self ? ` ${self.version}` : ''}.\n`,
     )
     return false
   }
@@ -267,7 +224,7 @@ export async function runWithProjectCli (config: Config, args: string[]): Promis
   }
 
   debug('handing off to checkly %s at %s', projectCli.version, projectCli.dir)
-  const notice = versionNotice(projectCli, config)
+  const notice = versionNotice(projectCli, self)
   if (notice) {
     process.stderr.write(`${notice}\n`)
   }
@@ -285,7 +242,7 @@ export async function runWithProjectCli (config: Config, args: string[]): Promis
     }
     child = spawn(process.execPath, [...execArgv, projectCli.binPath, ...args], { stdio: 'inherit', env })
   } catch (err) {
-    return startFailed(config, err as Error)
+    return startFailed(self, err as Error)
   }
 
   // Keep this process alive until the child exits. A Ctrl+C in a terminal
@@ -316,7 +273,7 @@ export async function runWithProjectCli (config: Config, args: string[]): Promis
 
   if (result instanceof Error) {
     // The child never started (spawn errors precede any output of its own).
-    return startFailed(config, result)
+    return startFailed(self, result)
   }
 
   if (result.signal) {

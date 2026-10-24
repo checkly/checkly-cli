@@ -15,7 +15,6 @@ import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-p
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false
-  static parsesProject = true
   // Committing deletes nothing, so it is not destructive, but it is permanent:
   // a committed plan can no longer be cancelled. `confirmOrAbort` gates every
   // non-read-only command, so the authorization step applies either way.

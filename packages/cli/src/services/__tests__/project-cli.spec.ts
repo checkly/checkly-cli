@@ -3,14 +3,11 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { Config } from '@oclif/core'
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { FixtureSandbox } from '../../testing/fixture-sandbox.js'
 import {
   childNodeOptions,
-  findFlagValue,
-  findInvokedCommand,
   findProjectCli,
   findProjectCliHandOff,
   NO_DELEGATION_ENV,
@@ -44,11 +41,6 @@ if (mode === 'wait-for-sigterm') {
 }
 `
 
-async function writeConfig (projectDir: string, filename = 'checkly.config.ts') {
-  await fs.mkdir(projectDir, { recursive: true })
-  await fs.writeFile(path.join(projectDir, filename), 'export default {}\n')
-}
-
 async function writeFakeInstall (projectDir: string, packageJson: Record<string, unknown> = {}) {
   const dir = path.join(projectDir, 'node_modules', 'checkly')
   await fs.mkdir(path.join(dir, 'bin'), { recursive: true })
@@ -62,17 +54,8 @@ async function writeFakeInstall (projectDir: string, packageJson: Record<string,
   return dir
 }
 
-function fakeConfig (root: string, commands: Record<string, Partial<Config['commands'][number]>>): Config {
-  return {
-    root,
-    version: '10.0.0',
-    // Command ids then come straight from the first argument.
-    topicSeparator: ':',
-    findCommand: (id: string) => commands[id],
-  } as unknown as Config
-}
-
-const projectCommand = { parsesProject: true, flags: { config: { char: 'c' } } } as any
+// This package, as the invoked CLI.
+const self = { root: CLI_PACKAGE_ROOT, version: '10.0.0' }
 
 let tempDir: string
 let savedOptOut: string | undefined
@@ -102,51 +85,6 @@ describe('childNodeOptions', () => {
       nodeOptions: '--max-old-space-size=4096 --no-warnings',
     })
     expect(childNodeOptions([], undefined)).toEqual({ execArgv: [], nodeOptions: undefined })
-  })
-})
-
-describe('findFlagValue', () => {
-  it.each([
-    [['--config', 'a.ts'], 'a.ts'],
-    [['--config=a.ts'], 'a.ts'],
-    [['-c', 'a.ts'], 'a.ts'],
-    [['-c=a.ts'], 'a.ts'],
-    [['-ca.ts'], 'a.ts'],
-    [['--grep', 'x', '--config', 'a.ts'], 'a.ts'],
-    [['--', '--config', 'a.ts'], undefined],
-    [['--configure', 'a.ts'], undefined],
-    [[], undefined],
-  ])('reads %j', (args, expected) => {
-    expect(findFlagValue(args, 'config', 'c')).toBe(expected)
-  })
-
-  it('ignores the short form when the flag has none', () => {
-    expect(findFlagValue(['-c', 'a.ts'], 'config')).toBeUndefined()
-  })
-})
-
-describe('findInvokedCommand', () => {
-  let config: Config
-
-  beforeAll(async () => {
-    config = await Config.load(CLI_PACKAGE_ROOT)
-  })
-
-  it('matches space-separated and colon-separated topics and returns the remaining args', () => {
-    for (const args of [['import', 'plan', '--root', 'x'], ['import:plan', '--root', 'x']]) {
-      const invoked = findInvokedCommand(config, args)
-      expect(invoked?.command.id).toBe('import:plan')
-      expect(invoked?.rest).toEqual(['--root', 'x'])
-    }
-  })
-
-  it('treats words after the command as its arguments', () => {
-    expect(findInvokedCommand(config, ['test', 'home', '-c', 'x'])?.rest).toEqual(['home', '-c', 'x'])
-  })
-
-  it('finds nothing for unknown commands or bare flags', () => {
-    expect(findInvokedCommand(config, ['nope'])).toBeUndefined()
-    expect(findInvokedCommand(config, ['--version'])).toBeUndefined()
   })
 })
 
@@ -201,94 +139,53 @@ describe('findProjectCli', () => {
 })
 
 describe('findProjectCliHandOff', () => {
-  let originalCwd: typeof process.cwd
-
-  beforeEach(() => {
-    originalCwd = process.cwd
-    process.cwd = () => tempDir
-  })
-
-  afterEach(() => {
-    process.cwd = originalCwd
-  })
-
-  it('hands project commands to a different install', async () => {
-    await writeConfig(tempDir, 'checkly.config.mjs')
+  it('hands off to a different install', async () => {
     const dir = await writeFakeInstall(tempDir)
-    const config = fakeConfig(CLI_PACKAGE_ROOT, { test: projectCommand })
 
-    expect((await findProjectCliHandOff(config, ['test']))?.dir).toBe(dir)
+    expect((await findProjectCliHandOff(self, tempDir))?.dir).toBe(dir)
   })
 
-  it('keeps commands without a Checkly config file', async () => {
-    await writeFakeInstall(tempDir)
-    const config = fakeConfig(CLI_PACKAGE_ROOT, { test: projectCommand })
-
-    expect(await findProjectCliHandOff(config, ['test'])).toBeUndefined()
-    expect(await findProjectCliHandOff(config, ['test', '--config', 'missing.config.ts'])).toBeUndefined()
-  })
-
-  it('keeps commands that do not parse the project', async () => {
-    await writeConfig(tempDir)
-    await writeFakeInstall(tempDir)
-    const config = fakeConfig(CLI_PACKAGE_ROOT, { whoami: { parsesProject: false, flags: {} } as any })
-
-    expect(await findProjectCliHandOff(config, ['whoami'])).toBeUndefined()
-  })
-
-  it('keeps commands when the project resolves to this very install', async () => {
-    await writeConfig(tempDir)
+  it('keeps the command when the project resolves to this very install', async () => {
     const dir = await writeFakeInstall(tempDir)
     // Through a symlink, as with pnpm's node_modules layout.
     const link = path.join(tempDir, 'link')
     await fs.symlink(dir, link, 'dir')
-    const config = fakeConfig(link, { test: projectCommand })
 
-    expect(await findProjectCliHandOff(config, ['test'])).toBeUndefined()
+    expect(await findProjectCliHandOff({ root: link, version: '10.0.0' }, tempDir)).toBeUndefined()
   })
 
-  it('resolves the install from the directory of --config', async () => {
-    const otherProject = path.join(tempDir, 'other')
-    await writeConfig(otherProject)
-    const dir = await writeFakeInstall(otherProject)
-    const config = fakeConfig(CLI_PACKAGE_ROOT, { test: projectCommand })
-
-    expect(await findProjectCliHandOff(config, ['test'])).toBeUndefined()
-    expect((await findProjectCliHandOff(config, ['test', '-c', 'other/checkly.config.ts']))?.dir).toBe(dir)
+  it('keeps the command without a project install', async () => {
+    expect(await findProjectCliHandOff(self, tempDir)).toBeUndefined()
   })
 
   it('does not hand off again to the install a hand-off started', async () => {
-    await writeConfig(tempDir)
     const dir = await writeFakeInstall(tempDir)
-    const config = fakeConfig(CLI_PACKAGE_ROOT, { test: projectCommand })
     try {
       process.env.CHECKLY_HANDED_OFF_TO = dir
-      expect(await findProjectCliHandOff(config, ['test'])).toBeUndefined()
+      expect(await findProjectCliHandOff(self, tempDir)).toBeUndefined()
 
       // A checkly started for another project still hands off.
       process.env.CHECKLY_HANDED_OFF_TO = path.join(tempDir, 'elsewhere')
-      expect((await findProjectCliHandOff(config, ['test']))?.dir).toBe(dir)
+      expect((await findProjectCliHandOff(self, tempDir))?.dir).toBe(dir)
     } finally {
       delete process.env.CHECKLY_HANDED_OFF_TO
     }
   })
 
   it(`is disabled by ${NO_DELEGATION_ENV}=1`, async () => {
-    await writeConfig(tempDir)
     await writeFakeInstall(tempDir)
     process.env[NO_DELEGATION_ENV] = '1'
-    const config = fakeConfig(CLI_PACKAGE_ROOT, { test: projectCommand })
 
-    expect(await findProjectCliHandOff(config, ['test'])).toBeUndefined()
+    expect(await findProjectCliHandOff(self, tempDir)).toBeUndefined()
   })
 })
 
-// These run the real launcher, so they need a built dist/ and a manifest that
-// knows parsesProject (`pnpm test` packs, which regenerates it). Each case
-// asserts on the fake install's marker, so a stale manifest fails instead of
-// passing by running in-process.
+// These run the real launcher, so they need a built dist/. Each hand-off case
+// asserts on the fake install's marker, so it cannot pass by running the
+// command in-process.
 describe('launcher hand-off', () => {
   interface RunCliOptions {
+    cwd?: string
     env?: Record<string, string>
     onStdout?: (stdout: string, child: ReturnType<typeof spawn>) => void
   }
@@ -299,7 +196,7 @@ describe('launcher hand-off', () => {
     if (options.env?.[NO_DELEGATION_ENV]) {
       env[NO_DELEGATION_ENV] = options.env[NO_DELEGATION_ENV]
     }
-    const child = spawn(process.execPath, [CLI_BIN, ...args], { cwd: tempDir, env })
+    const child = spawn(process.execPath, [CLI_BIN, ...args], { cwd: options.cwd ?? tempDir, env })
     let stdout = ''
     let stderr = ''
     child.stdout.on('data', chunk => {
@@ -318,10 +215,6 @@ describe('launcher hand-off', () => {
     const line = stdout.split('\n').find(line => line.includes('fake-project-cli'))
     return line ? JSON.parse(line) : undefined
   }
-
-  beforeEach(async () => {
-    await writeConfig(tempDir)
-  })
 
   it('runs the project install with the same arguments and exits with its code', async () => {
     const dir = await writeFakeInstall(tempDir)
@@ -364,22 +257,24 @@ describe('launcher hand-off', () => {
     expect(result.stderr).not.toContain('Using checkly')
   })
 
-  it('leaves other commands and the opt-out to this install', async () => {
+  it('hands off every invocation, from subdirectories too', async () => {
+    await writeFakeInstall(tempDir)
+    const nested = path.join(tempDir, 'checks')
+    await fs.mkdir(nested)
+
+    for (const args of [['whoami'], ['--version'], ['test', '--help'], []]) {
+      expect(report((await runCli(args)).stdout)?.argv).toEqual(args)
+    }
+    expect(report((await runCli(['deploy'], { cwd: nested })).stdout)?.argv).toEqual(['deploy'])
+  })
+
+  it(`runs the command itself with ${NO_DELEGATION_ENV}=1`, async () => {
     await writeFakeInstall(tempDir)
 
-    const help = await runCli(['whoami', '--help'])
-    expect(report(help.stdout)).toBeUndefined()
-    expect(help.stdout).toContain('whoami')
+    const result = await runCli(['--version'], { env: { [NO_DELEGATION_ENV]: '1' } })
 
-    // Help runs no project code.
-    const projectHelp = await runCli(['test', '--help'])
-    expect(report(projectHelp.stdout)).toBeUndefined()
-    expect(projectHelp.stdout).toContain('--max-failures')
-
-    // The in-process run then fails to load the placeholder config.
-    const optedOut = await runCli(['validate'], { env: { [NO_DELEGATION_ENV]: '1' } })
-    expect(report(optedOut.stdout)).toBeUndefined()
-    expect(optedOut.stdout + optedOut.stderr).toContain('checkly.config.ts')
+    expect(report(result.stdout)).toBeUndefined()
+    expect(result.stdout).toContain('checkly/0.0.1-dev')
   })
 
   it.skipIf(process.platform === 'win32')('forwards SIGTERM to the project install', async () => {

@@ -17,7 +17,6 @@ import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-p
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
-  static parsesProject = true
   static description = 'Attach imported resources into your project in a pending state.'
 
   static flags = {

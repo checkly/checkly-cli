@@ -61,7 +61,6 @@ function serializeDiagnostics (diagnostics: Diagnostics): ParseProjectOutput['di
 
 export default class ParseProjectCommand extends Command {
   static hidden = true
-  static parsesProject = true
   static description = 'Parses a Checkly project.'
 
   static flags = {

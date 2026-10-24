@@ -10,22 +10,19 @@ void (async () => {
   const { loadDotenvFile } = await import('../dist/services/load-dotenv.js')
   await loadDotenvFile()
 
-  const { Config, execute, settings } = await import('@oclif/core')
-  settings.enableAutoTranspile = false
-
-  let loadOptions = __dirname
+  // A project's own checkly install must run its commands: the constructs
+  // in its files register with that install. Handing off before oclif loads
+  // keeps the hand-off cheap and leaves the project's CLI to do all the work.
   try {
-    const config = await Config.load(__dirname)
-    // Commands that import the project's files must run with the project's
-    // own checkly install, and before any of those files is imported.
     const { runWithProjectCli } = await import('../dist/services/project-cli.js')
-    if (await runWithProjectCli(config, process.argv.slice(2))) {
+    if (await runWithProjectCli(process.argv.slice(2))) {
       return
     }
-    loadOptions = config
   } catch {
-    // execute() loads the config again and reports any error the usual way.
+    // Run the command here; a broken install surfaces in execute() below.
   }
 
-  await execute({ loadOptions })
+  const { execute, settings } = await import('@oclif/core')
+  settings.enableAutoTranspile = false
+  await execute({ dir: __dirname })
 })()
