@@ -108,4 +108,22 @@ describe('GithubMdBuilder', () => {
     expect(markdown).toContain('Stopped after **2** failed checks (max failures limit)')
     expect(markdown).toContain('|⏹️ Not finished|Slow Check|-|`folder/api.check.ts`|- ||')
   })
+
+  test('shows the retry count of a check that retried before the run stopped early', () => {
+    const map = generateMapAndTestResultIds({ includeTestResultIds: true })
+    map.get('folder/api.check.ts')!.set('seq-slow', {
+      check: { name: 'Slow Check', getSourceFile: () => 'folder/api.check.ts' } as any,
+      titleString: 'Slow Check',
+      numRetries: 1,
+    })
+    const markdown = new GithubMdBuilder({
+      testSessionId,
+      numChecks: 3,
+      runLocation,
+      checkFilesMap: map,
+      maxFailuresReached: 2,
+    }).render()
+
+    expect(markdown).toContain('|⏹️ Not finished (1 retry)|Slow Check|')
+  })
 })
