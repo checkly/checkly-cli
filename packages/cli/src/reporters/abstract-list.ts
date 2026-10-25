@@ -168,7 +168,10 @@ export default abstract class AbstractListReporter implements Reporter {
           continue
         }
         entry.checkStatus = CheckStatus.NOT_FINISHED
-        entry.titleString = formatCheckTitle(CheckStatus.NOT_FINISHED, entry.check)
+        entry.titleString = formatCheckTitle(CheckStatus.NOT_FINISHED, entry.check, {
+          includeSourceFile: false,
+          retries: entry.numRetries,
+        })
       }
     }
   }
