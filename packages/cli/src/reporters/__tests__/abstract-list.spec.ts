@@ -194,7 +194,10 @@ describe('AbstractListReporter', () => {
   })
 
   describe('after the run stopped at the max failures limit', () => {
-    function makeStoppedReporter (reporter = new ListReporter(PUBLIC_RUN_LOCATION, false)) {
+    function makeStoppedReporter (
+      reporter = new ListReporter(PUBLIC_RUN_LOCATION, false),
+      { unfinishedRetries = 0 } = {},
+    ) {
       const failing = { name: 'Failing Check', getSourceFile: () => SOURCE_FILE }
       const unfinished = { name: 'Slow Check', getSourceFile: () => SOURCE_FILE }
       reporter.onBegin([
@@ -202,6 +205,9 @@ describe('AbstractListReporter', () => {
         { check: unfinished, sequenceId: 'seq-slow' },
       ])
       reporter.onCheckInProgress(unfinished, 'seq-slow')
+      for (let i = 0; i < unfinishedRetries; i++) {
+        reporter.onCheckAttemptResult('seq-slow', { ...makePassingResult(), name: 'Slow Check', hasFailures: true })
+      }
       reporter.onCheckEnd('seq-failing', { ...makePassingResult(), name: 'Failing Check', hasFailures: true })
       reporter.onMaxFailuresReached(1)
       printLnMock.mockClear()
@@ -217,6 +223,16 @@ describe('AbstractListReporter', () => {
         expect(summary).toContain('1 failed, 1 not finished, 2 total')
         expect(summary).not.toContain('running')
         expect(summary).toContain('Stopped after 1 failed check (max failures limit).')
+      })
+    })
+
+    it('keeps the retry count of unfinished checks that already retried', () => {
+      withStdoutTty(false, () => {
+        makeStoppedReporter(undefined, { unfinishedRetries: 1 })._printSummary()
+
+        const summary = printLnMock.mock.calls.map(([text]: [string]) => text).join('\n')
+        expect(summary).toContain('… Slow Check (1 retry)')
+        expect(summary).toContain('1 failed, 1 not finished, 2 total')
       })
     })
 
