@@ -74,10 +74,11 @@ export class GithubMdBuilder {
 
     for (const [, checkMap] of this.checkFilesMap.entries()) {
       for (const [, { check, result, testResultId, numRetries }] of checkMap.entries()) {
+        const retries = numRetries ? ` (${numRetries} ${numRetries === 1 ? 'retry' : 'retries'})` : ''
         if (!result) {
           // Only a run that stopped early leaves checks without a result.
           this.tableRows.push(this.tableSeparator + [
-            '⏹️ Not finished',
+            `⏹️ Not finished${retries}`,
             `${(check as any)?.name}`,
             // Checks fetched for `checkly trigger` carry their type; local constructs do not.
             `${(check as any)?.checkType ?? '-'}`,
@@ -90,7 +91,7 @@ export class GithubMdBuilder {
         const checkStatus = resultToCheckStatus(result)
         const statusCell = checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
         const tableRow: Array<string> = [
-          numRetries ? `${statusCell} (${numRetries} ${numRetries === 1 ? 'retry' : 'retries'})` : statusCell,
+          `${statusCell}${retries}`,
           `${result.name}`,
           // A check that failed with a run error (e.g. the CLI timing out while waiting for
           // a result) has no check type or response time, so fall back to a placeholder.
