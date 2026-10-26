@@ -10,34 +10,70 @@ A terminal shows both streams interleaved, but scripts, CI jobs, and AI agents
 read them separately — most often they pipe stdout into a parser. That only
 works if stdout is predictable.
 
-- **stdout carries the command's result document only**: tables, JSON output,
-  check results and final summaries, session IDs and links, confirmation and
-  `dry_run` envelopes, API pass-through bodies.
+- **stdout carries the command's result only**: tables, JSON output, check
+  results and final summaries, session IDs and links, confirmation and
+  `dry_run` envelopes, API pass-through bodies, a mutation's confirmation
+  ("Environment variable "FOO" deleted."), and an empty result ("No checks
+  found.").
 - **stderr carries everything else**: spinners, progress lines ("Running N
-  checks…", live check summaries), banners and warnings (engine compatibility,
-  stale skill), hints, streamed logs, oclif usage errors.
+  checks…", live check summaries), banners, warnings, info notices, hints and
+  next steps, streamed logs, interactive questions and the preview shown
+  before them, human-readable error reports, and oclif usage errors.
 
 Consequences:
 
-- `checkly <cmd> --output json | jq` must always parse: nothing may print to
-  stdout ahead of or after the JSON document.
+- `checkly <cmd> --output json | jq` must parse whenever stdout is not empty:
+  nothing may print to stdout ahead of or after the JSON document. A failure
+  the command handles is itself a JSON document on stdout; a failure oclif
+  raises (usage errors, `this.error`, uncaught exceptions) leaves stdout empty,
+  so check the exit code first.
 - Human-facing progress still shows in an interactive terminal (both streams
   display), so redirecting chatter to stderr changes nothing for a person
   watching the terminal.
 - `2>/dev/null` silences the chatter without hiding results; `>file` captures
-  a clean result document.
+  a clean result document. A failure is signalled by the exit code; its
+  human-readable report is on stderr.
 
-### What renders where today
+### What renders where
 
 | Output | Stream |
 |---|---|
 | `--output json` documents, list tables, API pass-through bodies | stdout |
-| Agent envelopes (`confirmation_required`, `dry_run`, login status lines) | stdout |
+| JSON-mode error envelopes of failures the command handles | stdout |
+| Agent and CI envelopes (`confirmation_required`, `dry_run`, login status lines) | stdout |
 | Check results, retry/failure details, final run summaries, session links | stdout |
+| Mutation confirmations, "written to <path>" lines, empty results that exit 0 | stdout |
+| A command's final outcome, e.g. `deploy --preview` plans or "Successfully deployed …" | stdout |
+| Navigation hints in terminal- or Markdown-format output | stdout (see below) |
 | Spinners (`Parsing your project`, `Bundling project resources`, …) | stderr |
-| Engine-compatibility and stale-skill banners, other warnings | stderr |
-| `checkly test` live progress: "Running N checks…", live summary redraws, streamed logs | stderr |
-| oclif usage errors, `login` JSON lines started by another command | stderr |
+| Banners and warnings (engine compatibility, stale skill, diagnostics) | stderr |
+| Info notices, hints, next steps, wizard output (`init`, `import`, `create-checkly`) | stderr |
+| Human-readable error reports, including "no matching checks" when it fails the command | stderr |
+| Interactive questions and the preview or plan shown before a confirmation | stderr |
+| `login` instructions in a terminal (URL, code, waiting notes) | stderr |
+| `checkly test` live progress: "Running N checks…", live summary redraws, streamed logs, dot-reporter marks | stderr |
+| oclif errors: usage errors, `this.error`, uncaught exceptions (plain text in every mode) | stderr |
+
+Where two rows seem to apply, the wizard rule wins: `init`, `import`, and
+`create-checkly` print everything a person follows along with to stderr,
+including the files they create and "nothing to apply" messages. Only their
+final outcome (e.g. "Your import plan has been created!" with the generated
+directory, or `init`'s agent-mode JSON envelope) is on stdout. Empty results
+on stdout are for list and read commands ("No checks found.").
+
+Exceptions, kept deliberately:
+
+- A login another command starts on its own (inline login) writes all of its
+  output, agent JSON lines included, to stderr: stdout belongs to the command
+  that needed the login.
+- Navigation hints ("Next page: …", "Try: …") are part of the terminal- or
+  Markdown-format output they follow and stay on stdout. Those formats are
+  human views; scripts use `--output json`, which carries no hints.
+
+Prompts render on stderr through `prompt` (`helpers/prompts.ts`); a lint rule
+stops direct use of the `prompts` package. Whether the CLI may ask a person
+depends on terminals on stdin and stderr, not stdout, so `checkly … | tee`
+still asks.
 
 ## Envelopes
 
@@ -47,7 +83,7 @@ One JSON envelope per surface, versioned by convention:
   `pagination` is `{ page, limit, total, totalPages }` for offset paging and
   `{ nextId, length }` for cursor paging. `data` is the array of entries —
   never the raw API response. See `AGENTS.md` for details.
-- **Error output in JSON mode**: `{ error, detail, hint?, searchedAccount? }`.
+- **Error output in JSON mode**: `{ error, detail?, hint?, searchedAccount? }`.
 - **Agent envelopes** (auth, confirmation, `--dry-run`): documents built
   around a `status` field (`success`, `action_required`,
   `confirmation_required`, `dry_run`, `error`) plus a `confirmCommand` for
@@ -60,9 +96,9 @@ change in the PR.
 
 | Code | Meaning |
 |---|---|
-| 0 | Success. Also a user-cancelled run (`Ctrl-C`, declined confirmation) and `--dry-run` previews. |
-| 1 | Failure: failed or degraded check runs, API errors, invalid configuration. |
-| 2 | Usage error (unknown flags/args, oclif parse errors) **or** agent-mode `confirmation_required`. These two share a code today — parse the stdout envelope (present only for `confirmation_required`) to tell them apart. |
+| 0 | Success. Also a declined confirmation, `--dry-run` previews, and runs whose checks passed or only degraded (a degraded check does not fail the run). A run stopped with Ctrl-C has no code of its own: it exits 1 if a result that arrived failed, and 0 otherwise. |
+| 1 | Failure: a failed check or run error, no matching checks under `--fail-on-no-matching` (the default), API errors, invalid configuration. |
+| 2 | Usage error (unknown flags/args, oclif parse errors) **or** `confirmation_required` (agent and CI mode). These two share a code — a known defect, not a contract to build on. Until it is fixed, parse the stdout envelope (present only for `confirmation_required`) to tell them apart. |
 | 127 | Unknown command. |
 
 ## Notes

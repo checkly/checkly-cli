@@ -39,17 +39,24 @@ in the PR.
 
 ## Output Streams
 
-stdout carries the command's result document only; stderr carries progress,
-spinners, banners, warnings, and hints. The full contract, including envelope
-shapes and the exit-code table, lives in `docs/output-contract.md`.
+stdout carries the command's result only; stderr carries everything else:
+progress, spinners, banners, warnings, info, hints, prompts, and
+human-readable errors. The full contract, including envelope shapes and the
+exit-code table, lives in `docs/output-contract.md`.
 
-- Print results, JSON documents, and envelopes via `this.log` / `style` /
-  `printLn` (stdout).
-- Print spinners via `style.actionStart` (it renders on stderr), warnings via
-  `style.longWarning` / `style.shortWarning` (stderr), and run-progress via
-  `printLnErr` (stderr). Do not call `ux.action.start(..., { stdout: true })`.
-- Never print anything to stdout around a `--output json` document; a piped
-  `| jq` must always parse.
+- Results go to stdout: `this.log`, `printLn`, `style.shortSuccess` /
+  `style.longSuccess`, and JSON-mode error envelopes (`style.longError` /
+  `style.shortError` with `style.outputFormat = 'json'`).
+- Everything else goes to stderr: `this.logToStderr`, `printLnErr`,
+  `style.actionStart` (spinner), `style.stepSuccess` (a step that went well,
+  not the result), `style.comment`, `style.shortInfo` /
+  `style.longInfo`, `style.shortWarning` / `style.longWarning`,
+  `style.fatal`, and human-mode `style.longError` / `style.shortError`.
+- Ask questions with `prompt` from `helpers/prompts.ts` (it renders on
+  stderr), never the `prompts` package directly. Decide whether a person can
+  answer from stdin and stderr, not stdout.
+- Never print anything to stdout around a `--output json` document. A failure
+  oclif raises leaves stdout empty; see the contract's exit codes.
 - Terminal users see both streams, so moving chatter to stderr does not change
   the interactive experience — that is the default for new output.
 

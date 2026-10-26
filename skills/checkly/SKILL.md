@@ -87,21 +87,7 @@ Run `npx checkly skills communicate` for the full protocol details, or `npx chec
 
 ## Output Streams and Exit Codes
 
-The CLI keeps data separate from chatter, so you can pipe and parse stdout without surprises:
-
-- **stdout carries data only**: command results, `--output json` documents, API pass-through bodies, and the confirmation/dry-run envelopes above.
-- **stderr carries everything else**: spinners and progress lines ("Running N checks…", live check summaries), warnings and banners (e.g. a stale installed skill), hints, and streamed check logs.
-
-`npx checkly <command> --output json | jq` is therefore always safe — nothing else can appear on stdout around the JSON. If you need the human-facing progress while capturing data, read stderr separately.
-
-Exit codes:
-
-| Code | Meaning |
-|---|---|
-| 0 | Success (also a user-cancelled run and `--dry-run` previews) |
-| 1 | Failure: failed checks, API errors, invalid configuration |
-| 2 | Usage error (bad flags) **or** `confirmation_required` — the envelope on stdout only appears for `confirmation_required` |
-| 127 | Unknown command |
+stdout carries only the command's result: results, `--output json` documents (most failures print a JSON error document too), API pass-through bodies, and the confirmation/dry-run envelopes above. Progress, warnings, hints, prompts, and human-readable errors go to stderr, so `npx checkly <command> --output json | jq` sees nothing but the JSON. Check the exit code first, since some failures leave stdout empty: 0 success (degraded checks do not fail a run; read the results to spot them), 1 failure, 2 a usage error or `confirmation_required` (only the latter prints its envelope on stdout), 127 an unknown command.
 
 ## API Pass-Through (fallback for any endpoint)
 
