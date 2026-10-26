@@ -2,6 +2,7 @@ import * as fs from 'fs'
 import * as path from 'path'
 import chalk from 'chalk'
 import prompts from 'prompts'
+import type { Options, PromptObject } from 'prompts'
 import { generateProjectName, isValidProjectDirectory } from '../utils/directory.js'
 
 export const PROJECT_TEMPLATES = [
@@ -11,8 +12,14 @@ export const PROJECT_TEMPLATES = [
   { value: 'boilerplate-project-js', title: 'A boilerplate JavaScript project with basic config' },
 ]
 
+// create-checkly is a wizard: all of its output is chatter, so questions render
+// on stderr like everything else and stdout stays empty.
+function ask<T extends string> (question: PromptObject<T>, options?: Options) {
+  return prompts({ ...question, stdout: process.stderr }, options)
+}
+
 export function askInitializeProject (onCancel: any): Promise<{ initializeProject: boolean }> {
-  return prompts({
+  return ask({
     type: 'confirm',
     name: 'initializeProject',
     message: 'It looks like you are already in a project, would you like to initialize?',
@@ -21,7 +28,7 @@ export function askInitializeProject (onCancel: any): Promise<{ initializeProjec
 }
 
 export function askProjectDirectory (onCancel: any): Promise<{ projectDirectory: string }> {
-  return prompts({
+  return ask({
     type: 'text',
     name: 'projectDirectory',
     message: 'Where do you want to create your new project?',
@@ -38,7 +45,7 @@ export function askProjectDirectory (onCancel: any): Promise<{ projectDirectory:
 }
 
 export function askTemplate (onCancel: any): Promise<{ template: string }> {
-  return prompts({
+  return ask({
     type: 'select',
     name: 'template',
     message: 'Which template would you like to use for your new project?',
@@ -47,7 +54,7 @@ export function askTemplate (onCancel: any): Promise<{ template: string }> {
 }
 
 export function askCreateInitialBrowserCheck (onCancel: any): Promise<{ createInitialBrowserCheck: boolean }> {
-  return prompts({
+  return ask({
     type: 'confirm',
     name: 'createInitialBrowserCheck',
     message: 'Would you like to create a custom Playwright-based Browser Check to check a URL?',
@@ -56,7 +63,7 @@ export function askCreateInitialBrowserCheck (onCancel: any): Promise<{ createIn
 }
 
 export function askUserWebsite (onCancel: any): Promise<{ userWebsite: string }> {
-  return prompts({
+  return ask({
     type: 'text',
     name: 'userWebsite',
     message: 'Please provide the URL of the site you want to check.',
@@ -64,7 +71,7 @@ export function askUserWebsite (onCancel: any): Promise<{ userWebsite: string }>
 }
 
 export function askInstallDependencies (onCancel: any = () => true): Promise<{ installDependencies: boolean }> {
-  return prompts({
+  return ask({
     type: 'confirm',
     name: 'installDependencies',
     message: 'Would you like to install NPM dependencies? (recommended)',
@@ -73,7 +80,7 @@ export function askInstallDependencies (onCancel: any = () => true): Promise<{ i
 }
 
 export function askInitializeGit (onCancel: any = () => true): Promise<{ initializeGit: boolean }> {
-  return prompts({
+  return ask({
     type: 'confirm',
     name: 'initializeGit',
     message: 'Would you like to initialize a new git repo? (optional)',
@@ -82,7 +89,7 @@ export function askInitializeGit (onCancel: any = () => true): Promise<{ initial
 }
 
 export function askCopyPlaywrightProject (onCancel: any): Promise<{ shouldCopyPlaywrightConfig: boolean }> {
-  return prompts({
+  return ask({
     type: 'confirm',
     name: 'shouldCopyPlaywrightConfig',
     message: 'Would you like to copy your Playwright settings to your Checkly config file?',
@@ -111,7 +118,7 @@ export async function askPlaywrightConfigPath (
     { title: 'Skip', value: SKIP_VALUE },
   ]
 
-  const { playwrightConfigPath } = await prompts({
+  const { playwrightConfigPath } = await ask({
     type: 'select',
     name: 'playwrightConfigPath',
     message: 'Which Playwright config file would you like to use?',
@@ -134,7 +141,7 @@ async function askCustomPlaywrightConfigPath (
   projectDir: string,
   onCancel: any,
 ): Promise<{ playwrightConfigPath: string | undefined }> {
-  const { playwrightConfigPath } = await prompts({
+  const { playwrightConfigPath } = await ask({
     type: 'text',
     name: 'playwrightConfigPath',
     message: 'Enter the path to your Playwright config file:',

@@ -32,15 +32,17 @@ function expectVersionAndName ({
   latestVersion: string
   greeting: string
 }) {
-  if (!commandOutput.stdout) {
+  if (!commandOutput.stderr) {
     // eslint-disable-next-line no-console
-    console.error('DEBUG empty stdout — exitCode:', commandOutput.exitCode, 'stderr:', commandOutput.stderr)
+    console.error('DEBUG empty stderr — exitCode:', commandOutput.exitCode, 'stdout:', commandOutput.stdout)
   }
+  // create-checkly is a wizard with no result to print: all of its output goes to stderr.
+  expect(commandOutput.stdout).toBe('')
   if (!version) {
-    expect(commandOutput.stdout).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'.`)
+    expect(commandOutput.stderr).toContain(`Notice: replacing version '0.0.1-dev' with latest '${latestVersion}'.`)
   }
-  expect(commandOutput.stdout).toContain(`v${version ?? latestVersion} Build and Run Synthetics That Scale`)
-  expect(commandOutput.stdout).toContain(`${greeting} Let's get you started on your monitoring as code journey!`)
+  expect(commandOutput.stderr).toContain(`v${version ?? latestVersion} Build and Run Synthetics That Scale`)
+  expect(commandOutput.stderr).toContain(`${greeting} Let's get you started on your monitoring as code journey!`)
 }
 
 function expectCompleteCreation ({
@@ -50,7 +52,7 @@ function expectCompleteCreation ({
   commandOutput: ExecaResult
   projectFolder: string
 }) {
-  expect(commandOutput.stdout).toContain(`All done. Time to get testing & monitoring with Checkly
+  expect(commandOutput.stderr).toContain(`All done. Time to get testing & monitoring with Checkly
 
          > Enter your project directory using cd ${projectFolder}
          > Run npx checkly login to login to your Checkly account or create a free new account
@@ -99,12 +101,12 @@ describe('bootstrap', () => {
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
-    expect(stdout).toContain('Installing packages')
-    expect(stdout).toContain('Packages installed successfully')
+    expect(stderr).toContain('Downloading example template...')
+    expect(stderr).toContain('Example template copied!')
+    expect(stderr).toContain('Installing packages')
+    expect(stderr).toContain('Packages installed successfully')
 
-    expect(stderr).toBe('')
+    expect(stdout).toBe('')
     expect(exitCode).toBe(0)
 
     await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
@@ -125,17 +127,17 @@ describe('bootstrap', () => {
 
     const { exitCode, stdout, stderr } = commandOutput
 
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('Installing packages')
-    expect(stdout).not.toContain('Packages installed successfully')
+    expect(stderr).toContain('Downloading example template...')
+    expect(stderr).toContain('Example template copied!')
+    expect(stderr).not.toContain('Installing packages')
+    expect(stderr).not.toContain('Packages installed successfully')
 
     // no git initialization message
-    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+    expect(stderr).toContain('No worries. Just remember to install the dependencies after this setup')
 
     expectCompleteCreation({ commandOutput, projectFolder })
 
-    expect(stderr).toBe('')
+    expect(stdout).toBe('')
     expect(exitCode).toBe(0)
 
     await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
@@ -160,17 +162,17 @@ describe('bootstrap', () => {
 
     const { exitCode, stdout, stderr } = commandOutput
 
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('Installing packages')
-    expect(stdout).not.toContain('Packages installed successfully')
+    expect(stderr).toContain('Downloading example template...')
+    expect(stderr).toContain('Example template copied!')
+    expect(stderr).not.toContain('Installing packages')
+    expect(stderr).not.toContain('Packages installed successfully')
 
     // no git initialization message
-    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+    expect(stderr).toContain('No worries. Just remember to install the dependencies after this setup')
 
     expectCompleteCreation({ commandOutput, projectFolder })
 
-    expect(stderr).toBe('')
+    expect(stdout).toBe('')
     expect(exitCode).toBe(0)
 
     await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
@@ -190,16 +192,16 @@ describe('bootstrap', () => {
 
     expectVersionAndName({ commandOutput, latestVersion, greeting })
 
-    const { exitCode, stdout, stderr } = commandOutput
+    const { exitCode, stderr } = commandOutput
 
     expect(stderr)
       .toContain('It looks like you already have "__checks__" folder or "checkly.config.ts". '
         + 'Please, remove them and try again.')
 
-    expect(stdout).not.toContain('Downloading example template...')
-    expect(stdout).not.toContain('Example template copied!')
-    expect(stdout).not.toContain('Installing packages')
-    expect(stdout).not.toContain('Packages installed successfully')
+    expect(stderr).not.toContain('Downloading example template...')
+    expect(stderr).not.toContain('Example template copied!')
+    expect(stderr).not.toContain('Installing packages')
+    expect(stderr).not.toContain('Packages installed successfully')
 
     expect(exitCode).toBe(1)
   }, 15000)
@@ -233,17 +235,17 @@ describe('bootstrap', () => {
 
       const { exitCode, stdout, stderr } = commandOutput
 
-      expect(stdout).toContain('Downloading example template...')
-      expect(stdout).toContain('Example template copied!')
-      expect(stdout).not.toContain('Installing packages')
-      expect(stdout).not.toContain('Packages installed successfully')
+      expect(stderr).toContain('Downloading example template...')
+      expect(stderr).toContain('Example template copied!')
+      expect(stderr).not.toContain('Installing packages')
+      expect(stderr).not.toContain('Packages installed successfully')
 
       // no git initialization message
-      expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+      expect(stderr).toContain('No worries. Just remember to install the dependencies after this setup')
 
       expectCompleteCreation({ commandOutput, projectFolder })
 
-      expect(stderr).toBe('')
+      expect(stdout).toBe('')
       expect(exitCode).toBe(0)
 
       await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
@@ -271,17 +273,17 @@ describe('bootstrap', () => {
 
     const { exitCode, stdout, stderr } = commandOutput
 
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('Installing packages')
-    expect(stdout).not.toContain('Packages installed successfully')
+    expect(stderr).toContain('Downloading example template...')
+    expect(stderr).toContain('Example template copied!')
+    expect(stderr).not.toContain('Installing packages')
+    expect(stderr).not.toContain('Packages installed successfully')
 
     // no git initialization message
-    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
+    expect(stderr).toContain('No worries. Just remember to install the dependencies after this setup')
 
     expectCompleteCreation({ commandOutput, projectFolder })
 
-    expect(stderr).toBe('')
+    expect(stdout).toBe('')
     expect(exitCode).toBe(0)
 
     await expect(exists(path.join(projectFolder, 'package.json'))).resolves.toBe(true)
@@ -305,19 +307,19 @@ describe('bootstrap', () => {
 
     const { exitCode, stdout, stderr } = commandOutput
 
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
-    expect(stdout).not.toContain('Installing packages')
-    expect(stdout).not.toContain('Packages installed successfully')
+    expect(stderr).toContain('Downloading example template...')
+    expect(stderr).toContain('Example template copied!')
+    expect(stderr).not.toContain('Installing packages')
+    expect(stderr).not.toContain('Packages installed successfully')
     // no git initialization message
 
-    expect(stdout).toContain('No worries. Just remember to install the dependencies after this setup')
-    expect(stdout).toContain('Copying your playwright config')
-    expect(stdout).toContain('Playwright config copied!')
+    expect(stderr).toContain('No worries. Just remember to install the dependencies after this setup')
+    expect(stderr).toContain('Copying your playwright config')
+    expect(stderr).toContain('Playwright config copied!')
 
     expectCompleteCreation({ commandOutput, projectFolder: directory })
 
-    expect(stderr).toBe('')
+    expect(stdout).toBe('')
     expect(exitCode).toBe(0)
 
     await expect(exists(path.join(directory, 'package.json'))).resolves.toBe(true)
@@ -342,18 +344,18 @@ describe('bootstrap', () => {
     const { exitCode, stdout, stderr } = commandOutput
 
     // In non-interactive mode, should not show interactive prompts or greeting
-    expect(stdout).not.toContain(greeting)
-    expect(stdout).not.toContain('Let\'s get you started on your monitoring as code journey!')
+    expect(stderr).not.toContain(greeting)
+    expect(stderr).not.toContain('Let\'s get you started on your monitoring as code journey!')
 
     // Should still perform the basic operations
-    expect(stdout).toContain('Downloading example template...')
-    expect(stdout).toContain('Example template copied!')
+    expect(stderr).toContain('Downloading example template...')
+    expect(stderr).toContain('Example template copied!')
 
     // Should use default values for non-interactive mode
-    expect(stdout).toContain('Installing packages')
-    expect(stdout).toContain('Packages installed successfully')
+    expect(stderr).toContain('Installing packages')
+    expect(stderr).toContain('Packages installed successfully')
 
-    expect(stderr).toBe('')
+    expect(stdout).toBe('')
     // Should exit successfully in non-interactive mode
     expect(exitCode).toBe(0)
 
