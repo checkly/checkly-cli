@@ -411,7 +411,7 @@ export interface AfterRelationsInput {
  * subscription and assignment constructs for this parent, plus every deployed
  * relation the deploy will leave in place. A deployed row is left out when the
  * code removed it (a DELETE or DETACH relation entry folded into this parent
- * names its row id), when `--prune-relations` will delete it (a pruned entry
+ * names its row id), when `--prune-unmanaged-relations` will delete it (a pruned entry
  * names it too), or when a local construct already stands for the same target.
  * What remains is unmanaged: the deploy keeps it, so both sides show it.
  *

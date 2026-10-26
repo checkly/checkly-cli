@@ -50,7 +50,7 @@ export interface DiffChange {
   /**
    * `unmanaged` marks an alert channel or private location attached to this
    * project's check or group from outside the project: reported on the resource
-   * it belongs to, and only deleted with `--prune-relations`.
+   * it belongs to, and only deleted with `--prune-unmanaged-relations`.
    */
   origin: 'code' | 'remote' | 'both' | 'unmanaged'
   before?: unknown

@@ -343,7 +343,7 @@ describe('relations', () => {
     expect(targets(relationResourcesFromBefore('check', before))).toEqual([...targets(relationResourcesFromBefore('check', before))].sort())
   })
 
-  it('drops the unmanaged relations --prune-relations will delete', () => {
+  it('drops the unmanaged relations --prune-unmanaged-relations will delete', () => {
     const diff: DiffEntry[] = [
       entry,
       {

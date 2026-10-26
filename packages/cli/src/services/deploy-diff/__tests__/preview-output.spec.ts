@@ -187,7 +187,7 @@ describe('formatPreview', () => {
     const pruning = uncoloured(formatPreview({ diff: [check, relation], project, pruneRelations: true }))
     expect(pruning).toContain(
       '  - alert-channel-subscription  unmanaged:7  relation on Check api-health not managed by this project, '
-      + 'deleted by --prune-relations',
+      + 'deleted by --prune-unmanaged-relations',
     )
     // The check itself gets no row: its only change is the relation.
     expect(pruning).not.toContain('! Check')
@@ -198,7 +198,7 @@ describe('formatPreview', () => {
     const leaving = uncoloured(formatPreview({ diff: [check], project }))
     expect(leaving).toBe([
       '  ! Check  api-health  has alert channels or private locations this project does not manage'
-      + ' (pass --prune-relations to delete them)',
+      + ' (pass --prune-unmanaged-relations to delete them)',
       '',
       'No changes. The 1 resource matches your code.',
       '',
@@ -478,7 +478,7 @@ new ApiCheck('api-health', {
     it('lists one whose only reported changes are relations the project does not manage as a baseline, next to the warning', () => {
       const { local } = scenario()
       // What the diff of such a resource would show: its relation as removed,
-      // which the deploy does not do without --prune-relations.
+      // which the deploy does not do without --prune-unmanaged-relations.
       vi.mocked(renderResourceDiff).mockReturnValue([{ kind: 'note', text: '/alertChannels/7: {"ref":"ops"} -> (absent) (not managed by this project)' }])
       const diff: DiffEntry[] = [{
         type: 'check',
@@ -498,7 +498,7 @@ new ApiCheck('api-health', {
       expect(text).not.toContain('No changes.')
     })
 
-    it('keeps the baseline row when --prune-relations deletes those relations on rows of their own', () => {
+    it('keeps the baseline row when --prune-unmanaged-relations deletes those relations on rows of their own', () => {
       const { local } = scenario()
       const diff: DiffEntry[] = [
         {
@@ -522,7 +522,7 @@ new ApiCheck('api-health', {
       const text = uncoloured(formatPreview({ diff, project, rendering: { plan: diff, local }, pruneRelations: true }))
       expect(text).toMatch(/^ {2}= ApiCheck +signup +src\/signup\.check\.ts$/m)
       expect(text).toMatch(/^ {2}- alert-channel-subscription +signup#ops +relation on Check signup not managed/m)
-      expect(text).toContain('not managed by this project, deleted by --prune-relations')
+      expect(text).toContain('not managed by this project, deleted by --prune-unmanaged-relations')
       expect(text).not.toContain('!')
       expect(text).toContain('\n1 to set a baseline, 1 relation pruned, 0 unchanged\n')
     })
