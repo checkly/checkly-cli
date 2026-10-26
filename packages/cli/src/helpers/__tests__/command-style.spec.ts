@@ -73,7 +73,6 @@ describe('CommandStyle output streams', () => {
 
   it('renders the spinner and its separator line on stderr, not stdout', () => {
     const { style, command } = createStyle(undefined)
-    command.fancy = true
 
     style.actionStart('Parsing your project')
     expect(startSpy).toHaveBeenCalledWith('Parsing your project')
@@ -89,15 +88,6 @@ describe('CommandStyle output streams', () => {
     // The blank separator line follows the spinner to stderr.
     expect(command.logToStderr).toHaveBeenCalled()
     expect(command.log).not.toHaveBeenCalled()
-  })
-
-  it('does not start a spinner when fancy output is off', () => {
-    const { style, command } = createStyle(undefined)
-    command.fancy = false
-
-    style.actionStart('Parsing your project')
-
-    expect(startSpy).not.toHaveBeenCalled()
   })
 
   it('prints warnings to stderr only', () => {

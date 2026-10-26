@@ -915,7 +915,7 @@ export default class Login extends BaseCommand {
    * while waiting.
    */
   async #whileWaiting<T> (message: string, wait: (report: (note: string) => void) => Promise<T>): Promise<T> {
-    if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stderr.isTTY) {
+    if (this.#mode !== 'interactive' || this.#inline || !process.stderr.isTTY) {
       if (this.#mode === 'interactive') {
         this.#note(chalk.dim(`${message}…`))
       }

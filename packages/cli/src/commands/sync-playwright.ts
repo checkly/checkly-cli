@@ -14,10 +14,8 @@ export default class SyncPlaywright extends BaseCommand {
   static description = 'Copy Playwright config into the Checkly config file.'
 
   async run (): Promise<void> {
-    if (this.fancy) {
-      // oclif renders the spinner on stderr by default, keeping stdout clean.
-      ux.action.start('Syncing Playwright config to the Checkly config file')
-    }
+    // oclif renders the spinner on stderr by default, keeping stdout clean.
+    ux.action.start('Syncing Playwright config to the Checkly config file')
 
     const configFile = await getChecklyConfigFile()
     if (!configFile) {
@@ -45,17 +43,13 @@ export default class SyncPlaywright extends BaseCommand {
     const dir = path.resolve(path.dirname(configFile.fileName))
     await reWriteChecklyConfigFile(checklyConfigData, configFile.fileName, dir)
 
-    if (this.fancy) {
-      ux.action.stop('✅ ')
-    }
+    ux.action.stop('✅ ')
     this.log('Successfully updated Checkly config file')
     this.exit(0)
   }
 
   private handleError (message: string) {
-    if (this.fancy) {
-      ux.action.stop('❌')
-    }
+    ux.action.stop('❌')
     this.logToStderr(message)
     this.exit(1)
   }

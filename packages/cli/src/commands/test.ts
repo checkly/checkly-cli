@@ -1,4 +1,4 @@
-import { Flags, Args, ux } from '@oclif/core'
+import { Flags, Args } from '@oclif/core'
 import indentString from 'indent-string'
 import * as api from '../rest/api.js'
 import config from '../services/config.js'
@@ -343,10 +343,6 @@ export default class Test extends AuthCommand {
         this.style.actionFailure()
         throw err
       }
-    }
-
-    if (this.fancy) {
-      ux.action.stop()
     }
 
     const checkBundles = Object.values(projectBundle.data.check)

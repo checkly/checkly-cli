@@ -54,7 +54,6 @@ export abstract class BaseCommand extends Command {
   static readOnly = false
   static destructive = false
   static idempotent = false
-  fancy = true
   style = new CommandStyle(this)
   #packageJsonLoader?: Promise<PackageJsonFile | undefined>
 
@@ -154,10 +153,6 @@ export abstract class BaseCommand extends Command {
       } catch {
         process.stderr.write('Error parsing CHECKLY_E2E_PROMPTS_INJECTIONS environment variable for injections.')
       }
-    }
-
-    if (process.env.CHECKLY_E2E_DISABLE_FANCY_OUTPUT) {
-      this.fancy = false
     }
 
     return super.init()

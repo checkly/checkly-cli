@@ -73,7 +73,6 @@ export function createCommandContext (options: CommandContextOptions = {}) {
       outputFormat: undefined as string | undefined,
       ...options.style,
     } as Record<string, any> & { outputFormat: string | undefined },
-    fancy: false,
     logged,
     loggedToStderr,
     get exitCodeValue () {
