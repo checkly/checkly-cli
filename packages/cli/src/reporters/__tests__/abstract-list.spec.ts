@@ -2,6 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import ListReporter from '../list.js'
 import CiReporter from '../ci.js'
+import GithubReporter from '../github.js'
+import JsonReporter from '../json.js'
 import * as api from '../../rest/api.js'
 import type { SequenceId } from '../../services/abstract-check-runner.js'
 
@@ -148,6 +150,16 @@ describe('AbstractListReporter', () => {
       expect(reporter._clearString).toBe('')
     }))
   })
+
+  for (const Reporter of [CiReporter, GithubReporter, JsonReporter]) {
+    it(`${Reporter.name} announces the run on stderr`, () => {
+      const reporter = new Reporter(PUBLIC_RUN_LOCATION, false)
+      reporter.onBegin([{ check: { name: 'My API Check', getSourceFile: () => SOURCE_FILE }, sequenceId: SEQUENCE_ID }] as any)
+
+      expect(outputOf(printLnErrMock)).toContain(`Running 1 checks in ${PUBLIC_RUN_LOCATION.region}`)
+      expect(outputOf(printLnMock)).not.toContain('Running 1 checks')
+    })
+  }
 
   it('should populate _clearString after a live summary renders on a terminal', () => {
     withTerminal(() => {
