@@ -175,20 +175,22 @@ export default class Api extends AuthCommand {
       }
     } else {
       const body = await buffer(response.data)
-      const responseData = body.length > 0 ? parseJson(body) : null
-      errorCode = (responseData as { errorCode?: unknown } | null | undefined)?.errorCode
+      if (body.length > 0) {
+        const responseData = parseJson(body)
+        errorCode = (responseData as { errorCode?: unknown } | null | undefined)?.errorCode
 
-      if (responseData === undefined) {
-        if (flags.jq) {
-          this.error('Response is not JSON; --jq cannot be applied.', { exit: 1 })
-        }
-        await writeBody(body)
-      } else if (responseData !== null) {
-        const json = typeof responseData === 'string' ? responseData : formatJson(responseData)
-        if (flags.jq) {
-          await this.applyJq(json, flags.jq)
+        if (responseData === undefined) {
+          if (flags.jq) {
+            this.error('Response is not JSON; --jq cannot be applied.', { exit: 1 })
+          }
+          await writeBody(body)
         } else {
-          this.log(json)
+          const json = formatJson(responseData)
+          if (flags.jq) {
+            await this.applyJq(json, flags.jq)
+          } else {
+            this.log(json)
+          }
         }
       }
     }
