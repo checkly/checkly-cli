@@ -71,9 +71,11 @@ Exceptions, kept deliberately:
   human views; scripts use `--output json`, which carries no hints.
 
 Prompts render on stderr through `prompt` (`helpers/prompts.ts`); a lint rule
-stops direct use of the `prompts` package. Whether the CLI may ask a person
-depends on terminals on stdin and stderr, not stdout, so `checkly … | tee`
-still asks.
+stops direct use of the `prompts` package. Commands that check whether a person
+is there (`login`, `logout`, `switch`, a login another command starts, and
+`create-checkly`) look for terminals on stdin and stderr, not stdout, so
+`checkly login | tee` still asks. Other confirmations ask whenever the CLI runs
+in interactive mode.
 
 ## Envelopes
 
@@ -103,6 +105,9 @@ change in the PR.
 
 ## Notes
 
+- Colours follow stdout: chalk decides from stdout whether to colour, for
+  both streams. `2>file` from a terminal keeps colour codes in the file; set
+  `FORCE_COLOR=0` for plain text.
 - Non-TTY runs do **not** switch output to JSON: CI logs stay human-readable;
   only spinners and live redraws degrade to plain lines.
 - Spinners are suppressed by `CHECKLY_E2E_DISABLE_FANCY_OUTPUT` and disabled
