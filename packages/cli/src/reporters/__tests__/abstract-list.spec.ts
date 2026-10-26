@@ -85,6 +85,11 @@ function withTty (stream: TtyStream, isTTY: boolean, callback: () => void): void
   }
 }
 
+// Both streams on one terminal: the only setup in which the live summary redraws.
+function withTerminal (callback: () => void): void {
+  withTty(process.stdout, true, () => withTty(process.stderr, true, callback))
+}
+
 describe('AbstractListReporter', () => {
   beforeEach(() => {
     printLnMock.mockClear()
@@ -134,8 +139,18 @@ describe('AbstractListReporter', () => {
     expect(stdout).toContain(`Test session ID: ${TEST_SESSION_ID}`)
   })
 
-  it('should populate _clearString after a live summary renders on a TTY stderr', () => {
-    withTty(process.stderr, true, () => {
+  it('should not redraw when stdout is piped, even with a TTY stderr', () => {
+    withTty(process.stdout, false, () => withTty(process.stderr, true, () => {
+      const { reporter } = makeReporterWithOneCheck()
+
+      reporter._printSummary({ stream: 'stderr' })
+
+      expect(reporter._clearString).toBe('')
+    }))
+  })
+
+  it('should populate _clearString after a live summary renders on a terminal', () => {
+    withTerminal(() => {
       const { reporter } = makeReporterWithOneCheck()
 
       reporter._printSummary({ stream: 'stderr' })
@@ -154,8 +169,8 @@ describe('AbstractListReporter', () => {
     })
   })
 
-  it('should not register erase codes for a final summary on stdout, even with a TTY stderr', () => {
-    withTty(process.stderr, true, () => {
+  it('should not register erase codes for a final summary on stdout, even on a terminal', () => {
+    withTerminal(() => {
       const { reporter } = makeReporterWithOneCheck()
       // Erase the live summary that onBegin drew; erase codes pair only with
       // live summaries, so the final stdout summary must not register new ones.
@@ -167,8 +182,8 @@ describe('AbstractListReporter', () => {
     })
   })
 
-  it('should redraw the cancellation summary on stderr when stderr is a TTY', () => {
-    withTty(process.stderr, true, () => {
+  it('should redraw the cancellation summary on stderr on a terminal', () => {
+    withTerminal(() => {
       const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
       printLnMock.mockClear()
       printLnErrMock.mockClear()

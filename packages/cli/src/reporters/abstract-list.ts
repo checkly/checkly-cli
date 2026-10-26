@@ -200,9 +200,12 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   private _shouldRenderLiveSummary (): boolean {
-    // The live summary renders on stderr, so redraws (and the ANSI erase
-    // codes that back them) belong to that stream.
-    return process.stderr.isTTY === true
+    // The live summary renders on stderr, but its ANSI erase codes clear the
+    // lines above the cursor, which only works when stdout writes to the same
+    // terminal in order. With stdout piped (`checkly test | tee run.log`),
+    // results reach the terminal later through another process, and erasing
+    // would wipe them instead of the summary.
+    return process.stdout.isTTY === true && process.stderr.isTTY === true
   }
 
   // Clear the live summary which was printed by _printSummary from stderr.

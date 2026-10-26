@@ -462,7 +462,7 @@ describe('deploy', { timeout: 45_000 }, () => {
         },
       })
       // Deploy a check (testOnly=true)
-      const { stdout } = await runDeploy(fixt, ['--force', '--output'], {
+      const { stdout, stderr } = await runDeploy(fixt, ['--force', '--output'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           PRIVATE_LOCATION_SLUG_NAME: privateLocationSlugname,
@@ -478,8 +478,8 @@ describe('deploy', { timeout: 45_000 }, () => {
       // plan the deploy works from by default leaves them alone: they are
       // counted as unchanged rather than listed as updates. Against an API
       // without the preview endpoint, or one that has plans switched off,
-      // the deploy falls back to writing every resource and says so.
-      if (stdout.includes('for the deploy preview endpoint') || stdout.includes('deploy plans switched off')) {
+      // the deploy falls back to writing every resource and warns on stderr.
+      if (stderr.includes('for the deploy preview endpoint') || stderr.includes('deploy plans switched off')) {
         expect(stdout).toMatch(tableRows([
           ['~', 'ApiCheck', 'not-testonly-default-check'],
           ['~', 'ApiCheck', 'not-testonly-false-check'],
@@ -577,7 +577,7 @@ describe('deploy', { timeout: 45_000 }, () => {
           CHECKLY_E2E_CLI_VERSION: '4.8.0',
         },
       })
-      const { stdout } = await runDeploy(fixt, ['--preview'], {
+      const { stdout, stderr } = await runDeploy(fixt, ['--preview'], {
         env: {
           PROJECT_LOGICAL_ID: projectLogicalId,
           SUITE_NAME: 'Renamed suite',
@@ -588,8 +588,8 @@ describe('deploy', { timeout: 45_000 }, () => {
       expect(stdout).not.toContain('could not render this resource')
       // The construct diff needs a plan; against an API without the preview
       // endpoint, or one that has plans switched off, the CLI prints the
-      // overview only and says so.
-      if (stdout.includes('for the deploy preview endpoint') || stdout.includes('deploy plans switched off')) {
+      // overview only and warns on stderr.
+      if (stderr.includes('for the deploy preview endpoint') || stderr.includes('deploy plans switched off')) {
         return
       }
       expect(stdout).toMatch(/^\s*-\s+name: 'Suite',$/m)
