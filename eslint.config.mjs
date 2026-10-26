@@ -98,11 +98,13 @@ export default defineConfig([
   {
     // `prompts` renders on stdout by default, and stdout carries only command
     // results. The helper renders questions on stderr instead.
-    files: ['packages/cli/src/**/*.ts'],
+    files: ['packages/cli/src/**/*.ts', 'packages/create-cli/src/**/*.ts'],
     ignores: [
       'packages/cli/src/helpers/prompts.ts',
-      // Only injects answers for e2e tests; renders nothing.
+      'packages/create-cli/src/utils/prompts.ts',
+      // Only inject or override answers; render nothing.
       'packages/cli/src/commands/baseCommand.ts',
+      'packages/create-cli/src/commands/bootstrap.ts',
       '**/__tests__/**',
     ],
     rules: {
@@ -110,7 +112,7 @@ export default defineConfig([
         paths: [{
           name: 'prompts',
           importNames: ['default'],
-          message: 'Use `prompt` from helpers/prompts.js, which renders on stderr.',
+          message: 'Ask through the package\'s prompts helper, which renders on stderr.',
         }],
       }],
     },
