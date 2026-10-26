@@ -101,7 +101,7 @@ change in the PR.
 | 0 | Success. Also a declined confirmation, `--dry-run` previews, and runs whose checks passed or only degraded (a degraded check does not fail the run). A run stopped with Ctrl-C has no code of its own: it exits 1 if a result that arrived failed, and 0 otherwise. |
 | 1 | Failure: a failed check or run error, no matching checks under `--fail-on-no-matching` (the default), API errors, invalid configuration. |
 | 2 | Usage error (unknown flags/args, oclif parse errors), or an error a command reports through oclif's `this.error`. The message is on stderr and stdout is empty. |
-| 3 | `confirmation_required` (agent and CI mode): a write command stopped for approval and printed the envelope on stdout. Before CLI 10 this was exit 2. |
+| 3 | `confirmation_required` (agent and CI mode): a write command stopped for approval and printed the envelope on stdout. Before CLI version 10 this was exit 2. |
 | 127 | Unknown command. |
 
 ## Notes
