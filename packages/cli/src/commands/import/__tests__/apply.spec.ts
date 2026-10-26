@@ -22,41 +22,14 @@ import { loadChecklyConfig } from '../../../services/checkly-config-loader.js'
 import { Diagnostics } from '../../../constructs/diagnostics.js'
 import { ImportPlan } from '../../../rest/projects.js'
 import ImportApplyCommand from '../apply.js'
+import { createCommandContext as createSharedCommandContext } from '../../__tests__/helpers/command-context.js'
 
 function plan (id: string): ImportPlan {
   return { id, createdAt: new Date(0).toISOString() }
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  const stderrLogged: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    logToStderr: vi.fn((msg?: string) => {
-      if (msg) stderrLogged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    style: {
-      diagnostics: vi.fn(),
-      actionStart: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      fatal: vi.fn(),
-    },
-    constructor: ImportApplyCommand,
-    logged,
-    stderrLogged,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: ImportApplyCommand, parsed })
 }
 
 describe('import apply command (non-interactive)', () => {
@@ -127,7 +100,7 @@ describe('import apply command (non-interactive)', () => {
     // The applied plan is the result on stdout; the follow-up command is guidance on stderr.
     expect(ctx.logged.join('\n')).toContain('Your import plan has been applied!')
     expect(ctx.logged.join('\n')).not.toContain('import commit')
-    expect(ctx.stderrLogged.join('\n')).toContain('import commit --plan-id abc123')
+    expect(ctx.loggedToStderr.join('\n')).toContain('import commit --plan-id abc123')
   })
 
   it('fails with exit 1 when --plan-id is given but no plans exist', async () => {
@@ -150,7 +123,7 @@ describe('import apply command (non-interactive)', () => {
     expect(ctx.exit).not.toHaveBeenCalled()
     expect(ctx.style.fatal).not.toHaveBeenCalled()
     // Nothing to do is information on stderr; stdout stays empty.
-    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to apply')
+    expect(ctx.loggedToStderr.join('\n')).toContain('Nothing to apply')
     expect(ctx.logged).toEqual([])
     expect(api.projects.applyImportPlan).not.toHaveBeenCalled()
   })

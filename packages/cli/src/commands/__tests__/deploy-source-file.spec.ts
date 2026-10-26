@@ -64,14 +64,15 @@ import { Ok } from '../../services/check-parser/package-files/result.js'
 import { EmailAlertChannel } from '../../constructs/email-alert-channel.js'
 import { Project } from '../../constructs/project.js'
 import { Session } from '../../constructs/session.js'
-import { AuthCommand } from '../authCommand.js'
 import Deploy from '../deploy.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const repoRoot = path.resolve('/home/user/repo')
 
 function createCommandContext () {
-  return {
-    parse: vi.fn().mockResolvedValue({
+  return createSharedCommandContext({
+    command: Deploy,
+    parsed: {
       flags: {
         'force': true,
         'preview': false,
@@ -91,28 +92,9 @@ function createCommandContext () {
         'debug-bundle-output-file': './debug-bundle.json',
       },
       metadata: { flags: {} },
-    }),
-    log: vi.fn(),
-    exit: vi.fn((code: number) => {
-      throw new Error(`EXIT_${code}`)
-    }),
-    style: {
-      outputFormat: undefined,
-      diagnostics: vi.fn(),
-      actionStart: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      actionStatus: vi.fn(),
-      longError: vi.fn(),
-      longWarning: vi.fn(),
-      longInfo: vi.fn(),
-      shortError: vi.fn(),
     },
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    validateProject: (AuthCommand.prototype as any).validateProject,
-    constructor: Deploy,
-    account: { name: 'Test Account', runtimeId: 'runtime-default' },
-  }
+    members: { account: { name: 'Test Account', runtimeId: 'runtime-default' } },
+  })
 }
 
 function declareProject () {

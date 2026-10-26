@@ -11,6 +11,7 @@ vi.mock('../../rest/api.js', () => ({
 
 import * as api from '../../rest/api.js'
 import ChecksGet from '../checks/get.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 // The fixed, internal projection the recent-results table needs. Exactly the
 // fields formatResults() and resolveResultStatus() read — kept in sync with
@@ -59,16 +60,8 @@ function makeResult (overrides: Partial<CheckResult> = {}): CheckResult {
   }
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  return Object.assign(Object.create(ChecksGet.prototype), {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    style: { outputFormat: undefined, longError: vi.fn() },
-    logged,
-  })
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: ChecksGet, parsed })
 }
 
 describe('checks get recent-results projection', () => {

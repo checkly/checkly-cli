@@ -23,14 +23,16 @@ import { loadChecklyConfig, ConfigNotFoundError } from '../../services/checkly-c
 import { ConfigFileDiagnostics, InvalidConfigError } from '../../services/config-diagnostics.js'
 import { ErrorDiagnostic } from '../../constructs/diagnostics.js'
 import Trigger from '../trigger.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 // The harness stops the run right after the config-load step, which is the
 // behavior under test: which load failures are tolerated and which abort.
 class StopError extends Error {}
 
 function createCommandContext () {
-  return {
-    parse: vi.fn().mockResolvedValue({
+  return createSharedCommandContext({
+    command: Trigger,
+    parsed: {
       flags: {
         'config': undefined,
         'env': [],
@@ -39,15 +41,13 @@ function createCommandContext () {
         'retries': undefined,
         'detach': false,
       },
-    }),
-    style: {
-      diagnostics: vi.fn(),
     },
-    prepareRunLocation: vi.fn(() => {
-      throw new StopError('reached run preparation')
-    }),
-    constructor: Trigger,
-  }
+    members: {
+      prepareRunLocation: vi.fn(() => {
+        throw new StopError('reached run preparation')
+      }),
+    },
+  })
 }
 
 describe('trigger config-load failures', () => {

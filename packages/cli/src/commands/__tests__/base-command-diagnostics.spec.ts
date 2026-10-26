@@ -1,30 +1,16 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect } from 'vitest'
 
 import { BaseCommand } from '../baseCommand.js'
 import { CommandStyle } from '../../helpers/command-style.js'
 import { ConfigFileDiagnostics, InvalidConfigError } from '../../services/config-diagnostics.js'
 import { Diagnostics, ErrorDiagnostic, NoticeDiagnostic, WarningDiagnostic } from '../../constructs/diagnostics.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 function createCommandContext () {
-  let exitCodeValue: number | undefined
-  return {
-    style: {
-      diagnostics: CommandStyle.prototype.diagnostics,
-      actionFailure: vi.fn(),
-      longError: vi.fn(),
-      longWarning: vi.fn(),
-      longInfo: vi.fn(),
-      shortError: vi.fn(),
-    },
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    catch: (BaseCommand.prototype as any).catch,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+  return createSharedCommandContext({
+    command: BaseCommand,
+    style: { diagnostics: CommandStyle.prototype.diagnostics },
+  })
 }
 
 describe('CommandStyle', () => {

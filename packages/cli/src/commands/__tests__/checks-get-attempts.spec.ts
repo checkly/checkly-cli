@@ -12,6 +12,7 @@ vi.mock('../../rest/api.js', () => ({
 import * as api from '../../rest/api.js'
 import ChecksGet from '../checks/get.js'
 import { stripAnsi } from '../../formatters/render.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 function makeResult (overrides: Partial<CheckResult>): CheckResult {
   return {
@@ -35,16 +36,8 @@ function makeResult (overrides: Partial<CheckResult>): CheckResult {
   }
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  return Object.assign(Object.create(ChecksGet.prototype), {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    style: { outputFormat: undefined, longError: vi.fn() },
-    logged,
-  })
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: ChecksGet, parsed })
 }
 
 // A sequence of two failed attempts followed by a passing final run.

@@ -37,8 +37,8 @@ import * as api from '../../rest/api.js'
 import { buildConfirmCommand } from '../../helpers/command-preview.js'
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { Diagnostics, WarningDiagnostic } from '../../constructs/diagnostics.js'
-import { AuthCommand } from '../authCommand.js'
 import Destroy from '../destroy.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 /** Turn a generated confirmCommand back into argv, so oclif can re-parse it. */
 function flagArgv (confirmCommand: string): string[] {
@@ -52,35 +52,11 @@ async function confirmCommandFor (argv: string[]): Promise<string> {
 }
 
 function createCommandContext (parsed: { flags: Record<string, unknown>, metadata?: unknown }) {
-  const logged: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue({ metadata: { flags: {} }, ...parsed }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    logToStderr: vi.fn(),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    style: {
-      outputFormat: undefined,
-      diagnostics: vi.fn(),
-      longError: vi.fn(),
-      actionStart: vi.fn(),
-      actionStatus: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-    },
-    constructor: Destroy,
-    account: { name: 'Test Account' },
-    logged,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+  return createSharedCommandContext({
+    command: Destroy,
+    parsed,
+    members: { account: { name: 'Test Account' } },
+  })
 }
 
 describe('destroy confirmation flow', () => {

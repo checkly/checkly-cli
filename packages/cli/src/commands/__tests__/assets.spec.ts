@@ -25,6 +25,7 @@ import axios from 'axios'
 import * as api from '../../rest/api.js'
 import AssetsList from '../assets/list.js'
 import AssetsDownload from '../assets/download.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const manifest: AssetManifest = {
   assets: [
@@ -95,29 +96,8 @@ const archiveOnlyManifest: AssetManifest = {
   ],
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  const loggedToStderr: string[] = []
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    logToStderr: vi.fn((msg?: string) => {
-      if (msg) loggedToStderr.push(msg)
-    }),
-    style: {
-      outputFormat: undefined,
-      actionStart: vi.fn(),
-      actionStatus: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      longError: vi.fn(),
-    },
-    fancy: false,
-    logged,
-    loggedToStderr,
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ parsed })
 }
 
 describe('assets commands', () => {

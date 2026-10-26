@@ -15,29 +15,11 @@ vi.mock('prompts', () => ({
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import * as api from '../../rest/api.js'
-import { AuthCommand } from '../authCommand.js'
 import EnvRm from '../env/rm.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    style: { outputFormat: undefined, shortSuccess: vi.fn(), longError: vi.fn() },
-    constructor: EnvRm,
-    logged,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: EnvRm, parsed })
 }
 
 describe('env rm confirmation flow', () => {

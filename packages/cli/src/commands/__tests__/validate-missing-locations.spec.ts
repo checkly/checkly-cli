@@ -25,31 +25,15 @@ import { ApiCheck } from '../../constructs/api-check.js'
 import { Diagnostic, Diagnostics } from '../../constructs/diagnostics.js'
 import { Project } from '../../constructs/project.js'
 import { Session } from '../../constructs/session.js'
-import { AuthCommand } from '../authCommand.js'
 import Validate from '../validate.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 function createCommandContext () {
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue({ flags: { 'config': undefined, 'verify-runtime-dependencies': true } }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    style: {
-      diagnostics: vi.fn(),
-      actionStart: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      shortError: vi.fn(),
-      shortSuccess: vi.fn(),
-    },
-    validateProject: (AuthCommand.prototype as any).validateProject,
-    account: { name: 'Test Account', runtimeId: 'runtime-default' },
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+  return createSharedCommandContext({
+    command: Validate,
+    parsed: { flags: { 'config': undefined, 'verify-runtime-dependencies': true } },
+    members: { account: { name: 'Test Account', runtimeId: 'runtime-default' } },
+  })
 }
 
 describe('checkly validate', () => {

@@ -8,19 +8,15 @@ vi.mock('../../rest/api', () => ({
 
 import * as api from '../../rest/api.js'
 import { NotFoundError } from '../../rest/errors.js'
-import { BaseCommand } from '../baseCommand.js'
 import RcaRun from '../rca/run.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 function createCommandContext (flags: Record<string, unknown>) {
-  return {
-    argv: [],
-    parse: vi.fn().mockResolvedValue({ flags: { watch: false, output: 'detail', ...flags } }),
-    log: vi.fn(),
-    searchedAccount: vi.fn(),
-    notFoundHint: BaseCommand.prototype.notFoundHint,
-    withNotFoundHint: BaseCommand.prototype.withNotFoundHint,
-    style: { outputFormat: undefined, shortError: vi.fn(), longError: vi.fn() },
-  }
+  return createSharedCommandContext({
+    command: RcaRun,
+    parsed: { flags: { watch: false, output: 'detail', ...flags } },
+    members: { argv: [] },
+  })
 }
 
 const notFound = () => new NotFoundError({ statusCode: 404, error: 'Not Found', message: 'Not Found' })

@@ -10,6 +10,7 @@ vi.mock('../../rest/api.js', () => ({
 
 import * as api from '../../rest/api.js'
 import TestSessionsGet from '../test-sessions/get.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const testSession: TestSessionDetail = {
   testSessionId: '8166fa86-c9b4-4162-8541-d380c6c212d8',
@@ -96,22 +97,8 @@ const testSessionResult: CheckResult = {
   multiStepCheckResult: null,
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  return Object.assign(Object.create(TestSessionsGet.prototype), {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    style: {
-      outputFormat: undefined,
-      longError: vi.fn(),
-      actionStart: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-    },
-    logged,
-  })
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: TestSessionsGet, parsed })
 }
 
 describe('test-sessions get command', () => {

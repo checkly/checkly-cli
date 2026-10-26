@@ -17,6 +17,7 @@ import type { CommandPreview } from '../../helpers/command-preview.js'
 // Minimal AuthCommand-like context for testing confirmOrAbort
 // We import the actual method after mocks are set up
 import { AuthCommand } from '../authCommand.js'
+import { createCommandContext } from './helpers/command-context.js'
 
 const basePreview: CommandPreview = {
   command: 'incidents create',
@@ -27,27 +28,7 @@ const basePreview: CommandPreview = {
 }
 
 function createMockCommand (overrides: Record<string, unknown> = {}) {
-  const logged: string[] = []
-  const loggedToStderr: string[] = []
-  let exitCode: number | undefined
-
-  return {
-    log: vi.fn((msg: string) => logged.push(msg)),
-    logToStderr: vi.fn((msg?: string) => {
-      if (msg !== undefined) loggedToStderr.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCode = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    style: { outputFormat: undefined },
-    logged,
-    loggedToStderr,
-    get exitCode () {
-      return exitCode
-    },
-    ...overrides,
-  }
+  return createCommandContext({ members: overrides })
 }
 
 describe('confirmOrAbort', () => {

@@ -31,35 +31,16 @@ import { parseProject } from '../../services/project-parser.js'
 import { ConfigFileDiagnostics } from '../../services/config-diagnostics.js'
 import { Diagnostics, ErrorDiagnostic, WarningDiagnostic } from '../../constructs/diagnostics.js'
 import { CommandStyle } from '../../helpers/command-style.js'
-import { AuthCommand } from '../authCommand.js'
 import Deploy from '../deploy.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
-function createCommandContext (parsed: unknown) {
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    style: {
-      outputFormat: undefined,
-      diagnostics: CommandStyle.prototype.diagnostics,
-      actionStart: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      longError: vi.fn(),
-      longWarning: vi.fn(),
-      longInfo: vi.fn(),
-      shortError: vi.fn(),
-    },
-    validateProject: (AuthCommand.prototype as any).validateProject,
-    constructor: Deploy,
-    account: { name: 'Test Account', runtimeId: 'runtime-default' },
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({
+    command: Deploy,
+    parsed,
+    style: { diagnostics: CommandStyle.prototype.diagnostics },
+    members: { account: { name: 'Test Account', runtimeId: 'runtime-default' } },
+  })
 }
 
 const deployFlags = {

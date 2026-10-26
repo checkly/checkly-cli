@@ -9,17 +9,10 @@ import * as api from '../../../rest/api.js'
 import AlertChannelsList from '../list.js'
 import AlertChannelsGet from '../get.js'
 import AlertChannelsLogs from '../logs.js'
+import { createCommandContext as createSharedCommandContext } from '../../__tests__/helpers/command-context.js'
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    style: { outputFormat: undefined, longError: vi.fn() },
-    logged,
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ parsed })
 }
 
 const alertChannelFixture = {

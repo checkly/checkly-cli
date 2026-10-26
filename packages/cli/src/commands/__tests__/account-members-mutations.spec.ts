@@ -18,6 +18,7 @@ import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
 import MembersUpdate, { normalizeAccountMemberUpdateRole } from '../members/update.js'
 import MembersDelete from '../members/delete.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const updatedMember = {
   type: 'member' as const,
@@ -34,33 +35,8 @@ const updatedMember = {
   mfaEnabled: true,
 }
 
-function createCommandContext (Command: typeof AuthCommand, parsed: unknown) {
-  const logged: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    error: vi.fn((message: string) => {
-      throw new Error(message)
-    }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    style: {
-      outputFormat: undefined,
-      shortSuccess: vi.fn(),
-      longError: vi.fn(),
-    },
-    constructor: Command,
-    logged,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+function createCommandContext (Command: typeof AuthCommand, parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: Command, parsed })
 }
 
 describe('account members mutation commands', () => {

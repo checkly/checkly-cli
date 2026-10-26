@@ -54,10 +54,12 @@ vi.mock('../../reporters/reporter', () => ({
 import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { cancelTestSessionBestEffort } from '../../services/test-session-cancel.js'
 import Trigger from '../trigger.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 function createCommandContext (flags: Record<string, unknown> = {}) {
-  return {
-    parse: vi.fn().mockResolvedValue({
+  return createSharedCommandContext({
+    command: Trigger,
+    parsed: {
       flags: {
         'config': undefined,
         'env': [],
@@ -68,14 +70,13 @@ function createCommandContext (flags: Record<string, unknown> = {}) {
         'max-failures': undefined,
         ...flags,
       },
-    }),
-    style: { diagnostics: vi.fn() },
-    prepareRunLocation: vi.fn().mockResolvedValue({ type: 'PUBLIC', region: 'eu-west-1' }),
-    prepareVerboseFlag: () => false,
-    prepareTestRetryStrategy: () => null,
-    log: vi.fn(),
-    constructor: Trigger,
-  }
+    },
+    members: {
+      prepareRunLocation: vi.fn().mockResolvedValue({ type: 'PUBLIC', region: 'eu-west-1' }),
+      prepareVerboseFlag: () => false,
+      prepareTestRetryStrategy: () => null,
+    },
+  })
 }
 
 // TriggerRunner takes maxFailures as its last positional argument.
