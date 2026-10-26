@@ -220,7 +220,14 @@ export default abstract class AbstractListReporter implements Reporter {
     }
   }
 
-  _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean, stream?: 'stdout' | 'stderr' } = {}) {
+  _printSummary (opts: {
+    skipCheckCount?: boolean
+    includeCheckTitles?: boolean
+    stream?: 'stdout' | 'stderr'
+    // A one-off summary on stderr that nothing redraws, e.g. the ci
+    // reporter's opening one.
+    noRedraw?: boolean
+  } = {}) {
     const write = opts.stream === 'stderr' ? printLnErr : printLn
     const counts = {
       numFailed: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
@@ -316,13 +323,14 @@ export default abstract class AbstractListReporter implements Reporter {
     // Only a live summary on stderr joins the redraw loop: a final summary on
     // stdout may go to a pipe, so erase codes registered for it would wipe
     // unrelated lines from the terminal.
-    if (opts.stream === 'stderr' && this._shouldRenderLiveSummary()) {
+    if (opts.stream === 'stderr' && !opts.noRedraw && this._shouldRenderLiveSummary()) {
       // Ansi escape code for erasing the line and moving the cursor up.
       this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
     }
   }
 
-  _printBriefSummary () {
+  /** `lineEnded`: the reporter already ended its last line, so no empty line opens the summary. */
+  _printBriefSummary ({ lineEnded = false }: { lineEnded?: boolean } = {}) {
     const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0, numNotFinished: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
@@ -342,7 +350,9 @@ export default abstract class AbstractListReporter implements Reporter {
         }
       }
     }
-    status.push('')
+    if (!lineEnded) {
+      status.push('')
+    }
     status.push([
       counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
       counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,

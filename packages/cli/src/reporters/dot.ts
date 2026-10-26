@@ -17,7 +17,7 @@ export default class DotReporter extends AbstractListReporter {
     if (this.#printedMarks) {
       printLnErr('')
     }
-    this._printBriefSummary()
+    this._printBriefSummary({ lineEnded: this.#printedMarks })
     this._printExecutionErrors()
     this._printTestSessionsUrl()
   }

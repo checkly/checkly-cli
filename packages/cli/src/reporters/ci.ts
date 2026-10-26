@@ -10,7 +10,9 @@ export default class CiReporter extends AbstractListReporter {
     super.onBegin(checks, testSessionId)
     // Progress output goes to stderr; stdout carries only results.
     printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2)
-    this._printSummary({ skipCheckCount: true, stream: 'stderr' })
+    // Results follow on stdout without clearing this summary, so it must not
+    // register erase codes for a redraw.
+    this._printSummary({ skipCheckCount: true, stream: 'stderr', noRedraw: true })
   }
 
   onEnd () {

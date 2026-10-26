@@ -93,6 +93,16 @@ describe('DotReporter', () => {
     expect(printedOutput()).not.toContain('Running 1 checks')
   })
 
+  it('ends the line of marks on stderr and opens the summary without an extra empty line', () => {
+    const { reporter } = makeReporterWithOneCheck()
+    reporter.onCheckEnd(SEQUENCE_ID, makeResult())
+    printLnErrMock.mockClear()
+    reporter.onEnd()
+
+    expect(printLnErrMock).toHaveBeenCalledWith('')
+    expect(printedOutput().startsWith('1 passed')).toBe(true)
+  })
+
   it('should print execution error details for a check that failed with a run error', () => {
     const { reporter } = makeReporterWithOneCheck()
 

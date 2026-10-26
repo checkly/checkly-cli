@@ -141,6 +141,15 @@ describe('AbstractListReporter', () => {
     expect(stdout).toContain(`Test session ID: ${TEST_SESSION_ID}`)
   })
 
+  it('does not register erase codes for the ci reporter\'s opening summary, which nothing redraws', () => {
+    withTerminal(() => {
+      const reporter = new CiReporter(PUBLIC_RUN_LOCATION, false)
+      reporter.onBegin([{ check: { name: 'My API Check', getSourceFile: () => SOURCE_FILE }, sequenceId: SEQUENCE_ID }] as any)
+
+      expect(reporter._clearString).toBe('')
+    })
+  })
+
   it('should not redraw when stdout is piped, even with a TTY stderr', () => {
     withTty(process.stdout, false, () => withTty(process.stderr, true, () => {
       const { reporter } = makeReporterWithOneCheck()
