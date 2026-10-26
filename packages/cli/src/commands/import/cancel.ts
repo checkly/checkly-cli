@@ -142,10 +142,10 @@ export default class ImportCancelCommand extends AuthCommand {
       message: `Found ${plans.length} cancelable plan(s). Which one to cancel?`,
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     if (planId === 'exit' || planId === undefined) {
-      this.log('Exiting without making any changes.')
+      this.logToStderr('Exiting without making any changes.')
       this.exit(0)
     }
 

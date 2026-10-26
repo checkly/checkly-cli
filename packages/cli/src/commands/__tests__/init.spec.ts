@@ -80,6 +80,7 @@ const mockConfig = {
 function createCommand (...args: string[]) {
   const cmd = new Init(args, mockConfig)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   return cmd
 }
 
@@ -178,6 +179,12 @@ describe('Init command', () => {
       .mockResolvedValueOnce({ wantExamples: false }) // no demo checks
     const cmd = createCommand()
     await cmd.run()
+
+    // The interactive wizard has no result to print: all of it is chatter on stderr.
+    const logged = vi.mocked(cmd.logToStderr).mock.calls.map(([msg]) => String(msg))
+    expect(logged.some(m => m.includes('Created package.json'))).toBe(true)
+    expect(greeting).toHaveBeenCalled()
+    expect(cmd.log).not.toHaveBeenCalled()
   })
 
   describe('agent mode', () => {
@@ -313,6 +320,10 @@ describe('Init command', () => {
           typeof msg === 'string' && msg.includes('"success":true'),
       )
       expect(jsonCall?.[0]).toContain('"skillPlatform":"claude"')
+      // The explicit install's status line is chatter; stdout holds only the JSON.
+      expect(cmd.log).toHaveBeenCalledTimes(1)
+      expect(vi.mocked(cmd.logToStderr).mock.calls.map(([msg]) => String(msg)))
+        .toContainEqual(expect.stringContaining('Installed Checkly skill'))
     })
   })
 
@@ -335,9 +346,11 @@ describe('Init command', () => {
         expect.any(String), expect.any(Function), { skipPrompts: true },
       )
       expect(greeting).not.toHaveBeenCalled()
-      const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => String(msg))
+      const logged = vi.mocked(cmd.logToStderr).mock.calls.map(([msg]) => String(msg))
       expect(logged.some(m => m.includes('Created package.json'))).toBe(true)
       expect(logged.some(m => m.includes('local-cli-note'))).toBe(true)
+      expect(logged.some(m => m.includes('npx checkly skills install'))).toBe(true)
+      expect(cmd.log).not.toHaveBeenCalled()
     })
 
     it('does not create package.json when one exists', async () => {
@@ -390,7 +403,7 @@ describe('Init command', () => {
       expect(refreshSkill).toHaveBeenCalledWith('/p/.agents/skills/checkly/SKILL.md', expect.anything())
       expect(refreshSkill).toHaveBeenCalledWith('/p/.continue/skills/checkly/SKILL.md', expect.anything())
 
-      const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => msg)
+      const logged = vi.mocked(cmd.logToStderr).mock.calls.map(([msg]) => msg)
       expect(logged.some(m => typeof m === 'string' && m.includes('/p/.agents/skills/checkly/SKILL.md'))).toBe(true)
       expect(logged.some(m => typeof m === 'string' && m.includes('/p/.continue/skills/checkly/SKILL.md'))).toBe(true)
     })

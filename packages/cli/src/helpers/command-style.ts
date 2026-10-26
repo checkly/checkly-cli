@@ -75,6 +75,12 @@ export class CommandStyle {
     this.c.log()
   }
 
+  // A step of a multi-step command that went well, not its result.
+  stepSuccess (message: string) {
+    this.c.logToStderr(`${logSymbols.success} ${message}`)
+    this.c.logToStderr()
+  }
+
   longInfo (title: string, message: string) {
     this.c.logToStderr(`${logSymbols.info} ${title}`)
     this.c.logToStderr()

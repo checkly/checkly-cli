@@ -77,7 +77,10 @@ export default class Init extends BaseCommand {
     const { flags } = await this.parse(Init)
     const cliMode = detectCliMode()
     const projectDir = process.cwd()
-    const log = (msg: string) => this.log(msg)
+    // init is a wizard: its human output (banner, status lines, starter
+    // prompt, footers) is chatter, so it goes to stderr. Agent mode prints
+    // its JSON result with this.log, keeping stdout machine-readable.
+    const log = (msg: string) => this.logToStderr(msg)
     const explicitSkillState = await this.installExplicitTargetSkill(
       flags.target, log,
     )

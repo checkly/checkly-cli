@@ -75,7 +75,7 @@ export default class ImportApplyCommand extends AuthCommand {
     // commit prompt, and --no-commit opts out of it explicitly. Both leave
     // finalizing to a later `checkly deploy` or `checkly import commit`.
     if (noCommit || detectCliMode() !== 'interactive') {
-      this.log(`\
+      this.logToStderr(`\
   The plan is applied but not committed. To commit it, run:
 
     ${chalk.green(`npx checkly import commit --plan-id ${plan.id}`)}
@@ -112,10 +112,10 @@ export default class ImportApplyCommand extends AuthCommand {
       message: `Found ${plans.length} unapplied plan(s). Which one to apply?`,
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     if (planId === 'exit' || planId === undefined) {
-      this.log('Exiting without making any changes.')
+      this.logToStderr('Exiting without making any changes.')
       this.exit(0)
     }
 
@@ -134,13 +134,13 @@ export async function confirmApply (this: BaseCommand): Promise<boolean> {
     type: 'confirm',
     message: 'Would you like to apply the plan now?',
   })
-  this.log()
+  this.logToStderr()
 
   if (apply) {
     return true
   }
 
-  this.log(`\
+  this.logToStderr(`\
   To apply your plan at a later time, please run:
 
     ${chalk.green('npx checkly import apply')}
@@ -166,9 +166,11 @@ export async function performApplyAction (this: BaseCommand, plan: ImportPlan) {
     throw err
   }
 
+  // The applied plan is the result (stdout); the explanation of what applying
+  // means and what comes next is chatter (stderr).
   this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been applied!')}`)
-  this.log()
-  this.log(`\
+  this.logToStderr()
+  this.logToStderr(`\
   The code generated for the import plan is now linked to the underlying
   resources. If you deploy now, you are modifying the actual resources. You
   may still cancel the plan but any changes you've deployed cannot be undone.

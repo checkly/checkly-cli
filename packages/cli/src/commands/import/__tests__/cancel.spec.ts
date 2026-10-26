@@ -43,11 +43,15 @@ function cancelFlags (overrides: Record<string, unknown> = {}) {
 
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []
+  const stderrLogged: string[] = []
   let exitCodeValue: number | undefined
   return {
     parse: vi.fn().mockResolvedValue(parsed),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
+    }),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg) stderrLogged.push(msg)
     }),
     exit: vi.fn((code: number) => {
       exitCodeValue = code
@@ -64,6 +68,7 @@ function createCommandContext (parsed: unknown) {
     },
     constructor: ImportCancelCommand,
     logged,
+    stderrLogged,
     get exitCodeValue () {
       return exitCodeValue
     },
@@ -205,7 +210,9 @@ describe('import cancel command (empty candidate list)', () => {
 
     expect(ctx.exit).not.toHaveBeenCalled()
     expect(ctx.style.fatal).not.toHaveBeenCalled()
-    expect(ctx.logged.join('\n')).toContain('Nothing to cancel')
+    // Nothing to do is information on stderr; stdout stays empty.
+    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to cancel')
+    expect(ctx.logged).toEqual([])
     expect(api.projects.cancelImportPlan).not.toHaveBeenCalled()
   })
 
@@ -215,7 +222,9 @@ describe('import cancel command (empty candidate list)', () => {
     await ImportCancelCommand.prototype.run.call(ctx as any)
 
     expect(ctx.exit).not.toHaveBeenCalled()
-    expect(ctx.logged.join('\n')).toContain('Nothing to cancel')
+    // Nothing to do is information on stderr; stdout stays empty.
+    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to cancel')
+    expect(ctx.logged).toEqual([])
     expect(api.projects.cancelImportPlan).not.toHaveBeenCalled()
   })
 })

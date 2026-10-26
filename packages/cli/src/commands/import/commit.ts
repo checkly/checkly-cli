@@ -119,10 +119,10 @@ export default class ImportCommitCommand extends AuthCommand {
       message: `Found ${plans.length} applied plan(s). Which one to commit?`,
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     if (planId === 'exit' || planId === undefined) {
-      this.log('Exiting without making any changes.')
+      this.logToStderr('Exiting without making any changes.')
       this.exit(0)
     }
 
@@ -141,13 +141,13 @@ export async function confirmCommit (this: BaseCommand): Promise<boolean> {
     type: 'confirm',
     message: 'Would you like to commit the plan now?',
   })
-  this.log()
+  this.logToStderr()
 
   if (commit) {
     return true
   }
 
-  this.log(`\
+  this.logToStderr(`\
   To commit your plan at a later time, please run:
 
     ${chalk.green('npx checkly import commit')}
@@ -173,9 +173,11 @@ export async function performCommitAction (this: BaseCommand, plan: ImportPlan):
     throw err
   }
 
+  // The committed plan is the result (stdout); the closing notes are chatter
+  // (stderr).
   this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been committed!')}`)
-  this.log()
-  this.log(`\
+  this.logToStderr()
+  this.logToStderr(`\
   The underlying resources are now fully managed by the Checkly CLI the same
   way as any other CLI-native resource, and the import process is finished.
 

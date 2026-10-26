@@ -114,7 +114,7 @@ describe('CommandStyle output streams', () => {
     expect(command.log).not.toHaveBeenCalled()
   })
 
-  it('prints human-readable errors, info, and comments to stderr only', () => {
+  it('prints human-readable errors, info, comments, and step milestones to stderr only', () => {
     const { style, command, errLines } = createStyle(undefined)
 
     style.longError('Failed to deploy', 'Boom')
@@ -123,11 +123,13 @@ describe('CommandStyle output streams', () => {
     style.longInfo('Some checks were not scheduled', 'Details.')
     style.shortInfo('Creating a checkly config file.')
     style.comment('A comment.')
+    style.stepSuccess('Found existing package.json')
 
     const stderr = errLines().join('\n')
     for (const text of [
       'Failed to deploy', 'Boom', 'Your Checkly configuration file is not valid.', 'Import failed.',
       'Some checks were not scheduled', 'Details.', 'Creating a checkly config file.', 'A comment.',
+      'Found existing package.json',
     ]) {
       expect(stderr).toContain(text)
     }
