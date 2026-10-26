@@ -2,8 +2,10 @@
 import { MaintenanceWindow } from 'checkly/constructs'
 
 // The API rejects date changes on an active window (compared at minute precision), so a
-// redeploy must send the same dates. The e2e harness fixes FIXTURE_NOW once per test file.
-const now = process.env.FIXTURE_NOW ? new Date(process.env.FIXTURE_NOW).valueOf() : Date.now()
+// redeploy must send the same dates. The e2e harness fixes CHECKLY_E2E_FIXTURE_NOW once per
+// test file.
+const fixtureNow = process.env.CHECKLY_E2E_FIXTURE_NOW
+const now = fixtureNow ? new Date(fixtureNow).valueOf() : Date.now()
 
 new MaintenanceWindow('maintenance-window-1', {
   name: 'My maintenance window',

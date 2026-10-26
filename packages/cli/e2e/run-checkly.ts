@@ -40,7 +40,7 @@ export function checklyEnv (overrides?: {
     // dominant cost of the Windows e2e suite. On Linux SHELL is already set, so this
     // only changes behaviour on Windows where it would otherwise be unset.
     SHELL: process.env.SHELL ?? 'powershell.exe',
-    FIXTURE_NOW: fixtureNow,
+    CHECKLY_E2E_FIXTURE_NOW: fixtureNow,
     ...env,
   }
 }
