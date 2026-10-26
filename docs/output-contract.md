@@ -42,13 +42,13 @@ Consequences:
 | JSON-mode error envelopes of failures the command handles | stdout |
 | Agent and CI envelopes (`confirmation_required`, `dry_run`, login status lines) | stdout |
 | Check results, retry/failure details, final run summaries, session links | stdout |
-| Mutation confirmations, "written to <path>" lines, empty results that exit 0 | stdout |
+| Mutation confirmations, "written to <path>" lines, empty results of list and read commands (incl. `test --list`) | stdout |
 | A command's final outcome, e.g. `deploy --preview` plans or "Successfully deployed …" | stdout |
 | Navigation hints in terminal- or Markdown-format output | stdout (see below) |
 | Spinners (`Parsing your project`, `Bundling project resources`, …) | stderr |
 | Banners and warnings (engine compatibility, stale skill, diagnostics) | stderr |
 | Info notices, hints, next steps, wizard output (`init`, `import`, `create-checkly`) | stderr |
-| Human-readable error reports, including "no matching checks" when it fails the command | stderr |
+| Human-readable error reports; "no matching checks" from `test`, `trigger`, and `checks run`, whether or not it fails the command | stderr |
 | Interactive questions and the preview or plan shown before a confirmation | stderr |
 | `login` instructions in a terminal (URL, code, waiting notes) | stderr |
 | `checkly test` live progress: "Running N checks…", live summary redraws, streamed logs, dot-reporter marks | stderr |

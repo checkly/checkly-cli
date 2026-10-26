@@ -172,7 +172,7 @@ describe('checks run command', () => {
 
     await ChecksRun.prototype.run.call(ctx as any)
 
-    // An error, not an empty result: stderr.
+    // A notice, not a result: stderr.
     expect(ctx.logToStderr).toHaveBeenCalledWith('No matching checks were found.')
     expect(ctx.logged).not.toContain('No matching checks were found.')
     expect(process.exitCode).toBe(1)
@@ -184,6 +184,9 @@ describe('checks run command', () => {
 
     await ChecksRun.prototype.run.call(ctx as any)
 
+    // Still a notice on stderr when it does not fail the command.
+    expect(ctx.logToStderr).toHaveBeenCalledWith('No matching checks were found.')
+    expect(ctx.logged).not.toContain('No matching checks were found.')
     expect(process.exitCode).toBeUndefined()
   })
 

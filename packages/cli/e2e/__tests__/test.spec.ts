@@ -88,7 +88,6 @@ describe('test', { timeout: 45000 }, () => {
       } catch (err) {
         if (err instanceof ExecaError) {
           expect(err.exitCode).toBe(1)
-          // An error, not an empty result: stderr.
           expect(err.stderr).toContain('Unable to find checks to run using [FILEARGS]=\'')
         } else {
           throw err
@@ -98,7 +97,9 @@ describe('test', { timeout: 45000 }, () => {
 
     it('Should terminate successfully when no checks are found and --no-fail-on-no-matching is set', async () => {
       const result = await runTest(fixt, ['does-not-exist.js', '--no-fail-on-no-matching'])
-      expect(result.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+      // A notice on stderr; nothing ran, so there is no result on stdout.
+      expect(result.stderr).toContain('Unable to find checks to run using [FILEARGS]=\'')
+      expect(result.stdout).not.toContain('Unable to find checks to run')
     })
 
     it('Should list checks and not execute them with `--list`', async () => {

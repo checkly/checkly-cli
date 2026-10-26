@@ -353,13 +353,17 @@ export default class Test extends AuthCommand {
 
     if (!checkBundles.length) {
       const message = `Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`
-      // --list only reports what matches, so an empty answer is not a failure
-      // but the (empty) result, on stdout. Otherwise it is an error.
-      if (failOnNoMatching && !list) {
-        this.logToStderr(message)
-        process.exitCode = 1
-      } else {
+      if (list) {
+        // --list only reports what matches: the empty listing is its result,
+        // and not a failure.
         this.log(message)
+      } else {
+        // A notice, not a result: nothing ran. The exit code says whether it
+        // fails the command.
+        this.logToStderr(message)
+        if (failOnNoMatching) {
+          process.exitCode = 1
+        }
       }
       return
     }
