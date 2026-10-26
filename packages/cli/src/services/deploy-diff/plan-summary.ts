@@ -39,7 +39,7 @@ export function isPrunedRelation (entry: DiffEntry): boolean {
 /**
  * True when every change reported on a resource is a relation the project does
  * not manage. Checkly reports those on the owning check or group whether or not
- * the deploy would delete them, and without `--prune-relations` it deletes
+ * the deploy would delete them, and without `--prune-unmanaged-relations` it deletes
  * nothing — so the resource itself is untouched and naming it as an update
  * would describe a write that never happens.
  */
@@ -87,7 +87,7 @@ function reportable (entry: DiffEntry, { foldedTypes }: PlanSummaryOptions): boo
     return false
   }
   // Whether or not the relations are pruned, the resource they hang off is not
-  // written: with `--prune-relations` the relation's own entry carries the line.
+  // written: with `--prune-unmanaged-relations` the relation's own entry carries the line.
   // Except when Checkly had no usable state from an earlier planned deploy and
   // compared the resource with what is deployed (`basis: 'live'`): the deploy
   // writes it whatever was found, so it is never "nothing to apply".
@@ -195,7 +195,7 @@ function overwritesRemoteChange (change: DiffChange): boolean {
  * or other declared resource: a relation's drift (an alert channel
  * subscription removed in Checkly, say) is reported on the resource it is
  * folded into. Relations the project does not manage are not drift: they are
- * left alone unless `--prune-relations` asks for them to be deleted.
+ * left alone unless `--prune-unmanaged-relations` asks for them to be deleted.
  *
  * Blind to a resource without a baseline (`basis: 'live'`): Checkly compares
  * it with what is deployed, so code changes and edits made in Checkly look

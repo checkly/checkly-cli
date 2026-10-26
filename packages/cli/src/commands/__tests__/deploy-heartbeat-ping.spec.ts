@@ -86,7 +86,7 @@ function createCommandContext () {
         'dry-run': false,
         'plan': true,
         'plan-token': undefined,
-        'prune-relations': false,
+        'prune-unmanaged-relations': false,
         'preserve-resources': false,
         'cancel-in-progress-deployment': false,
         'output': false,

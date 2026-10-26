@@ -79,7 +79,7 @@ function createCommandContext () {
         // A planned run: the preview is what the source files are sent to first.
         'plan': true,
         'plan-token': undefined,
-        'prune-relations': false,
+        'prune-unmanaged-relations': false,
         'preserve-resources': false,
         'cancel-in-progress-deployment': false,
         'output': false,

@@ -137,8 +137,9 @@ export function formatPreview (input: PreviewOutputInput): string {
     if (NON_REPORTED_TYPES.some(t => t === type)) {
       // A relation the project manages is reported as part of the check or
       // group it belongs to, since users do not declare these directly. One
-      // the project does NOT manage is only ever reported when --prune-relations
-      // would delete it, and that is worth its own line.
+      // the project does NOT manage is only ever reported when
+      // --prune-unmanaged-relations would delete it, and that is worth its
+      // own line.
       if (isPrunedRelation(change)) {
         // The relation's own id says nothing to the user; the check or group
         // it hangs off is what tells them what the prune touches.
@@ -153,8 +154,8 @@ export function formatPreview (input: PreviewOutputInput): string {
     }
     // Relations the project does not manage are reported on their owning
     // check or group whether or not they would be deleted. Without
-    // --prune-relations the deploy leaves them alone, which the `!` row
-    // says; with it, the relation's own entry is listed as pruned, and
+    // --prune-unmanaged-relations the deploy leaves them alone, which the `!`
+    // row says; with it, the relation's own entry is listed as pruned, and
     // advising the flag the user just passed would be absurd.
     if (onlyUnmanagedChanges(change) && !pruneRelations) {
       unmanaged.push({ resourceType: type, logicalId })
@@ -273,13 +274,13 @@ export function formatPreview (input: PreviewOutputInput): string {
     ...sortedPruning.map(listed => withNote(
       MARKER.prune, listed,
       chalk.red(`relation${listed.owner ? ` on ${listed.owner}` : ''} not managed by this project, `
-        + 'deleted by --prune-relations'),
+        + 'deleted by --prune-unmanaged-relations'),
     )),
     // After what the deploy changes, so that the eye lands on that first.
     ...sortedBaselining.map(listed => withConstruct(MARKER.baseline, listed)),
     ...sortedUnmanaged.map(listed => withNote(
       MARKER.warn, listed,
-      chalk.yellow('has alert channels or private locations this project does not manage (pass --prune-relations to delete them)'),
+      chalk.yellow('has alert channels or private locations this project does not manage (pass --prune-unmanaged-relations to delete them)'),
     )),
     ...skipping.sort(compareEntries).map(listed => ({
       ...withConstruct(MARKER.skip, listed),

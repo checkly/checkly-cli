@@ -1116,7 +1116,7 @@ describe('renderResourceDiff', () => {
     )).toEqual(['/name: "API" -> "New"'])
   })
 
-  it('keeps an unmanaged subscription on both sides, and drops it under --prune-relations', () => {
+  it('keeps an unmanaged subscription on both sides, and drops it under --prune-unmanaged-relations', () => {
     const { local } = scenario()
     const entry: DiffEntry = {
       type: 'check',

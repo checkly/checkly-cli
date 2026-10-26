@@ -201,7 +201,7 @@ export default class Deploy extends AuthCommand {
       description: 'Deploy only if the plan still matches this token from an earlier run. '
         + 'Aborts if anything changed in your Checkly account since then. Not available with --no-plan.',
     }),
-    'prune-relations': Flags.boolean({
+    'prune-unmanaged-relations': Flags.boolean({
       description: 'Delete the alert channel subscriptions and private location assignments on this project\'s '
         + 'checks and groups that the project does not manage. Not available with --no-plan.',
       default: false,
@@ -250,7 +250,7 @@ export default class Deploy extends AuthCommand {
       // plan Checkly answered with, which a run that asked may still not have.
       'plan': planRequested,
       'plan-token': requestedPlanToken,
-      'prune-relations': pruneRelations,
+      'prune-unmanaged-relations': pruneRelations,
       'fail-on-drift': failOnDriftFlag,
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
@@ -281,7 +281,7 @@ export default class Deploy extends AuthCommand {
       const needsPlan = requestedPlanToken !== undefined
         ? '--plan-token'
         : pruneRelations
-          ? '--prune-relations'
+          ? '--prune-unmanaged-relations'
           : failOnDrift ? '--fail-on-drift' : undefined
       if (needsPlan !== undefined) {
         this.style.longError(
@@ -503,18 +503,18 @@ export default class Deploy extends AuthCommand {
         previewNotSupported = err instanceof ProjectPreviewNotSupportedError
         const previewSupported = !previewNotSupported && !plansDisabled
 
-        // --prune-relations deletes data, and without a plan nothing can say
-        // what: an API that predates the preview endpoint would not prune at all,
-        // and an API that would prune cannot be asked what it is about to delete.
-        // Both are refused rather than silently downgraded.
+        // --prune-unmanaged-relations deletes data, and without a plan nothing
+        // can say what: an API that predates the preview endpoint would not
+        // prune at all, and an API that would prune cannot be asked what it is
+        // about to delete. Both are refused rather than silently downgraded.
         if (pruneRelations) {
           this.style.longError(
             previewSupported
-              ? 'Could not check which relations --prune-relations would delete, so nothing was deployed.'
+              ? 'Could not check which relations --prune-unmanaged-relations would delete, so nothing was deployed.'
               : plansDisabled
                 ? 'Checkly has deploy plans switched off at the moment, so relations cannot be pruned.'
-                : 'This Checkly API cannot prune relations yet.',
-            previewSupported ? 'Try again in a moment.' : 'Re-run without --prune-relations.',
+                : 'This Checkly API cannot prune unmanaged relations yet.',
+            previewSupported ? 'Try again in a moment.' : 'Re-run without --prune-unmanaged-relations.',
           )
           this.exit(1)
         }
@@ -976,7 +976,7 @@ export default class Deploy extends AuthCommand {
         this.style.longError(
           'Checkly switched deploy plans off while this deploy was being prepared, so nothing was deployed.',
           requestedPlanToken !== undefined || pruneRelations
-            ? 'Re-run the command without --plan-token and --prune-relations. '
+            ? 'Re-run the command without --plan-token and --prune-unmanaged-relations. '
             + 'While plans are switched off it deploys without one.'
             : 'Re-run the command. While plans are switched off it deploys without one.',
         )

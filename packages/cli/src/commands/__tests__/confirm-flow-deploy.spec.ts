@@ -131,7 +131,7 @@ const DEFAULT_FLAGS = {
   'dry-run': false,
   'plan': true,
   'plan-token': undefined,
-  'prune-relations': false,
+  'prune-unmanaged-relations': false,
   'fail-on-drift': false,
   'output': false,
   'verbose': false,
@@ -151,7 +151,7 @@ const DEFAULT_METADATA = {
   'preview': { setFromDefault: true },
   'dry-run': { setFromDefault: true },
   'plan': { setFromDefault: true },
-  'prune-relations': { setFromDefault: true },
+  'prune-unmanaged-relations': { setFromDefault: true },
   'fail-on-drift': { setFromDefault: true },
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
@@ -379,7 +379,7 @@ describe('deploy confirmation flow', () => {
         origin: 'unmanaged',
         foldedInto: { type: 'check', logicalId: 'chk' },
       }])
-      expect(await changesOf(createCommandContext({ 'prune-relations': true }))).not.toContain(DELETE_LINE)
+      expect(await changesOf(createCommandContext({ 'prune-unmanaged-relations': true }))).not.toContain(DELETE_LINE)
     })
 
     it('follows what the dry run found when there is no plan', async () => {
@@ -512,15 +512,15 @@ describe('deploy confirmation flow', () => {
     expect(vi.mocked(api.projects.deploy).mock.calls[0][1]).toMatchObject({ planToken: PLAN_TOKEN })
   })
 
-  it('refuses --prune-relations against an API without the preview endpoint', async () => {
+  it('refuses --prune-unmanaged-relations against an API without the preview endpoint', async () => {
     vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPreviewNotSupportedError())
-    const ctx = createCommandContext({ 'force': true, 'prune-relations': true })
+    const ctx = createCommandContext({ 'force': true, 'prune-unmanaged-relations': true })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
     expect(api.projects.deploy).not.toHaveBeenCalled()
     expect(ctx.style.longError).toHaveBeenCalledWith(
-      expect.stringContaining('cannot prune relations'),
+      expect.stringContaining('cannot prune unmanaged relations'),
       expect.any(String),
     )
   })
@@ -563,7 +563,7 @@ describe('deploy confirmation flow', () => {
   })
 
   it('refuses to prune or to deploy a pinned plan while Checkly has plans switched off', async () => {
-    for (const flags of [{ 'prune-relations': true }, { 'plan-token': PLAN_TOKEN }]) {
+    for (const flags of [{ 'prune-unmanaged-relations': true }, { 'plan-token': PLAN_TOKEN }]) {
       vi.mocked(api.projects.preview).mockRejectedValue(new ProjectPlanDisabledError())
       const ctx = createCommandContext({ force: true, ...flags })
 
@@ -762,7 +762,7 @@ describe('deploy confirmation flow', () => {
     expect(output).not.toContain('- export const')
   })
 
-  it('does not advise --prune-relations to a run that passed it', async () => {
+  it('does not advise --prune-unmanaged-relations to a run that passed it', async () => {
     // The relation is already listed as one this deploy deletes; telling the
     // user to pass the flag they just passed would be absurd.
     planResolves([
@@ -782,13 +782,13 @@ describe('deploy confirmation flow', () => {
         foldedInto: { type: 'check', logicalId: 'chk' },
       },
     ])
-    const ctx = createCommandContext({ 'preview': true, 'prune-relations': true })
+    const ctx = createCommandContext({ 'preview': true, 'prune-unmanaged-relations': true })
 
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('relation on Check chk not managed by this project, deleted by --prune-relations')
-    expect(printed).not.toContain('pass --prune-relations to delete them')
+    expect(printed).toContain('relation on Check chk not managed by this project, deleted by --prune-unmanaged-relations')
+    expect(printed).not.toContain('pass --prune-unmanaged-relations to delete them')
   })
 
   it('reports an unmanaged relation without advising anything twice when it will not prune', async () => {
@@ -804,7 +804,7 @@ describe('deploy confirmation flow', () => {
     await Deploy.prototype.run.call(ctx as any)
 
     const printed = ctx.logged.join('\n')
-    expect(printed).toContain('pass --prune-relations to delete them')
+    expect(printed).toContain('pass --prune-unmanaged-relations to delete them')
     expect(printed).not.toMatch(/^ {2}~ /m)
   })
 
@@ -828,7 +828,7 @@ describe('deploy confirmation flow', () => {
         foldedInto: { type: 'check', logicalId: 'chk' },
       },
     ])
-    const ctx = createCommandContext({ 'prune-relations': true })
+    const ctx = createCommandContext({ 'prune-unmanaged-relations': true })
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
@@ -841,7 +841,7 @@ describe('deploy confirmation flow', () => {
 
   it('does not call a resource an update when only its unmanaged relations changed', async () => {
     // Checkly reports those on the owning resource whether or not the deploy
-    // would delete them; without --prune-relations it deletes nothing.
+    // would delete them; without --prune-unmanaged-relations it deletes nothing.
     planResolves([{
       type: 'check',
       logicalId: 'chk',
@@ -1218,7 +1218,7 @@ describe('deploy with --no-plan', () => {
   it('refuses what only a plan can deliver, before doing anything', async () => {
     for (const [flags, named] of [
       [{ 'plan-token': PLAN_TOKEN }, '--plan-token'],
-      [{ 'prune-relations': true }, '--prune-relations'],
+      [{ 'prune-unmanaged-relations': true }, '--prune-unmanaged-relations'],
       [{ 'fail-on-drift': true }, '--fail-on-drift'],
     ] as const) {
       vi.mocked(parseProject).mockClear()
@@ -1392,7 +1392,7 @@ describe('deploy confirmCommand', () => {
       ['--verbose'],
       ['--plan'],
       ['--no-plan'],
-      ['--plan', '--prune-relations'],
+      ['--plan', '--prune-unmanaged-relations'],
       ['--plan', '--plan-token', PLAN_TOKEN],
     ]
     for (const argv of argvs) {
