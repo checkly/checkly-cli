@@ -86,7 +86,7 @@ One JSON envelope per surface, versioned by convention:
   `{ nextId, length }` for cursor paging. `data` is the array of entries —
   never the raw API response. See `AGENTS.md` for details.
 - **Error output in JSON mode**: `{ error, detail?, hint?, searchedAccount? }`.
-- **Agent envelopes** (auth, confirmation, `--dry-run`): documents built
+- **Agent envelopes** (auth, `init`, confirmation, `--dry-run`): documents built
   around a `status` field (`success`, `action_required`,
   `confirmation_required`, `dry_run`, `error`) plus a `confirmCommand` for
   approval flows.
