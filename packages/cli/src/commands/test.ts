@@ -6,6 +6,7 @@ import { parseProject } from '../services/project-parser.js'
 import {
   Events,
   SequenceId,
+  CheckFailure,
   DEFAULT_CHECK_RUN_TIMEOUT_SECONDS,
   MAX_SCHEDULING_DELAY_SECONDS,
 } from '../services/abstract-check-runner.js'
@@ -433,13 +434,14 @@ export default class Test extends AuthCommand {
         }, testResultId, links))
       })
 
-    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
+    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string, failure?: CheckFailure) => {
       reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         hasFailures: true,
         runError: message,
+        timedOut: failure?.timedOut ?? false,
       }))
       process.exitCode = 1
     })

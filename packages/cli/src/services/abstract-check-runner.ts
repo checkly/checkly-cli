@@ -44,6 +44,12 @@ export type RunLocation = PublicRunLocation | PrivateRunLocation
 export type CheckRunId = string
 export type SequenceId = string
 
+// Optional details emitted with CHECK_FAILED alongside the error message.
+export type CheckFailure = {
+  // The CLI stopped waiting for a result; the check may still have passed in Checkly.
+  timedOut?: boolean
+}
+
 export const DEFAULT_CHECK_RUN_TIMEOUT_SECONDS = 600
 export const DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS = 1200
 
@@ -493,7 +499,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       } else if (!started || this.timeout === DEFAULT_CHECK_RUN_TIMEOUT_SECONDS) {
         errorMessage += ' Checkly may be experiencing problems. Please check https://is.checkly.online or reach out to support@checklyhq.com.'
       }
-      this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage)
+      this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage, { timedOut: true })
       this.emit(Events.CHECK_FINISHED, check)
     }, checkTimeout * 1000))
   }
