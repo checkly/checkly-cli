@@ -132,6 +132,7 @@ const DEFAULT_FLAGS = {
   'plan': true,
   'plan-token': undefined,
   'prune-relations': false,
+  'fail-on-drift': false,
   'output': false,
   'verbose': false,
   'config': undefined,
@@ -151,6 +152,7 @@ const DEFAULT_METADATA = {
   'dry-run': { setFromDefault: true },
   'plan': { setFromDefault: true },
   'prune-relations': { setFromDefault: true },
+  'fail-on-drift': { setFromDefault: true },
   'output': { setFromDefault: true },
   'verbose': { setFromDefault: true },
   'schedule-on-deploy': { setFromDefault: true },
@@ -1217,6 +1219,7 @@ describe('deploy with --no-plan', () => {
     for (const [flags, named] of [
       [{ 'plan-token': PLAN_TOKEN }, '--plan-token'],
       [{ 'prune-relations': true }, '--prune-relations'],
+      [{ 'fail-on-drift': true }, '--fail-on-drift'],
     ] as const) {
       vi.mocked(parseProject).mockClear()
       const ctx = createCommandContext({ plan: false, force: true, ...flags })
@@ -1231,6 +1234,133 @@ describe('deploy with --no-plan', () => {
       expect(api.projects.preview).not.toHaveBeenCalled()
       expect(api.projects.deploy).not.toHaveBeenCalled()
     }
+  })
+})
+
+describe('deploy with --fail-on-drift', () => {
+  const DRIFTED: DiffEntry = {
+    ...CHANGED,
+    changes: [{ path: '/config/address', origin: 'remote', before: 'ops@example.com', after: 'oncall@example.com' }],
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(detectCliMode).mockReturnValue('agent')
+    storeBundle.mockResolvedValue({ key: 'stored-bundle-key' })
+    vi.mocked(api.projects.deploy).mockResolvedValue({ data: { project: {} as any, diff: [] } })
+    declareProject()
+  })
+
+  afterEach(() => {
+    Session.reset()
+  })
+
+  it('deploys nothing and uploads nothing when the plan would overwrite a change made in Checkly', async () => {
+    planResolves([DRIFTED])
+    const ctx = createCommandContext({ 'force': true, 'fail-on-drift': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+    expect(storeBundle).not.toHaveBeenCalled()
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'This deploy would overwrite changes made in Checkly to 1 resource, so nothing was deployed.',
+      expect.stringContaining('- AlertChannel: ops was changed in Checkly (/config/address); '
+        + 'this deploy would overwrite it'),
+    )
+  })
+
+  it('deploys a plan of code changes as usual', async () => {
+    planResolves([CHANGED, DELETED])
+    const ctx = createCommandContext({ 'force': true, 'fail-on-drift': true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(ctx.style.longError).not.toHaveBeenCalled()
+    expect(ctx.style.longWarning).not.toHaveBeenCalled()
+  })
+
+  it('overwrites a change made in Checkly without the flag', async () => {
+    planResolves([DRIFTED])
+    const ctx = createCommandContext({ force: true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+  })
+
+  it('prints the plan under --preview, then fails', async () => {
+    planResolves([DRIFTED])
+    const ctx = createCommandContext({ 'preview': true, 'fail-on-drift': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    const printed = ctx.logged.join('\n')
+    expect(printed).toContain('Deploy preview · My Project → account Test Account')
+    // The plan cannot be deployed under this flag, so its token is not offered.
+    expect(printed).not.toContain('--plan-token')
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'This deploy would overwrite changes made in Checkly to 1 resource.',
+      expect.any(String),
+    )
+  })
+
+  it('leaves --dry-run its envelope, which reports the changes made in Checkly', async () => {
+    planResolves([DRIFTED])
+    const ctx = createCommandContext({ 'dry-run': true, 'fail-on-drift': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
+
+    const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
+    expect(output.status).toBe('dry_run')
+    expect(output.preview.diff[0].changes[0]).toMatchObject({ path: '/config/address', origin: 'remote' })
+    expect(ctx.style.longError).not.toHaveBeenCalled()
+  })
+
+  it('warns that resources without a baseline could not be checked, and deploys them', async () => {
+    planResolves([{ ...CHANGED, basis: 'live' }])
+    const ctx = createCommandContext({ 'force': true, 'fail-on-drift': true })
+
+    await Deploy.prototype.run.call(ctx as any)
+
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(ctx.style.longWarning).toHaveBeenCalledWith(
+      '1 resource could not be checked for changes made in Checkly.',
+      expect.any(String),
+    )
+  })
+
+  it('checks the plan again when it went stale, and deploys nothing if that one would overwrite a change', async () => {
+    vi.mocked(api.projects.preview)
+      .mockResolvedValueOnce({ planToken: PLAN_TOKEN, diff: [CHANGED] })
+      .mockResolvedValueOnce({ planToken: 'v1.BBBBBBBBBBBBBBBBBBBBBB', diff: [DRIFTED] })
+    vi.mocked(api.projects.deploy)
+      .mockRejectedValueOnce(new ProjectPlanStaleError('The project changed since the preview.', []))
+    const ctx = createCommandContext({ 'force': true, 'fail-on-drift': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.preview).toHaveBeenCalledTimes(2)
+    expect(api.projects.deploy).toHaveBeenCalledOnce()
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      expect.stringContaining('Your Checkly account changed while this deploy was being prepared'),
+      expect.stringContaining('- AlertChannel: ops was changed in Checkly'),
+    )
+  })
+
+  it.each([
+    ['an API without the preview endpoint', new ProjectPreviewNotSupportedError(), 'cannot detect changes'],
+    ['plans switched off', new ProjectPlanDisabledError(), 'switched off'],
+    ['a preview that failed', new Error('Could not read resource check:api-check'), 'Could not check'],
+  ])('deploys nothing without a plan to check, as with %s', async (_, error, message) => {
+    vi.mocked(api.projects.preview).mockRejectedValue(error)
+    const ctx = createCommandContext({ 'force': true, 'fail-on-drift': true })
+
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+
+    expect(api.projects.deploy).not.toHaveBeenCalled()
+    expect(ctx.style.longError).toHaveBeenCalledWith(expect.stringContaining(message), expect.any(String))
   })
 })
 

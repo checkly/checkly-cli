@@ -1,3 +1,5 @@
+import { isDeepStrictEqual } from 'node:util'
+
 import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 
 /**
@@ -62,6 +64,11 @@ export function writtenForBaseline (entry: DiffEntry): boolean {
     && (entry.changes ?? []).every(change => change.origin === 'unmanaged')
 }
 
+/** A relation reported as part of the check or group it belongs to, not as a resource of its own. */
+function isFolded (entry: DiffEntry, foldedTypes: readonly string[]): boolean {
+  return entry.foldedInto !== undefined || foldedTypes.includes(entry.type)
+}
+
 /**
  * Entries worth showing: a resource the deploy touches. An `UNCHANGED` entry
  * with no changes of its own is the converged case and says nothing, a relation
@@ -76,7 +83,7 @@ function reportable (entry: DiffEntry, { foldedTypes }: PlanSummaryOptions): boo
   if (isPrunedRelation(entry)) {
     return true
   }
-  if (entry.foldedInto !== undefined || foldedTypes.includes(entry.type)) {
+  if (isFolded(entry, foldedTypes)) {
     return false
   }
   // Whether or not the relations are pruned, the resource they hang off is not
@@ -152,6 +159,97 @@ export function planChangeLines (diff: DiffEntry[], options: PlanSummaryOptions)
     lines.push(`${summed.join(' and ')}; run with --preview to see them all`)
   }
   return lines
+}
+
+/**
+ * A resource the plan reports as changed in Checkly since the last planned
+ * deploy, which the deploy would overwrite: properties edited in Checkly
+ * (`paths`), or the resource deleted there, which the deploy creates again.
+ */
+export interface DriftedResource {
+  type: string
+  logicalId: string
+  deleted: boolean
+  paths: string[]
+}
+
+/**
+ * Whether the deploy would overwrite a value changed in Checkly. A path both
+ * sides moved is settled when the code now holds what Checkly holds (the
+ * user copied the edit into the code), and Checkly can still report it then.
+ * A secret or a change reported by cause alone carries no comparable values,
+ * so it counts.
+ */
+function overwritesRemoteChange (change: DiffChange): boolean {
+  if (change.origin === 'remote') {
+    return true
+  }
+  if (change.origin !== 'both') {
+    return false
+  }
+  return change.secret === true || change.cause !== undefined || !isDeepStrictEqual(change.after, change.remote?.after)
+}
+
+/**
+ * The resources the plan reports as changed in Checkly, one per check, group
+ * or other declared resource: a relation's drift (an alert channel
+ * subscription removed in Checkly, say) is reported on the resource it is
+ * folded into. Relations the project does not manage are not drift: they are
+ * left alone unless `--prune-relations` asks for them to be deleted.
+ *
+ * Blind to a resource without a baseline (`basis: 'live'`): Checkly compares
+ * it with what is deployed, so code changes and edits made in Checkly look
+ * the same. {@link unbaselinedResources} counts those. Also blind to a
+ * resource the code removes: Checkly reports no changes on a deletion.
+ */
+export function findDrift (diff: readonly DiffEntry[], { foldedTypes }: PlanSummaryOptions): DriftedResource[] {
+  const byResource = new Map<string, DriftedResource>()
+  for (const entry of diff) {
+    const remotePaths = (entry.changes ?? [])
+      .filter(overwritesRemoteChange)
+      .map(change => change.path)
+    // Checkly marks a creation `remote` when the resource the last deploy
+    // wrote was deleted in Checkly since.
+    const recreated = entry.action === 'CREATE' && entry.origin === 'remote'
+    if (remotePaths.length === 0 && !recreated) {
+      continue
+    }
+    const owner = entry.foldedInto ?? entry
+    const key = `${owner.type}:${owner.logicalId}`
+    const resource = byResource.get(key)
+      ?? { type: owner.type, logicalId: owner.logicalId, deleted: false, paths: [] }
+    byResource.set(key, resource)
+    if (recreated && !isFolded(entry, foldedTypes)) {
+      resource.deleted = true
+    } else if (recreated) {
+      // A relation has no path on its owner; its type says what was removed.
+      resource.paths.push(entry.type)
+    }
+    resource.paths.push(...remotePaths)
+  }
+  return [...byResource.values()]
+    .map(resource => ({ ...resource, paths: [...new Set(resource.paths)] }))
+    .sort((a, b) => a.type.localeCompare(b.type) || a.logicalId.localeCompare(b.logicalId))
+}
+
+/**
+ * How many declared resources Checkly had no earlier planned deploy to
+ * compare with (`basis: 'live'`), which {@link findDrift} cannot check.
+ */
+export function unbaselinedResources (diff: readonly DiffEntry[], { foldedTypes }: PlanSummaryOptions): number {
+  return diff.filter(entry =>
+    entry.basis === 'live' && !isFolded(entry, foldedTypes),
+  ).length
+}
+
+/** One line per drifted resource, saying what changed in Checkly and what the deploy would do about it. */
+export function driftLines (drift: readonly DriftedResource[], options: PlanSummaryOptions): string[] {
+  return drift.map(resource => {
+    const name = `${options.prettyTypes[resource.type] ?? resource.type}: ${resource.logicalId}`
+    return resource.deleted
+      ? `${name} was deleted in Checkly; this deploy would create it again`
+      : `${name} was changed in Checkly (${resource.paths.join(', ')}); this deploy would overwrite it`
+  })
 }
 
 /**
