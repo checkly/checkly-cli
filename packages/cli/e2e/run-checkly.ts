@@ -3,6 +3,11 @@ import config from 'config'
 import type { FixtureSandbox, RunOptions } from '../src/testing/fixture-sandbox.js'
 import type { Account } from '../src/rest/accounts.js'
 
+// Fixed when the test file loads, so fixtures that compute dates from "now" (e.g.
+// __tests__/fixtures/deploy-project/maintenance-window.check.ts) produce identical values on
+// every deploy within the file.
+const fixtureNow = new Date().toISOString()
+
 export function checklyEnv (overrides?: {
   apiKey?: string
   accountId?: string
@@ -35,6 +40,7 @@ export function checklyEnv (overrides?: {
     // dominant cost of the Windows e2e suite. On Linux SHELL is already set, so this
     // only changes behaviour on Windows where it would otherwise be unset.
     SHELL: process.env.SHELL ?? 'powershell.exe',
+    CHECKLY_E2E_FIXTURE_NOW: fixtureNow,
     ...env,
   }
 }
