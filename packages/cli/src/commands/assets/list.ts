@@ -115,14 +115,13 @@ export default class AssetsList extends AuthCommand {
         output.push(nextSteps)
       }
 
+      this.log(output.join('\n'))
+
       if (manifest.truncated) {
         const returned = manifest.entriesReturned ?? manifest.assets.length
         const total = manifest.entriesTotal == null ? 'unknown' : String(manifest.entriesTotal)
-        output.push('')
-        output.push(chalk.yellow(`Warning: asset manifest is truncated (${returned} of ${total} entries returned).`))
+        this.logToStderr(chalk.yellow(`Warning: asset manifest is truncated (${returned} of ${total} entries returned).`))
       }
-
-      this.log(output.join('\n'))
     } catch (err: any) {
       this.style.longError('Failed to list assets.', err)
       process.exitCode = 1

@@ -63,7 +63,7 @@ describe('checkly env rm', () => {
     } catch (err) {
       if (err instanceof ExecaError) {
         // expect that 'testenvvars' does not exist
-        expect(err.stdout).toContain(`Environment variable "testenvvarsrm-${executionId}" does not exist.`)
+        expect(err.stderr).toContain(`Environment variable "testenvvarsrm-${executionId}" does not exist.`)
       } else {
         throw err
       }

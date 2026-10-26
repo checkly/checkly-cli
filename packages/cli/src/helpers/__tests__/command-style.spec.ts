@@ -22,11 +22,11 @@ const notFound = () => new NotFoundError({ statusCode: 404, error: 'Not Found', 
 
 describe('CommandStyle.longError', () => {
   it('adds the command\'s hint to an error saying a resource was not found', () => {
-    const { style, lines } = createStyle('Searched account "Acme" (acc-1).')
+    const { style, errLines } = createStyle('Searched account "Acme" (acc-1).')
     style.longError('Failed to get test session details.', notFound())
 
-    expect(lines().join('\n')).toContain('No such test session.')
-    expect(lines().join('\n')).toContain('  Searched account "Acme" (acc-1).')
+    expect(errLines().join('\n')).toContain('No such test session.')
+    expect(errLines().join('\n')).toContain('  Searched account "Acme" (acc-1).')
   })
 
   it('reports the hint and the searched account as their own JSON fields', () => {
@@ -52,10 +52,11 @@ describe('CommandStyle.longError', () => {
   })
 
   it('leaves other errors as they are', () => {
-    const { style, lines } = createStyle('Searched account "Acme" (acc-1).')
+    const { style, errLines } = createStyle('Searched account "Acme" (acc-1).')
     style.longError('Failed.', new ServerError({ statusCode: 503, error: 'Unavailable', message: 'Down' }))
 
-    expect(lines().join('\n')).not.toContain('Searched account')
+    expect(errLines().join('\n')).toContain('Down')
+    expect(errLines().join('\n')).not.toContain('Searched account')
   })
 })
 
@@ -111,6 +112,37 @@ describe('CommandStyle output streams', () => {
     expect(stderr).toContain('No Checkly config file found')
     expect(lines()).toEqual([])
     expect(command.log).not.toHaveBeenCalled()
+  })
+
+  it('prints human-readable errors, info, and comments to stderr only', () => {
+    const { style, command, errLines } = createStyle(undefined)
+
+    style.longError('Failed to deploy', 'Boom')
+    style.shortError('Your Checkly configuration file is not valid.')
+    style.fatal('Import failed.')
+    style.longInfo('Some checks were not scheduled', 'Details.')
+    style.shortInfo('Creating a checkly config file.')
+    style.comment('A comment.')
+
+    const stderr = errLines().join('\n')
+    for (const text of [
+      'Failed to deploy', 'Boom', 'Your Checkly configuration file is not valid.', 'Import failed.',
+      'Some checks were not scheduled', 'Details.', 'Creating a checkly config file.', 'A comment.',
+    ]) {
+      expect(stderr).toContain(text)
+    }
+    expect(command.log).not.toHaveBeenCalled()
+  })
+
+  it('prints success messages, a mutation\'s result, to stdout', () => {
+    const { style, command, lines } = createStyle(undefined)
+
+    style.shortSuccess('Environment variable "FOO" deleted.')
+    style.longSuccess('Your import plan has been created!', 'Details.')
+
+    expect(lines().join('\n')).toContain('Environment variable "FOO" deleted.')
+    expect(lines().join('\n')).toContain('Your import plan has been created!')
+    expect(command.logToStderr).not.toHaveBeenCalled()
   })
 
   it('keeps JSON error documents on stdout', () => {

@@ -110,7 +110,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   onError (err: Error) {
-    printLn(chalk.red('Unable to run checks: ') + err.message)
+    printLnErr(chalk.red('Unable to run checks: ') + err.message)
   }
 
   onStreamLogs (check: any, sequenceId: SequenceId, logs: Array<{ timestamp: number, message: string }> | undefined) {

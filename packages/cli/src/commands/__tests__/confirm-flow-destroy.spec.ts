@@ -59,6 +59,7 @@ function createCommandContext (parsed: { flags: Record<string, unknown>, metadat
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
     }),
+    logToStderr: vi.fn(),
     exit: vi.fn((code: number) => {
       exitCodeValue = code
       throw new Error(`EXIT_${code}`)
@@ -164,7 +165,7 @@ describe('destroy confirmation flow', () => {
     ).rejects.toThrow('EXIT_0')
 
     expect(api.projects.deleteProject).not.toHaveBeenCalled()
-    expect(ctx.log).toHaveBeenCalledWith(
+    expect(ctx.logToStderr).toHaveBeenCalledWith(
       expect.stringContaining('doesn\'t match the expected project name'),
     )
   })

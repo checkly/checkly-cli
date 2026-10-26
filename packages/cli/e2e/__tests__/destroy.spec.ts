@@ -51,11 +51,11 @@ describe('destroy', () => {
 
   it('Shouldn fail confirming to destroy', async () => {
     const wrongProjectName = 'Wrong Project Name'
-    const { stdout } = await runCheckly(fixt, ['destroy'], {
+    const { stderr } = await runCheckly(fixt, ['destroy'], {
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
       promptsInjection: [wrongProjectName],
     })
-    expect(stdout).toContain(`The entered project name "${wrongProjectName}" doesn't match the expected project name`)
+    expect(stderr).toContain(`The entered project name "${wrongProjectName}" doesn't match the expected project name`)
   })
 
   it('Should destroy after success confirmation', async () => {

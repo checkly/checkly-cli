@@ -56,7 +56,7 @@ export default class SyncPlaywright extends BaseCommand {
     if (this.fancy) {
       ux.action.stop('❌')
     }
-    this.log(message)
+    this.logToStderr(message)
     this.exit(1)
   }
 }

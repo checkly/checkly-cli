@@ -74,7 +74,7 @@ export default class Destroy extends AuthCommand {
           return false
         }
         if (projectName !== checklyConfig.projectName) {
-          this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
+          this.logToStderr(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
           return false
         }
         return true

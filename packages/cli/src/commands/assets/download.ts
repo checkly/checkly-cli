@@ -162,11 +162,14 @@ export default class AssetsDownload extends AuthCommand {
         return
       }
 
-      const output = [
-        ...warnings.map(warning => `Warning: ${warning}`),
-        formatDownloadedAssets(rows),
-      ].filter(Boolean)
-      this.log(output.join('\n\n'))
+      // Warnings go to stderr; the list of downloaded files is the result.
+      for (const warning of warnings) {
+        this.logToStderr(`Warning: ${warning}\n`)
+      }
+      const output = formatDownloadedAssets(rows)
+      if (output) {
+        this.log(output)
+      }
     } catch (err: any) {
       stopProgress(false)
       this.style.longError('Failed to download assets.', err)

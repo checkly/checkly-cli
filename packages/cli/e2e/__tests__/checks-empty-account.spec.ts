@@ -61,7 +61,28 @@ describe.skipIf(!apiKey || !accountId)('checks commands on empty account', () =>
     } catch (err) {
       if (err instanceof ExecaError) {
         expect(err.exitCode).toBe(1)
-        expect(err.stdout).toContain('Failed to get check details')
+        // A human-readable error is not a result: stdout stays empty.
+        expect(err.stderr).toContain('Failed to get check details')
+        expect(err.stdout).toBe('')
+      } else {
+        throw err
+      }
+    }
+  })
+
+  it('should report a checks get failure as a JSON document on stdout with --output json', async () => {
+    try {
+      await runCheckly(fixt, ['checks', 'get', '00000000-0000-0000-0000-000000000000', '--output', 'json'], {
+        apiKey,
+        accountId,
+      })
+      expect.unreachable('Expected command to fail for checks get on empty account')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        expect(err.exitCode).toBe(1)
+        // The error envelope is the (failed) result, so a piped parser gets it.
+        expect(JSON.parse(err.stdout)).toMatchObject({ error: 'Failed to get check details.' })
+        expect(err.stderr).not.toContain('Failed to get check details')
       } else {
         throw err
       }

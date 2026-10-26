@@ -97,10 +97,14 @@ const archiveOnlyManifest: AssetManifest = {
 
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []
+  const loggedToStderr: string[] = []
   return {
     parse: vi.fn().mockResolvedValue(parsed),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
+    }),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg) loggedToStderr.push(msg)
     }),
     style: {
       outputFormat: undefined,
@@ -112,6 +116,7 @@ function createCommandContext (parsed: unknown) {
     },
     fancy: false,
     logged,
+    loggedToStderr,
   }
 }
 
@@ -187,7 +192,7 @@ describe('assets commands', () => {
     expect(ctx.logged[0]).toContain('traces/checkout trace.zip')
     expect(ctx.logged[0]).toContain('Next:')
     expect(ctx.logged[0]).toContain('Download files:')
-    expect(ctx.logged[0]).toContain('Warning: asset manifest is truncated (5 of 12 entries returned).')
+    expect(ctx.loggedToStderr.join('\n')).toContain('Warning: asset manifest is truncated (5 of 12 entries returned).')
   })
 
   it('lists test-session result assets as filtered JSON without human warnings', async () => {
@@ -442,8 +447,8 @@ describe('assets commands', () => {
     })
     const firstPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', '1-assets.zip')
     const secondPath = path.join(tempDir, 'checkly-assets', 'check-result-result-id', '2-assets.zip')
-    expect(ctx.logged[0]).toContain('Warning: Selected assets include archive entries.')
-    expect(ctx.logged[0]).toContain('filters narrow the manifest list, not the archive bytes')
+    expect(ctx.loggedToStderr.join('\n')).toContain('Warning: Selected assets include archive entries.')
+    expect(ctx.loggedToStderr.join('\n')).toContain('filters narrow the manifest list, not the archive bytes')
     expect(ctx.logged[0]).toContain('2 assets processed (2 downloaded)')
     expect(ctx.logged[0]).toContain(firstPath)
     expect(ctx.logged[0]).toContain(secondPath)
