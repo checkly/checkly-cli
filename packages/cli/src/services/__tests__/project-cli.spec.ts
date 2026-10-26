@@ -109,6 +109,11 @@ describe('findConfigFlag', () => {
     [['--configure', 'a.ts'], undefined],
     [['--config'], undefined],
     [['--config='], undefined],
+    [['--config=', 'a.ts'], undefined],
+    [['-c'], undefined],
+    [['-c='], undefined],
+    [['-c=', 'a.ts'], undefined],
+    [['-pc=', 'a.ts'], undefined],
     [[], undefined],
   ]
 
