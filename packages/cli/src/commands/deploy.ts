@@ -30,7 +30,15 @@ import {
 } from '../rest/projects.js'
 import { ConflictError, ValidationError } from '../rest/errors.js'
 import { stripUnsupportedDeployFields } from '../services/deploy-diff/legacy-payload.js'
-import { planChangeLines, planHasNoChanges, reducePlanForAgent } from '../services/deploy-diff/plan-summary.js'
+import {
+  type DriftedResource,
+  driftLines,
+  findDrift,
+  planChangeLines,
+  planHasNoChanges,
+  reducePlanForAgent,
+  unbaselinedResources,
+} from '../services/deploy-diff/plan-summary.js'
 import { formatWriteBackSkipped, formatWriteBackUpdated } from '../services/write-back/output.js'
 import { applyWriteBack, hasWritableChanges, planWriteBack } from '../services/write-back/plan.js'
 import type { CommandAlternative } from '../helpers/command-preview.js'
@@ -63,6 +71,17 @@ function rejectsPreviewEraField (err: any): boolean {
   }
   const message = String(err?.data?.message ?? err?.response?.data?.message ?? err?.message ?? '')
   return message.includes('is not allowed') && PREVIEW_ERA_FIELDS.some(field => message.includes(field))
+}
+
+/**
+ * Thrown when a `--fail-on-drift` run plans again after its plan went stale
+ * and the new plan would overwrite changes made in Checkly. Nothing has been
+ * written at that point.
+ */
+class DriftDetectedError extends Error {
+  constructor (readonly drift: DriftedResource[]) {
+    super('The plan would overwrite changes made in Checkly.')
+  }
 }
 
 /**
@@ -187,6 +206,14 @@ export default class Deploy extends AuthCommand {
         + 'checks and groups that the project does not manage. Not available with --no-plan.',
       default: false,
     }),
+    'fail-on-drift': Flags.boolean({
+      description: 'Deploy nothing and fail if any resource of this project was changed or deleted in Checkly '
+        + 'since the last planned deploy, which this deploy would overwrite. Ignored with --dry-run, whose output '
+        + 'reports those changes. Not available with --no-plan.',
+      default: false,
+      allowNo: true,
+      env: 'CHECKLY_FAIL_ON_DRIFT',
+    }),
     'cancel-in-progress-deployment': Flags.boolean({
       description: 'If a deployment for this project is already in progress, cancel it instead of waiting for it to finish.',
       default: false,
@@ -224,6 +251,7 @@ export default class Deploy extends AuthCommand {
       'plan': planRequested,
       'plan-token': requestedPlanToken,
       'prune-relations': pruneRelations,
+      'fail-on-drift': failOnDriftFlag,
       'cancel-in-progress-deployment': cancelInProgress,
       'schedule-on-deploy': scheduleOnDeploy,
       'schedule-on-deploy-scope': scheduleScope,
@@ -238,15 +266,23 @@ export default class Deploy extends AuthCommand {
       'debug-bundle-output-file': debugBundleOutputFile,
     } = flags
     const output = outputFlag || verbose
+    // A dry run deploys nothing, and its envelope is read by scripts the same
+    // way whatever the plan holds, the changes made in Checkly included (each
+    // change carries its origin). So the drift check, which a pipeline may
+    // switch on for every step with CHECKLY_FAIL_ON_DRIFT, leaves it alone.
+    const failOnDrift = failOnDriftFlag && !dryRun
 
-    // Both are promises only a plan can keep: the token, that nothing is
-    // deployed unless the account still is what was reviewed, and pruning,
-    // that what gets deleted was listed first. Checked here rather than with
+    // All are promises only a plan can keep: the token, that nothing is
+    // deployed unless the account still is what was reviewed; pruning, that
+    // what gets deleted was listed first; and the drift check, which reads
+    // what was changed in Checkly off the plan. Checked here rather than with
     // the flags' `dependsOn`, which a flag that has a default always satisfies.
     if (!planRequested) {
       const needsPlan = requestedPlanToken !== undefined
         ? '--plan-token'
-        : pruneRelations ? '--prune-relations' : undefined
+        : pruneRelations
+          ? '--prune-relations'
+          : failOnDrift ? '--fail-on-drift' : undefined
       if (needsPlan !== undefined) {
         this.style.longError(
           `${needsPlan} applies to a planned deploy only.`,
@@ -417,6 +453,15 @@ export default class Deploy extends AuthCommand {
     }
 
     const summaryOptions = { prettyTypes: PRETTY_RESOURCE_TYPES, foldedTypes: NON_REPORTED_TYPES }
+    // The refusal of a run whose plan would overwrite changes made in Checkly.
+    // The way forward depends on which side should win, so both are named.
+    const reportDrift = (drift: DriftedResource[], title: string): void => this.style.longError(title, [
+      ...driftLines(drift, summaryOptions).map(line => `- ${line}`),
+      '',
+      'To keep these changes, add them to your code: `checkly deploy --no-fail-on-drift` in a terminal '
+      + 'shows them and can update the code for many of them. To discard them, deploy with --no-fail-on-drift.',
+    ].join('\n'))
+    const resourceCount = (count: number) => count === 1 ? '1 resource' : `${count} resources`
     const classification = {
       readOnly: Deploy.readOnly,
       destructive: Deploy.destructive,
@@ -483,6 +528,22 @@ export default class Deploy extends AuthCommand {
               : plansDisabled
                 ? 'Checkly has deploy plans switched off at the moment; re-run without --plan-token.'
                 : 'This Checkly API does not support deploy previews; re-run without --plan-token.',
+          )
+          this.exit(1)
+        }
+
+        // Without a plan nothing says what was changed in Checkly, and a run
+        // that asked to be stopped by such changes must not overwrite them
+        // unchecked.
+        if (failOnDrift) {
+          this.style.longError(
+            previewSupported
+              ? `Could not check whether anything was changed in Checkly, so nothing was deployed: ${err.message}`
+              : plansDisabled
+                ? 'Checkly has deploy plans switched off at the moment, '
+                + 'so changes made in Checkly cannot be detected and nothing was deployed.'
+                : 'This Checkly API cannot detect changes made in Checkly, so nothing was deployed.',
+            previewSupported ? 'Try again in a moment.' : 'Re-run without --fail-on-drift.',
           )
           this.exit(1)
         }
@@ -604,6 +665,33 @@ export default class Deploy extends AuthCommand {
       rendering: plan !== undefined ? { plan: plan.diff, local: projectPayload.resources } : undefined,
       planToken,
     })
+
+    // Checked before anything is asked or uploaded, in every mode but a dry
+    // run (see `failOnDrift`): a run that asked to be stopped by changes made
+    // in Checkly is stopped whoever runs it. A plan exists here, since a run with --fail-on-drift that could not
+    // get one has already failed. `--preview --fail-on-drift` doubles as a
+    // drift check that deploys nothing: it prints the plan, then fails.
+    if (failOnDrift && plan !== undefined) {
+      const drift = findDrift(plan.diff, summaryOptions)
+      if (drift.length > 0) {
+        if (preview) {
+          this.log(renderPlan())
+        }
+        reportDrift(drift, preview
+          ? `This deploy would overwrite changes made in Checkly to ${resourceCount(drift.length)}.`
+          : `This deploy would overwrite changes made in Checkly to ${resourceCount(drift.length)}, `
+            + 'so nothing was deployed.')
+        this.exit(1)
+      }
+      const unbaselined = unbaselinedResources(plan.diff, summaryOptions)
+      if (unbaselined > 0) {
+        this.style.longWarning(
+          `${resourceCount(unbaselined)} could not be checked for changes made in Checkly.`,
+          'Checkly has no earlier planned deploy of them to compare with. '
+          + 'A planned deploy records one, so later deploys can check them.',
+        )
+      }
+    }
 
     if (preview && !dryRun) {
       this.log(renderPlan(plan?.planToken))
@@ -729,6 +817,12 @@ export default class Deploy extends AuthCommand {
         }
         this.style.actionStatus('Your Checkly account changed; checking again and deploying the current plan')
         plan = await api.projects.preview(deployPayload(), { detail, preserveResources, pruneRelations })
+        // An account that moved under the deploy most likely moved because
+        // someone changed it in Checkly, which is what the drift check is for.
+        const drift = failOnDrift ? findDrift(plan.diff, summaryOptions) : []
+        if (drift.length > 0) {
+          throw new DriftDetectedError(drift)
+        }
         ;({ data } = await runDeploy())
       }
       this.style.actionSuccess()
@@ -844,7 +938,11 @@ export default class Deploy extends AuthCommand {
       }
     } catch (err: any) {
       this.style.actionFailure()
-      if (err instanceof ProjectPlanStaleError) {
+      if (err instanceof DriftDetectedError) {
+        reportDrift(err.drift, 'Your Checkly account changed while this deploy was being prepared, and the current '
+        + `plan would overwrite changes made in Checkly to ${resourceCount(err.drift.length)}, `
+        + 'so nothing was deployed.')
+      } else if (err instanceof ProjectPlanStaleError) {
         // Nothing was written. The way out is another run, which previews
         // afresh: this run's token describes a state Checkly has left behind,
         // so sending it again would be refused again.

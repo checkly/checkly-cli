@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest'
 
 import type { DiffEntry } from '../../../rest/projects.js'
-import { planChangeLines, planHasNoChanges, reducePlanForAgent } from '../plan-summary.js'
+import {
+  driftLines,
+  findDrift,
+  planChangeLines,
+  planHasNoChanges,
+  reducePlanForAgent,
+  unbaselinedResources,
+} from '../plan-summary.js'
 
 const options = { prettyTypes: { check: 'Check' }, foldedTypes: ['alert-channel-subscription'] }
 
@@ -130,5 +137,116 @@ describe('reducePlanForAgent', () => {
       action: 'UPDATE',
       changes: [{ path: '/name', origin: 'code', before: 'a', after: 'b' }],
     })
+  })
+})
+
+/**
+ * What `--fail-on-drift` refuses to overwrite: properties changed in Checkly
+ * and resources deleted there since the last planned deploy.
+ */
+describe('findDrift', () => {
+  it('finds nothing in a plan of code changes only', () => {
+    expect(findDrift([{
+      type: 'check',
+      logicalId: 'api',
+      action: 'UPDATE',
+      changes: [{ path: '/name', origin: 'code', before: 'a', after: 'b' }],
+    }], options)).toEqual([])
+  })
+
+  it('reports the properties changed in Checkly, also those the code changed too', () => {
+    expect(findDrift([{
+      type: 'check',
+      logicalId: 'api',
+      action: 'UPDATE',
+      changes: [
+        { path: '/name', origin: 'code', before: 'a', after: 'b' },
+        { path: '/frequency', origin: 'remote', before: 10, after: 5 },
+        { path: '/muted', origin: 'both', before: false, after: true, remote: { before: false, after: false } },
+      ],
+    }], options)).toEqual([{ type: 'check', logicalId: 'api', deleted: false, paths: ['/frequency', '/muted'] }])
+  })
+
+  it('leaves a path both sides moved to the same value, but not a secret or a cause', () => {
+    expect(findDrift([{
+      type: 'check',
+      logicalId: 'api',
+      action: 'UPDATE',
+      changes: [
+        { path: '/name', origin: 'both', before: 'a', after: 'b', remote: { before: 'a', after: 'b' } },
+        { path: '/script', origin: 'both', cause: 'bundle' },
+        {
+          path: '/environmentVariables',
+          origin: 'both',
+          before: [{ $masked: 'same' }],
+          after: [{ $masked: 'changed' }],
+          remote: { before: [{ $masked: 'same' }], after: [{ $masked: 'changed' }] },
+          secret: true,
+        },
+      ],
+    }], options)).toEqual([{
+      type: 'check',
+      logicalId: 'api',
+      deleted: false,
+      paths: ['/script', '/environmentVariables'],
+    }])
+  })
+
+  it('reports a resource deleted in Checkly, which the deploy creates again', () => {
+    expect(findDrift([
+      { type: 'check', logicalId: 'gone', action: 'CREATE', origin: 'remote' },
+      { type: 'check', logicalId: 'new', action: 'CREATE', origin: 'code' },
+    ], options)).toEqual([{ type: 'check', logicalId: 'gone', deleted: true, paths: [] }])
+  })
+
+  it('reports a relation\'s drift on the resource it is folded into, once', () => {
+    const owner = { type: 'check', logicalId: 'api' }
+    expect(findDrift([
+      {
+        ...owner,
+        action: 'UPDATE',
+        changes: [{ path: '/alertChannels/0', origin: 'remote', before: { ref: 'ops' } }],
+      },
+      { type: 'alert-channel-subscription', logicalId: 'api#ops', action: 'CREATE', origin: 'remote', foldedInto: owner },
+    ], options)).toEqual([{
+      ...owner,
+      deleted: false,
+      paths: ['/alertChannels/0', 'alert-channel-subscription'],
+    }])
+  })
+
+  it('leaves relations the project does not manage alone, pruned or not', () => {
+    const owner = { type: 'check', logicalId: 'api' }
+    expect(findDrift([
+      {
+        ...owner,
+        action: 'UNCHANGED',
+        changes: [{ path: '/alertChannels/7', origin: 'unmanaged', before: { ref: 'ops' } }],
+      },
+      { type: 'alert-channel-subscription', logicalId: 'api#ops', action: 'DELETE', origin: 'unmanaged', foldedInto: owner },
+    ], options)).toEqual([])
+  })
+})
+
+describe('unbaselinedResources', () => {
+  it('counts the declared resources compared with what is live, not the relations folded into them', () => {
+    const owner = { type: 'check', logicalId: 'api' }
+    expect(unbaselinedResources([
+      { ...owner, action: 'UPDATE', basis: 'live' },
+      { type: 'check', logicalId: 'other', action: 'UPDATE' },
+      { type: 'alert-channel-subscription', logicalId: 'api#ops', action: 'UPDATE', basis: 'live', foldedInto: owner },
+    ], options)).toBe(1)
+  })
+})
+
+describe('driftLines', () => {
+  it('says what changed in Checkly and what the deploy would do about it', () => {
+    expect(driftLines([
+      { type: 'check', logicalId: 'api', deleted: false, paths: ['/frequency', '/muted'] },
+      { type: 'check', logicalId: 'gone', deleted: true, paths: [] },
+    ], options)).toEqual([
+      'Check: api was changed in Checkly (/frequency, /muted); this deploy would overwrite it',
+      'Check: gone was deleted in Checkly; this deploy would create it again',
+    ])
   })
 })
