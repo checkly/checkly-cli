@@ -24,6 +24,8 @@ export enum CheckStatus {
   CANCELLED,
   // The run stopped early (max failures) before this check reported a result.
   NOT_FINISHED,
+  // The CLI stopped waiting for a result; the check may still have passed in Checkly.
+  TIMED_OUT,
 }
 
 export function formatDuration (ms: number): string {
@@ -70,6 +72,9 @@ export function formatCheckTitle (
   } else if (status === CheckStatus.NOT_FINISHED) {
     statusString = '…'
     format = chalk.bold.dim
+  } else if (status === CheckStatus.TIMED_OUT) {
+    statusString = '⏱'
+    format = chalk.bold.red
   } else {
     statusString = '-'
     format = chalk.bold.dim
@@ -775,6 +780,9 @@ function formatSectionTitle (title: string): string {
 export function resultToCheckStatus (checkResult: any): CheckStatus {
   if (checkResult.isCancelled) {
     return CheckStatus.CANCELLED
+  }
+  if (checkResult.timedOut) {
+    return CheckStatus.TIMED_OUT
   }
   return checkResult.hasFailures
     ? CheckStatus.FAILED

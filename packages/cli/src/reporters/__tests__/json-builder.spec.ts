@@ -135,6 +135,35 @@ describe('JsonBuilder', () => {
     })
   })
 
+  test('reports a check the CLI stopped waiting for as timed out', () => {
+    const runError = 'Reached timeout of 600 seconds waiting for check result.'
+    const map: checkFilesMap = new Map([
+      ['folder/timeout.check.ts', new Map([
+        ['seq-timeout', {
+          result: { name: 'Slow check', sourceFile: 'folder/timeout.check.ts', hasFailures: true, runError, timedOut: true },
+          titleString: 'Slow check',
+          numRetries: 0,
+        }],
+        ['seq-crashed', {
+          result: { name: 'Crashed check', sourceFile: 'folder/timeout.check.ts', hasFailures: true, runError: 'Error' },
+          titleString: 'Crashed check',
+          numRetries: 0,
+        }],
+      ])],
+    ])
+    const summary = JSON.parse(new JsonBuilder({
+      testSessionId: undefined,
+      numChecks: 2,
+      runLocation,
+      checkFilesMap: map,
+    }).render())
+
+    expect(summary.checks.map((c: any) => [c.name, c.result, c.runError])).toEqual([
+      ['Slow check', 'Timed out', runError],
+      ['Crashed check', 'Fail', 'Error'],
+    ])
+  })
+
   test('omits stoppedEarly when the run finished', () => {
     const checkFilesMap = generateMapAndTestResultIds({ includeTestResultIds: false })
     const summary = JSON.parse(new JsonBuilder({

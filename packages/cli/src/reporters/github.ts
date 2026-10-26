@@ -89,8 +89,7 @@ export class GithubMdBuilder {
           continue
         }
         const checkStatus = resultToCheckStatus(result)
-        // A check the CLI stopped waiting for may still pass in Checkly, so don't label it a plain failure.
-        const statusCell = result.timedOut
+        const statusCell = checkStatus === CheckStatus.TIMED_OUT
           ? '⏱️ Timed out'
           : checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
         const tableRow: Array<string> = [

@@ -312,6 +312,28 @@ describe('AbstractListReporter', () => {
     expect(countOccurrences(output, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
   })
 
+  it('counts and titles a check the CLI stopped waiting for as timed out, not failed', () => {
+    withTty(process.stdout, false, () => {
+      const reporter = new ListReporter(PUBLIC_RUN_LOCATION, false)
+      const slow = { name: 'Slow Check', getSourceFile: () => SOURCE_FILE }
+      const broken = { name: 'Broken Check', getSourceFile: () => SOURCE_FILE }
+      reporter.onBegin([
+        { check: slow, sequenceId: 'seq-slow' },
+        { check: broken, sequenceId: 'seq-broken' },
+      ])
+      reporter.onCheckEnd('seq-slow', {
+        ...makePassingResult(), name: 'Slow Check', hasFailures: true, runError: 'Reached timeout', timedOut: true,
+      })
+      reporter.onCheckEnd('seq-broken', { ...makePassingResult(), name: 'Broken Check', hasFailures: true })
+      printLnMock.mockClear()
+      reporter._printSummary()
+
+      const summary = outputOf(printLnMock)
+      expect(summary).toContain('⏱ Slow Check')
+      expect(summary).toContain('1 failed, 1 timed out, 2 total')
+    })
+  })
+
   describe('after the run stopped at the max failures limit', () => {
     function makeStoppedReporter (
       reporter = new ListReporter(PUBLIC_RUN_LOCATION, false),

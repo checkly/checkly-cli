@@ -117,6 +117,20 @@ describe('DotReporter', () => {
     expect(output).toContain('My Playwright Check')
   })
 
+  it('marks and summarizes a check the CLI stopped waiting for as timed out', () => {
+    const { reporter } = makeReporterWithOneCheck()
+
+    reporter.onCheckEnd(SEQUENCE_ID, makeResult({ hasFailures: true, runError: RUN_ERROR, timedOut: true }))
+    reporter.onEnd()
+
+    expect(marks()).toBe('T')
+    const output = printedOutput()
+    expect(output).toContain('1 timed out, 1 total')
+    expect(output).not.toContain('failed')
+    expect(output).toContain('⏱ My Playwright Check')
+    expect(output).toContain(RUN_ERROR)
+  })
+
   it('should not print execution error details for a passing check', () => {
     const { reporter } = makeReporterWithOneCheck()
 
