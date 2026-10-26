@@ -455,7 +455,6 @@ describe('assets commands', () => {
         'skip-existing': false,
       },
     })
-    ctx.fancy = true
 
     try {
       await AssetsDownload.prototype.run.call(ctx as any)

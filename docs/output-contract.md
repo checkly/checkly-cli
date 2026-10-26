@@ -111,6 +111,5 @@ change in the PR.
   `FORCE_COLOR=0` for plain text.
 - Non-TTY runs do **not** switch output to JSON: CI logs stay human-readable;
   only spinners and live redraws degrade to plain lines.
-- Spinners are suppressed by `CHECKLY_E2E_DISABLE_FANCY_OUTPUT` and disabled
-  per command when the output format would not use them (for example
-  `checks run --output json`).
+- Spinners are disabled per command when the output format would not use
+  them (for example `checks run --output json`).

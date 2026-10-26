@@ -33,7 +33,6 @@ export function checklyEnv (overrides?: {
     CHECKLY_ENV: process.env.CHECKLY_ENV,
     CHECKLY_E2E_CLI_VERSION: cliVersion,
     CHECKLY_E2E_PROMPTS_INJECTIONS: promptsInjection?.length ? JSON.stringify(promptsInjection) : undefined,
-    CHECKLY_E2E_DISABLE_FANCY_OUTPUT: '1',
     // Set SHELL so @oclif/core's getShell() short-circuits instead of running
     // determineWindowsShell(), which spawns `powershell.exe -Command Get-CimInstance`
     // on every command. That spawn costs seconds per command on Windows and is the

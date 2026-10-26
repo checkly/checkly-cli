@@ -1314,15 +1314,6 @@ describe('checkly login', () => {
 
         expect(ux.action.stop).toHaveBeenCalledWith('❌')
       })
-
-      it('prints plain lines when fancy output is off', async () => {
-        const cmd = createCommand()
-        cmd.fancy = false
-        await expect(cmd.run()).rejects.toThrow('EXIT_0')
-
-        expect(ux.action.start).not.toHaveBeenCalled()
-        expect(terminalLines(cmd)).toContain('Waiting for you to finish in the browser…')
-      })
     })
 
     it('suggests running the checks in a Checkly project, with its package manager', async () => {

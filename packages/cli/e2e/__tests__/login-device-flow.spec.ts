@@ -147,7 +147,6 @@ describe('login with the device flow (fake Auth0 + API)', () => {
         CHECKLY_AUTH_URL: fake.baseUrl,
         CHECKLY_NO_BROWSER: '1',
         CHECKLY_E2E_CLI_VERSION: '4.8.0',
-        CHECKLY_E2E_DISABLE_FANCY_OUTPUT: '1',
         ...env,
       },
     })

@@ -26,31 +26,23 @@ export class CommandStyle {
   }
 
   actionStart (message: string) {
-    if (this.c.fancy) {
-      // No `{ stdout: true }`: oclif renders the spinner on stderr by default,
-      // which keeps stdout reserved for command output.
-      ux.action.start(message)
-    }
+    // No `{ stdout: true }`: oclif renders the spinner on stderr by default,
+    // which keeps stdout reserved for command output.
+    ux.action.start(message)
   }
 
   actionStatus (message: string) {
-    if (this.c.fancy) {
-      ux.action.status = message
-    }
+    ux.action.status = message
   }
 
   actionSuccess () {
-    if (this.c.fancy) {
-      ux.action.stop(`✅`)
-      this.c.logToStderr()
-    }
+    ux.action.stop(`✅`)
+    this.c.logToStderr()
   }
 
   actionFailure () {
-    if (this.c.fancy) {
-      ux.action.stop(`❌`)
-      this.c.logToStderr()
-    }
+    ux.action.stop(`❌`)
+    this.c.logToStderr()
   }
 
   // Only success messages (a mutation's confirmation) and JSON error envelopes
