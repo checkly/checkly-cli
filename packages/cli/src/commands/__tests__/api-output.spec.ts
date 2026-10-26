@@ -49,6 +49,12 @@ describe('checkly api response bytes', () => {
       case '/json-suffix':
         response.writeHead(200, { 'content-type': 'Application/Problem+JSON; charset=utf-8' }).end('{ "ok": true }')
         break
+      case '/json-string':
+        response.writeHead(200, { 'content-type': 'application/json' }).end('"ok"')
+        break
+      case '/json-null':
+        response.writeHead(200, { 'content-type': 'application/json' }).end('null')
+        break
       case '/invalid-json':
         response.writeHead(200, { 'content-type': 'application/json' }).end('{invalid}\n')
         break
@@ -128,6 +134,8 @@ describe('checkly api response bytes', () => {
     ['/json', '{"name":"Café"}\n'],
     ['/json-bom', '{"name":"Café"}\n'],
     ['/json-suffix', '{"ok":true}\n'],
+    ['/json-string', '"ok"\n'],
+    ['/json-null', 'null\n'],
     ['/invalid-json', '{invalid}\n'],
     ['/text', 'Café\n'],
     ['/empty', ''],
@@ -148,6 +156,14 @@ describe('checkly api response bytes', () => {
       expect(JSON.parse(stdout.toString())).toEqual(endpoint === '/json' ? ['name'] : ['count', 'id'])
     },
   )
+
+  it.skipIf(!hasJq).each([
+    ['/json-string', '"ok"\n'],
+    ['/json-null', 'null\n'],
+  ])('passes the top-level JSON value from %s to --jq', async (endpoint, expected) => {
+    const { stdout } = await run(endpoint, '--jq', '.')
+    expect(stdout).toEqual(Buffer.from(expected))
+  })
 
   it('writes the first download chunk before the response finishes', async () => {
     const download = run('/stream')
