@@ -4,6 +4,7 @@ import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { detectCliMode } from './cli-mode.js'
 import { DEFAULT_REGION } from './constants.js'
+import { InvalidInputError } from './invalid-input-error.js'
 
 const unsupportedDetachedReporterTypes: ReporterType[] = ['json', 'github']
 
@@ -69,7 +70,7 @@ export function validateDetachReporterTypes (reporterTypes: ReporterType[]): voi
   const unsupported = [...new Set(reporterTypes.filter(type => unsupportedDetachedReporterTypes.includes(type)))]
 
   if (unsupported.length) {
-    throw new Error(
+    throw new InvalidInputError(
       `--detach does not support ${unsupported.map(type => `--reporter ${type}`).join(', ')}. `
       + 'Detached runs exit after scheduling, before result reports can be written. '
       + 'Omit --detach to write a report, or use `checkly test-sessions get <test-session-id> --output json` after scheduling.',

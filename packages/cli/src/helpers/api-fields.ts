@@ -1,3 +1,5 @@
+import { InvalidInputError } from './invalid-input-error.js'
+
 export interface ParsedFields {
   [key: string]: unknown
 }
@@ -13,14 +15,14 @@ export function parseFields (fields: string[]): ParsedFields {
       try {
         result[key] = JSON.parse(raw)
       } catch {
-        throw new Error(`Invalid JSON in field "${key}": ${raw}`)
+        throw new InvalidInputError(`Invalid JSON in field "${key}": ${raw}`)
       }
       continue
     }
 
     const eqIndex = entry.indexOf('=')
     if (eqIndex === -1) {
-      throw new Error(`Invalid field format: "${entry}". Expected key=value or key:=json.`)
+      throw new InvalidInputError(`Invalid field format: "${entry}". Expected key=value or key:=json.`)
     }
     result[entry.slice(0, eqIndex)] = entry.slice(eqIndex + 1)
   }

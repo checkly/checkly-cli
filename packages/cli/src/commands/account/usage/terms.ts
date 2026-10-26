@@ -1,6 +1,7 @@
 import { AuthCommand } from '../../authCommand.js'
 import { outputFlag } from '../../../helpers/flags.js'
 import { describeUsageError, usageTermsListFlags, usageTermsParams } from '../../../helpers/usage.js'
+import { exitCodeFor } from '../../../helpers/invalid-input-error.js'
 import * as api from '../../../rest/api.js'
 import type { OutputFormat } from '../../../formatters/render.js'
 import {
@@ -41,7 +42,7 @@ export default class UsageTermsCommand extends AuthCommand {
       ].filter(Boolean).join('\n\n'))
     } catch (err: unknown) {
       this.style.longError('Failed to load usage terms.', describeUsageError(err))
-      process.exitCode = 1
+      process.exitCode = exitCodeFor(err)
     }
   }
 }

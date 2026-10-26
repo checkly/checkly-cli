@@ -110,6 +110,7 @@ describe('usage terms commands', () => {
     expect(api.usage.getTerm).not.toHaveBeenCalled()
     expect(bad.style.longError).toHaveBeenCalledWith('Failed to load usage term.',
       expect.objectContaining({ message: 'Usage term ID must be a valid UUID.' }))
+    expect(process.exitCode).toBe(2)
     vi.mocked(api.usage.getTerm).mockRejectedValue(new NotFoundError({
       statusCode: 404, error: 'Not Found', message: 'No usage terms found', code: 'NO_USAGE_TERMS',
     }))
@@ -331,7 +332,7 @@ describe('report failure paths', () => {
     expect(api.usage.getSeries).not.toHaveBeenCalled()
     expect(ctx.style.longError).toHaveBeenCalledWith(expect.any(String),
       expect.objectContaining({ message: expect.stringContaining('does not support --check-type') }))
-    expect(process.exitCode).toBe(1)
+    expect(process.exitCode).toBe(2)
   })
 
   it('reports usage:read permission failures', async () => {

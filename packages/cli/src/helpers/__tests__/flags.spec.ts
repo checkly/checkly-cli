@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { normalizeFlagAliases, parseAutoOrWholeNumber } from '../flags.js'
+import { InvalidInputError } from '../invalid-input-error.js'
 
 describe('normalizeFlagAliases', () => {
   const aliases = [
@@ -62,5 +63,6 @@ describe('parseAutoOrWholeNumber', () => {
 
   it.each(['-1', '1.5', 'abc', '', '1e3'])('rejects %j', input => {
     expect(() => parseAutoOrWholeNumber(input)).toThrow('Expected a non-negative whole number or "auto"')
+    expect(() => parseAutoOrWholeNumber(input)).toThrow(InvalidInputError)
   })
 })

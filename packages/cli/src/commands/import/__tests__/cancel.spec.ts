@@ -131,14 +131,14 @@ describe('import cancel command (flag validation)', () => {
     vi.mocked(api.projects.cancelImportPlan).mockResolvedValue({} as any)
   })
 
-  it('rejects --all together with --plan-id (exit 1) instead of silently ignoring one', async () => {
+  it('rejects --all together with --plan-id (exit 2) instead of silently ignoring one', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({
       data: [plan('a'), plan('b')],
     } as any)
     const ctx = createCommandContext(cancelFlags({ 'all': true, 'plan-id': 'a' }))
 
-    await expect(ImportCancelCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+    await expect(ImportCancelCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
     expect(ctx.style.fatal).toHaveBeenCalledWith(expect.stringContaining('cannot be used together'))
     expect(api.projects.cancelImportPlan).not.toHaveBeenCalled()
   })
@@ -148,7 +148,7 @@ describe('import cancel command (flag validation)', () => {
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [] } as any)
     const ctx = createCommandContext(cancelFlags({ 'all': true, 'plan-id': 'a' }))
 
-    await expect(ImportCancelCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+    await expect(ImportCancelCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
     expect(ctx.style.fatal).toHaveBeenCalledWith(expect.stringContaining('cannot be used together'))
     expect(api.projects.findImportPlans).not.toHaveBeenCalled()
   })

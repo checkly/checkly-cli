@@ -1187,7 +1187,7 @@ describe('deploy with --no-plan', () => {
       vi.mocked(parseProject).mockClear()
       const ctx = createCommandContext({ plan: false, force: true, ...flags })
 
-      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
       expect(ctx.style.longError).toHaveBeenCalledWith(
         `${named} applies to a planned deploy only.`,
@@ -1999,7 +1999,7 @@ describe('deploy of a plan with nothing to apply', () => {
         vi.mocked(parseProject).mockClear()
         const ctx = createCommandContext({ force: true, ...flags })
 
-        await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
+        await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
 
         expect(ctx.style.longError).toHaveBeenCalledWith(
           `${named} applies only when checks are scheduled after the deploy.`,

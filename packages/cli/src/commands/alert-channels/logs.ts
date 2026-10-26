@@ -8,6 +8,7 @@ import {
   validateIntegerRange,
 } from '../../helpers/number.js'
 import * as api from '../../rest/api.js'
+import { exitCodeFor } from '../../helpers/invalid-input-error.js'
 import type { AlertNotificationListParams } from '../../rest/alert-notifications.js'
 import type { OutputFormat } from '../../formatters/render.js'
 import { formatAlertNotificationLogs } from '../../formatters/alert-channels.js'
@@ -98,7 +99,7 @@ export default class AlertChannelsLogs extends AuthCommand {
       this.log(output.join('\n'))
     } catch (err: any) {
       this.style.longError('Failed to list alert channel logs.', err)
-      process.exitCode = 1
+      process.exitCode = exitCodeFor(err)
     }
   }
 }

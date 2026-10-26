@@ -15,6 +15,7 @@ import type {
   AssetManifestEntry,
 } from '../rest/asset-manifests.js'
 import { assetSelectorValue } from '../formatters/assets.js'
+import { InvalidInputError } from './invalid-input-error.js'
 
 const debug = Debug('checkly:cli:helpers:result-assets')
 
@@ -59,18 +60,18 @@ export type AssetSource =
 
 export function resolveAssetSource (flags: AssetSourceFlags): AssetSource {
   if (!flags['result-id']) {
-    throw new Error('--result-id is required.')
+    throw new InvalidInputError('--result-id is required.')
   }
 
   const hasCheckId = Boolean(flags['check-id'])
   const hasTestSessionId = Boolean(flags['test-session-id'])
 
   if (hasCheckId && hasTestSessionId) {
-    throw new Error('Use exactly one of --check-id or --test-session-id, not both.')
+    throw new InvalidInputError('Use exactly one of --check-id or --test-session-id, not both.')
   }
 
   if (!hasCheckId && !hasTestSessionId) {
-    throw new Error('Use exactly one of --check-id or --test-session-id.')
+    throw new InvalidInputError('Use exactly one of --check-id or --test-session-id.')
   }
 
   if (flags['check-id']) {

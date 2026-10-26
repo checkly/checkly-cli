@@ -1,4 +1,5 @@
 import { Flags } from '@oclif/core'
+import { InvalidInputError } from './invalid-input-error.js'
 
 export interface FlagAlias {
   alias: string
@@ -72,7 +73,7 @@ export function parseAutoOrWholeNumber (input: string): number | 'auto' {
     return 'auto'
   }
   if (!/^\d+$/.test(input)) {
-    throw new Error(`Expected a non-negative whole number or "auto", got "${input}".`)
+    throw new InvalidInputError(`Expected a non-negative whole number or "auto", got "${input}".`)
   }
   return Number(input)
 }

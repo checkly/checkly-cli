@@ -57,6 +57,9 @@ exit-code table, lives in `docs/output-contract.md`.
   answer from stdin and stderr, not stdout.
 - Never print anything to stdout around a `--output json` document. A failure
   oclif raises leaves stdout empty; see the contract's exit codes.
+- Invalid input exits 2, other failures 1. Validation helpers throw
+  `InvalidInputError`; a catch block that reports the error itself sets
+  `process.exitCode = exitCodeFor(err)` rather than a literal 1.
 - Terminal users see both streams, so moving chatter to stderr does not change
   the interactive experience — that is the default for new output.
 

@@ -12,6 +12,7 @@ import { execa } from 'execa'
 import { LOGICAL_ID_PATTERN } from '../../constants.js'
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
+import { InvalidInputError } from '../../helpers/invalid-input-error.js'
 import commonMessages from '../../messages/common-messages.js'
 import { getRepoUrlFromGit, splitConfigFilePath } from '../../services/util.js'
 import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader.js'
@@ -1536,7 +1537,7 @@ function parseFilter (spec: string): ImportPlanFilter {
 
   const parseId = importables[type as keyof typeof importables]
   if (parseId === undefined) {
-    throw new Error(`Invalid resource specifier '${spec}': Unsupported resource type '${type}'`)
+    throw new InvalidInputError(`Invalid resource specifier '${spec}': Unsupported resource type '${type}'`)
   }
 
   try {
@@ -1546,7 +1547,7 @@ function parseFilter (spec: string): ImportPlanFilter {
     }
   } catch (err) {
     if (err instanceof InvalidResourceIdentifierError) {
-      throw new Error(`Invalid resource specifier '${spec}': ${err.message}`, { cause: err })
+      throw new InvalidInputError(`Invalid resource specifier '${spec}': ${err.message}`, { cause: err })
     }
 
     throw err
