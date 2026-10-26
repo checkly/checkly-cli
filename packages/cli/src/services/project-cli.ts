@@ -77,8 +77,10 @@ export function findConfigFlag (args: string[]): string | undefined {
         j++
       }
       if (arg[j] === 'c') {
-        const value = arg.slice(arg[j + 1] === '=' ? j + 2 : j + 1)
-        return (value || args[i + 1]) || undefined
+        if (arg[j + 1] === '=') {
+          return arg.slice(j + 2) || undefined
+        }
+        return (arg.slice(j + 1) || args[i + 1]) || undefined
       }
     }
   }
