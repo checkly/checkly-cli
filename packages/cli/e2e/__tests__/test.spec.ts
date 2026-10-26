@@ -202,9 +202,9 @@ describe('test', { timeout: 45000 }, () => {
         await runTest(fixt, [])
       } catch (err) {
         if (err instanceof ExecaError) {
-          // A duplicate logicalId is now reported as a fatal validation
-          // diagnostic (printed to stdout) rather than a thrown error.
-          expect((err.stdout as unknown as string).replace(/(\n {4})/gm, ''))
+          // A duplicate logicalId is reported as a fatal validation
+          // diagnostic (printed to stderr) rather than a thrown error.
+          expect((err.stderr as unknown as string).replace(/(\n {4})/gm, ''))
             .toContain('A check-group with logicalId "my-check-group" already exists.')
           expect(err.exitCode).toBe(1)
         } else {
