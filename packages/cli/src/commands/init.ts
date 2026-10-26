@@ -105,7 +105,7 @@ export default class Init extends BaseCommand {
       await this.runCiMode(
         projectDir,
         context,
-        flags.target !== undefined,
+        explicitSkillState,
         log,
       )
       return
@@ -334,11 +334,9 @@ export default class Init extends BaseCommand {
       await this.createPackageJson(projectDir, () => {})
       return detectProjectContext(projectDir)
     } catch (error: any) {
-      this.log(JSON.stringify({
-        success: false,
-        error: `Could not create package.json: ${error.message || String(error)}`,
-      }))
-      return null
+      return this.exitWithAgentError(
+        `Could not create package.json: ${error.message || String(error)}`,
+      )
     }
   }
 
@@ -405,6 +403,9 @@ export default class Init extends BaseCommand {
     context: ProjectContext,
     explicitSkillState: ExplicitSkillState,
   ): Promise<void> {
+    // Exit only after the try: oclif's exit throws, and the catch would
+    // turn it into a second envelope.
+    let failure: string
     try {
       const noop = () => {}
       const skillResult = explicitSkillState.result
@@ -420,50 +421,53 @@ export default class Init extends BaseCommand {
         errors.push(setupResult.error)
       }
 
-      if (errors.length > 0) {
+      if (errors.length === 0) {
         this.log(JSON.stringify({
-          success: false,
-          error: errors.join('; '),
+          status: 'success',
+          skillInstalled: skillResult.installed,
+          skillPlatform: skillResult.platform,
+          skillTargetPath: skillResult.targetPath,
+          playwrightConfigDetected:
+            setupResult.context.hasPlaywrightConfig,
+          playwrightConfigPath:
+            setupResult.context.playwrightConfigPath,
+          hasChecklyConfig: setupResult.context.hasChecklyConfig,
+          hasChecksDir: setupResult.context.hasChecksDir,
+          hint: 'Run npx checkly skills for agent guidance',
+          note: localCliNote(),
         }))
         return
       }
-
-      this.log(JSON.stringify({
-        success: true,
-        skillInstalled: skillResult.installed,
-        skillPlatform: skillResult.platform,
-        skillTargetPath: skillResult.targetPath,
-        playwrightConfigDetected:
-          setupResult.context.hasPlaywrightConfig,
-        playwrightConfigPath:
-          setupResult.context.playwrightConfigPath,
-        hasChecklyConfig: setupResult.context.hasChecklyConfig,
-        hasChecksDir: setupResult.context.hasChecksDir,
-        hint: 'Run npx checkly skills for agent guidance',
-        note: localCliNote(),
-      }))
+      failure = errors.join('; ')
     } catch (error: any) {
-      this.log(JSON.stringify({
-        success: false,
-        error: error.message || String(error),
-      }))
+      failure = error.message || String(error)
     }
+    this.exitWithAgentError(failure)
+  }
+
+  /** Prints agent mode's error envelope on stdout and exits 1. */
+  private exitWithAgentError (message: string): never {
+    this.log(JSON.stringify({ status: 'error', message }))
+    return this.exit(1)
   }
 
   private async runCiMode (
     projectDir: string,
     context: ProjectContext,
-    hasTargetFlag: boolean,
+    explicitSkillState: ExplicitSkillState,
     log: (msg: string) => void,
   ): Promise<void> {
     const setupResult = await this.ensureProjectSetup(
       projectDir, context, log, true,
     )
-    if (!setupResult.ok) {
-      return
+    // The failure's detail is already on stderr; the exit code tells the
+    // job that init did not finish.
+    if (!setupResult.ok || explicitSkillState.error) {
+      this.style.shortError(setupResult.error ?? 'Could not install the Checkly skill')
+      return this.exit(1)
     }
 
-    if (!hasTargetFlag) {
+    if (explicitSkillState.result === null) {
       log('\nTo install the AI agent skill, run:')
       log('  npx checkly skills install'
         + ' --target <agent> --force')
