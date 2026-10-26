@@ -153,7 +153,7 @@ describe('confirmOrAbort', () => {
       { ...agent, constructor: AuthCommand } as any,
       preview,
       { force: false },
-    )).rejects.toThrow('EXIT_2')
+    )).rejects.toThrow('EXIT_3')
     expect(plan).not.toHaveBeenCalled()
     expect(JSON.parse(agent.logged[0]).changes).toEqual(['Will create incident "Test"'])
   })
@@ -174,7 +174,7 @@ describe('confirmOrAbort', () => {
     expect(ctx.exit).toHaveBeenCalledWith(0)
   })
 
-  it('outputs structured JSON and exits 2 in agent mode', async () => {
+  it('outputs structured JSON and exits 3 in agent mode', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createMockCommand()
 
@@ -184,15 +184,15 @@ describe('confirmOrAbort', () => {
         basePreview,
         { force: false, dryRun: false },
       ),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
     expect(output.confirmCommand).toContain('--force')
-    expect(ctx.exit).toHaveBeenCalledWith(2)
+    expect(ctx.exit).toHaveBeenCalledWith(3)
   })
 
-  it('outputs structured JSON and exits 2 in ci mode', async () => {
+  it('outputs structured JSON and exits 3 in ci mode', async () => {
     vi.mocked(detectCliMode).mockReturnValue('ci')
     const ctx = createMockCommand()
 
@@ -202,7 +202,7 @@ describe('confirmOrAbort', () => {
         basePreview,
         { force: false, dryRun: false },
       ),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -241,7 +241,7 @@ describe('confirmOrAbort', () => {
     expect(ctx.exit).toHaveBeenCalledWith(0)
   })
 
-  it('ignores interactiveConfirm in agent mode and exits 2', async () => {
+  it('ignores interactiveConfirm in agent mode and exits 3', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const customConfirm = vi.fn().mockResolvedValue(true)
     const ctx = createMockCommand()
@@ -252,7 +252,7 @@ describe('confirmOrAbort', () => {
         basePreview,
         { force: false, interactiveConfirm: customConfirm },
       ),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     expect(customConfirm).not.toHaveBeenCalled()
   })
@@ -267,7 +267,7 @@ describe('confirmOrAbort', () => {
         basePreview,
         { force: false },
       ),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -352,7 +352,7 @@ describe('confirmOrAbort with alternatives', () => {
   it('never offers the alternative to an agent, a forced run or a dry run', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     let ctx = createMockCommand()
-    await expect(AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false })).rejects.toThrow('EXIT_2')
+    await expect(AuthCommand.prototype.confirmOrAbort.call(ctx as any, withAlternative, { force: false })).rejects.toThrow('EXIT_3')
     expect(JSON.parse(ctx.logged[0])).not.toHaveProperty('terminal')
 
     ctx = createMockCommand()

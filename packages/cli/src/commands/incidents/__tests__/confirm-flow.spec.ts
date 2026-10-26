@@ -76,7 +76,7 @@ describe('incident commands confirmation flow', () => {
     expect(IncidentsCreate.idempotent).toBe(false)
   })
 
-  it('incidents create exits 2 in agent mode without --force', async () => {
+  it('incidents create exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({
       flags: {
@@ -93,7 +93,7 @@ describe('incident commands confirmation flow', () => {
 
     await expect(
       IncidentsCreate.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -147,7 +147,7 @@ describe('incident commands confirmation flow', () => {
     expect(api.incidents.create).not.toHaveBeenCalled()
   })
 
-  it('incidents update exits 2 in agent mode without --force', async () => {
+  it('incidents update exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({
       args: { id: 'inc-1' },
@@ -164,7 +164,7 @@ describe('incident commands confirmation flow', () => {
 
     await expect(
       IncidentsUpdate.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -172,7 +172,7 @@ describe('incident commands confirmation flow', () => {
     expect(api.incidents.createUpdate).not.toHaveBeenCalled()
   })
 
-  it('incidents resolve exits 2 in agent mode without --force', async () => {
+  it('incidents resolve exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({
       args: { id: 'inc-1' },
@@ -187,7 +187,7 @@ describe('incident commands confirmation flow', () => {
 
     await expect(
       IncidentsResolve.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')

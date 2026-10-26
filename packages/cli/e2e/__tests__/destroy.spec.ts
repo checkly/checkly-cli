@@ -49,6 +49,22 @@ describe('destroy', () => {
     }
   })
 
+  it('Should exit 3 with a confirmation envelope in agent mode', async () => {
+    try {
+      await runCheckly(fixt, ['destroy'], {
+        env: { PROJECT_LOGICAL_ID: projectLogicalId, CHECKLY_CLI_MODE: 'agent' },
+      })
+      expect.unreachable('Expected command to fail')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        expect(err.exitCode).toBe(3)
+        expect(JSON.parse(String(err.stdout)).status).toBe('confirmation_required')
+      } else {
+        throw err
+      }
+    }
+  })
+
   it('Shouldn fail confirming to destroy', async () => {
     const wrongProjectName = 'Wrong Project Name'
     const { stderr } = await runCheckly(fixt, ['destroy'], {

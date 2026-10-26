@@ -58,7 +58,7 @@ describe('account members mutation commands', () => {
     expect(normalizeAccountMemberUpdateRole('superadmin')).toBeUndefined()
   })
 
-  it('members update exits 2 in agent mode without --force', async () => {
+  it('members update exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext(MembersUpdate, {
       args: { member: updatedMember.userId },
@@ -74,7 +74,7 @@ describe('account members mutation commands', () => {
 
     await expect(
       MembersUpdate.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -171,7 +171,7 @@ describe('account members mutation commands', () => {
     expect(api.accountMembers.updateRole).not.toHaveBeenCalled()
   })
 
-  it('members delete exits 2 in agent mode without --force', async () => {
+  it('members delete exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext(MembersDelete, {
       args: { member: updatedMember.userId },
@@ -185,7 +185,7 @@ describe('account members mutation commands', () => {
 
     await expect(
       MembersDelete.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -227,7 +227,7 @@ describe('account members mutation commands', () => {
 
     await expect(
       MembersDelete.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(api.accountMembers.getAll).toHaveBeenCalledWith({

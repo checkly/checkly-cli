@@ -293,7 +293,7 @@ describe('incidents notify-subscribers flags', () => {
 
     await expect(
       IncidentsCreate.prototype.run.call(context as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(context.logged[0])
     expect(output.status).toBe('confirmation_required')

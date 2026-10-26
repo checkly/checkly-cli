@@ -64,7 +64,7 @@ describe('destroy confirmation flow', () => {
     vi.clearAllMocks()
   })
 
-  it('exits 2 in agent mode without --force', async () => {
+  it('exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({
       flags: { force: false },
@@ -72,7 +72,7 @@ describe('destroy confirmation flow', () => {
 
     await expect(
       Destroy.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -97,10 +97,10 @@ describe('destroy confirmation flow', () => {
       flags: { force: false },
     })
 
-    // The confirmation gate exits 2, but the diagnostics render before it.
+    // The confirmation gate exits 3, but the diagnostics render before it.
     await expect(
       Destroy.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     expect(ctx.style.diagnostics).toHaveBeenCalledWith(configDiagnostics)
   })

@@ -27,7 +27,7 @@ describe('env rm confirmation flow', () => {
     vi.clearAllMocks()
   })
 
-  it('exits 2 in agent mode without --force', async () => {
+  it('exits 3 in agent mode without --force', async () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({
       args: { key: 'MY_VAR' },
@@ -36,7 +36,7 @@ describe('env rm confirmation flow', () => {
 
     await expect(
       EnvRm.prototype.run.call(ctx as any),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')

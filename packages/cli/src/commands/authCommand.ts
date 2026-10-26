@@ -57,6 +57,14 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
 }
 
 /**
+ * Exit code of a write command that stopped for confirmation in agent or CI
+ * mode, after printing the `confirmation_required` envelope. It differs from
+ * oclif's 2 (usage errors and `this.error()`), so the exit code alone says
+ * whether the command needs approval.
+ */
+export const CONFIRMATION_REQUIRED_EXIT_CODE = 3
+
+/**
  * The command line that ran `command`, for an agent to run again after the
  * login; undefined when the command's id is not known.
  */
@@ -204,8 +212,8 @@ export abstract class AuthCommand extends BaseCommand {
       return this.exit(0)
     }
 
-    // Agent or CI mode: output structured JSON and exit 2
+    // Agent or CI mode: output structured JSON and exit for approval
     this.log(JSON.stringify(formatPreviewForAgent(preview, 'confirmation_required'), null, 2))
-    return this.exit(2)
+    return this.exit(CONFIRMATION_REQUIRED_EXIT_CODE)
   }
 }
