@@ -39,6 +39,7 @@ const mockConfig = {
 function createCommand (...argv: string[]) {
   const cmd = new Switch(argv, mockConfig)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   cmd.warn = vi.fn() as any
   cmd.exit = vi.fn((code: number) => {
     throw new Error(`EXIT_${code}`)
@@ -112,7 +113,9 @@ describe('checkly switch', () => {
       expect(prompts).not.toHaveBeenCalled()
       expect(api.accounts.getAll).not.toHaveBeenCalled()
       expect(activateAccount).not.toHaveBeenCalled()
-      expect(vi.mocked(cmd.log).mock.calls.join('\n')).toContain('Acme')
+      // The account is the result (stdout); how to change it is a hint (stderr).
+      expect(vi.mocked(cmd.log).mock.calls).toEqual([[expect.stringMatching(/^Logged in to .*Acme.*\.$/)]])
+      expect(cmd.logToStderr).toHaveBeenCalledWith('Run `npx checkly switch` to change accounts.')
     })
 
     it('stays quiet in agent mode, where the login already reported the account', async () => {

@@ -59,19 +59,19 @@ export default class SkillsInstall extends BaseCommand {
       const padTo = (flag: string, arg: string) =>
         `  ${(flag + ' ' + arg).padEnd(descCol)}`
 
-      this.log('Non-interactive mode detected. Use one of the following flags:\n')
+      this.logToStderr('Non-interactive mode detected. Use one of the following flags:\n')
       for (const [name, dir] of Object.entries(PLATFORM_TARGETS)) {
-        this.log(`${padTo('--target', name)}Install to ${dir}/`)
+        this.logToStderr(`${padTo('--target', name)}Install to ${dir}/`)
       }
-      this.log(`${padTo('--path', '<dir>')}Install to a custom directory`)
-      this.log(`${padTo('--force', '')}Overwrite existing SKILL.md without confirmation`)
-      this.log('\nExample: npx checkly skills install --target claude --force')
+      this.logToStderr(`${padTo('--path', '<dir>')}Install to a custom directory`)
+      this.logToStderr(`${padTo('--force', '')}Overwrite existing SKILL.md without confirmation`)
+      this.logToStderr('\nExample: npx checkly skills install --target claude --force')
       return
     }
 
     const selectedDir = await this.promptForTarget()
     if (!selectedDir) {
-      this.log('Cancelled. No skill file written.')
+      this.logToStderr('Cancelled. No skill file written.')
       return
     }
 
@@ -116,7 +116,7 @@ export default class SkillsInstall extends BaseCommand {
     if (!force) {
       const shouldOverwrite = await this.confirmOverwrite(targetPath)
       if (!shouldOverwrite) {
-        this.log(`Skipped ${targetPath}`)
+        this.logToStderr(`Skipped ${targetPath}`)
         return
       }
     }
@@ -137,7 +137,7 @@ export default class SkillsInstall extends BaseCommand {
     }
 
     if (detectCliMode() !== 'interactive') {
-      this.log(`Skill file already exists at ${targetPath}. Use --force to overwrite.`)
+      this.logToStderr(`Skill file already exists at ${targetPath}. Use --force to overwrite.`)
       return false
     }
 

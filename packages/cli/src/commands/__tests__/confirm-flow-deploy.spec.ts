@@ -1781,8 +1781,10 @@ describe('deploy of a plan with nothing to apply', () => {
 
       // A blank line sets the warning apart from the line before it.
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
-      // The last thing logged is the blank line before the warning or notice.
-      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
+      // The result line ends stdout; the blank line before the warning or
+      // notice goes to stderr with it.
+      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([ctx.logged[ctx.logged.length - 1]])
+      expect(ctx.logToStderr).toHaveBeenCalledWith()
       expect(ctx.style.longWarning).toHaveBeenCalledTimes(1)
       const [title, message] = vi.mocked(ctx.style.longWarning).mock.calls[0]
       expect(title).toBe('Checks were not scheduled')
@@ -1909,8 +1911,10 @@ describe('deploy of a plan with nothing to apply', () => {
       await Deploy.prototype.run.call(ctx as any)
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date. Checks were scheduled to run.')
-      // The last thing logged is the blank line before the warning or notice.
-      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
+      // The result line ends stdout; the blank line before the warning or
+      // notice goes to stderr with it.
+      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([ctx.logged[ctx.logged.length - 1]])
+      expect(ctx.logToStderr).toHaveBeenCalledWith()
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
         'Some checks were not scheduled',
         'The checks will run at their next scheduled time.\n'
@@ -1938,8 +1942,10 @@ describe('deploy of a plan with nothing to apply', () => {
       await Deploy.prototype.run.call(ctx as any)
 
       expect(ctx.logged[ctx.logged.length - 1]).toBe('Project "My Project" is up to date.')
-      // The last thing logged is the blank line before the warning or notice.
-      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([])
+      // The result line ends stdout; the blank line before the warning or
+      // notice goes to stderr with it.
+      expect(vi.mocked(ctx.log).mock.calls.at(-1)).toEqual([ctx.logged[ctx.logged.length - 1]])
+      expect(ctx.logToStderr).toHaveBeenCalledWith()
       expect(ctx.style.longInfo).toHaveBeenCalledWith(
         'Some checks were not scheduled',
         expect.stringMatching(/\n- 2 checks that run more often than the minimum frequency allows$/),

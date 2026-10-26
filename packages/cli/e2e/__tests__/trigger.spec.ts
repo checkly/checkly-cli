@@ -60,7 +60,7 @@ describe('trigger', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain('No matching checks were found.')
+        expect(err.stderr).toContain('No matching checks were found.')
         expect(err.exitCode).toBe(1)
       } else {
         throw err
@@ -79,7 +79,7 @@ describe('trigger', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain('No matching checks were found.')
+        expect(err.stderr).toContain('No matching checks were found.')
         expect(err.exitCode).toBe(1)
       } else {
         throw err

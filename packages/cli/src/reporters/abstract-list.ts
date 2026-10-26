@@ -161,7 +161,9 @@ export default abstract class AbstractListReporter implements Reporter {
       this._printSummary({ stream: 'stderr' })
       return
     }
-    this._printSummary({ includeCheckTitles: false })
+    // Without a live summary to redraw, the cancel notice is still progress:
+    // the final summary follows on stdout via onEnd.
+    this._printSummary({ includeCheckTitles: false, stream: 'stderr' })
   }
 
   onMaxFailuresReached (maxFailures: number): void {
@@ -410,10 +412,6 @@ export default abstract class AbstractListReporter implements Reporter {
 
     printLn(lines.join('\n'), 2)
     this.hasPrintedTestSessionReference = true
-  }
-
-  _printTip (tip: string): void {
-    printLn(`Tip > ${chalk.white(tip)}`, 2)
   }
 
   _runLocationString (): string {

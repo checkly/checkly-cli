@@ -438,7 +438,9 @@ export default class Deploy extends AuthCommand {
     const projectPayload = synthesize()
     if (!projectPayload.resources.length) {
       if (preview) {
-        this.log('\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
+        // The empty preview is the result; where to read up is advice.
+        this.log('No checks were detected.')
+        this.logToStderr('More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.')
         return
       } else {
         throw new Error('Failed to deploy your project. Unable to find constructs to deploy.\nMore information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
@@ -884,8 +886,9 @@ export default class Deploy extends AuthCommand {
           )
         : []
       if (scheduleOnDeploy && data.scheduled === false) {
-        // Set apart from the line above, which ends without one.
-        this.log()
+        // Set apart from the line above, which ends without one. The blank
+        // line belongs to the warning, so it goes to stderr with it.
+        this.logToStderr()
         this.style.longWarning('Checks were not scheduled', [
           'This deploy would have scheduled more checks than the scheduling threshold allows.',
           '',
@@ -909,7 +912,7 @@ export default class Deploy extends AuthCommand {
           '  For a full list of options, pass --help.',
         ].join('\n'))
       } else if (notScheduled.length > 0) {
-        this.log()
+        this.logToStderr()
         this.style.longInfo('Some checks were not scheduled', [
           'The checks will run at their next scheduled time.',
           '',

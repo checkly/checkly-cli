@@ -203,7 +203,7 @@ export default class Test extends AuthCommand {
     const { maxFailures, notice: maxFailuresNotice } = prepareMaxFailures(
       maxFailuresFlag, checklyConfig.cli?.maxFailures, { detach, updateSnapshots })
     if (maxFailuresNotice) {
-      this.log(maxFailuresNotice)
+      this.logToStderr(maxFailuresNotice)
     }
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
@@ -352,10 +352,14 @@ export default class Test extends AuthCommand {
     const checkBundles = Object.values(projectBundle.data.check)
 
     if (!checkBundles.length) {
-      this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
-      // --list only reports what matches, so an empty answer is not a failure.
+      const message = `Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`
+      // --list only reports what matches, so an empty answer is not a failure
+      // but the (empty) result, on stdout. Otherwise it is an error.
       if (failOnNoMatching && !list) {
+        this.logToStderr(message)
         process.exitCode = 1
+      } else {
+        this.log(message)
       }
       return
     }

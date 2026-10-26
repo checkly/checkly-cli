@@ -783,10 +783,6 @@ export function resultToCheckStatus (checkResult: any): CheckStatus {
       : CheckStatus.SUCCESSFUL
 }
 
-export function print (text: string) {
-  process.stdout.write(text)
-}
-
 export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
   process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
 }

@@ -57,11 +57,11 @@ export default class Whoami extends AuthCommand {
       this.log(`Other accounts: ${formatAccounts(otherAccounts)}`)
     }
     if (accountSource === 'account_override') {
-      this.log()
-      this.log(`${accountOverrideNotice()} It works with the key of your \`checkly login\` session.`)
+      this.logToStderr()
+      this.logToStderr(`${accountOverrideNotice()} It works with the key of your \`checkly login\` session.`)
     } else if (accountSource === 'environment') {
-      this.log()
-      this.log(`This account is resolved from your environment, not a \`checkly login\` session. ${commonMessages.envCredentialsConfigured}`)
+      this.logToStderr()
+      this.logToStderr(`This account is resolved from your environment, not a \`checkly login\` session. ${commonMessages.envCredentialsConfigured}`)
     }
   }
 

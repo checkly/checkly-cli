@@ -340,7 +340,11 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     expect(jsonLines(first.stderr)[0]).toMatchObject({ reason: 'login_required' })
     const second = await runLoginInHome(home, ['whoami'], { CHECKLY_CLI_MODE: 'agent', CHECKLY_ACCOUNT_ID: 'acc-other' })
     expect(second.exitCode, second.stderr).toBe(0)
-    expect(jsonLines(second.stderr)).toEqual([expect.objectContaining({
+    // whoami's notice about CHECKLY_ACCOUNT_ID shares stderr with the inline
+    // login's JSON line.
+    expect(oneLine(second.stderr)).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-other"')
+    const secondJson = second.stderr.split('\n').filter(line => line.startsWith('{')).join('\n')
+    expect(jsonLines(secondJson)).toEqual([expect.objectContaining({
       status: 'success',
       reason: 'logged_in',
       accountId: 'acc-other',
@@ -377,12 +381,13 @@ describe('login with the device flow (fake Auth0 + API)', () => {
     fake.approved = true
     const { stdout, stderr, exitCode } = await runLogin(['login', '--account-id', 'acc-e2e'], { CHECKLY_CLI_MODE: 'interactive' })
 
-    expect(stderr).toBe('')
     expect(exitCode).toBe(0)
-    expect(stdout).toContain(`Visit ${fake.baseUrl.replace(/^https?:\/\//, '')}/activate and enter WXYZ-`)
-    expect(stdout).toMatch(/enter WXYZ-\d{4}/)
+    // The code is an instruction for the person (stderr); the login is the result (stdout).
+    expect(stderr).toContain(`Visit ${fake.baseUrl.replace(/^https?:\/\//, '')}/activate and enter WXYZ-`)
+    expect(stderr).toMatch(/enter WXYZ-\d{4}/)
     expect(stdout).toContain('Logged in as Ada Lovelace to ')
-    expect(stdout).not.toContain('Do you want to')
+    expect(stdout).not.toContain('Visit ')
+    expect(`${stdout}${stderr}`).not.toContain('Do you want to')
     await rm(home, { recursive: true, force: true })
   }, 180_000)
 

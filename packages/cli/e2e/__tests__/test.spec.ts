@@ -88,7 +88,8 @@ describe('test', { timeout: 45000 }, () => {
       } catch (err) {
         if (err instanceof ExecaError) {
           expect(err.exitCode).toBe(1)
-          expect(err.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+          // An error, not an empty result: stderr.
+          expect(err.stderr).toContain('Unable to find checks to run using [FILEARGS]=\'')
         } else {
           throw err
         }

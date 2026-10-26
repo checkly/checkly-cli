@@ -76,6 +76,7 @@ function createCommandContext (flags: Record<string, unknown>) {
     log: vi.fn((message?: string) => {
       if (message) logged.push(message)
     }),
+    logToStderr: vi.fn(),
     style: {
       outputFormat: undefined,
       actionStart: vi.fn(),
@@ -171,7 +172,9 @@ describe('checks run command', () => {
 
     await ChecksRun.prototype.run.call(ctx as any)
 
-    expect(ctx.logged).toContain('No matching checks were found.')
+    // An error, not an empty result: stderr.
+    expect(ctx.logToStderr).toHaveBeenCalledWith('No matching checks were found.')
+    expect(ctx.logged).not.toContain('No matching checks were found.')
     expect(process.exitCode).toBe(1)
   })
 

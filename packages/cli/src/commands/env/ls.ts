@@ -15,7 +15,8 @@ export default class EnvLs extends AuthCommand {
       this.log('No environment variables found.')
       return
     }
-    this.log('Environment variables:')
+    // The heading is for a person reading along; the listing is the result.
+    this.logToStderr('Environment variables:')
     const env = environmentVariables.map(({ key, value }) => `${key}=${escapeValue(value)}`).join('\n')
     this.log(`${env}`)
   }

@@ -222,9 +222,12 @@ export default class Trigger extends AuthCommand {
     )
     runner.on(Events.ERROR, err => {
       if (err instanceof NoMatchingChecksError) {
-        this.log('No matching checks were found.')
+        // An error under --fail-on-no-matching; otherwise the (empty) result.
         if (failOnNoMatching) {
+          this.logToStderr('No matching checks were found.')
           process.exitCode = 1
+        } else {
+          this.log('No matching checks were found.')
         }
         return
       }

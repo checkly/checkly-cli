@@ -67,7 +67,7 @@ export default class EnvPull extends AuthCommand {
           message: `Found existing file ${filename}. Do you want to overwrite?`,
         })
         if (!confirm) {
-          this.log('Cancelled. No changes made.')
+          this.logToStderr('Cancelled. No changes made.')
           return
         }
         await fs.writeFile(filepath, fileContent)

@@ -213,18 +213,25 @@ describe('AbstractListReporter', () => {
   it('should include cancellation message with --detach hint after onCancel', () => {
     withTty(process.stderr, false, () => {
       const { reporter } = makeReporterWithOneCheck(TEST_SESSION_ID)
+      const stdoutBeforeCancel = printLnMock.mock.calls.length
 
       reporter.onCancel()
 
-      const summary = outputOf(printLnMock)
-      expect(summary).toContain('Cancelling checks')
-      expect(summary).toContain('--detach')
-      expect(summary).toContain(`Test session ID: ${TEST_SESSION_ID}`)
-      expect(summary).toContain(`Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)
-      expect(summary).toContain(`Open session: ${TEST_SESSION_URL}`)
-      expect(countOccurrences(summary, `Test session ID: ${TEST_SESSION_ID}`)).toBe(1)
-      expect(countOccurrences(summary, `Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)).toBe(1)
-      expect(countOccurrences(summary, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
+      // Still progress without a live summary: the final summary follows on
+      // stdout via onEnd.
+      expect(printLnMock.mock.calls.length).toBe(stdoutBeforeCancel)
+      const notice = outputOf(printLnErrMock)
+      expect(notice).toContain('Cancelling checks')
+      expect(notice).toContain('--detach')
+      // onBegin already printed the session reference on stdout, once.
+      const stdout = outputOf(printLnMock)
+      const both = `${stdout}\n${notice}`
+      expect(stdout).toContain(`Test session ID: ${TEST_SESSION_ID}`)
+      expect(stdout).toContain(`Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)
+      expect(stdout).toContain(`Open session: ${TEST_SESSION_URL}`)
+      expect(countOccurrences(both, `Test session ID: ${TEST_SESSION_ID}`)).toBe(1)
+      expect(countOccurrences(both, `Inspect session: checkly test-sessions get ${TEST_SESSION_ID} --watch`)).toBe(1)
+      expect(countOccurrences(both, `Open session: ${TEST_SESSION_URL}`)).toBe(1)
     })
   })
 

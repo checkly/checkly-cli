@@ -30,11 +30,19 @@ const mockConfig = {
 function createCommand (...args: string[]) {
   const cmd = new SkillsInstall(args, mockConfig)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   return cmd
 }
 
 function getLogged (cmd: SkillsInstall): string[] {
   return (cmd.log as ReturnType<typeof vi.fn>).mock.calls.map(
+    (call: string[]) => call[0],
+  )
+}
+
+// Guidance, cancellations, and skips are not the result: they go to stderr.
+function getNotes (cmd: SkillsInstall): string[] {
+  return (cmd.logToStderr as ReturnType<typeof vi.fn>).mock.calls.map(
     (call: string[]) => call[0],
   )
 }
@@ -195,7 +203,7 @@ describe('skills install', () => {
       await cmd.run()
 
       expect(writeFile).not.toHaveBeenCalled()
-      expect(getLogged(cmd).some(m => m.includes('Skipped'))).toBe(true)
+      expect(getNotes(cmd).some(m => m.includes('Skipped'))).toBe(true)
     })
 
     it('overwrites when user confirms', async () => {
@@ -231,7 +239,8 @@ describe('skills install', () => {
 
       await cmd.run()
 
-      const logged = getLogged(cmd)
+      expect(getLogged(cmd)).toEqual([])
+      const logged = getNotes(cmd)
       expect(logged.some(m => m.includes('--target claude'))).toBe(true)
       expect(logged.some(m => m.includes('--target cursor'))).toBe(true)
       expect(logged.some(m => m.includes('--target windsurf'))).toBe(true)
@@ -248,7 +257,8 @@ describe('skills install', () => {
 
       await cmd.run()
 
-      const logged = getLogged(cmd)
+      expect(getLogged(cmd)).toEqual([])
+      const logged = getNotes(cmd)
       expect(logged.some(m => m.includes('--target claude'))).toBe(true)
       expect(writeFile).not.toHaveBeenCalled()
     })
@@ -277,7 +287,7 @@ describe('skills install', () => {
 
       expect(prompts).not.toHaveBeenCalled()
       expect(writeFile).not.toHaveBeenCalled()
-      expect(getLogged(cmd).some(m => m.includes('--force'))).toBe(true)
+      expect(getNotes(cmd).some(m => m.includes('--force'))).toBe(true)
     })
   })
 
@@ -289,7 +299,7 @@ describe('skills install', () => {
 
       await cmd.run()
 
-      expect(getLogged(cmd).some(m => m.includes('Cancelled. No skill file written.'))).toBe(true)
+      expect(getNotes(cmd).some(m => m.includes('Cancelled. No skill file written.'))).toBe(true)
       expect(writeFile).not.toHaveBeenCalled()
     })
 
@@ -334,7 +344,7 @@ describe('skills install', () => {
 
       await cmd.run()
 
-      expect(getLogged(cmd).some(m => m.includes('Cancelled. No skill file written.'))).toBe(true)
+      expect(getNotes(cmd).some(m => m.includes('Cancelled. No skill file written.'))).toBe(true)
       expect(writeFile).not.toHaveBeenCalled()
     })
   })
