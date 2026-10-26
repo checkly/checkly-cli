@@ -21,6 +21,7 @@ import {
   Events,
   MAX_SCHEDULING_DELAY_SECONDS,
   SequenceId,
+  CheckFailure,
 } from '../services/abstract-check-runner.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 import commonMessages from '../messages/common-messages.js'
@@ -361,13 +362,14 @@ export default class PwTestCommand extends AuthCommand {
         }, testResultId, links))
       })
 
-    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string) => {
+    runner.on(Events.CHECK_FAILED, (sequenceId: SequenceId, check, message: string, failure?: CheckFailure) => {
       reporters.forEach(r => r.onCheckEnd(sequenceId, {
         ...check,
         logicalId: check.logicalId,
         sourceFile: check.getSourceFile(),
         hasFailures: true,
         runError: message,
+        timedOut: failure?.timedOut ?? false,
       }))
       if (message.includes('No tests found')) {
         this.style.shortInfo('Check your Playwright configuration to ensure it targets your test files.')

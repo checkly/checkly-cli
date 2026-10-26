@@ -66,6 +66,28 @@ describe('GithubMdBuilder', () => {
     expect(markdown).toContain('## Execution Errors')
     expect(markdown).toContain(runError)
   })
+  test('labels a check the CLI stopped waiting for as timed out, not failed', () => {
+    const row = (name: string, timedOut: boolean) => [`seq-${name}`, {
+      result: { name, sourceFile: 'folder/timeout.check.ts', hasFailures: true, runError: 'Error', timedOut },
+      titleString: name,
+      numRetries: 1,
+    }] as const
+    const map: checkFilesMap = new Map([
+      ['folder/timeout.check.ts', new Map([
+        row('Slow check', true),
+        row('Crashed check', false),
+      ])],
+    ])
+    const markdown = new GithubMdBuilder({
+      testSessionId,
+      numChecks: 2,
+      runLocation,
+      checkFilesMap: map,
+    }).render()
+    expect(markdown).toContain('|⏱️ Timed out (1 retry)|Slow check|')
+    expect(markdown).toContain('|❌ Fail (1 retry)|Crashed check|')
+    expect(markdown).toContain('## Execution Errors')
+  })
   test('shows the retry count in the status cell of a check that needed retries', () => {
     const row = (name: string, hasFailures: boolean, numRetries: number) => [`seq-${name}`, {
       result: { name, sourceFile: 'folder/retry.check.ts', hasFailures, checkType: 'API', responseTime: 10 },

@@ -121,7 +121,9 @@ export class JsonBuilder {
         }
         const checkStatus = resultToCheckStatus(result)
         const check: any = {
-          result: checkStatus === CheckStatus.FAILED ? 'Fail' : checkStatus === CheckStatus.DEGRADED ? 'Degraded' : 'Pass',
+          result: checkStatus === CheckStatus.TIMED_OUT
+            ? 'Timed out'
+            : checkStatus === CheckStatus.FAILED ? 'Fail' : checkStatus === CheckStatus.DEGRADED ? 'Degraded' : 'Pass',
           name: result.name,
           checkType: result.checkType,
           durationMilliseconds: result.responseTime ?? null,

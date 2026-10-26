@@ -27,7 +27,9 @@ export default class DotReporter extends AbstractListReporter {
   onCheckEnd (sequenceId: SequenceId, checkResult: any) {
     super.onCheckEnd(sequenceId, checkResult)
     this.#printedMarks = true
-    if (checkResult.hasFailures) {
+    if (checkResult.timedOut) {
+      printLnErr(`${chalk.red('T')}`, 0)
+    } else if (checkResult.hasFailures) {
       printLnErr(`${chalk.red('F')}`, 0)
     } else if (checkResult.isDegraded) {
       printLnErr(`${chalk.yellow('D')}`, 0)

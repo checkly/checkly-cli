@@ -89,7 +89,9 @@ export class GithubMdBuilder {
           continue
         }
         const checkStatus = resultToCheckStatus(result)
-        const statusCell = checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
+        const statusCell = checkStatus === CheckStatus.TIMED_OUT
+          ? '⏱️ Timed out'
+          : checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
         const tableRow: Array<string> = [
           `${statusCell}${retries}`,
           `${result.name}`,

@@ -230,7 +230,7 @@ export default abstract class AbstractListReporter implements Reporter {
   } = {}) {
     const write = opts.stream === 'stderr' ? printLnErr : printLn
     const counts = {
-      numFailed: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
+      numFailed: 0, numTimedOut: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
       numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0, numNotFinished: 0,
     }
     const status = []
@@ -249,6 +249,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numRetrying++
         } else if (!result) {
           counts.numRunning++
+        } else if (checkStatus === CheckStatus.TIMED_OUT) {
+          counts.numTimedOut++
         } else if (result.hasFailures) {
           counts.numFailed++
         } else if (result.isDegraded) {
@@ -302,6 +304,7 @@ export default abstract class AbstractListReporter implements Reporter {
         counts.numRunning ? chalk.bold.magenta(`${counts.numRunning} running`) : undefined,
         counts.numRetrying ? chalk.bold(`${counts.numRetrying} retrying`) : undefined,
         counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
+        counts.numTimedOut ? chalk.bold.red(`${counts.numTimedOut} timed out`) : undefined,
         counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
         counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
         counts.numFlaky ? chalk.bold.yellow(`${counts.numFlaky} flaky`) : undefined,
@@ -331,7 +334,9 @@ export default abstract class AbstractListReporter implements Reporter {
 
   /** `lineEnded`: the reporter already ended its last line, so no empty line opens the summary. */
   _printBriefSummary ({ lineEnded = false }: { lineEnded?: boolean } = {}) {
-    const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0, numNotFinished: 0 }
+    const counts = {
+      numFailed: 0, numTimedOut: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0, numNotFinished: 0,
+    }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [, { result, checkStatus }] of checkMap.entries()) {
@@ -339,6 +344,8 @@ export default abstract class AbstractListReporter implements Reporter {
           counts.numNotFinished++
         } else if (!result) {
           counts.numPending++
+        } else if (checkStatus === CheckStatus.TIMED_OUT) {
+          counts.numTimedOut++
         } else if (result.hasFailures) {
           counts.numFailed++
         } else if (result.isDegraded) {
@@ -355,6 +362,7 @@ export default abstract class AbstractListReporter implements Reporter {
     }
     status.push([
       counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
+      counts.numTimedOut ? chalk.bold.red(`${counts.numTimedOut} timed out`) : undefined,
       counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
       counts.numPassed ? chalk.bold.green(`${counts.numPassed} passed`) : undefined,
       counts.numCancelled ? chalk.bold.grey(`${counts.numCancelled} cancelled`) : undefined,
@@ -379,7 +387,7 @@ export default abstract class AbstractListReporter implements Reporter {
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
       for (const [, { result }] of checkMap.entries()) {
         if (result?.runError) {
-          printLn(formatCheckTitle(CheckStatus.FAILED, result))
+          printLn(formatCheckTitle(resultToCheckStatus(result), result))
           printLn(indentString(formatCheckResult(result), 4), 2, 1)
         }
       }

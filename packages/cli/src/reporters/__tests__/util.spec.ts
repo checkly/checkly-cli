@@ -237,6 +237,21 @@ describe('resultToCheckStatus()', () => {
     expect(resultToCheckStatus({ isCancelled: true, hasFailures: true }))
       .toBe(CheckStatus.CANCELLED)
   })
+  it('returns timed out for a check the CLI stopped waiting for', () => {
+    expect(resultToCheckStatus({ hasFailures: true, runError: 'Reached timeout', timedOut: true }))
+      .toBe(CheckStatus.TIMED_OUT)
+  })
+  it('returns failed for a run error that is not a timeout', () => {
+    expect(resultToCheckStatus({ hasFailures: true, runError: 'runner crashed', timedOut: false }))
+      .toBe(CheckStatus.FAILED)
+  })
+})
+
+describe('formatCheckTitle() with TIMED_OUT status', () => {
+  it('should use the ⏱ symbol for a timed-out check title', () => {
+    const result = stripAnsi(formatCheckTitle(CheckStatus.TIMED_OUT, simpleCheckFixture))
+    expect(result).toContain('⏱')
+  })
 })
 
 describe('formatCheckTitle() with CANCELLED status', () => {

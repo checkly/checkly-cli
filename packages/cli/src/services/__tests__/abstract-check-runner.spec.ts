@@ -747,6 +747,23 @@ describe('AbstractCheckRunner — per-check timeouts vs scheduling delay', () =>
     ;(runner as any).disableAllTimeouts()
   })
 
+  it('flags a timeout as timed out, unlike other run errors', async () => {
+    const runner = new StubCheckRunner('acc-1', TIMEOUT_SECONDS, false)
+    runner.checks = new Map([['seq-1', { check: {} }], ['seq-2', { check: {} }]])
+    const failures: Array<{ sequenceId: string, failure?: { timedOut?: boolean } }> = []
+    runner.on(Events.CHECK_FAILED, (sequenceId, _check, _message, failure) => failures.push({ sequenceId, failure }))
+    ;(runner as any).setAllTimeouts()
+
+    await (runner as any).processMessage('seq-2', 'error', 'runner crashed')
+    await vi.advanceTimersByTimeAsync((TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000)
+
+    expect(failures).toEqual([
+      { sequenceId: 'seq-2', failure: undefined },
+      { sequenceId: 'seq-1', failure: { timedOut: true } },
+    ])
+    ;(runner as any).disableAllTimeouts()
+  })
+
   it('a final result before the timeout produces no failure', async () => {
     const { runner, failures } = makeArmedRunner()
     const successes: string[] = []

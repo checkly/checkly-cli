@@ -64,7 +64,7 @@ export default class ListReporter extends AbstractListReporter {
       printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
     } else {
       if (checkResult.hasFailures) {
-        printLn(formatCheckTitle(CheckStatus.FAILED, checkResult))
+        printLn(formatCheckTitle(resultToCheckStatus(checkResult), checkResult))
         printLn(indentString(formatCheckResult(checkResult), 4), 2, 1)
       }
       if (checkResult.isDegraded) {
