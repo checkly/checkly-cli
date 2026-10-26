@@ -30,7 +30,7 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, Playwright
    * (.node-version, .nvmrc, .tool-versions, .bun-version, or package.json volta/engines).
    *
    * @example Engine.node('24')
-   * @example Engine.bun('1.3')
+   * @example Engine.bun('1.4')
    */
   engine?: Engine
   /**

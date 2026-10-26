@@ -57,7 +57,7 @@
 
 - Do not use `runtimeId` for Playwright Check Suites. Browser and Multistep Checks use `runtimeId`; Playwright Check Suites use project dependencies plus `engine`.
 - Omit `engine` unless the user explicitly asks to override the JavaScript engine or version.
-- If an engine override is needed, import `Engine` from `checkly/constructs` and use `Engine.node("24")` or `Engine.bun("1.3")`.
+- If an engine override is needed, import `Engine` from `checkly/constructs` and use `Engine.node("24")` or `Engine.bun("1.4")` (`Engine.bun("1")` follows the newest Bun 1.x available on the runner).
 - If no engine is configured or detected, Checkly defaults to Node.js 22. Node.js engine majors map to pinned patch versions: `22` -> `22.14.0`, `24` -> `24.13.1`, and `26` -> `26.2.0`.
 - For env vars Checkly exposes at runtime (e.g. `CHECKLY=1` for "am I running on Checkly?"), see `npx checkly skills configure environment`.
 

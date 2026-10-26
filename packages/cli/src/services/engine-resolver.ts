@@ -16,6 +16,10 @@ function resolveWithConfig (version: string, config: EngineVersionConfig): Engin
     if (seen.has(current)) break
     seen.add(current)
 
+    if (config.aliases?.includes(current)) {
+      return { version: current, notices, denied: false }
+    }
+
     const sv = semver.coerce(current)
     if (!sv) {
       return { version: config.default, notices, denied: false }
