@@ -59,8 +59,8 @@ async function loginInlineIfNeeded (command: BaseCommand): Promise<boolean> {
 /**
  * Exit code of a write command that stopped for confirmation in agent or CI
  * mode, after printing the `confirmation_required` envelope. It differs from
- * oclif's 2 (usage errors and `this.error()`), so the exit code alone says
- * whether the command needs approval.
+ * oclif's 2 for usage errors, so the exit code alone says whether the command
+ * needs approval.
  */
 export const CONFIRMATION_REQUIRED_EXIT_CODE = 3
 

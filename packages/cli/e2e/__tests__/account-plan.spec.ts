@@ -79,7 +79,7 @@ describe('checkly account plan', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.exitCode).toBe(2)
+        expect(err.exitCode).toBe(1)
         expect(err.stderr).toContain('not found')
       } else {
         throw err
