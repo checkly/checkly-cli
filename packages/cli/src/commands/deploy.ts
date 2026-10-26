@@ -290,7 +290,7 @@ export default class Deploy extends AuthCommand {
           `${needsPlan} applies to a planned deploy only.`,
           `Re-run without --no-plan, or without ${needsPlan}.`,
         )
-        this.exit(1)
+        this.exit(2)
       }
     }
 
@@ -308,7 +308,7 @@ export default class Deploy extends AuthCommand {
           `--${refiningFlag} applies only when checks are scheduled after the deploy.`,
           `Add --schedule-on-deploy to schedule them, or drop --${refiningFlag}.`,
         )
-        this.exit(1)
+        this.exit(2)
       }
     }
 

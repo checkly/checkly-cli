@@ -25,27 +25,14 @@ function describePlan (plan: ImportPlan): string {
 }
 
 /**
- * Returns the reason a flag combination is contradictory, or `undefined` when
- * the combination is valid. Contradictions never depend on remote state.
- */
-function planFlagsConflict ({ all, planId }: PlanFlags): string | undefined {
-  if (all === true && planId !== undefined) {
-    return '--all and --plan-id cannot be used together.'
-  }
-
-  return undefined
-}
-
-/**
  * Rejects contradictory flag combinations before any plans are fetched, so that
  * an impossible command line fails identically whether or not plans happen to
  * exist remotely.
  */
-export function validatePlanFlagsOrExit (command: BaseCommand, flags: PlanFlags): void {
-  const conflict = planFlagsConflict(flags)
-  if (conflict !== undefined) {
-    command.style.fatal(conflict)
-    command.exit(1)
+export function validatePlanFlagsOrExit (command: BaseCommand, { all, planId }: PlanFlags): void {
+  if (all === true && planId !== undefined) {
+    command.style.fatal('--all and --plan-id cannot be used together.')
+    command.exit(2)
   }
 }
 
@@ -173,12 +160,8 @@ export async function selectPlansOrExit (
   action: string,
   interactiveFallback: () => Promise<ImportPlan[]>,
 ): Promise<ImportPlan[]> {
+  validatePlanFlagsOrExit(command, { all, planId })
   try {
-    const conflict = planFlagsConflict({ all, planId })
-    if (conflict !== undefined) {
-      throw new PlanSelectionError(conflict)
-    }
-
     if (all) {
       return plans
     }

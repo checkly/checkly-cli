@@ -10,6 +10,7 @@ import {
   PlanSelectionError,
   reportNoCandidatePlans,
   resolvePlanNonInteractively,
+  selectPlansOrExit,
   validatePlanFlagsOrExit,
 } from '../import-plan-selection.js'
 
@@ -97,10 +98,10 @@ describe('resolvePlanNonInteractively', () => {
 })
 
 describe('validatePlanFlagsOrExit', () => {
-  it('exits 1 when --all and --plan-id are combined', () => {
+  it('exits 2, the usage-error code, when --all and --plan-id are combined', () => {
     const command = createCommand()
 
-    expect(() => validatePlanFlagsOrExit(command, { all: true, planId: 'a' })).toThrow('EXIT_1')
+    expect(() => validatePlanFlagsOrExit(command, { all: true, planId: 'a' })).toThrow('EXIT_2')
     expect(command.style.fatal).toHaveBeenCalledWith(expect.stringContaining('cannot be used together'))
   })
 
@@ -113,6 +114,18 @@ describe('validatePlanFlagsOrExit', () => {
 
     expect(() => validatePlanFlagsOrExit(command, flags)).not.toThrow()
     expect(command.style.fatal).not.toHaveBeenCalled()
+  })
+})
+
+describe('selectPlansOrExit', () => {
+  it('exits 2 when --all and --plan-id are combined, without selecting', async () => {
+    const command = createCommand()
+    const interactiveFallback = vi.fn()
+
+    await expect(selectPlansOrExit(command, [plan('a')], { all: true, planId: 'a' }, 'cancel', interactiveFallback))
+      .rejects.toThrow('EXIT_2')
+    expect(command.style.fatal).toHaveBeenCalledWith(expect.stringContaining('cannot be used together'))
+    expect(interactiveFallback).not.toHaveBeenCalled()
   })
 })
 

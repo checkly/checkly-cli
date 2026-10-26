@@ -127,7 +127,7 @@ describe('assets commands', () => {
     })
     await expect(AssetsList.prototype.run.call(missing as any))
       .rejects
-      .toThrow('Use exactly one of --check-id or --test-session-id.')
+      .toMatchObject({ message: 'Use exactly one of --check-id or --test-session-id.', oclif: { exit: 2 } })
 
     const both = createCommandContext({
       flags: {
@@ -139,7 +139,7 @@ describe('assets commands', () => {
     })
     await expect(AssetsList.prototype.run.call(both as any))
       .rejects
-      .toThrow('Use exactly one of --check-id or --test-session-id, not both.')
+      .toMatchObject({ message: 'Use exactly one of --check-id or --test-session-id, not both.', oclif: { exit: 2 } })
   })
 
   it('lists check result assets as a table with copyable Asset values and truncation warning', async () => {
@@ -743,7 +743,7 @@ describe('assets commands', () => {
 
     await expect(AssetsDownload.prototype.run.call(ctx as any))
       .rejects
-      .toThrow('--force and --skip-existing are mutually exclusive.')
+      .toMatchObject({ message: '--force and --skip-existing are mutually exclusive.', oclif: { exit: 2 } })
   })
 
   it('does not expose archive extraction before it is implemented', () => {

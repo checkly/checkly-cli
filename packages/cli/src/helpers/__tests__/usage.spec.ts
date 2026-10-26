@@ -5,6 +5,7 @@ import {
   describeUsageError, projectionsParams, usageRangeParams, usageSeriesFlags, usageSeriesParams,
   usageTermsParams, validateUsageTermId,
 } from '../usage.js'
+import { InvalidInputError } from '../invalid-input-error.js'
 
 const id = '550e8400-e29b-41d4-a716-446655440000'
 const account = 'a1111111-1111-1111-1111-111111111111'
@@ -20,6 +21,7 @@ describe('usage input validation', () => {
   it.each(['2026-2-1', '01-02-2026', '2026-02-30', '2026-13-01', 'yesterday', ''])('rejects date %s', value => {
     expect(() => usageTermsParams({ to: value, limit: 100 }))
       .toThrow('--to must be a valid calendar date in YYYY-MM-DD format.')
+    expect(() => usageTermsParams({ to: value, limit: 100 })).toThrow(InvalidInputError)
   })
 
   it('keeps omitted terms bounds unset', () => {

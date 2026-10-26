@@ -89,6 +89,32 @@ describe('alert-channels commands', () => {
     expect(JSON.parse(ctx.logged[0])).toEqual(alertChannelFixture)
   })
 
+  it('get <id> rejects an invalid ID with the usage-error exit code', async () => {
+    const ctx = createCommandContext({
+      args: { id: 'abc' },
+      flags: { output: 'json' },
+    })
+
+    await AlertChannelsGet.prototype.run.call(ctx as any)
+
+    expect(api.alertChannels.get).not.toHaveBeenCalled()
+    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to get alert channel details.',
+      expect.objectContaining({ message: 'Alert channel ID must be a positive integer.' }))
+    expect(process.exitCode).toBe(2)
+  })
+
+  it('get <id> keeps exit 1 for an API failure', async () => {
+    vi.mocked(api.alertChannels.get).mockRejectedValue(new Error('boom'))
+    const ctx = createCommandContext({
+      args: { id: '123' },
+      flags: { output: 'json' },
+    })
+
+    await AlertChannelsGet.prototype.run.call(ctx as any)
+
+    expect(process.exitCode).toBe(1)
+  })
+
   it('get <id> includes navigation hints in terminal output', async () => {
     const ctx = createCommandContext({
       args: { id: '123' },

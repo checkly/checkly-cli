@@ -99,13 +99,18 @@ change in the PR.
 | Code | Meaning |
 |---|---|
 | 0 | Success. Also a declined confirmation, `--dry-run` previews, and runs whose checks passed or only degraded (a degraded check does not fail the run). A run stopped with Ctrl-C has no code of its own: it exits 1 if a result that arrived failed, and 0 otherwise. |
-| 1 | Failure: a failed check or run error, no matching checks under `--fail-on-no-matching` (the default), API errors, invalid configuration, or a failure reported only on stderr. |
-| 2 | Usage error: unknown flags or arguments, oclif parse errors, or invalid flag or argument values a command rejects with `this.error`. The message is on stderr and stdout is empty. |
+| 1 | Failure: a failed check or run error, no matching checks under `--fail-on-no-matching` (the default), API errors, invalid configuration, well-formed input that names something that does not exist (an unknown location, plan or entitlement), or a failure reported only on stderr. |
+| 2 | Usage error: unknown flags or arguments, oclif parse errors, invalid flag or argument values, or flags that cannot be combined. The message is on stderr; stdout is empty, except that some commands print their JSON error document under `--output json`. |
 | 3 | `confirmation_required` (agent and CI mode): a write command stopped for approval and printed the envelope on stdout. |
 | 127 | Unknown command. |
 
-oclif's `this.error` exits 2 by default, so commands report any other failure
-through it with `{ exit: 1 }`; a bare `this.error` is for invalid input.
+Commands reject invalid input with a bare `this.error` (oclif's default exit
+is 2), by throwing `InvalidInputError` (`helpers/invalid-input-error.ts`), or
+with `style.longError`/`style.fatal` followed by `this.exit(2)`. Validation
+helpers throw `InvalidInputError`, since they cannot call `this.error`; a catch
+block that reports an error itself takes the code from `exitCodeFor(err)`, so
+invalid input caught there still exits 2. Any other failure exits 1, through
+`this.error` with `{ exit: 1 }` when it uses oclif's.
 
 ## Notes
 

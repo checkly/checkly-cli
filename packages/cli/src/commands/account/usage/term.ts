@@ -2,6 +2,7 @@ import { Args } from '@oclif/core'
 import { AuthCommand } from '../../authCommand.js'
 import { outputFlag } from '../../../helpers/flags.js'
 import { describeUsageError, validateUsageTermId } from '../../../helpers/usage.js'
+import { exitCodeFor } from '../../../helpers/invalid-input-error.js'
 import * as api from '../../../rest/api.js'
 import { formatUsageTermDetail } from '../../../formatters/usage.js'
 
@@ -25,7 +26,7 @@ export default class UsageTermCommand extends AuthCommand {
         : formatUsageTermDetail(term, flags.output === 'md' ? 'md' : 'terminal'))
     } catch (err: unknown) {
       this.style.longError('Failed to load usage term.', describeUsageError(err, { termId: args.id }))
-      process.exitCode = 1
+      process.exitCode = exitCodeFor(err)
     }
   }
 }

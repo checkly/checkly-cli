@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { prepareMaxFailures, prepareReportersTypes, validateDetachReporterTypes } from '../test-helper.js'
 import type { CliMode } from '../cli-mode.js'
+import { InvalidInputError } from '../invalid-input-error.js'
 
 const cliMode = vi.hoisted(() => ({ value: 'interactive' as CliMode }))
 vi.mock('../cli-mode.js', () => ({ detectCliMode: () => cliMode.value }))
@@ -63,6 +64,7 @@ describe('validateDetachReporterTypes', () => {
 
   it('rejects json reporter in detach mode', () => {
     expect(() => validateDetachReporterTypes(['json'])).toThrow('--detach does not support --reporter json')
+    expect(() => validateDetachReporterTypes(['json'])).toThrow(InvalidInputError)
   })
 
   it('rejects github reporter in detach mode', () => {

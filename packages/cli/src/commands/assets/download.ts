@@ -1,6 +1,7 @@
 import { Flags } from '@oclif/core'
 import path from 'node:path'
 import { AuthCommand } from '../authCommand.js'
+import { InvalidInputError } from '../../helpers/invalid-input-error.js'
 import { outputFlag } from '../../helpers/flags.js'
 import { assetSelectorValue, formatDownloadedAssets, type DownloadedAssetRow } from '../../formatters/assets.js'
 import {
@@ -87,7 +88,7 @@ export default class AssetsDownload extends AuthCommand {
     }
 
     if (flags.force && flags['skip-existing']) {
-      throw new Error('--force and --skip-existing are mutually exclusive.')
+      throw new InvalidInputError('--force and --skip-existing are mutually exclusive.')
     }
 
     try {

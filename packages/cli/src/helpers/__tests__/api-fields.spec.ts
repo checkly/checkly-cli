@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { parseFields } from '../api-fields.js'
+import { InvalidInputError } from '../invalid-input-error.js'
 
 describe('parseFields', () => {
   it('parses string fields with =', () => {
@@ -33,6 +34,7 @@ describe('parseFields', () => {
 
   it('throws on field without = or :=', () => {
     expect(() => parseFields(['broken'])).toThrow('Invalid field format: "broken"')
+    expect(() => parseFields(['broken'])).toThrow(InvalidInputError)
   })
 
   it('throws on invalid JSON in := field', () => {

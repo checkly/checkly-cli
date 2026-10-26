@@ -16,6 +16,7 @@ import {
 import * as api from '../rest/api.js'
 import type { UsageNames } from '../formatters/usage.js'
 import { validateIntegerRange } from './number.js'
+import { InvalidInputError } from './invalid-input-error.js'
 
 const DATE_ONLY_PATTERN = /^\d{4}-\d{2}-\d{2}$/
 const ACCOUNT_ID_PATTERN = /^[\da-f]{8}-[\da-f]{4}-[\da-f]{4}-[\da-f]{4}-[\da-f]{12}$/i
@@ -79,7 +80,7 @@ export function usageSeriesFlags () {
 function parseDateOnly (value: string | undefined, label: string): string | undefined {
   if (value === undefined) return undefined
   const trimmed = value.trim()
-  const error = new Error(`${label} must be a valid calendar date in YYYY-MM-DD format.`)
+  const error = new InvalidInputError(`${label} must be a valid calendar date in YYYY-MM-DD format.`)
   if (!DATE_ONLY_PATTERN.test(trimmed)) throw error
   const [year, month, day] = trimmed.split('-').map(Number)
   const parsed = new Date(0)
@@ -108,13 +109,13 @@ interface UsageSeriesFlagValues extends UsageRangeFlagValues, UsagePaginationFla
 function rangeParams (flags: UsageDateFlags): UsageDateFlags {
   const from = parseDateOnly(flags.from, '--from')
   const to = parseDateOnly(flags.to, '--to')
-  if (from && to && from > to) throw new Error('--from must be on or before --to.')
+  if (from && to && from > to) throw new InvalidInputError('--from must be on or before --to.')
   return { from, to }
 }
 
 function cursor (value: string | undefined): string | undefined {
   if (value !== undefined && (value.length === 0 || value.length > 4096)) {
-    throw new Error('--cursor must contain between 1 and 4096 characters.')
+    throw new InvalidInputError('--cursor must contain between 1 and 4096 characters.')
   }
   return value
 }
@@ -123,15 +124,15 @@ function parseList (values: string[] | undefined, label: string): string[] | und
   if (values === undefined) return undefined
   const entries = values.flatMap(value => value.split(',').map(part => part.trim()))
   if (entries.length === 0 || entries.some(entry => entry.length === 0)) {
-    throw new Error(`${label} must not contain empty values.`)
+    throw new InvalidInputError(`${label} must not contain empty values.`)
   }
-  if (entries.length > 100) throw new Error(`${label} accepts at most 100 values.`)
+  if (entries.length > 100) throw new InvalidInputError(`${label} accepts at most 100 values.`)
   return [...new Set(entries)]
 }
 
 function parseEnum<T extends string> (value: string, options: readonly T[], label: string): T {
   const match = options.find(option => option === value)
-  if (match === undefined) throw new Error(`${label} must be one of: ${options.join(', ')}.`)
+  if (match === undefined) throw new InvalidInputError(`${label} must be one of: ${options.join(', ')}.`)
   return match
 }
 
@@ -143,13 +144,13 @@ function enumList<T extends string> (
 
 export function validateUsageTermId (value: string, label = 'Usage term ID'): string {
   const trimmed = value.trim()
-  if (!isUuid(trimmed)) throw new Error(`${label} must be a valid UUID.`)
+  if (!isUuid(trimmed)) throw new InvalidInputError(`${label} must be a valid UUID.`)
   return trimmed
 }
 
 function rejectLegacyCheckType (flags: { 'check-type'?: string[] }): void {
   if (flags['check-type'] !== undefined) {
-    throw new Error('Usage v2 does not support --check-type filtering. '
+    throw new InvalidInputError('Usage v2 does not support --check-type filtering. '
       + 'Use --pricing-rule to select charges or --group-by checkType on series for a check-type breakdown.')
   }
 }
@@ -165,7 +166,7 @@ export function usageTermsParams (flags: UsageTermsFlagValues): UsageTermsParams
 export function usageRangeParams (flags: UsageRangeFlagValues): UsageRangeParams {
   rejectLegacyCheckType(flags)
   const accountIds = parseList(flags['account-id'], '--account-id')?.map(value => {
-    if (!ACCOUNT_ID_PATTERN.test(value)) throw new Error('--account-id must contain valid GUIDs.')
+    if (!ACCOUNT_ID_PATTERN.test(value)) throw new InvalidInputError('--account-id must contain valid GUIDs.')
     return value
   })
   return {
@@ -194,7 +195,7 @@ export function usageSeriesParams (flags: UsageSeriesFlagValues): UsageSeriesPar
 export function projectionsParams (flags: { 'as-of'?: string }): UsageProjectionsParams {
   const asOf = parseDateOnly(flags['as-of'], '--as-of')
   if (asOf !== undefined && asOf >= new Date().toISOString().slice(0, 10)) {
-    throw new Error('--as-of must be a completed UTC date, before today. Defaults to yesterday UTC.')
+    throw new InvalidInputError('--as-of must be a completed UTC date, before today. Defaults to yesterday UTC.')
   }
   return asOf === undefined ? {} : { asOf }
 }

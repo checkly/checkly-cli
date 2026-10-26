@@ -43,4 +43,25 @@ describe('cli parse error', () => {
       }
     }
   })
+
+  // Input a command rejects itself, before any API call, exits with the
+  // usage-error code like oclif's own parse errors.
+  it.each([
+    ['a malformed api field', ['api', '/v1/checks', '-F', 'broken'], 'Invalid field format'],
+    ['a custom flag parse failure', ['deploy', '--schedule-on-deploy-threshold', 'abc'],
+      'Expected a non-negative whole number or "auto"'],
+    ['an unsupported import resource type', ['import', 'plan', 'bogus:1'], 'Unsupported resource type'],
+  ])('exits 2 for %s', async (_, args, message) => {
+    try {
+      await runCheckly(fixt, args)
+      expect.unreachable('Expected command to fail')
+    } catch (err) {
+      if (err instanceof ExecaError) {
+        expect(err.exitCode).toBe(2)
+        expect(err.stderr).toContain(message)
+      } else {
+        throw err
+      }
+    }
+  })
 })

@@ -2,6 +2,7 @@ import { Flags } from '@oclif/core'
 import { AuthCommand } from '../authCommand.js'
 import { outputFlag } from '../../helpers/flags.js'
 import { validateIntegerRange } from '../../helpers/number.js'
+import { exitCodeFor } from '../../helpers/invalid-input-error.js'
 import * as api from '../../rest/api.js'
 import type { OutputFormat } from '../../formatters/render.js'
 import {
@@ -71,7 +72,7 @@ export default class AlertChannelsList extends AuthCommand {
       this.log(output.join('\n'))
     } catch (err: any) {
       this.style.longError('Failed to list alert channels.', err)
-      process.exitCode = 1
+      process.exitCode = exitCodeFor(err)
     }
   }
 }
