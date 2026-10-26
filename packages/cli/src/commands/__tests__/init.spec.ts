@@ -81,6 +81,9 @@ function createCommand (...args: string[]) {
   const cmd = new Init(args, mockConfig)
   cmd.log = vi.fn() as any
   cmd.logToStderr = vi.fn() as any
+  cmd.exit = vi.fn((code: number) => {
+    throw new Error(`EXIT_${code}`)
+  }) as any
   return cmd
 }
 
@@ -212,8 +215,9 @@ describe('Init command', () => {
       const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => msg)
       expect(logged).toHaveLength(1)
       const result = JSON.parse(logged[0] as string)
-      expect(result.success).toBe(true)
+      expect(result.status).toBe('success')
       expect(result.hasChecklyConfig).toBe(true)
+      expect(cmd.exit).not.toHaveBeenCalled()
       // The project has its own checkly copy now; the agent must keep using it.
       expect(result.note).toBe('local-cli-note')
     })
@@ -225,16 +229,16 @@ describe('Init command', () => {
         throw new Error('EACCES: permission denied')
       })
       const cmd = createCommand()
-      await cmd.run()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(createConfig).not.toHaveBeenCalled()
       expect(runSkillInstallStep).not.toHaveBeenCalled()
       const logged = vi.mocked(cmd.log).mock.calls.map(([msg]) => msg)
       expect(logged).toHaveLength(1)
       const result = JSON.parse(logged[0] as string)
-      expect(result.success).toBe(false)
-      expect(result.error).toContain('Could not create package.json')
-      expect(result.error).toContain('EACCES')
+      expect(result.status).toBe('error')
+      expect(result.message).toContain('Could not create package.json')
+      expect(result.message).toContain('EACCES')
     })
 
     it('outputs JSON, no greeting', async () => {
@@ -259,7 +263,7 @@ describe('Init command', () => {
       expect(greeting).not.toHaveBeenCalled()
       const jsonCall = vi.mocked(cmd.log).mock.calls.find(
         ([msg]) =>
-          typeof msg === 'string' && msg.includes('"success":true'),
+          typeof msg === 'string' && msg.includes('"status":"success"'),
       )
       expect(jsonCall).toBeDefined()
       expect(jsonCall?.[0]).toContain('"hasChecklyConfig":true')
@@ -277,22 +281,83 @@ describe('Init command', () => {
       expect(runDepsInstall).not.toHaveBeenCalled()
     })
 
-    it('returns success false when setup fails', async () => {
+    it('prints a JSON error and exits 1 when the config cannot be created', async () => {
       vi.mocked(detectCliMode).mockReturnValue('agent')
       vi.mocked(createConfig).mockReturnValue({
         ok: false,
         created: false,
       })
       const cmd = createCommand()
-      await cmd.run()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(runDepsInstall).not.toHaveBeenCalled()
-      const jsonCall = vi.mocked(cmd.log).mock.calls.find(
-        ([msg]) =>
-          typeof msg === 'string' && msg.includes('"success":false'),
-      )
-      expect(jsonCall).toBeDefined()
-      expect(jsonCall?.[0]).toContain('Could not create checkly.config.ts')
+      expect(cmd.log).toHaveBeenCalledTimes(1)
+      expect(JSON.parse(vi.mocked(cmd.log).mock.calls[0][0] as string)).toEqual({
+        status: 'error',
+        message: 'Could not create checkly.config.ts',
+      })
+    })
+
+    it('prints a JSON error and exits 1 when dependencies cannot be installed', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(runDepsInstall).mockResolvedValue({
+        ok: false,
+        packageJsonUpdated: false,
+        installed: false,
+      })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(cmd.log).toHaveBeenCalledTimes(1)
+      expect(JSON.parse(vi.mocked(cmd.log).mock.calls[0][0] as string)).toEqual({
+        status: 'error',
+        message: 'Could not install dependencies',
+      })
+    })
+
+    it('prints a JSON error and exits 1 when the --target skill cannot be installed', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(writeSkillToTarget).mockRejectedValue(new Error('EACCES: permission denied'))
+      const cmd = createCommand('--target', 'claude')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(cmd.log).toHaveBeenCalledTimes(1)
+      const result = JSON.parse(vi.mocked(cmd.log).mock.calls[0][0] as string)
+      expect(result.status).toBe('error')
+      expect(result.message).toContain('EACCES')
+    })
+
+    it('prints one JSON error and exits 1 when a step throws', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      vi.mocked(runSkillInstallStep).mockRejectedValue(new Error('boom'))
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(cmd.log).toHaveBeenCalledTimes(1)
+      expect(JSON.parse(vi.mocked(cmd.log).mock.calls[0][0] as string)).toEqual({
+        status: 'error',
+        message: 'boom',
+      })
+    })
+
+    it('still succeeds when the automatic skill install finds nothing to install', async () => {
+      // The automatic install is best-effort, unlike an explicit --target.
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      const cmd = createCommand()
+      await cmd.run()
+
+      expect(cmd.exit).not.toHaveBeenCalled()
+      const result = JSON.parse(vi.mocked(cmd.log).mock.calls[0][0] as string)
+      expect(result.status).toBe('success')
+      expect(result.skillInstalled).toBe(false)
+    })
+
+    it('rejects an unknown --target without printing JSON', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('agent')
+      const cmd = createCommand('--target', 'nope')
+      await expect(cmd.run()).rejects.toThrow('Unknown target "nope"')
+
+      expect(cmd.log).not.toHaveBeenCalled()
     })
 
     it('reuses the explicit --target install instead of auto-installing again', async () => {
@@ -317,7 +382,7 @@ describe('Init command', () => {
       expect(runSkillInstallStep).not.toHaveBeenCalled()
       const jsonCall = vi.mocked(cmd.log).mock.calls.find(
         ([msg]) =>
-          typeof msg === 'string' && msg.includes('"success":true'),
+          typeof msg === 'string' && msg.includes('"status":"success"'),
       )
       expect(jsonCall?.[0]).toContain('"skillPlatform":"claude"')
       // The explicit install's status line is chatter; stdout holds only the JSON.
@@ -359,6 +424,33 @@ describe('Init command', () => {
       await cmd.run()
       expect(vi.mocked(writeFileSync)).not.toHaveBeenCalled()
       expect(createConfig).toHaveBeenCalled()
+      expect(cmd.exit).not.toHaveBeenCalled()
+    })
+
+    it('exits 1 when setup fails', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+      vi.mocked(runDepsInstall).mockResolvedValue({
+        ok: false,
+        packageJsonUpdated: false,
+        installed: false,
+      })
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(cmd.log).not.toHaveBeenCalled()
+      expect(vi.mocked(cmd.logToStderr).mock.calls.map(([msg]) => String(msg)))
+        .toContainEqual(expect.stringContaining('Could not install dependencies'))
+    })
+
+    it('exits 1 when the --target skill cannot be installed', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('ci')
+      vi.mocked(writeSkillToTarget).mockRejectedValue(new Error('EACCES: permission denied'))
+      const cmd = createCommand('--target', 'claude')
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(cmd.log).not.toHaveBeenCalled()
+      expect(vi.mocked(cmd.logToStderr).mock.calls.map(([msg]) => String(msg)))
+        .toContainEqual(expect.stringContaining('Could not install skill: EACCES'))
     })
   })
 
