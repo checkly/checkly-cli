@@ -2,8 +2,8 @@ import chalk from 'chalk'
 import { existsSync } from 'fs'
 import { mkdir, readFile, writeFile } from 'fs/promises'
 import { join, dirname } from 'path'
-import prompts from 'prompts'
 import { fileURLToPath } from 'node:url'
+import { prompt } from '../helpers/prompts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -79,7 +79,7 @@ export async function promptForPlatformTarget (
 
   const promptOptions = onCancel ? { onCancel } : {}
 
-  const { platform } = await prompts({
+  const { platform } = await prompt({
     type: 'select',
     name: 'platform',
     message: 'Which AI coding agent do you use?',
@@ -90,7 +90,7 @@ export async function promptForPlatformTarget (
   if (platform === undefined) return undefined
 
   if (platform === '__custom__') {
-    const { customPath } = await prompts({
+    const { customPath } = await prompt({
       type: 'text',
       name: 'customPath',
       message: 'Enter the target directory:',

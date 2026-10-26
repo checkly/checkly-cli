@@ -67,8 +67,8 @@ describe('checkly env pull', () => {
       expect.unreachable('Expected process to be killed by timeout')
     } catch (err) {
       if (err instanceof ExecaError) {
-        // result.stdout contains 'Found existing file.'
-        expect(err.stdout).toContain('Found existing file .envPullTest.')
+        // The overwrite question renders on stderr.
+        expect(err.stderr).toContain('Found existing file .envPullTest.')
       } else {
         throw err
       }

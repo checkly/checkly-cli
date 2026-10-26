@@ -2,7 +2,6 @@ import { Flags } from '@oclif/core'
 import { constants } from 'fs'
 import { access } from 'fs/promises'
 import { join } from 'path'
-import prompts from 'prompts'
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { BaseCommand } from '../baseCommand.js'
@@ -12,6 +11,7 @@ import {
   writeSkillToTarget,
   promptForPlatformTarget,
 } from '../../services/skills.js'
+import { prompt } from '../../helpers/prompts.js'
 
 const SKILL_FILENAME = 'SKILL.md'
 
@@ -141,7 +141,7 @@ export default class SkillsInstall extends BaseCommand {
       return false
     }
 
-    const { overwrite } = await prompts({
+    const { overwrite } = await prompt({
       type: 'confirm',
       name: 'overwrite',
       message: `Skill file already exists at ${targetPath}. Overwrite?`,

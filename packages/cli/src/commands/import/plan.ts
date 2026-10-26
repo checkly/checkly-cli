@@ -3,7 +3,7 @@ import path from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 
 import { Args, Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 import chalk from 'chalk'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
@@ -36,6 +36,7 @@ import { Project } from '../../constructs/project.js'
 import { ConstructExport, Session } from '../../constructs/session.js'
 import { Diagnostics } from '../../constructs/index.js'
 import { Runtime } from '../../runtimes/index.js'
+import { prompt } from '../../helpers/prompts.js'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
@@ -497,7 +498,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     })
 
     while (true) {
-      const { projectName } = await prompts({
+      const { projectName } = await prompt({
         name: 'projectName',
         type: 'text',
         message: 'What should we call your project?',
@@ -531,7 +532,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     })
 
     while (true) {
-      const { logicalId } = await prompts({
+      const { logicalId } = await prompt({
         name: 'logicalId',
         type: 'text',
         message: 'How would you like your project to be identified?',
@@ -569,7 +570,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       + `through the process.`,
     )
 
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `Yes, I want to start a new project for the imported resources`,
       value: 'init',
       description: `We'll walk you through a minimal setup`,
@@ -583,7 +584,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       description: 'No changes will be made.',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'select',
       message: 'Set up a new Checkly project?',
@@ -751,7 +752,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     const { unsafeDisplayCommand, executable, args } = packageManager.installCommand()
 
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `Yes, please run \`${unsafeDisplayCommand}\` for me`,
       value: 'install',
     }, {
@@ -762,7 +763,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       value: 'later',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       type: 'select',
       name: 'action',
       message: 'Would you like to install dependencies now? (recommended)',
@@ -801,7 +802,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             + `dependencies later by yourself.`,
           )
 
-          const { action } = await prompts({
+          const { action } = await prompt({
             type: 'confirm',
             name: 'action',
             message: 'Continue the import process?',
@@ -837,7 +838,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           value: 'other',
         })
 
-        const { action } = await prompts({
+        const { action } = await prompt({
           type: 'select',
           name: 'action',
           message: 'Which package manager would you like to use?',
@@ -858,7 +859,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             + `dependencies later by yourself.`,
           )
 
-          const { action } = await prompts({
+          const { action } = await prompt({
             type: 'confirm',
             name: 'action',
             message: 'Continue the import process?',
@@ -994,7 +995,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #confirmRetryWithoutFailed (): Promise<boolean> {
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'confirm',
       message: 'Would you like to try again without the failed resources?',
@@ -1037,7 +1038,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #interactiveFilter (logicalId: string, codegen: ConstructCodegen): Promise<ImportPlanFilter[]> {
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `I want to import everything in one go`,
       value: 'all',
     }, {
@@ -1050,7 +1051,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       description: 'No changes will be made.',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'select',
       message: 'Which resources would you like to import?',
@@ -1062,7 +1063,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       case 'all':
         return []
       case 'choose': {
-        const choices: prompts.Choice[] = await (async () => {
+        const choices: Choice[] = await (async () => {
           this.style.actionStart('Fetching available resources')
 
           try {
@@ -1105,7 +1106,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           return a.title.localeCompare(b.title)
         })
 
-        const { resources } = await prompts({
+        const { resources } = await prompt({
           name: 'resources',
           type: 'autocompleteMultiselect',
           message: 'Please select the resources you would like to import',
@@ -1349,7 +1350,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       // The project does not exist yet and we must create (initialize) it.
     }
 
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `Yes, I want to start a new project with the imported resources`,
       value: 'init',
     }, {
@@ -1362,7 +1363,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       description: 'No changes will be made.',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'select',
       message: 'Your project has not been initialized yet. Initialize now?',
@@ -1403,7 +1404,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #handleExistingPlans (plans: ImportPlan[]) {
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: 'I want to exit and rethink',
       value: 'exit',
       description: 'No changes will be made.',
@@ -1419,7 +1420,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }]
 
     while (true) {
-      const { action } = await prompts({
+      const { action } = await prompt({
         name: 'action',
         type: 'select',
         message: `Found ${plans.length} existing uncommitted plan(s). How do you want to proceed?`,
@@ -1440,7 +1441,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             this.log()
           }
 
-          const { action } = await prompts({
+          const { action } = await prompt({
             name: 'action',
             type: 'select',
             message: 'Do you want to exit or retry?',

@@ -47,8 +47,9 @@ describe('checkly env rm', () => {
       expect.unreachable('Expected process to be killed by timeout')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain(`Delete environment variable "testenvvarsrm-${executionId}"`)
-        expect(err.stdout).toContain('Proceed?')
+        // The preview and the question render on stderr.
+        expect(err.stderr).toContain(`Delete environment variable "testenvvarsrm-${executionId}"`)
+        expect(err.stderr).toContain('Proceed?')
       } else {
         throw err
       }

@@ -1,7 +1,6 @@
 import open from 'open'
 import chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
 import config from '../services/config.js'
@@ -30,10 +29,11 @@ import commonMessages from '../messages/common-messages.js'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
 import { shellQuote } from '../services/shell.js'
+import { prompt } from '../helpers/prompts.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
-  const { selectedAccount } = await prompts({
+  const { selectedAccount } = await prompt({
     name: 'selectedAccount',
     type: 'select',
     choices: accounts.map(account => ({ title: account.name, value: account })),
@@ -534,7 +534,7 @@ export default class Login extends BaseCommand {
 
     this.#printOverrideNotice()
 
-    const { setNewkey } = await prompts({
+    const { setNewkey } = await prompt({
       name: 'setNewkey',
       type: 'confirm',
       message: `You are currently logged in to "${accountName}". Do you want to log out and log in to a different account?`,
@@ -834,7 +834,7 @@ export default class Login extends BaseCommand {
 
     if (this.#mode === 'interactive') {
       // --no-browser / CHECKLY_NO_BROWSER: don't offer to open one.
-      const openUrl = this.#openBrowser && (await prompts({
+      const openUrl = this.#openBrowser && (await prompt({
         name: 'openUrl',
         type: 'confirm',
         message: `Do you want to open a browser window to continue with ${mode === 'signup' ? 'sign up' : 'login'}?`,
@@ -895,14 +895,14 @@ export default class Login extends BaseCommand {
   }
 
   /**
-   * Runs `wait` behind the CLI's usual spinner when a person watches the
-   * command's own output on a terminal; otherwise prints `message` as a plain
-   * line, so piped output gets no animation frames and a login another
-   * command started keeps its output on stderr (the spinner writes to
-   * stderr, too). `report` shows a note while waiting.
+   * Runs `wait` behind the CLI's usual spinner when a person watches stderr,
+   * where the spinner renders, on a terminal; otherwise prints `message` as a
+   * plain line, so redirected output gets no animation frames and a login
+   * another command started keeps its own plain lines. `report` shows a note
+   * while waiting.
    */
   async #whileWaiting<T> (message: string, wait: (report: (note: string) => void) => Promise<T>): Promise<T> {
-    if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stdout.isTTY) {
+    if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stderr.isTTY) {
       if (this.#mode === 'interactive') {
         this.#print(chalk.dim(`${message}…`))
       }
@@ -922,7 +922,7 @@ export default class Login extends BaseCommand {
   }
 
   async #promptForLoginOrSignUp (): Promise<AuthMode> {
-    const { mode } = await prompts({
+    const { mode } = await prompt({
       name: 'mode',
       type: 'select',
       message: 'Do you want to log in or sign up to Checkly?',

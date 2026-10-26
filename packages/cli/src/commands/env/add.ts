@@ -1,7 +1,7 @@
-import prompts from 'prompts'
 import * as api from '../../rest/api.js'
 import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand.js'
+import { prompt } from '../../helpers/prompts.js'
 
 export default class EnvAdd extends AuthCommand {
   static hidden = false
@@ -39,7 +39,7 @@ export default class EnvAdd extends AuthCommand {
     const { locked, secret } = flags
 
     const envVariableName = args.key
-    const envValue = args.value ?? (await prompts({
+    const envValue = args.value ?? (await prompt({
       type: 'password',
       name: 'value',
       message: `What is the value of ${envVariableName}?`,

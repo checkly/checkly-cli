@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 import logSymbols from 'log-symbols'
 import chalk from 'chalk'
 
@@ -12,6 +12,7 @@ import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
+import { prompt } from '../../helpers/prompts.js'
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false
@@ -98,7 +99,7 @@ export default class ImportCommitCommand extends AuthCommand {
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
-    const choices: prompts.Choice[] = plans.map((plan, index) => ({
+    const choices: Choice[] = plans.map((plan, index) => ({
       title: `Plan #${index + 1} from ${new Date(plan.createdAt)}`,
       value: plan.id,
       description: `ID: ${plan.id}`,
@@ -112,7 +113,7 @@ export default class ImportCommitCommand extends AuthCommand {
 
     const plansById = plans.reduce((m, plan) => m.set(plan.id, plan), new Map<string, ImportPlan>())
 
-    const { planId } = await prompts({
+    const { planId } = await prompt({
       name: 'planId',
       type: 'select',
       message: `Found ${plans.length} applied plan(s). Which one to commit?`,
@@ -135,7 +136,7 @@ export default class ImportCommitCommand extends AuthCommand {
 }
 
 export async function confirmCommit (this: BaseCommand): Promise<boolean> {
-  const { commit } = await prompts({
+  const { commit } = await prompt({
     name: 'commit',
     type: 'confirm',
     message: 'Would you like to commit the plan now?',

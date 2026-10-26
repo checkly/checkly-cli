@@ -62,7 +62,7 @@ export default class AssetsDownload extends AuthCommand {
     this.style.outputFormat = flags.output
     const source = resolveAssetSource(flags)
     const type = assetTypeSelectionFromFlag(flags.type)
-    const showProgress = flags.output !== 'json' && this.fancy && process.stdout.isTTY
+    const showProgress = flags.output !== 'json' && this.fancy && process.stderr.isTTY
     let progressStarted = false
 
     const startProgress = (message: string) => {

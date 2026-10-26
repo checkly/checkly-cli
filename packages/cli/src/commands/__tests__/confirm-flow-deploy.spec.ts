@@ -107,10 +107,14 @@ async function confirmCommandFor (argv: string[]): Promise<string> {
 
 function createConfirmContext () {
   const logged: string[] = []
+  const loggedToStderr: string[] = []
   let exitCodeValue: number | undefined
   return {
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
+    }),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg) loggedToStderr.push(msg)
     }),
     exit: vi.fn((code: number) => {
       exitCodeValue = code
@@ -119,6 +123,7 @@ function createConfirmContext () {
     confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
     constructor: Deploy,
     logged,
+    loggedToStderr,
     get exitCodeValue () {
       return exitCodeValue
     },
@@ -178,6 +183,7 @@ function schedulingContext (given: Record<string, unknown> = {}) {
  */
 function createCommandContext (given: Record<string, unknown> = {}) {
   const logged: string[] = []
+  const loggedToStderr: string[] = []
   let exitCodeValue: number | undefined
   const typed = Object.keys(given)
   return {
@@ -194,6 +200,9 @@ function createCommandContext (given: Record<string, unknown> = {}) {
     }),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
+    }),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg) loggedToStderr.push(msg)
     }),
     exit: vi.fn((code: number) => {
       exitCodeValue = code
@@ -216,6 +225,7 @@ function createCommandContext (given: Record<string, unknown> = {}) {
     constructor: Deploy,
     account: { name: 'Test Account', runtimeId: 'runtime-default' },
     logged,
+    loggedToStderr,
     get exitCodeValue () {
       return exitCodeValue
     },
@@ -930,7 +940,9 @@ describe('deploy confirmation in a terminal', () => {
     // The construct diff needs each changed resource's deployed state.
     expect(vi.mocked(api.projects.preview).mock.calls[0][1]).toMatchObject({ detail: 'full' })
 
-    const printed = ctx.logged.join('\n')
+    // The plan is the question's context, so it renders on stderr with it.
+    expect(ctx.logged.join('\n')).not.toContain('Deploy preview')
+    const printed = ctx.loggedToStderr.join('\n')
     expect(printed).toContain('Deploy preview')
     expect(printed).toMatch(/^ {2}~ EmailAlertChannel {2}ops$/m)
     expect(printed).toMatch(/^ {2}- Check +gone +permanently deleted, run history lost$/m)
@@ -956,7 +968,7 @@ describe('deploy confirmation in a terminal', () => {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_0')
 
-    expect(ctx.logged.join('\n')).toContain('Deploy preview')
+    expect(ctx.loggedToStderr.join('\n')).toContain('Deploy preview')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })
@@ -981,10 +993,11 @@ describe('deploy confirmation in a terminal', () => {
 
     await Deploy.prototype.run.call(ctx as any)
 
-    const printed = ctx.logged.join('\n')
-    expect(printed).toContain('\n1 to update, 1 to delete, 0 unchanged\n')
-    expect(printed).toContain('\n1 deleted, 0 unchanged\n')
-    expect(printed.indexOf('1 to update')).toBeLessThan(printed.indexOf('1 deleted'))
+    // The plan before the prompt is the question's context (stderr); what the
+    // deploy did is its result (stdout).
+    expect(ctx.loggedToStderr.join('\n')).toContain('\n1 to update, 1 to delete, 0 unchanged\n')
+    expect(ctx.logged.join('\n')).toContain('\n1 deleted, 0 unchanged\n')
+    expect(ctx.logged.join('\n')).not.toContain('1 to update')
   })
 
   it('lists what the dry run found when there is no plan to render', async () => {
@@ -996,7 +1009,7 @@ describe('deploy confirmation in a terminal', () => {
 
     await Deploy.prototype.run.call(ctx as any)
 
-    const printed = ctx.logged.join('\n')
+    const printed = ctx.loggedToStderr.join('\n')
     expect(printed).not.toContain('Deploy preview')
     expect(printed).toContain('  - Permanently delete Check: gone, losing its run history')
     expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ message: 'Proceed?' })
@@ -1032,7 +1045,7 @@ describe('deploy with --no-plan', () => {
 
     expect(api.projects.preview).not.toHaveBeenCalled()
     expect(ctx.style.actionStart).not.toHaveBeenCalledWith('Checking what would change')
-    const printed = ctx.logged.join('\n')
+    const printed = ctx.loggedToStderr.join('\n')
     expect(printed).not.toContain('Deploy preview')
     expect(printed).toContain('  - Deploy project "My Project" to account "Test Account"')
     expect(printed).toContain('  - Permanently delete Check: gone, losing its run history')

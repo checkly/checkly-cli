@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 
 import * as api from '../../rest/api.js'
 import { AuthCommand } from '../authCommand.js'
@@ -13,6 +13,7 @@ import {
   selectPlansOrExit,
   validatePlanFlagsOrExit,
 } from '../../helpers/import-plan-selection.js'
+import { prompt } from '../../helpers/prompts.js'
 
 export default class ImportCancelCommand extends AuthCommand {
   static hidden = false
@@ -113,7 +114,7 @@ export default class ImportCancelCommand extends AuthCommand {
   }
 
   async #selectPlans (plans: ImportPlan[]): Promise<ImportPlan[]> {
-    const choices: prompts.Choice[] = plans.map((plan, index) => ({
+    const choices: Choice[] = plans.map((plan, index) => ({
       title: `Plan #${index + 1} from ${new Date(plan.createdAt)}`,
       value: plan.id,
       description: `ID: ${plan.id}`,
@@ -135,7 +136,7 @@ export default class ImportCancelCommand extends AuthCommand {
 
     const plansById = plans.reduce((m, plan) => m.set(plan.id, plan), new Map<string, ImportPlan>())
 
-    const { planId } = await prompts({
+    const { planId } = await prompt({
       name: 'planId',
       type: 'select',
       message: `Found ${plans.length} cancelable plan(s). Which one to cancel?`,

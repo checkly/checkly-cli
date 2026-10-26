@@ -42,7 +42,7 @@ describe('destroy', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain('Type the project name "Deploy Project" to confirm:')
+        expect(err.stderr).toContain('Type the project name "Deploy Project" to confirm:')
       } else {
         throw err
       }

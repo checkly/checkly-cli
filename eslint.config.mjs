@@ -96,6 +96,26 @@ export default defineConfig([
     },
   },
   {
+    // `prompts` renders on stdout by default, and stdout carries only command
+    // results. The helper renders questions on stderr instead.
+    files: ['packages/cli/src/**/*.ts'],
+    ignores: [
+      'packages/cli/src/helpers/prompts.ts',
+      // Only injects answers for e2e tests; renders nothing.
+      'packages/cli/src/commands/baseCommand.ts',
+      '**/__tests__/**',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'prompts',
+          importNames: ['default'],
+          message: 'Use `prompt` from helpers/prompts.js, which renders on stderr.',
+        }],
+      }],
+    },
+  },
+  {
     // The bin launchers are deliberately CommonJS: they must run (and print a
     // useful Node version message) on runtimes far below the supported floor.
     files: ['packages/*/bin/*.cjs'],

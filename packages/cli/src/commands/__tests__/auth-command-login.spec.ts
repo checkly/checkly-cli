@@ -46,11 +46,11 @@ function createCommand () {
 }
 
 let baseInitSpy: ReturnType<typeof vi.spyOn>
-const originalIsTTY = { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY }
+const originalIsTTY = { stdin: process.stdin.isTTY, stderr: process.stderr.isTTY }
 
 function setTTY (isTTY: boolean) {
   process.stdin.isTTY = isTTY
-  process.stdout.isTTY = isTTY
+  process.stderr.isTTY = isTTY
 }
 
 beforeEach(() => {
@@ -68,7 +68,7 @@ beforeEach(() => {
 afterEach(() => {
   baseInitSpy.mockRestore()
   process.stdin.isTTY = originalIsTTY.stdin
-  process.stdout.isTTY = originalIsTTY.stdout
+  process.stderr.isTTY = originalIsTTY.stderr
 })
 
 describe('AuthCommand.init without stored credentials', () => {

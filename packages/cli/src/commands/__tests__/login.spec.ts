@@ -145,11 +145,13 @@ function jsonLines (cmd: Login): any[] {
 const originalStdinIsTTY = process.stdin.isTTY
 
 const originalStdoutIsTTY = process.stdout.isTTY
+const originalStderrIsTTY = process.stderr.isTTY
 let platformSpy: { mockRestore: () => void } | undefined
 
 afterEach(() => {
   process.stdin.isTTY = originalStdinIsTTY
   process.stdout.isTTY = originalStdoutIsTTY
+  process.stderr.isTTY = originalStderrIsTTY
   delete process.env.CHECKLY_CLI_MODE
   vi.unstubAllEnvs()
   platformSpy?.mockRestore()
@@ -159,8 +161,12 @@ afterEach(() => {
 beforeEach(() => {
   vi.clearAllMocks()
   process.stdin.isTTY = true
-  // Plain output by default (as when piped); the spinner tests turn it on.
+  // Plain output by default: a person at a terminal Node does not detect as
+  // one (CHECKLY_CLI_MODE=interactive), so no spinner. The spinner tests put
+  // a terminal on stderr, where the spinner renders.
   process.stdout.isTTY = false as any
+  process.stderr.isTTY = false as any
+  process.env.CHECKLY_CLI_MODE = 'interactive'
   // A local desktop session, so an opened browser counts as opened.
   vi.stubEnv('SSH_CONNECTION', '')
   vi.stubEnv('SSH_TTY', '')
@@ -1046,6 +1052,7 @@ describe('checkly login', () => {
     beforeEach(() => {
       vi.mocked(detectCliMode).mockReturnValue('interactive')
       process.stdin.isTTY = false as any
+      delete process.env.CHECKLY_CLI_MODE
     })
 
     it('fails at once instead of waiting for a code nobody sees', async () => {
@@ -1231,7 +1238,7 @@ describe('checkly login', () => {
 
     describe('on a terminal', () => {
       beforeEach(() => {
-        process.stdout.isTTY = true
+        process.stderr.isTTY = true
       })
 
       it('waits behind a spinner and marks it done', async () => {

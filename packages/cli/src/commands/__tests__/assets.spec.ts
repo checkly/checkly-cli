@@ -459,8 +459,8 @@ describe('assets commands', () => {
   })
 
   it('shows live progress in interactive human output', async () => {
-    const originalIsTTY = process.stdout.isTTY
-    Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: true })
+    const originalIsTTY = process.stderr.isTTY
+    Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: true })
     vi.mocked(api.api.get).mockResolvedValue({
       data: Readable.from(['downloaded']),
       headers: { 'content-length': '10' },
@@ -480,7 +480,7 @@ describe('assets commands', () => {
     try {
       await AssetsDownload.prototype.run.call(ctx as any)
     } finally {
-      Object.defineProperty(process.stdout, 'isTTY', { configurable: true, value: originalIsTTY })
+      Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: originalIsTTY })
     }
 
     expect(ctx.style.actionStart).toHaveBeenCalledWith('Fetching asset manifest')

@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 import logSymbols from 'log-symbols'
 import chalk from 'chalk'
 
@@ -14,6 +14,7 @@ import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { confirmCommit, performCommitAction } from './commit.js'
 import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
+import { prompt } from '../../helpers/prompts.js'
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
@@ -91,7 +92,7 @@ export default class ImportApplyCommand extends AuthCommand {
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
-    const choices: prompts.Choice[] = plans.map((plan, index) => ({
+    const choices: Choice[] = plans.map((plan, index) => ({
       title: `Plan #${index + 1} from ${new Date(plan.createdAt)}`,
       value: plan.id,
       description: `ID: ${plan.id}`,
@@ -105,7 +106,7 @@ export default class ImportApplyCommand extends AuthCommand {
 
     const plansById = plans.reduce((m, plan) => m.set(plan.id, plan), new Map<string, ImportPlan>())
 
-    const { planId } = await prompts({
+    const { planId } = await prompt({
       name: 'planId',
       type: 'select',
       message: `Found ${plans.length} unapplied plan(s). Which one to apply?`,
@@ -128,7 +129,7 @@ export default class ImportApplyCommand extends AuthCommand {
 }
 
 export async function confirmApply (this: BaseCommand): Promise<boolean> {
-  const { apply } = await prompts({
+  const { apply } = await prompt({
     name: 'apply',
     type: 'confirm',
     message: 'Would you like to apply the plan now?',
