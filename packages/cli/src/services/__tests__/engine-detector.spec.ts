@@ -32,6 +32,20 @@ describe('detectEngine', () => {
     expect(result?.notices).toEqual([])
   })
 
+  it('should detect Bun 1.4 from .bun-version', async () => {
+    await writeFiles(root, { '.bun-version': '1.4.2\n' })
+    const result = await detectEngine(root)
+    expect(result?.engine).toEqual(Engine.bun('1.4'))
+    expect(result?.notices).toEqual([])
+  })
+
+  it('should map a not-yet-available Bun minor from .bun-version to 1.4', async () => {
+    await writeFiles(root, { '.bun-version': '1.5.0\n' })
+    const result = await detectEngine(root)
+    expect(result?.engine).toEqual(Engine.bun('1.4'))
+    expect(result?.notices).toHaveLength(1)
+  })
+
   it('should skip an engines.node value that is not a semver range', async () => {
     await writeFiles(root, { 'package.json': { engines: { node: 'lts', bun: 'latest' } } })
     expect(await detectEngine(root)).toBeUndefined()

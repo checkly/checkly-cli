@@ -23,7 +23,7 @@ export interface EngineConfig {
  */
 // Known versions are listed for IDE autocomplete; any string is accepted.
 type NodeVersion = '22' | '24' | '26' | (string & {})
-type BunVersion = '1.3' | (string & {})
+type BunVersion = '1' | '1.3' | '1.4' | (string & {})
 
 export class Engine implements EngineConfig {
   readonly name: string
@@ -44,7 +44,9 @@ export class Engine implements EngineConfig {
 
   /**
    * Use Bun as the test runner engine.
-   * @param version - The Bun version (e.g., `'1.3'`).
+   * @param version - The Bun minor version to pin (e.g., `'1.4'`), or `'1'`
+   *   for the newest Bun 1.x available on the runner, which moves forward
+   *   with each new Bun minor without a code change.
    */
   static bun (version: BunVersion): Engine {
     return new Engine('bun', version)
