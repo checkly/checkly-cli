@@ -1476,6 +1476,18 @@ describe('checkly login', () => {
       expect(jsonLines(cmd)[0]).toMatchObject({ status: 'action_required', reason: 'login_required' })
     })
 
+    it('prints the login as the result and how to store a default as a hint, for a person', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(loggedLines(cmd)).toContain('Logged in as Ada Lovelace. Commands use account "Globex" from '
+        + '`CHECKLY_ACCOUNT_ID` while it is set; no default account is stored.')
+      expect(loggedLines(cmd).join('\n')).not.toContain('to store a default account')
+      expect(vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => line))
+        .toContain('Run `npx checkly login --account-id <id>` to store a default account.')
+    })
+
     it('uses that account for the command that started the login, without storing a default', async () => {
       storePendingCode({ approved: true })
       const cmd = createCommand()

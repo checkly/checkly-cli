@@ -905,7 +905,8 @@ describe('deploy confirmation flow', () => {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
-    expect(ctx.logged.join('\n')).toContain('Current plan · My Project → account Test Account')
+    // The current plan is the failure report's context, on stderr with it.
+    expect(ctx.loggedToStderr.join('\n')).toContain('Current plan · My Project → account Test Account')
     expect(ctx.style.longError).toHaveBeenCalledWith(
       expect.stringContaining('changed while this deploy was being confirmed'),
       // Re-running is the way out: the refused token describes a state the
@@ -1513,7 +1514,8 @@ new ApiCheck('api', {
       '  ~ imported Frequency from \'checkly/constructs\'',
       '',
     ].join('\n'))
-    expect(printed).toContain('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy` again.')
+    expect(printed).toContain('Nothing was deployed.')
+    expect(ctx.loggedToStderr).toContain('Review with `git diff`, then run `npx checkly deploy` again.')
     expect(storeBundle).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })
@@ -1619,9 +1621,12 @@ new ApiCheck('api', {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
-    const printed = ctx.logged.join('\n')
+    // Part of the error report: stderr.
+    const printed = ctx.loggedToStderr.join('\n')
     expect(printed).toContain('Not updated · edit these by hand')
-    expect(printed).not.toContain('Updated your code')
+    expect(printed).toContain('Nothing was deployed.')
+    expect(ctx.logged.join('\n')).not.toContain('Nothing was deployed.')
+    expect(`${printed}\n${ctx.logged.join('\n')}`).not.toContain('Updated your code')
   })
 
   it('asks the plain yes/no question when nothing was edited in Checkly', async () => {

@@ -433,20 +433,22 @@ export default class Login extends BaseCommand {
     if (!account) {
       throw new LoginError('account_not_found', accountOverrideNotAvailable(accountId, accounts))
     }
-    const message = `Logged in as ${userName}. Commands use account "${account.name}" from \`CHECKLY_ACCOUNT_ID\` `
-      + 'while it is set; no default account is stored (`npx checkly login --account-id <id>` stores one).'
+    const result = `Logged in as ${userName}. Commands use account "${account.name}" from \`CHECKLY_ACCOUNT_ID\` `
+      + 'while it is set; no default account is stored'
     if (this.#mode === 'agent') {
       this.#print(JSON.stringify({
         status: 'success',
         reason: 'logged_in',
-        message: this.#withNotice(message),
+        message: this.#withNotice(`${result} (\`npx checkly login --account-id <id>\` stores one).`),
         user: userName,
         accountId: account.id,
         accountName: account.name,
         defaultAccount: config.getStoredAccount() ?? null,
       }))
     } else {
-      this.#print(message)
+      this.#print(`${result}.`)
+      this.#note('')
+      this.#note('Run `npx checkly login --account-id <id>` to store a default account.')
     }
     return true
   }
