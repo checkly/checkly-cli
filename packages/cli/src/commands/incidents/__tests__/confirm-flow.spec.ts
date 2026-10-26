@@ -16,11 +16,11 @@ vi.mock('prompts', () => ({
 
 import { detectCliMode } from '../../../helpers/cli-mode.js'
 import * as api from '../../../rest/api.js'
-import { AuthCommand } from '../../authCommand.js'
 import IncidentsCreate from '../create.js'
 import IncidentsUpdate from '../update.js'
 import IncidentsResolve from '../resolve.js'
 import IncidentsList from '../list.js'
+import { createCommandContext as createSharedCommandContext } from '../../__tests__/helpers/command-context.js'
 
 const statusPageFixture: StatusPage = {
   id: 'sp-1',
@@ -51,30 +51,7 @@ const incidentFixture = {
 }
 
 function createCommandContext (parsed: { flags: Record<string, unknown>, args?: unknown, metadata?: unknown }) {
-  const logged: string[] = []
-  let didExit = false
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue({ metadata: { flags: {} }, ...parsed }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      didExit = true
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    style: { outputFormat: undefined, longError: vi.fn() },
-    constructor: IncidentsCreate,
-    logged,
-    get didExit () {
-      return didExit
-    },
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+  return createSharedCommandContext({ command: IncidentsCreate, parsed })
 }
 
 describe('incident commands confirmation flow', () => {

@@ -7,6 +7,7 @@ vi.mock('../../rest/api.js', () => ({
 
 import * as api from '../../rest/api.js'
 import TestSessionsList from '../test-sessions/list.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const listResponse: TestSessionsListResponse = {
   length: 1,
@@ -40,22 +41,8 @@ const listResponse: TestSessionsListResponse = {
   ],
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    error: vi.fn((message: string) => {
-      throw new Error(message)
-    }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    style: {
-      outputFormat: undefined,
-      longError: vi.fn(),
-    },
-    logged,
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: TestSessionsList, parsed })
 }
 
 describe('test-sessions list command', () => {

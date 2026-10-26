@@ -18,10 +18,10 @@ vi.mock('../../../rest/api', () => ({
 }))
 
 import * as api from '../../../rest/api.js'
-import { AuthCommand } from '../../authCommand.js'
 import IncidentsCreate from '../create.js'
 import IncidentsUpdate from '../update.js'
 import IncidentsResolve from '../resolve.js'
+import { createCommandContext as createSharedCommandContext } from '../../__tests__/helpers/command-context.js'
 
 const statusPageFixture: StatusPage = {
   id: 'sp-1',
@@ -47,23 +47,7 @@ function createCommandContext (
   parsed: { flags: Record<string, unknown>, args?: unknown, metadata?: unknown },
   CommandClass: any = IncidentsCreate,
 ) {
-  const logged: string[] = []
-  return {
-    parse: vi.fn().mockResolvedValue({ metadata: { flags: {} }, ...parsed }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    style: {
-      outputFormat: 'table',
-      longError: vi.fn(),
-    },
-    constructor: CommandClass,
-    logged,
-  }
+  return createSharedCommandContext({ command: CommandClass, parsed, style: { outputFormat: 'table' } })
 }
 
 describe('incidents notify-subscribers flags', () => {

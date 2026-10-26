@@ -17,8 +17,8 @@ import { detectCliMode } from '../../helpers/cli-mode.js'
 import * as api from '../../rest/api.js'
 import { NotFoundError } from '../../rest/errors.js'
 import { AuthCommand } from '../authCommand.js'
-import { BaseCommand } from '../baseCommand.js'
 import ChecksDelete from '../checks/delete.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const check = {
   id: '33333333-3333-3333-3333-333333333333',
@@ -26,37 +26,8 @@ const check = {
   checkType: 'BROWSER',
 }
 
-function createCommandContext (Command: typeof AuthCommand, parsed: unknown) {
-  const logged: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    error: vi.fn((message: string) => {
-      throw new Error(message)
-    }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    searchedAccount: vi.fn(),
-    notFoundHint: BaseCommand.prototype.notFoundHint,
-    withNotFoundHint: BaseCommand.prototype.withNotFoundHint,
-    style: {
-      outputFormat: undefined,
-      shortSuccess: vi.fn(),
-      shortError: vi.fn(),
-      longError: vi.fn(),
-    },
-    constructor: Command,
-    logged,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+function createCommandContext (Command: typeof AuthCommand, parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: Command, parsed })
 }
 
 describe('checks delete command', () => {

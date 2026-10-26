@@ -21,6 +21,7 @@ import { loadChecklyConfig } from '../../../services/checkly-config-loader.js'
 import { Diagnostics } from '../../../constructs/diagnostics.js'
 import { ImportPlan } from '../../../rest/projects.js'
 import ImportCancelCommand from '../cancel.js'
+import { createCommandContext as createSharedCommandContext } from '../../__tests__/helpers/command-context.js'
 
 function plan (id: string): ImportPlan {
   return { id, createdAt: new Date(0).toISOString() }
@@ -41,38 +42,8 @@ function cancelFlags (overrides: Record<string, unknown> = {}) {
   }
 }
 
-function createCommandContext (parsed: unknown) {
-  const logged: string[] = []
-  const stderrLogged: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    logToStderr: vi.fn((msg?: string) => {
-      if (msg) stderrLogged.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: vi.fn(),
-    style: {
-      diagnostics: vi.fn(),
-      actionStart: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      shortSuccess: vi.fn(),
-      fatal: vi.fn(),
-    },
-    constructor: ImportCancelCommand,
-    logged,
-    stderrLogged,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+function createCommandContext (parsed: Record<string, unknown>) {
+  return createSharedCommandContext({ command: ImportCancelCommand, parsed, members: { confirmOrAbort: vi.fn() } })
 }
 
 describe('import cancel command (non-interactive)', () => {
@@ -211,7 +182,7 @@ describe('import cancel command (empty candidate list)', () => {
     expect(ctx.exit).not.toHaveBeenCalled()
     expect(ctx.style.fatal).not.toHaveBeenCalled()
     // Nothing to do is information on stderr; stdout stays empty.
-    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to cancel')
+    expect(ctx.loggedToStderr.join('\n')).toContain('Nothing to cancel')
     expect(ctx.logged).toEqual([])
     expect(api.projects.cancelImportPlan).not.toHaveBeenCalled()
   })
@@ -223,7 +194,7 @@ describe('import cancel command (empty candidate list)', () => {
 
     expect(ctx.exit).not.toHaveBeenCalled()
     // Nothing to do is information on stderr; stdout stays empty.
-    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to cancel')
+    expect(ctx.loggedToStderr.join('\n')).toContain('Nothing to cancel')
     expect(ctx.logged).toEqual([])
     expect(api.projects.cancelImportPlan).not.toHaveBeenCalled()
   })

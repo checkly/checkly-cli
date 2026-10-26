@@ -15,6 +15,7 @@ import {
   NoMatchingChecksError,
 } from '../../rest/check-sessions.js'
 import ChecksRun from '../checks/run.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 const pendingSessions: CheckSession[] = [
   {
@@ -67,26 +68,7 @@ function defaultFlags (overrides: Record<string, unknown> = {}) {
 }
 
 function createCommandContext (flags: Record<string, unknown>) {
-  const logged: string[] = []
-  return {
-    parse: vi.fn().mockResolvedValue({ flags }),
-    error: vi.fn((message: string) => {
-      throw new Error(message)
-    }),
-    log: vi.fn((message?: string) => {
-      if (message) logged.push(message)
-    }),
-    logToStderr: vi.fn(),
-    style: {
-      outputFormat: undefined,
-      actionStart: vi.fn(),
-      actionStatus: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      longError: vi.fn(),
-    },
-    logged,
-  }
+  return createSharedCommandContext({ command: ChecksRun, parsed: { flags } })
 }
 
 describe('checks run command', () => {

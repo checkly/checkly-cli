@@ -91,8 +91,8 @@ import { Diagnostic } from '../../constructs/diagnostics.js'
 import { EmailAlertChannel } from '../../constructs/email-alert-channel.js'
 import { Project } from '../../constructs/project.js'
 import { Session } from '../../constructs/session.js'
-import { AuthCommand } from '../authCommand.js'
 import Deploy from '../deploy.js'
+import { createCommandContext as createSharedCommandContext } from './helpers/command-context.js'
 
 /** Turn a generated confirmCommand back into argv, so oclif can re-parse it. */
 function flagArgv (confirmCommand: string): string[] {
@@ -106,28 +106,7 @@ async function confirmCommandFor (argv: string[]): Promise<string> {
 }
 
 function createConfirmContext () {
-  const logged: string[] = []
-  const loggedToStderr: string[] = []
-  let exitCodeValue: number | undefined
-  return {
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    logToStderr: vi.fn((msg?: string) => {
-      if (msg) loggedToStderr.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    constructor: Deploy,
-    logged,
-    loggedToStderr,
-    get exitCodeValue () {
-      return exitCodeValue
-    },
-  }
+  return createSharedCommandContext({ command: Deploy })
 }
 
 const DEFAULT_FLAGS = {
@@ -182,12 +161,10 @@ function schedulingContext (given: Record<string, unknown> = {}) {
  * started with `--no-plan`.
  */
 function createCommandContext (given: Record<string, unknown> = {}) {
-  const logged: string[] = []
-  const loggedToStderr: string[] = []
-  let exitCodeValue: number | undefined
   const typed = Object.keys(given)
-  return {
-    parse: vi.fn().mockResolvedValue({
+  return createSharedCommandContext({
+    command: Deploy,
+    parsed: {
       flags: { ...DEFAULT_FLAGS, ...given },
       // A flag the test passes explicitly is one the user typed, so it is not
       // marked as coming from a default — which is what decides whether the
@@ -197,39 +174,11 @@ function createCommandContext (given: Record<string, unknown> = {}) {
           Object.entries(DEFAULT_METADATA).filter(([key]) => !typed.includes(key)),
         ),
       },
-    }),
-    log: vi.fn((msg?: string) => {
-      if (msg) logged.push(msg)
-    }),
-    logToStderr: vi.fn((msg?: string) => {
-      if (msg) loggedToStderr.push(msg)
-    }),
-    exit: vi.fn((code: number) => {
-      exitCodeValue = code
-      throw new Error(`EXIT_${code}`)
-    }),
-    confirmOrAbort: AuthCommand.prototype.confirmOrAbort,
-    validateProject: (AuthCommand.prototype as any).validateProject,
-    style: {
-      outputFormat: undefined,
-      diagnostics: vi.fn(),
-      actionStart: vi.fn(),
-      actionStatus: vi.fn(),
-      actionSuccess: vi.fn(),
-      actionFailure: vi.fn(),
-      longError: vi.fn(),
-      longWarning: vi.fn(),
-      longInfo: vi.fn(),
-      shortError: vi.fn(),
     },
-    constructor: Deploy,
-    account: { name: 'Test Account', runtimeId: 'runtime-default' },
-    logged,
-    loggedToStderr,
-    get exitCodeValue () {
-      return exitCodeValue
+    members: {
+      account: { name: 'Test Account', runtimeId: 'runtime-default' },
     },
-  }
+  })
 }
 
 const repoRoot = path.resolve('/home/user/repo')

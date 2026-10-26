@@ -19,19 +19,16 @@ import UsageTermCommand from '../term.js'
 import UsageSummaryCommand from '../summary.js'
 import UsageSeriesCommand from '../series.js'
 import UsageProjectionsCommand from '../projections.js'
+import { createCommandContext } from '../../../__tests__/helpers/command-context.js'
 
 function response<T> (data: T): AxiosResponse<T> {
   return { data, status: 200, statusText: 'OK', headers: new AxiosHeaders(), config: { headers: new AxiosHeaders() } }
 }
 
-function context (parsed: unknown) {
-  const logged: string[] = []
-  return {
-    parse: vi.fn().mockResolvedValue(parsed),
-    log: vi.fn((message: string) => logged.push(stripAnsi(message))),
-    style: { outputFormat: '', longError: vi.fn() },
-    logged,
-  }
+function context (parsed: Record<string, unknown>) {
+  const ctx = createCommandContext({ parsed, style: { outputFormat: '' } })
+  ctx.log.mockImplementation((message: string) => ctx.logged.push(stripAnsi(message)))
+  return ctx
 }
 
 function expectHintArguments (output: string, label: string, expected: string[]) {
