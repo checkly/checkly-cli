@@ -167,7 +167,10 @@ describe('skills install', () => {
       vi.mocked(readFile).mockRejectedValue(new Error('ENOENT'))
       const cmd = createCommand('--target', 'claude', '--force')
 
-      await expect(cmd.run()).rejects.toThrow('Failed to read skill file')
+      await expect(cmd.run()).rejects.toMatchObject({
+        message: expect.stringContaining('Failed to read skill file'),
+        oclif: { exit: 1 },
+      })
     })
 
     it('errors when target directory cannot be created', async () => {
@@ -181,7 +184,10 @@ describe('skills install', () => {
       vi.mocked(writeFile).mockRejectedValue(new Error('EACCES'))
       const cmd = createCommand('--target', 'claude', '--force')
 
-      await expect(cmd.run()).rejects.toThrow('Failed to write skill file')
+      await expect(cmd.run()).rejects.toMatchObject({
+        message: expect.stringContaining('Failed to write skill file'),
+        oclif: { exit: 1 },
+      })
     })
   })
 

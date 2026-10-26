@@ -1185,6 +1185,21 @@ describe('checkly login', () => {
       expect(error.oclif).toMatchObject({ exit: 1 })
     })
 
+    it('fails with exit 1 when the account prompt is cancelled', async () => {
+      vi.mocked(api.accounts.getAll).mockResolvedValue({
+        data: [{ id: 'acc-1', name: 'Acme' }, { id: 'acc-2', name: 'Globex' }],
+      } as any)
+      vi.mocked(prompts).mockImplementationOnce((_question, options) => {
+        options!.onCancel!({} as any, {})
+        return Promise.resolve({})
+      })
+      const cmd = createCommand()
+      const error = await cmd.run().catch(error => error)
+
+      expect(error.message).toBe('Command cancelled.\n')
+      expect(error.oclif).toMatchObject({ exit: 1 })
+    })
+
     it.each([
       ['an expired code', () => deviceFlow.pollForTokens.mockRejectedValueOnce(
         new DeviceFlowError('expired_token', 'The login code expired.')), 'The login code expired.'],

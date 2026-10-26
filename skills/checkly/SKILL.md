@@ -87,7 +87,7 @@ Run `npx checkly skills communicate` for the full protocol details, or `npx chec
 
 ## Output Streams and Exit Codes
 
-stdout carries only the command's result: results, `--output json` documents (most failures print a JSON error document too), API pass-through bodies, and the confirmation/dry-run envelopes above. Progress, warnings, hints, prompts, and human-readable errors go to stderr, so `npx checkly <command> --output json | jq` sees nothing but the JSON. Check the exit code first, since some failures leave stdout empty: 0 success (degraded checks do not fail a run; read the results to spot them), 1 failure, 2 a usage error (or another error reported only on stderr), 3 `confirmation_required`, 127 an unknown command.
+stdout carries only the command's result: results, `--output json` documents (most failures print a JSON error document too), API pass-through bodies, and the confirmation/dry-run envelopes above. Progress, warnings, hints, prompts, and human-readable errors go to stderr, so `npx checkly <command> --output json | jq` sees nothing but the JSON. Check the exit code first, since some failures leave stdout empty: 0 success (degraded checks do not fail a run; read the results to spot them), 1 failure, 2 a usage error, 3 `confirmation_required`, 127 an unknown command.
 
 ## API Pass-Through (fallback for any endpoint)
 

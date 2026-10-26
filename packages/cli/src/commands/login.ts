@@ -995,7 +995,7 @@ export default class Login extends BaseCommand {
 
     this.#atBlankLine = false
     const selected = await selectAccount(accounts, {
-      onCancel: () => this.error('Command cancelled.\n'),
+      onCancel: () => this.error('Command cancelled.\n', { exit: 1 }),
     })
     if (!selected) {
       throw new Error('You must select a valid Checkly account name.')

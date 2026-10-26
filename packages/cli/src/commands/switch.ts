@@ -26,7 +26,7 @@ export default class Switch extends AuthCommand {
     const { 'account-id': accountId } = flags
 
     const onCancel = (): void => {
-      this.error('Command cancelled.\n')
+      this.error('Command cancelled.\n', { exit: 1 })
     }
 
     if (accountId) {

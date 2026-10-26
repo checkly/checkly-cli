@@ -82,7 +82,7 @@ export default class SkillsInstall extends BaseCommand {
     try {
       return await readSkillFile()
     } catch (err: any) {
-      this.error(err.message)
+      this.error(err.message, { exit: 1 })
     }
   }
 
@@ -125,7 +125,7 @@ export default class SkillsInstall extends BaseCommand {
       const writtenPath = await writeSkillToTarget(targetDir, content)
       this.style.shortSuccess(`Installed Checkly agent skill to: ${writtenPath}`)
     } catch (err: any) {
-      this.error(err.message)
+      this.error(err.message, { exit: 1 })
     }
   }
 

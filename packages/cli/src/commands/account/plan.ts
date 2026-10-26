@@ -75,7 +75,10 @@ export default class AccountPlan extends AuthCommand {
     if (args.key) {
       const entitlement = plan.entitlements.find(e => e.key === args.key)
       if (!entitlement) {
-        this.error(`Entitlement "${args.key}" not found. Use "checkly account plan" to see available keys.`)
+        this.error(
+          `Entitlement "${args.key}" not found. Use "checkly account plan" to see available keys.`,
+          { exit: 1 },
+        )
       }
 
       if (flags.output === 'json') {

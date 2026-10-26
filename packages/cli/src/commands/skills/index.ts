@@ -101,7 +101,7 @@ export default class Skills extends BaseCommand {
         const content = await readFile(actionPath, 'utf8')
         this.log(content)
       } catch {
-        this.error(`Could not read action file for "${args.action}".`)
+        this.error(`Could not read action file for "${args.action}".`, { exit: 1 })
       }
     }
   }
