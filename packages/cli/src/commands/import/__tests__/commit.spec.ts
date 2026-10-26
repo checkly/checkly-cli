@@ -164,10 +164,10 @@ describe('import commit command (confirmation gate)', () => {
   it('does not commit when the gate exits first', async () => {
     vi.mocked(api.projects.findImportPlans).mockResolvedValue({ data: [appliedPlan('only')] } as any)
     const ctx = createCommandContext(commitFlags({ force: false }))
-    // Mirrors the real agent-mode gate, which exits 2 rather than returning.
-    ctx.confirmOrAbort.mockRejectedValue(new Error('EXIT_2'))
+    // Mirrors the real agent-mode gate, which exits 3 rather than returning.
+    ctx.confirmOrAbort.mockRejectedValue(new Error('EXIT_3'))
 
-    await expect(ImportCommitCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(ImportCommitCommand.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
     expect(api.projects.commitImportPlan).not.toHaveBeenCalled()
   })
 })

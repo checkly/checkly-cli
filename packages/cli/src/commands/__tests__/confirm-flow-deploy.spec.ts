@@ -259,12 +259,12 @@ describe('deploy confirmation flow', () => {
     expect(Deploy.idempotent).toBe(true)
   })
 
-  it('exits 2 in agent mode without --force', async () => {
+  it('exits 3 in agent mode without --force', async () => {
     const ctx = createConfirmContext()
 
     await expect(
       ctx.confirmOrAbort.call(ctx as any, deployPreview, { force: false }),
-    ).rejects.toThrow('EXIT_2')
+    ).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[0])
     expect(output.status).toBe('confirmation_required')
@@ -284,7 +284,7 @@ describe('deploy confirmation flow', () => {
     planResolves()
     const ctx = createCommandContext()
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
     // One preview, at the detail level this envelope carries: agent mode prints
     // the changed properties, so the values behind them are worth fetching.
@@ -314,7 +314,7 @@ describe('deploy confirmation flow', () => {
       + 'Pass --preserve-resources to keep them in your Checkly account instead'
 
     async function changesOf (ctx: ReturnType<typeof createCommandContext>): Promise<string[]> {
-      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
       return JSON.parse(ctx.logged[ctx.logged.length - 1]).changes
     }
 
@@ -355,7 +355,7 @@ describe('deploy confirmation flow', () => {
     planResolves()
     const ctx = createCommandContext()
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     const entry = output.preview.diff.find((candidate: DiffEntry) => candidate.logicalId === 'ops')
@@ -379,7 +379,7 @@ describe('deploy confirmation flow', () => {
     }])
     const ctx = createCommandContext()
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     const [scriptChange, variablesChange] = output.preview.diff[0].changes
@@ -627,7 +627,7 @@ describe('deploy confirmation flow', () => {
     })
     const ctx = createCommandContext()
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
     // Without a plan the deletions are only visible in a dry-run deploy. It is
     // sent without storage keys, so an answer of no leaves nothing in storage.
@@ -789,7 +789,7 @@ describe('deploy confirmation flow', () => {
     ])
     const ctx = createCommandContext({ 'prune-unmanaged-relations': true })
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     expect(output.changes).toContain(
@@ -1163,7 +1163,7 @@ describe('deploy with --no-plan', () => {
     vi.mocked(detectCliMode).mockReturnValue('agent')
     const ctx = createCommandContext({ plan: false })
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
     const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
     expect(output.confirmCommand).toBe('npx checkly deploy --no-plan --force')
@@ -1707,7 +1707,7 @@ describe('deploy of a plan with nothing to apply', () => {
     it('sends a threshold the user set, and echoes it in the confirm command', async () => {
       nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
       const asked = schedulingContext({ 'schedule-on-deploy-threshold': 20 })
-      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_3')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
       // The confirmation does not go into the threshold; the deploy reports it.
       expect(output.changes).toContain('Schedule changed checks after deploy')
@@ -1770,7 +1770,7 @@ describe('deploy of a plan with nothing to apply', () => {
     it('sends a minimum the user set and keeps the confirmation plain', async () => {
       nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
       const asked = schedulingContext({ 'schedule-on-deploy-min-frequency': 15 })
-      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_3')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
       expect(output.changes).toContain('Schedule changed checks after deploy')
       expect(output.confirmCommand).toContain('--schedule-on-deploy-min-frequency="15"')
@@ -1790,7 +1790,7 @@ describe('deploy of a plan with nothing to apply', () => {
     it('sends the scope the user typed, names it in the confirmation and echoes it in the command', async () => {
       nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
       const asked = schedulingContext({ 'schedule-on-deploy-scope': 'all' })
-      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_3')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
       expect(output.changes).toContain('Schedule all checks after deploy')
       expect(output.confirmCommand).toContain('--schedule-on-deploy-scope="all"')
@@ -1803,7 +1803,7 @@ describe('deploy of a plan with nothing to apply', () => {
     it('sends the default scope when the user left it alone, and names it in the confirmation', async () => {
       nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
       const asked = schedulingContext()
-      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_3')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
       expect(output.changes).toContain('Schedule changed checks after deploy')
       expect(output.confirmCommand).not.toContain('--schedule-on-deploy-scope')
@@ -1979,7 +1979,7 @@ describe('deploy of a plan with nothing to apply', () => {
     it('schedules no checks unless asked to, and says so in the confirmation', async () => {
       nothingToApply([{ ...UNCHANGED_CHANNEL, action: 'UPDATE', basis: 'live' }])
       const asked = createCommandContext()
-      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(asked as any)).rejects.toThrow('EXIT_3')
       const output = JSON.parse(asked.logged[asked.logged.length - 1])
       expect(output.changes).toContain('Leave checks to run at their next scheduled time. '
         + 'Pass --schedule-on-deploy to schedule them right after the deploy instead')
@@ -2113,7 +2113,7 @@ describe('deploy of a plan with nothing to apply', () => {
     vi.mocked(api.projects.preview).mockRejectedValue(new Error('boom'))
     const ctx = createCommandContext()
 
-    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+    await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
   })
 
   describe('when the plan sets the baseline', () => {
@@ -2125,7 +2125,7 @@ describe('deploy of a plan with nothing to apply', () => {
       nothingToApply([SETS_BASELINE])
       const ctx = createCommandContext()
 
-      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
 
       const output = JSON.parse(ctx.logged[ctx.logged.length - 1])
       expect(output.status).toBe('confirmation_required')
@@ -2144,7 +2144,7 @@ describe('deploy of a plan with nothing to apply', () => {
       }])
       const ctx = createCommandContext()
 
-      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_2')
+      await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_3')
     })
 
     it('reports the deploy as one that wrote, with the note, under --output', async () => {
