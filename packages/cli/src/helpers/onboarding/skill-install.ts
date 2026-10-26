@@ -1,10 +1,10 @@
 import { dirname, relative } from 'path'
 import chalk from 'chalk'
-import prompts from 'prompts'
 
 import { PLATFORM_TARGETS, readSkillFile, writeSkillToTarget, formatPlatformName, promptForPlatformTarget } from '../../services/skills.js'
 import { detectCliMode, detectOperator, platformForOperator } from '../cli-mode.js'
 import { makeOnCancel } from './prompts-helpers.js'
+import { prompt } from '../prompts.js'
 
 export interface SkillInstallResult {
   installed: boolean
@@ -61,7 +61,7 @@ async function runInteractiveInstall (
 ): Promise<SkillInstallResult> {
   log('')
 
-  const { install } = await prompts({
+  const { install } = await prompt({
     type: 'confirm',
     name: 'install',
     message: 'Install the Checkly skill for your AI coding agent?',

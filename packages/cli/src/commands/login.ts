@@ -1,7 +1,6 @@
 import open from 'open'
 import chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
 import config from '../services/config.js'
@@ -30,10 +29,11 @@ import commonMessages from '../messages/common-messages.js'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
 import { shellQuote } from '../services/shell.js'
+import { prompt } from '../helpers/prompts.js'
 
 export const selectAccount = async (
   accounts: Array<Account>, { onCancel }: { onCancel: () => void }): Promise<Account> => {
-  const { selectedAccount } = await prompts({
+  const { selectedAccount } = await prompt({
     name: 'selectedAccount',
     type: 'select',
     choices: accounts.map(account => ({ title: account.name, value: account })),
@@ -300,7 +300,7 @@ export default class Login extends BaseCommand {
         if (!storedAccount.usable) {
           this.#notice = `Account "${storedAccount.name}" is no longer available with the stored login.`
           if (this.#mode !== 'agent') {
-            this.#print(this.#notice)
+            this.#note(this.#notice)
           }
         }
       }
@@ -325,7 +325,7 @@ export default class Login extends BaseCommand {
             + 'AI agents set `CHECKLY_CLI_MODE=agent` instead.', { exit: 1 })
         }
         if (reuseStoredKey && this.#mode === 'interactive') {
-          this.#print('The stored login is no longer valid. Logging in again.')
+          this.#note('The stored login is no longer valid. Logging in again.')
         }
         const result = await this.#authenticate(options.wait ?? false)
         if (result === 'pending') {
@@ -341,7 +341,7 @@ export default class Login extends BaseCommand {
           userName = result.name
         }
       } else if (this.#mode === 'interactive' && !switchingAccount && !this.#notice) {
-        this.#print(`Continuing the login as ${chalk.bold(userName)}. `
+        this.#note(`Continuing the login as ${chalk.bold(userName)}. `
           + 'Run `npx checkly logout` first to log in as someone else.')
       }
 
@@ -394,15 +394,15 @@ export default class Login extends BaseCommand {
         this.#printOverrideNotice()
       } else {
         if (this.#mode === 'interactive' && !this.#atBlankLine) {
-          this.#print('')
+          this.#note('')
         }
         this.#print(`Logged in as ${chalk.cyan.bold(userName)} to ${chalk.cyan.bold(account.name)}.`)
         this.#printOverrideNotice()
         // A login another command started goes straight on to that command.
         const hint = this.#mode === 'interactive' && !this.#inline ? await nextStepHint() : undefined
         if (hint) {
-          this.#print('')
-          this.#print(hint)
+          this.#note('')
+          this.#note(hint)
         }
       }
       return true
@@ -433,20 +433,22 @@ export default class Login extends BaseCommand {
     if (!account) {
       throw new LoginError('account_not_found', accountOverrideNotAvailable(accountId, accounts))
     }
-    const message = `Logged in as ${userName}. Commands use account "${account.name}" from \`CHECKLY_ACCOUNT_ID\` `
-      + 'while it is set; no default account is stored (`npx checkly login --account-id <id>` stores one).'
+    const result = `Logged in as ${userName}. Commands use account "${account.name}" from \`CHECKLY_ACCOUNT_ID\` `
+      + 'while it is set; no default account is stored'
     if (this.#mode === 'agent') {
       this.#print(JSON.stringify({
         status: 'success',
         reason: 'logged_in',
-        message: this.#withNotice(message),
+        message: this.#withNotice(`${result} (\`npx checkly login --account-id <id>\` stores one).`),
         user: userName,
         accountId: account.id,
         accountName: account.name,
         defaultAccount: config.getStoredAccount() ?? null,
       }))
     } else {
-      this.#print(message)
+      this.#print(`${result}.`)
+      this.#note('')
+      this.#note('Run `npx checkly login --account-id <id>` to store a default account.')
     }
     return true
   }
@@ -465,7 +467,7 @@ export default class Login extends BaseCommand {
   #printOverrideNotice (): void {
     const notice = accountOverrideNotice()
     if (notice) {
-      this.#print(chalk.yellow(notice))
+      this.#note(chalk.yellow(notice))
     }
   }
 
@@ -501,6 +503,11 @@ export default class Login extends BaseCommand {
     }
   }
 
+  /**
+   * A line of the login's result (an agent's JSON line, "Logged in as …"):
+   * stdout, except in a login another command started, whose stdout belongs
+   * to that command.
+   */
   #print (line: string): void {
     this.#atBlankLine = line === ''
     if (this.#inline) {
@@ -508,6 +515,12 @@ export default class Login extends BaseCommand {
     } else {
       this.log(line)
     }
+  }
+
+  /** A line for the person following the login (notices, instructions, hints): always stderr. */
+  #note (line: string): void {
+    this.#atBlankLine = line === ''
+    this.logToStderr(line)
   }
 
   // ─── LOGIN STATE ────────────────────────────────────────────
@@ -534,7 +547,7 @@ export default class Login extends BaseCommand {
 
     this.#printOverrideNotice()
 
-    const { setNewkey } = await prompts({
+    const { setNewkey } = await prompt({
       name: 'setNewkey',
       type: 'confirm',
       message: `You are currently logged in to "${accountName}". Do you want to log out and log in to a different account?`,
@@ -834,7 +847,7 @@ export default class Login extends BaseCommand {
 
     if (this.#mode === 'interactive') {
       // --no-browser / CHECKLY_NO_BROWSER: don't offer to open one.
-      const openUrl = this.#openBrowser && (await prompts({
+      const openUrl = this.#openBrowser && (await prompt({
         name: 'openUrl',
         type: 'confirm',
         message: `Do you want to open a browser window to continue with ${mode === 'signup' ? 'sign up' : 'login'}?`,
@@ -846,7 +859,7 @@ export default class Login extends BaseCommand {
       } else {
         // The login completes through a callback to localhost, so a browser
         // elsewhere (e.g. on the laptop an SSH session comes from) won't do.
-        this.#print('Please open the following URL in a browser on this machine: '
+        this.#note('Please open the following URL in a browser on this machine: '
           + `\n\n${chalk.cyan(authContext.authenticationUrl)}`)
       }
     } else {
@@ -870,7 +883,7 @@ export default class Login extends BaseCommand {
       return
     }
     for (const line of interactiveLines) {
-      this.#print(line)
+      this.#note(line)
     }
   }
 
@@ -895,18 +908,18 @@ export default class Login extends BaseCommand {
   }
 
   /**
-   * Runs `wait` behind the CLI's usual spinner when a person watches the
-   * command's own output on a terminal; otherwise prints `message` as a plain
-   * line, so piped output gets no animation frames and a login another
-   * command started keeps its output on stderr (the spinner writes to
-   * stdout). `report` shows a note while waiting.
+   * Runs `wait` behind the CLI's usual spinner when a person watches stderr,
+   * where the spinner renders, on a terminal; otherwise prints `message` as a
+   * plain line, so redirected output gets no animation frames and a login
+   * another command started keeps its own plain lines. `report` shows a note
+   * while waiting.
    */
   async #whileWaiting<T> (message: string, wait: (report: (note: string) => void) => Promise<T>): Promise<T> {
-    if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stdout.isTTY) {
+    if (this.#mode !== 'interactive' || this.#inline || !this.fancy || !process.stderr.isTTY) {
       if (this.#mode === 'interactive') {
-        this.#print(chalk.dim(`${message}…`))
+        this.#note(chalk.dim(`${message}…`))
       }
-      return wait(note => this.#print(note))
+      return wait(note => this.#note(note))
     }
     this.style.actionStart(message)
     try {
@@ -922,7 +935,7 @@ export default class Login extends BaseCommand {
   }
 
   async #promptForLoginOrSignUp (): Promise<AuthMode> {
-    const { mode } = await prompts({
+    const { mode } = await prompt({
       name: 'mode',
       type: 'select',
       message: 'Do you want to log in or sign up to Checkly?',

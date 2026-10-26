@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 import logSymbols from 'log-symbols'
 import chalk from 'chalk'
 
@@ -12,6 +12,7 @@ import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
+import { prompt } from '../../helpers/prompts.js'
 
 export default class ImportCommitCommand extends AuthCommand {
   static hidden = false
@@ -98,7 +99,7 @@ export default class ImportCommitCommand extends AuthCommand {
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
-    const choices: prompts.Choice[] = plans.map((plan, index) => ({
+    const choices: Choice[] = plans.map((plan, index) => ({
       title: `Plan #${index + 1} from ${new Date(plan.createdAt)}`,
       value: plan.id,
       description: `ID: ${plan.id}`,
@@ -112,16 +113,16 @@ export default class ImportCommitCommand extends AuthCommand {
 
     const plansById = plans.reduce((m, plan) => m.set(plan.id, plan), new Map<string, ImportPlan>())
 
-    const { planId } = await prompts({
+    const { planId } = await prompt({
       name: 'planId',
       type: 'select',
       message: `Found ${plans.length} applied plan(s). Which one to commit?`,
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     if (planId === 'exit' || planId === undefined) {
-      this.log('Exiting without making any changes.')
+      this.logToStderr('Exiting without making any changes.')
       this.exit(0)
     }
 
@@ -135,18 +136,18 @@ export default class ImportCommitCommand extends AuthCommand {
 }
 
 export async function confirmCommit (this: BaseCommand): Promise<boolean> {
-  const { commit } = await prompts({
+  const { commit } = await prompt({
     name: 'commit',
     type: 'confirm',
     message: 'Would you like to commit the plan now?',
   })
-  this.log()
+  this.logToStderr()
 
   if (commit) {
     return true
   }
 
-  this.log(`\
+  this.logToStderr(`\
   To commit your plan at a later time, please run:
 
     ${chalk.green('npx checkly import commit')}
@@ -172,9 +173,11 @@ export async function performCommitAction (this: BaseCommand, plan: ImportPlan):
     throw err
   }
 
+  // The committed plan is the result (stdout); the closing notes are chatter
+  // (stderr).
   this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been committed!')}`)
-  this.log()
-  this.log(`\
+  this.logToStderr()
+  this.logToStderr(`\
   The underlying resources are now fully managed by the Checkly CLI the same
   way as any other CLI-native resource, and the import process is finished.
 

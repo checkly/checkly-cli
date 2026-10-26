@@ -3,7 +3,7 @@ import * as path from 'path'
 
 import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
-import { CheckStatus, formatDuration, formatRunError, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import { CheckStatus, formatDuration, formatRunError, getTestSessionUrl, printLn, printLnErr, resultToCheckStatus } from './util.js'
 
 const outputFile = './checkly-github-report.md'
 
@@ -132,7 +132,7 @@ export class GithubMdBuilder {
 export default class GithubReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
+    printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
   }
 
   onEnd () {

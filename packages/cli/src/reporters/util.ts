@@ -783,12 +783,14 @@ export function resultToCheckStatus (checkResult: any): CheckStatus {
       : CheckStatus.SUCCESSFUL
 }
 
-export function print (text: string) {
-  process.stdout.write(text)
-}
-
 export function printLn (text: string, afterLnCount = 1, beforeLnCount = 0) {
   process.stdout.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
+}
+
+// Progress output (live summaries, streamed logs) belongs on stderr so that
+// stdout carries only the run's results.
+export function printLnErr (text: string, afterLnCount = 1, beforeLnCount = 0) {
+  process.stderr.write(`${'\n'.repeat(beforeLnCount)}${text}${'\n'.repeat(afterLnCount)}`)
 }
 
 export function getTestSessionUrl (testSessionId: string): string {

@@ -103,7 +103,8 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
       const cwd = process.cwd()
       const writeBack = await planWriteBack({ diff, project, cwd })
       const skipped = writeBack.skipped.length > 0 ? formatWriteBackSkipped({ writeBack, project, cwd }) : undefined
-      command.log()
+      // Sets the outcome apart from the question above it, on stderr.
+      command.logToStderr()
       if (writeBack.applied.length === 0) {
         if (skipped !== undefined) {
           command.log(skipped)
@@ -116,13 +117,13 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
         await applyWriteBack(writeBack)
       } catch (err: any) {
         // What has to be edited by hand is true whether or not the write
-        // went through, so it is still said.
+        // went through, so it is still said, as part of the error report.
         if (skipped !== undefined) {
-          command.log(skipped)
+          command.logToStderr(skipped)
         }
         // The error names the files already rewritten, if any.
         command.style.longError('Could not update your code.', err.message)
-        command.log('Nothing was deployed.')
+        command.logToStderr('Nothing was deployed.')
         command.exit(1)
       }
       // Reported once the files hold it, not as an intention; what could not
@@ -131,7 +132,8 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
       if (skipped !== undefined) {
         command.log(skipped)
       }
-      command.log('Nothing was deployed. Review with `git diff`, then run `npx checkly deploy` again.')
+      command.log('Nothing was deployed.')
+      command.logToStderr('Review with `git diff`, then run `npx checkly deploy` again.')
     },
   }]
 }
@@ -438,7 +440,9 @@ export default class Deploy extends AuthCommand {
     const projectPayload = synthesize()
     if (!projectPayload.resources.length) {
       if (preview) {
-        this.log('\nNo checks were detected. More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
+        // The empty preview is the result; where to read up is advice.
+        this.log('No checks were detected.')
+        this.logToStderr('More information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.')
         return
       } else {
         throw new Error('Failed to deploy your project. Unable to find constructs to deploy.\nMore information on how to set up a Checkly CLI project is available at https://checklyhq.com/docs/cli/.\n')
@@ -884,8 +888,9 @@ export default class Deploy extends AuthCommand {
           )
         : []
       if (scheduleOnDeploy && data.scheduled === false) {
-        // Set apart from the line above, which ends without one.
-        this.log()
+        // Set apart from the line above, which ends without one. The blank
+        // line belongs to the warning, so it goes to stderr with it.
+        this.logToStderr()
         this.style.longWarning('Checks were not scheduled', [
           'This deploy would have scheduled more checks than the scheduling threshold allows.',
           '',
@@ -909,7 +914,7 @@ export default class Deploy extends AuthCommand {
           '  For a full list of options, pass --help.',
         ].join('\n'))
       } else if (notScheduled.length > 0) {
-        this.log()
+        this.logToStderr()
         this.style.longInfo('Some checks were not scheduled', [
           'The checks will run at their next scheduled time.',
           '',
@@ -947,7 +952,8 @@ export default class Deploy extends AuthCommand {
         // afresh: this run's token describes a state Checkly has left behind,
         // so sending it again would be refused again.
         if (err.diff.length) {
-          this.log(formatPreview({
+          // The current plan is the failure report's context: stderr.
+          this.logToStderr(formatPreview({
             heading: { title: 'Current plan', projectName: project.name, accountName: account.name },
             diff: err.diff,
             project,

@@ -72,7 +72,9 @@ export function reportNoCandidatePlans (
     command.exit(1)
   }
 
-  command.log(options.nothingToDo)
+  // Nothing to do is information, not a result, so it goes to stderr and
+  // leaves stdout empty.
+  command.logToStderr(options.nothingToDo)
   return true
 }
 

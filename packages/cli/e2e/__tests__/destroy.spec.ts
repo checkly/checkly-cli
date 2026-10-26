@@ -42,7 +42,7 @@ describe('destroy', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain('Type the project name "Deploy Project" to confirm:')
+        expect(err.stderr).toContain('Type the project name "Deploy Project" to confirm:')
       } else {
         throw err
       }
@@ -51,11 +51,11 @@ describe('destroy', () => {
 
   it('Shouldn fail confirming to destroy', async () => {
     const wrongProjectName = 'Wrong Project Name'
-    const { stdout } = await runCheckly(fixt, ['destroy'], {
+    const { stderr } = await runCheckly(fixt, ['destroy'], {
       env: { PROJECT_LOGICAL_ID: projectLogicalId },
       promptsInjection: [wrongProjectName],
     })
-    expect(stdout).toContain(`The entered project name "${wrongProjectName}" doesn't match the expected project name`)
+    expect(stderr).toContain(`The entered project name "${wrongProjectName}" doesn't match the expected project name`)
   })
 
   it('Should destroy after success confirmation', async () => {

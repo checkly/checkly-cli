@@ -1,15 +1,18 @@
 import indentString from 'indent-string'
 
 import AbstractListReporter from './abstract-list.js'
-import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, resultToCheckStatus } from './util.js'
+import { formatCheckTitle, formatCheckResult, CheckStatus, printLn, printLnErr, resultToCheckStatus } from './util.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 
 export default class CiReporter extends AbstractListReporter {
   onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
     super.onBegin(checks, testSessionId)
-    printLn(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2)
-    this._printSummary({ skipCheckCount: true })
+    // Progress output goes to stderr; stdout carries only results.
+    printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}:`, 2)
+    // Results follow on stdout without clearing this summary, so it must not
+    // register erase codes for a redraw.
+    this._printSummary({ skipCheckCount: true, stream: 'stderr', noRedraw: true })
   }
 
   onEnd () {

@@ -414,41 +414,50 @@ describe('platformForOperator', () => {
 })
 
 describe('terminal checks for logging in', () => {
-  const original = { stdin: process.stdin.isTTY, stdout: process.stdout.isTTY, mode: process.env.CHECKLY_CLI_MODE }
+  const original = {
+    stdin: process.stdin.isTTY,
+    stdout: process.stdout.isTTY,
+    stderr: process.stderr.isTTY,
+    mode: process.env.CHECKLY_CLI_MODE,
+  }
 
-  function setTTY (stdin: boolean, stdout: boolean) {
+  function setTTY ({ stdin, stdout = false, stderr }: { stdin: boolean, stdout?: boolean, stderr: boolean }) {
     process.stdin.isTTY = stdin
     process.stdout.isTTY = stdout
+    process.stderr.isTTY = stderr
   }
 
   afterEach(() => {
     process.stdin.isTTY = original.stdin
     process.stdout.isTTY = original.stdout
+    process.stderr.isTTY = original.stderr
     if (original.mode === undefined) delete process.env.CHECKLY_CLI_MODE
     else process.env.CHECKLY_CLI_MODE = original.mode
   })
 
-  it('isPersonAtTerminal() needs only stdin to be a terminal', () => {
+  it('isPersonAtTerminal() needs terminals on stdin and stderr, whatever stdout is', () => {
     delete process.env.CHECKLY_CLI_MODE
-    setTTY(true, false)
+    setTTY({ stdin: true, stdout: false, stderr: true })
     expect(isPersonAtTerminal()).toBe(true)
-    setTTY(false, true)
+    setTTY({ stdin: true, stdout: true, stderr: false })
+    expect(isPersonAtTerminal()).toBe(false)
+    setTTY({ stdin: false, stdout: true, stderr: true })
     expect(isPersonAtTerminal()).toBe(false)
   })
 
   it('isPersonAtTerminal() accepts an explicit CHECKLY_CLI_MODE=interactive without a terminal', () => {
-    setTTY(false, false)
+    setTTY({ stdin: false, stderr: false })
     process.env.CHECKLY_CLI_MODE = 'interactive'
     expect(isPersonAtTerminal()).toBe(true)
   })
 
-  it('canLogInInline() needs terminals on both stdin and stdout, explicit mode or not', () => {
+  it('canLogInInline() needs terminals on both stdin and stderr, explicit mode or not', () => {
     process.env.CHECKLY_CLI_MODE = 'interactive'
-    setTTY(true, true)
+    setTTY({ stdin: true, stdout: false, stderr: true })
     expect(canLogInInline()).toBe(true)
-    setTTY(true, false)
+    setTTY({ stdin: true, stdout: true, stderr: false })
     expect(canLogInInline()).toBe(false)
-    setTTY(false, true)
+    setTTY({ stdin: false, stderr: true })
     expect(canLogInInline()).toBe(false)
   })
 })

@@ -15,15 +15,15 @@ vi.mock('../../rest/api.js', () => ({
   },
 }))
 
-const printMock = vi.fn()
 const printLnMock = vi.fn()
+const printLnErrMock = vi.fn()
 
 vi.mock('../util.js', async () => {
   const actual = await vi.importActual<typeof import('../util.js')>('../util.js')
   return {
     ...actual,
-    print: (...args: Parameters<typeof actual.print>) => printMock(...args),
     printLn: (...args: Parameters<typeof actual.printLn>) => printLnMock(...args),
+    printLnErr: (...args: Parameters<typeof actual.printLnErr>) => printLnErrMock(...args),
   }
 })
 
@@ -64,14 +64,43 @@ function makeReporterWithOneCheck () {
   return { reporter, check }
 }
 
+// The per-check marks: stderr writes without a line break.
+function marks () {
+  return stripAnsi(printLnErrMock.mock.calls
+    .filter(([, afterLnCount]: [string, number?]) => afterLnCount === 0)
+    .map(([text]: [string]) => text).join(''))
+}
+
 function printedOutput () {
   return stripAnsi(printLnMock.mock.calls.map(([text]: [string]) => text).join('\n'))
 }
 
 describe('DotReporter', () => {
   beforeEach(() => {
-    printMock.mockClear()
     printLnMock.mockClear()
+    printLnErrMock.mockClear()
+  })
+
+  it('prints the run announcement on stderr and results on stdout', () => {
+    const { reporter } = makeReporterWithOneCheck()
+    reporter.onCheckEnd(SEQUENCE_ID, makeResult())
+    reporter.onEnd()
+
+    const dots = marks()
+    expect(dots).toContain('.')
+    expect(stripAnsi(printLnErrMock.mock.calls.map(([text]: [string]) => text).join('\n')))
+      .toContain(`Running 1 checks in ${PUBLIC_RUN_LOCATION.region}`)
+    expect(printedOutput()).not.toContain('Running 1 checks')
+  })
+
+  it('ends the line of marks on stderr and opens the summary without an extra empty line', () => {
+    const { reporter } = makeReporterWithOneCheck()
+    reporter.onCheckEnd(SEQUENCE_ID, makeResult())
+    printLnErrMock.mockClear()
+    reporter.onEnd()
+
+    expect(printLnErrMock).toHaveBeenCalledWith('')
+    expect(printedOutput().startsWith('1 passed')).toBe(true)
   })
 
   it('should print execution error details for a check that failed with a run error', () => {
@@ -80,7 +109,7 @@ describe('DotReporter', () => {
     reporter.onCheckEnd(SEQUENCE_ID, makeResult({ hasFailures: true, runError: RUN_ERROR }))
     reporter.onEnd()
 
-    const dots = stripAnsi(printMock.mock.calls.map(([text]: [string]) => text).join(''))
+    const dots = marks()
     expect(dots).toContain('F')
     const output = printedOutput()
     expect(output).toContain('Execution Error')
@@ -94,7 +123,7 @@ describe('DotReporter', () => {
     reporter.onCheckEnd(SEQUENCE_ID, makeResult())
     reporter.onEnd()
 
-    const dots = stripAnsi(printMock.mock.calls.map(([text]: [string]) => text).join(''))
+    const dots = marks()
     expect(dots).toContain('.')
     expect(printedOutput()).not.toContain('Execution Error')
   })
@@ -105,7 +134,7 @@ describe('DotReporter', () => {
     reporter.onCheckEnd(SEQUENCE_ID, makeResult({ hasFailures: true }))
     reporter.onEnd()
 
-    const dots = stripAnsi(printMock.mock.calls.map(([text]: [string]) => text).join(''))
+    const dots = marks()
     expect(dots).toContain('F')
     expect(printedOutput()).not.toContain('Execution Error')
   })

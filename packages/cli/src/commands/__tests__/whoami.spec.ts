@@ -28,11 +28,17 @@ function createCommand (...argv: string[]) {
   const cmd = new Whoami(argv, { version: '1.0.0', runHook: vi.fn().mockResolvedValue({ successes: [], failures: [] }) } as any)
   vi.spyOn(cmd, 'account', 'get').mockReturnValue(acme)
   cmd.log = vi.fn() as any
+  cmd.logToStderr = vi.fn() as any
   return cmd
 }
 
 function output (cmd: Whoami): string {
   return vi.mocked(cmd.log).mock.calls.map(([line]) => String(line ?? '')).join('\n')
+}
+
+// Notices about where the account comes from are not part of the result.
+function notices (cmd: Whoami): string {
+  return vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => String(line ?? '')).join('\n')
 }
 
 beforeEach(() => {
@@ -72,7 +78,8 @@ describe('checkly whoami', () => {
     await cmd.run()
 
     expect(api.accounts.getAll).not.toHaveBeenCalled()
-    expect(output(cmd)).toContain('resolved from your environment')
+    expect(notices(cmd)).toContain('resolved from your environment')
+    expect(output(cmd)).not.toContain('resolved from your environment')
     expect(output(cmd)).not.toContain('Default account')
   })
 
@@ -98,10 +105,10 @@ describe('checkly whoami', () => {
     const cmd = createCommand()
     await cmd.run()
 
-    expect(output(cmd)).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-1" (on the command line, in your shell or in .env), '
+    expect(notices(cmd)).toContain('`CHECKLY_ACCOUNT_ID` is set to "acc-1" (on the command line, in your shell or in .env), '
       + 'so commands use that account instead of the default until it is unset.')
     expect(output(cmd)).toContain('Default account: Globex (acc-2)')
-    expect(output(cmd)).not.toContain('resolved from your environment')
+    expect(notices(cmd)).not.toContain('resolved from your environment')
   })
 
   it('says how to choose a default when none is set', async () => {

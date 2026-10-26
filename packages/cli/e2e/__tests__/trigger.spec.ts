@@ -60,7 +60,7 @@ describe('trigger', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain('No matching checks were found.')
+        expect(err.stderr).toContain('No matching checks were found.')
         expect(err.exitCode).toBe(1)
       } else {
         throw err
@@ -79,7 +79,7 @@ describe('trigger', () => {
       expect.unreachable('Expected command to fail')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain('No matching checks were found.')
+        expect(err.stderr).toContain('No matching checks were found.')
         expect(err.exitCode).toBe(1)
       } else {
         throw err
@@ -88,13 +88,15 @@ describe('trigger', () => {
   })
 
   test('Should return code 0 when no checks match and the no-fail-on-no-matching flag is set', async () => {
-    const { stdout } = await runCheckly(fixt, [
+    const { stdout, stderr } = await runCheckly(fixt, [
       'trigger',
       '--tags',
       'no-checks-match-this-tag',
       '--no-fail-on-no-matching',
     ], runOptions)
 
-    expect(stdout).toContain('No matching checks were found.')
+    // A notice on stderr; nothing ran, so there is no result on stdout.
+    expect(stderr).toContain('No matching checks were found.')
+    expect(stdout).not.toContain('No matching checks were found.')
   })
 })

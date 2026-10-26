@@ -20,6 +20,7 @@ function plan (id: string): ImportPlan {
 function createCommand () {
   return {
     log: vi.fn(),
+    logToStderr: vi.fn(),
     exit: vi.fn((code: number) => {
       throw new Error(`EXIT_${code}`)
     }),
@@ -123,6 +124,7 @@ describe('reportNoCandidatePlans', () => {
 
     expect(reportNoCandidatePlans(command, [plan('a')], options)).toBe(false)
     expect(command.log).not.toHaveBeenCalled()
+    expect(command.logToStderr).not.toHaveBeenCalled()
     expect(command.style.fatal).not.toHaveBeenCalled()
   })
 
@@ -137,7 +139,8 @@ describe('reportNoCandidatePlans', () => {
     const command = createCommand()
 
     expect(reportNoCandidatePlans(command, [], options)).toBe(true)
-    expect(command.log).toHaveBeenCalledWith('Nothing to commit.')
+    expect(command.logToStderr).toHaveBeenCalledWith('Nothing to commit.')
+    expect(command.log).not.toHaveBeenCalled()
     expect(command.exit).not.toHaveBeenCalled()
     expect(command.style.fatal).not.toHaveBeenCalled()
   })

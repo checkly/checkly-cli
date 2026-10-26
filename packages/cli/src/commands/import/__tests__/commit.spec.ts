@@ -43,10 +43,14 @@ function commitFlags (overrides: Record<string, unknown> = {}) {
 
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []
+  const stderrLogged: string[] = []
   return {
     parse: vi.fn().mockResolvedValue(parsed),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
+    }),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg) stderrLogged.push(msg)
     }),
     exit: vi.fn((code: number) => {
       throw new Error(`EXIT_${code}`)
@@ -61,6 +65,7 @@ function createCommandContext (parsed: unknown) {
     },
     constructor: ImportCommitCommand,
     logged,
+    stderrLogged,
   }
 }
 
@@ -82,6 +87,9 @@ describe('import commit command (non-interactive)', () => {
     await ImportCommitCommand.prototype.run.call(ctx as any)
 
     expect(api.projects.commitImportPlan).toHaveBeenCalledWith('only')
+    // The committed plan is the result on stdout; the closing notes go to stderr.
+    expect(ctx.logged).toEqual([expect.stringContaining('Your import plan has been committed!')])
+    expect(ctx.stderrLogged.join('\n')).toContain('fully managed by the Checkly CLI')
   })
 
   it('ignores plans that have not been applied yet', async () => {
@@ -124,7 +132,9 @@ describe('import commit command (non-interactive)', () => {
 
     expect(ctx.exit).not.toHaveBeenCalled()
     expect(ctx.style.fatal).not.toHaveBeenCalled()
-    expect(ctx.logged.join('\n')).toContain('Nothing to commit')
+    // Nothing to do is information on stderr; stdout stays empty.
+    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to commit')
+    expect(ctx.logged).toEqual([])
     expect(api.projects.commitImportPlan).not.toHaveBeenCalled()
   })
 })

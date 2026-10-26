@@ -18,12 +18,14 @@ vi.mock('../../rest/api.js', () => ({
 }))
 
 const printLnMock = vi.fn()
+const printLnErrMock = vi.fn()
 
 vi.mock('../util.js', async () => {
   const actual = await vi.importActual<typeof import('../util.js')>('../util.js')
   return {
     ...actual,
     printLn: (...args: Parameters<typeof actual.printLn>) => printLnMock(...args),
+    printLnErr: (...args: Parameters<typeof actual.printLnErr>) => printLnErrMock(...args),
   }
 })
 

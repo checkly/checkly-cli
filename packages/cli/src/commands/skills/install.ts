@@ -2,7 +2,6 @@ import { Flags } from '@oclif/core'
 import { constants } from 'fs'
 import { access } from 'fs/promises'
 import { join } from 'path'
-import prompts from 'prompts'
 
 import { detectCliMode } from '../../helpers/cli-mode.js'
 import { BaseCommand } from '../baseCommand.js'
@@ -12,6 +11,7 @@ import {
   writeSkillToTarget,
   promptForPlatformTarget,
 } from '../../services/skills.js'
+import { prompt } from '../../helpers/prompts.js'
 
 const SKILL_FILENAME = 'SKILL.md'
 
@@ -59,19 +59,19 @@ export default class SkillsInstall extends BaseCommand {
       const padTo = (flag: string, arg: string) =>
         `  ${(flag + ' ' + arg).padEnd(descCol)}`
 
-      this.log('Non-interactive mode detected. Use one of the following flags:\n')
+      this.logToStderr('Non-interactive mode detected. Use one of the following flags:\n')
       for (const [name, dir] of Object.entries(PLATFORM_TARGETS)) {
-        this.log(`${padTo('--target', name)}Install to ${dir}/`)
+        this.logToStderr(`${padTo('--target', name)}Install to ${dir}/`)
       }
-      this.log(`${padTo('--path', '<dir>')}Install to a custom directory`)
-      this.log(`${padTo('--force', '')}Overwrite existing SKILL.md without confirmation`)
-      this.log('\nExample: npx checkly skills install --target claude --force')
+      this.logToStderr(`${padTo('--path', '<dir>')}Install to a custom directory`)
+      this.logToStderr(`${padTo('--force', '')}Overwrite existing SKILL.md without confirmation`)
+      this.logToStderr('\nExample: npx checkly skills install --target claude --force')
       return
     }
 
     const selectedDir = await this.promptForTarget()
     if (!selectedDir) {
-      this.log('Cancelled. No skill file written.')
+      this.logToStderr('Cancelled. No skill file written.')
       return
     }
 
@@ -116,7 +116,7 @@ export default class SkillsInstall extends BaseCommand {
     if (!force) {
       const shouldOverwrite = await this.confirmOverwrite(targetPath)
       if (!shouldOverwrite) {
-        this.log(`Skipped ${targetPath}`)
+        this.logToStderr(`Skipped ${targetPath}`)
         return
       }
     }
@@ -137,11 +137,11 @@ export default class SkillsInstall extends BaseCommand {
     }
 
     if (detectCliMode() !== 'interactive') {
-      this.log(`Skill file already exists at ${targetPath}. Use --force to overwrite.`)
+      this.logToStderr(`Skill file already exists at ${targetPath}. Use --force to overwrite.`)
       return false
     }
 
-    const { overwrite } = await prompts({
+    const { overwrite } = await prompt({
       type: 'confirm',
       name: 'overwrite',
       message: `Skill file already exists at ${targetPath}. Overwrite?`,

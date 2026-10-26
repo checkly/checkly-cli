@@ -116,11 +116,13 @@ describe('login', () => {
       },
     })
 
-    expect(stdout).toContain('Visit auth.checklyhq.com/activate and enter ')
-    expect(stdout).toMatch(/[A-Z0-9]{4}-[A-Z0-9]{4}/)
-    expect(stdout).toContain('Waiting for you to finish in the browser')
-    expect(stdout).not.toContain('Do you want to log in or sign up')
-    expect(stderr).toBe('')
+    // The code and the waiting note are instructions for the person: stderr.
+    // The login never finishes here, so there is no result on stdout.
+    expect(stderr).toContain('Visit auth.checklyhq.com/activate and enter ')
+    expect(stderr).toMatch(/[A-Z0-9]{4}-[A-Z0-9]{4}/)
+    expect(stderr).toContain('Waiting for you to finish in the browser')
+    expect(`${stdout}${stderr}`).not.toContain('Do you want to log in or sign up')
+    expect(stdout).toBe('')
   }, 20000)
 
   it('in agent mode prints a machine-readable action_required line and no prompts', async () => {

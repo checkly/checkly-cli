@@ -1,9 +1,9 @@
-import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import config from '../services/config.js'
 import { BaseCommand } from './baseCommand.js'
 import commonMessages from '../messages/common-messages.js'
 import { detectCliMode, isPersonAtTerminal } from '../helpers/cli-mode.js'
+import { prompt } from '../helpers/prompts.js'
 
 export default class Logout extends BaseCommand {
   static hidden = false
@@ -33,7 +33,7 @@ export default class Logout extends BaseCommand {
         ? ' of "' + accountName + '"'
         : ''}, do you want to continue?`
 
-      const { confirm } = await prompts({
+      const { confirm } = await prompt({
         name: 'confirm',
         type: 'confirm',
         message,

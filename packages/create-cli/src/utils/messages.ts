@@ -2,6 +2,9 @@
 import chalk from 'chalk'
 import { getFullName } from './fullname.js'
 
+// create-checkly is a wizard: all of its output is chatter, so it goes to
+// stderr and stdout stays empty.
+
 function sleep (ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms))
 }
@@ -12,30 +15,30 @@ export async function getUserGreeting (): Promise<string> {
 }
 
 export async function header (version: string, greeting: string): Promise<void> {
-  console.log(
+  console.error(
     `${chalk.black.bgCyan.bold(' checkly ')} v${version} ${chalk.bold(
       'Build and Run Synthetics That Scale')}\n`,
   )
   await sleep(1000)
-  console.log(`${greeting} Let's get you started on your ${chalk.green.bold('monitoring as code')} journey!\n`)
+  console.error(`${greeting} Let's get you started on your ${chalk.green.bold('monitoring as code')} journey!\n`)
   await sleep(500)
 }
 
 export async function hint (prefix: string, text: string) {
   await sleep(100)
-  if (process.stdout.columns < 80) {
-    console.log(`${chalk.cyan('◼')}  ${chalk.cyan(prefix)}`)
-    console.log(`${' '.repeat(3)}${chalk.dim(text)}\n`)
+  if (process.stderr.columns < 80) {
+    console.error(`${chalk.cyan('◼')}  ${chalk.cyan(prefix)}`)
+    console.error(`${' '.repeat(3)}${chalk.dim(text)}\n`)
   } else {
-    console.log(`${chalk.cyan('◼')}  ${chalk.cyan(prefix)} ${chalk.dim(text)}\n`)
+    console.error(`${chalk.cyan('◼')}  ${chalk.cyan(prefix)} ${chalk.dim(text)}\n`)
   }
 }
 
 export async function footer (targetDir?: string): Promise<void> {
-  const max = process.stdout.columns
+  const max = process.stderr.columns
   const prefix = max < 80 ? ' ' : ' '.repeat(9)
   await sleep(200)
-  console.log(
+  console.error(
     `\n ${chalk.bgCyan(` ${chalk.black.bold('next')} `)}  ${chalk.bold(
       'All done. Time to get testing & monitoring with Checkly\n',
     )}`,
@@ -43,24 +46,24 @@ export async function footer (targetDir?: string): Promise<void> {
 
   if (targetDir) {
     await sleep(200)
-    console.log(
+    console.error(
       `${prefix}> Enter your project directory using ${chalk.cyan(`cd ${targetDir}`)}`,
     )
   }
   await sleep(200)
-  console.log(
+  console.error(
     `${prefix}> Run ${chalk.cyan('npx checkly login')} to login to your Checkly account or create a free new account`,
   )
   await sleep(200)
-  console.log(
+  console.error(
     `${prefix}> Run ${chalk.cyan('npx checkly test')} to dry run your checks`,
   )
   await sleep(200)
-  console.log(
+  console.error(
     `${prefix}> Run ${chalk.cyan('npx checkly deploy')} to deploy your checks to the Checkly cloud`,
   )
   await sleep(200)
-  console.log(`\n${prefix}Questions?\n`)
-  console.log(`${prefix}- Check the docs at ${chalk.cyan('https://checklyhq.com/docs/cli')}`)
-  console.log(`${prefix}- Join the Checkly Slack community at ${chalk.cyan('https://checklyhq.com/slack')}\n`)
+  console.error(`\n${prefix}Questions?\n`)
+  console.error(`${prefix}- Check the docs at ${chalk.cyan('https://checklyhq.com/docs/cli')}`)
+  console.error(`${prefix}- Join the Checkly Slack community at ${chalk.cyan('https://checklyhq.com/slack')}\n`)
 }

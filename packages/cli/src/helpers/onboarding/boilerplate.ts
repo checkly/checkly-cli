@@ -2,13 +2,13 @@ import { existsSync, readFileSync, writeFileSync, cpSync } from 'fs'
 import { execSync } from 'child_process'
 import { join, dirname } from 'path'
 import chalk from 'chalk'
-import prompts from 'prompts'
 import { fileURLToPath } from 'node:url'
 
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
 import { makeOnCancel, successMessage } from './prompts-helpers.js'
 import { getRepoUrlFromGit } from '../../services/util.js'
 import { quote } from '../../sourcegen/string.js'
+import { prompt } from '../prompts.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -193,7 +193,7 @@ export async function runDepsInstall (
     return installDependencies(projectDir, pm.installCmd, log)
   }
 
-  const { install } = await prompts({
+  const { install } = await prompt({
     type: 'confirm',
     name: 'install',
     message: `Run ${pm.name} install to install them now?`,

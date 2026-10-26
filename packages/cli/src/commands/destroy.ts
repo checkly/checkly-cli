@@ -1,4 +1,3 @@
-import prompts from 'prompts'
 import { Flags } from '@oclif/core'
 import * as api from '../rest/api.js'
 import { loadChecklyConfig } from '../services/checkly-config-loader.js'
@@ -8,6 +7,7 @@ import commonMessages from '../messages/common-messages.js'
 import { forceFlag } from '../helpers/flags.js'
 import { ProjectDeployCancelledError } from '../rest/projects.js'
 import { ConflictError } from '../rest/errors.js'
+import { prompt } from '../helpers/prompts.js'
 
 export default class Destroy extends AuthCommand {
   static hidden = false
@@ -65,7 +65,7 @@ export default class Destroy extends AuthCommand {
     }, {
       force: flags.force,
       interactiveConfirm: async () => {
-        const { projectName } = await prompts({
+        const { projectName } = await prompt({
           name: 'projectName',
           type: 'text',
           message: `Type the project name "${checklyConfig.projectName}" to confirm:`,
@@ -74,7 +74,7 @@ export default class Destroy extends AuthCommand {
           return false
         }
         if (projectName !== checklyConfig.projectName) {
-          this.log(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
+          this.logToStderr(`The entered project name "${projectName}" doesn't match the expected project name "${checklyConfig.projectName}".`)
           return false
         }
         return true

@@ -1,4 +1,3 @@
-import prompts from 'prompts'
 import { BaseCommand } from './baseCommand.js'
 import * as api from '../rest/api.js'
 import { Account } from '../rest/accounts.js'
@@ -11,6 +10,7 @@ import Login from './login.js'
 import type { Project } from '../constructs/project.js'
 import type { CommandPreview } from '../helpers/command-preview.js'
 import { formatPreviewForAgent, formatPreviewForTerminal } from '../helpers/command-preview.js'
+import { prompt } from '../helpers/prompts.js'
 
 /**
  * Without stored credentials an interactive user or an agent gets the login
@@ -158,8 +158,10 @@ export abstract class AuthCommand extends BaseCommand {
     const mode = detectCliMode()
 
     if (mode === 'interactive') {
-      this.log(formatPreviewForTerminal(preview))
-      this.log()
+      // The preview is the question's context, not a result: it renders on
+      // stderr with the prompt.
+      this.logToStderr(formatPreviewForTerminal(preview))
+      this.logToStderr()
 
       if (options.interactiveConfirm !== undefined) {
         if (!await options.interactiveConfirm()) {
@@ -171,7 +173,7 @@ export abstract class AuthCommand extends BaseCommand {
       const question = preview.question ?? 'Proceed?'
       const alternatives = preview.terminal?.alternatives ?? []
       if (alternatives.length === 0) {
-        const { confirm } = await prompts({ name: 'confirm', type: 'confirm', message: question })
+        const { confirm } = await prompt({ name: 'confirm', type: 'confirm', message: question })
         if (!confirm) {
           return this.exit(0)
         }
@@ -186,7 +188,7 @@ export abstract class AuthCommand extends BaseCommand {
         ...alternatives.map((alternative, index) => ({ title: alternative.title, value: `alternative:${index}` })),
         { title: 'Cancel', value: 'cancel' },
       ]
-      const { action } = await prompts({
+      const { action } = await prompt({
         name: 'action',
         type: 'select',
         message: question,

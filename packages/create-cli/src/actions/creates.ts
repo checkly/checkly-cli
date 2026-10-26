@@ -27,7 +27,7 @@ export async function createCustomBrowserCheck (
       fs.writeFileSync(path.join(projectDirectory, './__checks__/custom.spec.ts'),
         defaultBrowserCheck.replace(/URL_TO_CHECK/i, new URL(userWebsite).toString()))
     } else {
-      process.stdout.write('Custom check wasn\'t created: the specified URL isn\'t valid.\n')
+      process.stderr.write('Custom check wasn\'t created: the specified URL isn\'t valid.\n')
     }
   }
 }

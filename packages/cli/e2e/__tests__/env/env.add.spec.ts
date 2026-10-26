@@ -55,7 +55,7 @@ describe('checkly env add', () => {
       expect.unreachable('Expected env add to fail because variable already exists')
     } catch (err) {
       if (err instanceof ExecaError) {
-        expect(err.stdout).toContain(`Environment variable "testenvvarslocked-${executionId}" already exists.`)
+        expect(err.stderr).toContain(`Environment variable "testenvvarslocked-${executionId}" already exists.`)
       } else {
         throw err
       }

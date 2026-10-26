@@ -3,7 +3,7 @@ import path from 'node:path'
 import { setTimeout } from 'node:timers/promises'
 
 import { Args, Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 import chalk from 'chalk'
 import logSymbols from 'log-symbols'
 import { validate as validateUuid } from 'uuid'
@@ -36,6 +36,7 @@ import { Project } from '../../constructs/project.js'
 import { ConstructExport, Session } from '../../constructs/session.js'
 import { Diagnostics } from '../../constructs/index.js'
 import { Runtime } from '../../runtimes/index.js'
+import { prompt } from '../../helpers/prompts.js'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
@@ -197,7 +198,7 @@ future deployments include the imported resources.`
         }
       })()
 
-      this.style.shortSuccess(
+      this.style.stepSuccess(
         `Successfully loaded debug import plan from "${debugImportPlanInputFile}".`,
       )
 
@@ -384,13 +385,15 @@ future deployments include the imported resources.`
           throw err
         }
 
+        // The created plan and where its code lives are the result (stdout);
+        // the guidance on what to do next is chatter (stderr).
         this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been created!')}`)
         this.log()
         this.log(`  You can find the generated code under the following directory:`)
         this.log()
         this.log(`    ${chalk.green(rootDirectory)}`)
-        this.log()
-        this.log(`\
+        this.logToStderr()
+        this.logToStderr(`\
   The imported resources have not been linked to your project yet. Please
   make sure to inspect the generated code. Should you find anything you do
   not like, you can cancel the import plan and no harm will be done.
@@ -434,10 +437,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         try {
           const output = JSON.stringify(plan, null, 2)
           await fs.writeFile(debugImportPlanOutputFile, output, 'utf8')
-          this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com and attach the newly created "${debugImportPlanOutputFile}" file.`)
+          this.logToStderr(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com and attach the newly created "${debugImportPlanOutputFile}" file.`)
         // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
-          this.log(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com.`)
+          this.logToStderr(`${logSymbols.warning} Please contact Checkly support at support@checklyhq.com.`)
         }
 
         throw err
@@ -448,8 +451,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   #outputFailures (failures: FailedResource[], codegen: ConstructCodegen): ImportPlanFilter[] {
     const filters: ImportPlanFilter[] = []
 
-    this.log(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
-    this.log()
+    this.logToStderr(`${logSymbols.error} ${chalk.red('The following resources could not be imported:')}`)
+    this.logToStderr()
 
     for (const { resource, cause } of failures) {
       const spec = `${resource.type}:${resource.physicalId}`
@@ -461,10 +464,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         }
       })()
 
-      this.log(`  ${desc} (${chalk.gray(spec)})`)
-      this.log()
-      this.log(`    ${chalk.red(cause.toString())}`)
-      this.log()
+      this.logToStderr(`  ${desc} (${chalk.gray(spec)})`)
+      this.logToStderr()
+      this.logToStderr(`    ${chalk.red(cause.toString())}`)
+      this.logToStderr()
 
       filters.push({
         type: 'exclude',
@@ -484,8 +487,8 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     description: string
   }) {
     const { title, step: [step, totalSteps], description } = options
-    this.log(`  ${title} ${chalk.grey(`(step ${step}/${totalSteps})`)}`)
-    this.log()
+    this.logToStderr(`  ${title} ${chalk.grey(`(step ${step}/${totalSteps})`)}`)
+    this.logToStderr()
     this.style.comment(description)
   }
 
@@ -497,12 +500,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     })
 
     while (true) {
-      const { projectName } = await prompts({
+      const { projectName } = await prompt({
         name: 'projectName',
         type: 'text',
         message: 'What should we call your project?',
       })
-      this.log()
+      this.logToStderr()
 
       if (projectName === undefined) {
         this.cancelAndExit()
@@ -531,7 +534,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     })
 
     while (true) {
-      const { logicalId } = await prompts({
+      const { logicalId } = await prompt({
         name: 'logicalId',
         type: 'text',
         message: 'How would you like your project to be identified?',
@@ -545,7 +548,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           return true
         },
       })
-      this.log()
+      this.logToStderr()
 
       if (logicalId === undefined) {
         this.cancelAndExit()
@@ -569,7 +572,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       + `through the process.`,
     )
 
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `Yes, I want to start a new project for the imported resources`,
       value: 'init',
       description: `We'll walk you through a minimal setup`,
@@ -583,13 +586,13 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       description: 'No changes will be made.',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'select',
       message: 'Set up a new Checkly project?',
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     switch (action) {
       case 'init': {
@@ -653,10 +656,10 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           packageJson = await (async () => {
             const file = await this.#loadPackageJson()
             if (file !== undefined) {
-              this.style.shortSuccess(`Found existing package.json`)
+              this.style.stepSuccess(`Found existing package.json`)
               return file
             } else {
-              this.style.shortSuccess(`Creating a new minimal package.json`)
+              this.style.stepSuccess(`Creating a new minimal package.json`)
               return this.#createPackageJson(logicalId)
             }
           })()
@@ -668,11 +671,11 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           })
 
           if (updated) {
-            this.style.shortSuccess(`Successfully added Checkly devDependencies`)
+            this.style.stepSuccess(`Successfully added Checkly devDependencies`)
             program.staticSupportFile(packageJson.meta.filePath, packageJson.toJSON())
             askInstall = true
           } else {
-            this.style.shortSuccess(`Checkly devDependencies are already up to date`)
+            this.style.stepSuccess(`Checkly devDependencies are already up to date`)
           }
 
           this.style.actionSuccess()
@@ -751,7 +754,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
 
     const { unsafeDisplayCommand, executable, args } = packageManager.installCommand()
 
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `Yes, please run \`${unsafeDisplayCommand}\` for me`,
       value: 'install',
     }, {
@@ -762,13 +765,13 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       value: 'later',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       type: 'select',
       name: 'action',
       message: 'Would you like to install dependencies now? (recommended)',
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     switch (action) {
       case 'install': {
@@ -779,12 +782,15 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
         try {
           await execa(executable, args, {
             cwd: dirPath,
-            stdout: ['inherit'],
-            stderr: ['inherit'],
-            stdin: ['inherit'],
+            // The installer's output is progress chatter, not the import
+            // result: hand the child the CLI's stderr as its stdout so it still
+            // reaches the user's terminal without polluting the CLI's stdout.
+            stdout: process.stderr,
+            stderr: 'inherit',
+            stdin: 'inherit',
           })
 
-          this.log()
+          this.logToStderr()
 
           this.style.comment(
             `Successfully installed dependencies.`,
@@ -801,12 +807,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             + `dependencies later by yourself.`,
           )
 
-          const { action } = await prompts({
+          const { action } = await prompt({
             type: 'confirm',
             name: 'action',
             message: 'Continue the import process?',
           })
-          this.log()
+          this.logToStderr()
 
           if (action) {
             this.style.comment(
@@ -837,13 +843,13 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           value: 'other',
         })
 
-        const { action } = await prompts({
+        const { action } = await prompt({
           type: 'select',
           name: 'action',
           message: 'Which package manager would you like to use?',
           choices,
         })
-        this.log()
+        this.logToStderr()
 
         if (action === undefined) {
           this.cancelAndExit()
@@ -858,12 +864,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
             + `dependencies later by yourself.`,
           )
 
-          const { action } = await prompts({
+          const { action } = await prompt({
             type: 'confirm',
             name: 'action',
             message: 'Continue the import process?',
           })
-          this.log()
+          this.logToStderr()
 
           if (action) {
             this.style.comment(
@@ -994,12 +1000,12 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #confirmRetryWithoutFailed (): Promise<boolean> {
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'confirm',
       message: 'Would you like to try again without the failed resources?',
     })
-    this.log()
+    this.logToStderr()
 
     return action ?? false
   }
@@ -1037,7 +1043,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #interactiveFilter (logicalId: string, codegen: ConstructCodegen): Promise<ImportPlanFilter[]> {
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `I want to import everything in one go`,
       value: 'all',
     }, {
@@ -1050,19 +1056,19 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       description: 'No changes will be made.',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'select',
       message: 'Which resources would you like to import?',
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     switch (action) {
       case 'all':
         return []
       case 'choose': {
-        const choices: prompts.Choice[] = await (async () => {
+        const choices: Choice[] = await (async () => {
           this.style.actionStart('Fetching available resources')
 
           try {
@@ -1105,7 +1111,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           return a.title.localeCompare(b.title)
         })
 
-        const { resources } = await prompts({
+        const { resources } = await prompt({
           name: 'resources',
           type: 'autocompleteMultiselect',
           message: 'Please select the resources you would like to import',
@@ -1113,7 +1119,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           hint: ' - Space to select. Return to submit.',
           instructions: false,
         })
-        this.log()
+        this.logToStderr()
 
         if (resources === undefined) {
           this.cancelAndExit()
@@ -1349,7 +1355,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       // The project does not exist yet and we must create (initialize) it.
     }
 
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: `Yes, I want to start a new project with the imported resources`,
       value: 'init',
     }, {
@@ -1362,13 +1368,13 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
       description: 'No changes will be made.',
     }]
 
-    const { action } = await prompts({
+    const { action } = await prompt({
       name: 'action',
       type: 'select',
       message: 'Your project has not been initialized yet. Initialize now?',
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     switch (action) {
       case 'init': {
@@ -1403,7 +1409,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   async #handleExistingPlans (plans: ImportPlan[]) {
-    const choices: prompts.Choice[] = [{
+    const choices: Choice[] = [{
       title: 'I want to exit and rethink',
       value: 'exit',
       description: 'No changes will be made.',
@@ -1419,28 +1425,28 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     }]
 
     while (true) {
-      const { action } = await prompts({
+      const { action } = await prompt({
         name: 'action',
         type: 'select',
         message: `Found ${plans.length} existing uncommitted plan(s). How do you want to proceed?`,
         choices,
       })
-      this.log()
+      this.logToStderr()
 
       switch (action) {
         case 'show': {
-          this.log()
+          this.logToStderr()
           for (const plan of plans) {
-            this.log(`Plan ${plan.id}:`)
-            this.log(`  Created at: ${new Date(plan.createdAt)}`)
-            this.log(`  Applied?:   ${plan.appliedAt ? 'yes' : 'no'}`)
+            this.logToStderr(`Plan ${plan.id}:`)
+            this.logToStderr(`  Created at: ${new Date(plan.createdAt)}`)
+            this.logToStderr(`  Applied?:   ${plan.appliedAt ? 'yes' : 'no'}`)
             if (plan.appliedAt) {
-              this.log(`  Applied at: ${new Date(plan.appliedAt)}`)
+              this.logToStderr(`  Applied at: ${new Date(plan.appliedAt)}`)
             }
-            this.log()
+            this.logToStderr()
           }
 
-          const { action } = await prompts({
+          const { action } = await prompt({
             name: 'action',
             type: 'select',
             message: 'Do you want to exit or retry?',
@@ -1453,7 +1459,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
               value: 'return',
             }],
           })
-          this.log()
+          this.logToStderr()
 
           if (action === 'exit') {
             this.cancelAndExit()
@@ -1467,7 +1473,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           try {
             for (const plan of plans) {
               await api.projects.cancelImportPlan(plan.id)
-              this.style.shortSuccess(`Cancelled plan ${plan.id}`)
+              this.style.stepSuccess(`Cancelled plan ${plan.id}`)
             }
 
             this.style.actionSuccess()
@@ -1492,7 +1498,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
   }
 
   cancelAndExit (): never {
-    this.log('Exiting without making any changes.')
+    this.logToStderr('Exiting without making any changes.')
     this.exit(0)
   }
 }

@@ -138,6 +138,17 @@ function loggedLines (cmd: Login): string[] {
   return vi.mocked(cmd.log).mock.calls.map(([msg]) => String(msg ?? ''))
 }
 
+/**
+ * stdout and stderr lines in the order they were written: what a person sees
+ * on the terminal. Notices, instructions, and hints go to stderr; results to
+ * stdout.
+ */
+function terminalLines (cmd: Login): string[] {
+  const calls = [vi.mocked(cmd.log).mock, vi.mocked(cmd.logToStderr).mock].flatMap(({ calls, invocationCallOrder }) =>
+    calls.map(([msg], index) => ({ order: invocationCallOrder[index], line: String(msg ?? '') })))
+  return calls.sort((a, b) => a.order - b.order).map(({ line }) => line)
+}
+
 function jsonLines (cmd: Login): any[] {
   return loggedLines(cmd).map(line => JSON.parse(line))
 }
@@ -145,11 +156,13 @@ function jsonLines (cmd: Login): any[] {
 const originalStdinIsTTY = process.stdin.isTTY
 
 const originalStdoutIsTTY = process.stdout.isTTY
+const originalStderrIsTTY = process.stderr.isTTY
 let platformSpy: { mockRestore: () => void } | undefined
 
 afterEach(() => {
   process.stdin.isTTY = originalStdinIsTTY
   process.stdout.isTTY = originalStdoutIsTTY
+  process.stderr.isTTY = originalStderrIsTTY
   delete process.env.CHECKLY_CLI_MODE
   vi.unstubAllEnvs()
   platformSpy?.mockRestore()
@@ -159,8 +172,12 @@ afterEach(() => {
 beforeEach(() => {
   vi.clearAllMocks()
   process.stdin.isTTY = true
-  // Plain output by default (as when piped); the spinner tests turn it on.
+  // Plain output by default: a person at a terminal Node does not detect as
+  // one (CHECKLY_CLI_MODE=interactive), so no spinner. The spinner tests put
+  // a terminal on stderr, where the spinner renders.
   process.stdout.isTTY = false as any
+  process.stderr.isTTY = false as any
+  process.env.CHECKLY_CLI_MODE = 'interactive'
   // A local desktop session, so an opened browser counts as opened.
   vi.stubEnv('SSH_CONNECTION', '')
   vi.stubEnv('SSH_TTY', '')
@@ -597,7 +614,7 @@ describe('checkly login', () => {
           const cmd = createCommand()
           await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-          const output = loggedLines(cmd).join('\n')
+          const output = terminalLines(cmd).join('\n')
           expect(output).toContain('Account "Acme" is no longer available with the stored login.')
           expect(output).not.toContain('Continuing the login as')
           expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
@@ -613,7 +630,7 @@ describe('checkly login', () => {
           await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
           expect(prompts).not.toHaveBeenCalled()
-          expect(loggedLines(cmd).join('\n')).toContain('The stored login is no longer valid')
+          expect(terminalLines(cmd).join('\n')).toContain('The stored login is no longer valid')
           expect(deviceFlow.pollForTokens).toHaveBeenCalled()
         })
 
@@ -729,7 +746,7 @@ describe('checkly login', () => {
         const cmd = createCommand('--account-id', 'acc-2')
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-        const output = loggedLines(cmd).join('\n')
+        const output = terminalLines(cmd).join('\n')
         expect(output).toContain('The stored login is no longer valid')
         expect(output).toContain('Logged in as Ada Lovelace to')
         expect(output).not.toContain('Switched to account')
@@ -1046,6 +1063,7 @@ describe('checkly login', () => {
     beforeEach(() => {
       vi.mocked(detectCliMode).mockReturnValue('interactive')
       process.stdin.isTTY = false as any
+      delete process.env.CHECKLY_CLI_MODE
     })
 
     it('fails at once instead of waiting for a code nobody sees', async () => {
@@ -1139,7 +1157,7 @@ describe('checkly login', () => {
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-      expect(loggedLines(cmd)).toEqual([
+      expect(terminalLines(cmd)).toEqual([
         'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
         '',
         'Waiting for you to finish in the browser…',
@@ -1148,6 +1166,9 @@ describe('checkly login', () => {
         '',
         'To create checks for a project, run `pnpm checkly init`.',
       ])
+      // Only the result is on stdout; the code, the waiting note, and the hint
+      // are for the person following along, on stderr.
+      expect(loggedLines(cmd)).toEqual(['Logged in as Ada Lovelace to Acme.'])
       expect(open).toHaveBeenCalledWith('https://auth.checklyhq.com/activate?user_code=ABCD-EFGH')
       // No login/sign-up menu, no "open a browser?" question, single account => no account prompt.
       expect(prompts).not.toHaveBeenCalled()
@@ -1188,7 +1209,7 @@ describe('checkly login', () => {
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-      expect(loggedLines(cmd).join('\n')).toContain('Still waiting: the last answer was HTTP 407')
+      expect(terminalLines(cmd).join('\n')).toContain('Still waiting: the last answer was HTTP 407')
     })
 
     it('reports any other login server error as a plain error', async () => {
@@ -1222,7 +1243,7 @@ describe('checkly login', () => {
       const cmd = createCommand(...argv)
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-      expect(loggedLines(cmd).slice(0, 3)).toEqual([
+      expect(terminalLines(cmd).slice(0, 3)).toEqual([
         'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
         'Or open https://auth.checklyhq.com/activate?user_code=ABCD-EFGH',
         '',
@@ -1231,19 +1252,21 @@ describe('checkly login', () => {
 
     describe('on a terminal', () => {
       beforeEach(() => {
-        process.stdout.isTTY = true
+        process.stderr.isTTY = true
       })
 
       it('waits behind a spinner and marks it done', async () => {
         const cmd = createCommand()
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-        expect(ux.action.start).toHaveBeenCalledWith('Waiting for you to finish in the browser', undefined, { stdout: true })
+        expect(ux.action.start).toHaveBeenCalledWith('Waiting for you to finish in the browser')
         expect(ux.action.stop).toHaveBeenCalledWith('✅')
         expect(loggedLines(cmd)).not.toContain('Waiting for you to finish in the browser…')
-        // The spinner line itself is drawn by oclif, between the two empty
-        // lines; actionSuccess's empty line separates the result, no second one.
-        expect(loggedLines(cmd)).toEqual([
+        // The spinner line itself is drawn by oclif (mocked here) between the
+        // two empty lines: the one after the code and actionSuccess's own.
+        // Only the result is on stdout.
+        expect(loggedLines(cmd)).toEqual(['Logged in as Ada Lovelace to Acme.'])
+        expect(terminalLines(cmd)).toEqual([
           'Visit auth.checklyhq.com/activate and enter ABCD-EFGH',
           '',
           '',
@@ -1261,11 +1284,11 @@ describe('checkly login', () => {
         const cmd = createCommand()
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-        const lines = loggedLines(cmd)
+        const lines = terminalLines(cmd)
         expect(lines[lines.indexOf('Logged in as Ada Lovelace to Globex.') - 1]).toBe('')
       })
 
-      it('keeps a login another command started off the spinner, which writes to stdout', async () => {
+      it('keeps a login another command started off the spinner, which writes to stderr', async () => {
         const cmd = createCommand()
         await expect(cmd.login({ inline: true })).resolves.toBe(true)
 
@@ -1298,7 +1321,7 @@ describe('checkly login', () => {
         await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
         expect(ux.action.start).not.toHaveBeenCalled()
-        expect(loggedLines(cmd)).toContain('Waiting for you to finish in the browser…')
+        expect(terminalLines(cmd)).toContain('Waiting for you to finish in the browser…')
       })
     })
 
@@ -1307,7 +1330,7 @@ describe('checkly login', () => {
       const cmd = createCommand()
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
-      expect(loggedLines(cmd).at(-1)).toBe('To run your checks, run `pnpm checkly test`.')
+      expect(terminalLines(cmd).at(-1)).toBe('To run your checks, run `pnpm checkly test`.')
     })
 
     it('still logs in when the next step cannot be worked out', async () => {
@@ -1346,7 +1369,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(AuthContext).toHaveBeenCalledWith('signup')
-      expect(loggedLines(cmd).join('\n')).toContain('https://auth.checklyhq.com/authorize?client_id=x')
+      expect(terminalLines(cmd).join('\n')).toContain('https://auth.checklyhq.com/authorize?client_id=x')
       expect(open).not.toHaveBeenCalled()
       expect(config.auth.set).toHaveBeenCalledWith('apiKey', 'cak_pkce')
     })
@@ -1358,7 +1381,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(prompts).toHaveBeenCalledTimes(1)
-      expect(loggedLines(cmd).join('\n')).toContain('https://auth.checklyhq.com/authorize?client_id=x')
+      expect(terminalLines(cmd).join('\n')).toContain('https://auth.checklyhq.com/authorize?client_id=x')
       expect(open).not.toHaveBeenCalled()
     })
 
@@ -1374,9 +1397,9 @@ describe('checkly login', () => {
       expect(deviceFlow.requestAuthorization).not.toHaveBeenCalled()
       expect(prompts).toHaveBeenCalledTimes(1)
       expect(config.data.set).toHaveBeenCalledWith('accountId', 'acc-1')
-      expect(loggedLines(cmd).join('\n')).toContain('Continuing the login as')
-      expect(loggedLines(cmd).join('\n')).toContain('Run `npx checkly logout` first')
-      expect(loggedLines(cmd).join('\n')).toContain('Logged in as Ada Lovelace to')
+      expect(terminalLines(cmd).join('\n')).toContain('Continuing the login as')
+      expect(terminalLines(cmd).join('\n')).toContain('Run `npx checkly logout` first')
+      expect(terminalLines(cmd).join('\n')).toContain('Logged in as Ada Lovelace to')
     })
 
     it('says so and logs in again when the stored key of an unfinished login is no longer accepted', async () => {
@@ -1387,7 +1410,7 @@ describe('checkly login', () => {
 
       expect(config.auth.delete).toHaveBeenCalledWith('apiKey')
       expect(deviceFlow.requestAuthorization).toHaveBeenCalled()
-      const output = loggedLines(cmd).join('\n')
+      const output = terminalLines(cmd).join('\n')
       expect(output).toContain('The stored login is no longer valid')
       expect(output).not.toContain('Continuing the login as')
     })
@@ -1413,7 +1436,7 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_0')
 
       expect(open).not.toHaveBeenCalled()
-      expect(loggedLines(cmd).join('\n')).toContain('ABCD-EFGH')
+      expect(terminalLines(cmd).join('\n')).toContain('ABCD-EFGH')
     })
 
     it('does not open a browser when CHECKLY_NO_BROWSER is set, in agent mode too', async () => {
@@ -1451,6 +1474,18 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(jsonLines(cmd)[0]).toMatchObject({ status: 'action_required', reason: 'login_required' })
+    })
+
+    it('prints the login as the result and how to store a default as a hint, for a person', async () => {
+      vi.mocked(detectCliMode).mockReturnValue('interactive')
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_0')
+
+      expect(loggedLines(cmd)).toContain('Logged in as Ada Lovelace. Commands use account "Globex" from '
+        + '`CHECKLY_ACCOUNT_ID` while it is set; no default account is stored.')
+      expect(loggedLines(cmd).join('\n')).not.toContain('to store a default account')
+      expect(vi.mocked(cmd.logToStderr).mock.calls.map(([line]) => line))
+        .toContain('Run `npx checkly login --account-id <id>` to store a default account.')
     })
 
     it('uses that account for the command that started the login, without storing a default', async () => {

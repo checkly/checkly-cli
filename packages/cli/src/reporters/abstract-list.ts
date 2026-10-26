@@ -4,7 +4,7 @@ import { DateTime } from 'luxon'
 
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Reporter } from './reporter.js'
-import { CheckStatus, formatCheckResult, formatCheckTitle, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
+import { CheckStatus, formatCheckResult, formatCheckTitle, getTestSessionUrl, printLn, printLnErr, resultToCheckStatus } from './util.js'
 import type { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
 import { Check } from '../constructs/check.js'
 import { testSessions } from '../rest/api.js'
@@ -110,7 +110,7 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   onError (err: Error) {
-    printLn(chalk.red('Unable to run checks: ') + err.message)
+    printLnErr(chalk.red('Unable to run checks: ') + err.message)
   }
 
   onStreamLogs (check: any, sequenceId: SequenceId, logs: Array<{ timestamp: number, message: string }> | undefined) {
@@ -131,10 +131,11 @@ export default abstract class AbstractListReporter implements Reporter {
         sourceFile: check.getSourceFile?.() || 'Playwright Test',
         name: check.name || check.logicalId || 'Unknown Test',
       }
-      printLn(formatCheckTitle(CheckStatus.RUNNING, displayCheck, { includeSourceFile: true }))
+      printLnErr(formatCheckTitle(CheckStatus.RUNNING, displayCheck, { includeSourceFile: true }))
     }
 
-    // Format and display each log with proper indentation and timestamp handling
+    // Streamed logs are progress output: they belong on stderr, next to the
+    // live summary. Check results (with their full logs) stay on stdout.
     logList.forEach(logEntry => {
       // Format timestamp from Unix timestamp to HH:mm:ss.SSS format
       const timestamp = DateTime.fromMillis(logEntry.timestamp).toFormat('HH:mm:ss.SSS')
@@ -143,21 +144,26 @@ export default abstract class AbstractListReporter implements Reporter {
       messageLines.forEach(line => {
         // Each line gets its own timestamp for clarity
         const formattedLine = `[${timestamp}] ${line}`
-        printLn(indentString(formattedLine, 4))
+        printLnErr(indentString(formattedLine, 4))
       })
     })
 
-    this._printSummary()
+    this._printSummary({ stream: 'stderr' })
   }
 
   onCancel (): void {
     this._isCancelling = true
     if (this._shouldRenderLiveSummary()) {
+      // Cancelling is not the end of the run: the cancelled results and the
+      // final summary (onEnd, on stdout) still arrive, so this is a live
+      // redraw and belongs on stderr like every other redraw.
       this._clearSummary()
-      this._printSummary()
+      this._printSummary({ stream: 'stderr' })
       return
     }
-    this._printSummary({ includeCheckTitles: false })
+    // Without a live summary to redraw, the cancel notice is still progress:
+    // the final summary follows on stdout via onEnd.
+    this._printSummary({ includeCheckTitles: false, stream: 'stderr' })
   }
 
   onMaxFailuresReached (maxFailures: number): void {
@@ -196,20 +202,33 @@ export default abstract class AbstractListReporter implements Reporter {
   }
 
   private _shouldRenderLiveSummary (): boolean {
-    return process.stdout.isTTY === true
+    // The live summary renders on stderr, but its ANSI erase codes clear the
+    // lines above the cursor, which only works when stdout writes to the same
+    // terminal in order. With stdout piped (`checkly test | tee run.log`),
+    // results reach the terminal later through another process, and erasing
+    // would wipe them instead of the summary.
+    return process.stdout.isTTY === true && process.stderr.isTTY === true
   }
 
-  // Clear the summary which was printed by _printStatus from stdout
+  // Clear the live summary which was printed by _printSummary from stderr.
   // TODO: Rather than clearing the whole status bar, we could overwrite the exact lines that changed.
   // This might look a bit smoother and reduce the flickering effects.
   _clearSummary () {
     if (this._clearString) {
-      printLn(this._clearString)
+      printLnErr(this._clearString)
       this._clearString = ''
     }
   }
 
-  _printSummary (opts: { skipCheckCount?: boolean, includeCheckTitles?: boolean } = {}) {
+  _printSummary (opts: {
+    skipCheckCount?: boolean
+    includeCheckTitles?: boolean
+    stream?: 'stdout' | 'stderr'
+    // A one-off summary on stderr that nothing redraws, e.g. the ci
+    // reporter's opening one.
+    noRedraw?: boolean
+  } = {}) {
+    const write = opts.stream === 'stderr' ? printLnErr : printLn
     const counts = {
       numFailed: 0, numPassed: 0, numDegraded: 0, numFlaky: 0,
       numRunning: 0, numRetrying: 0, scheduling: 0, numCancelled: 0, numNotFinished: 0,
@@ -300,14 +319,18 @@ export default abstract class AbstractListReporter implements Reporter {
     status.push('')
 
     const statusString = status.join('\n')
-    printLn(statusString)
-    if (this._shouldRenderLiveSummary()) {
+    write(statusString)
+    // Only a live summary on stderr joins the redraw loop: a final summary on
+    // stdout may go to a pipe, so erase codes registered for it would wipe
+    // unrelated lines from the terminal.
+    if (opts.stream === 'stderr' && !opts.noRedraw && this._shouldRenderLiveSummary()) {
       // Ansi escape code for erasing the line and moving the cursor up.
       this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
     }
   }
 
-  _printBriefSummary () {
+  /** `lineEnded`: the reporter already ended its last line, so no empty line opens the summary. */
+  _printBriefSummary ({ lineEnded = false }: { lineEnded?: boolean } = {}) {
     const counts = { numFailed: 0, numDegraded: 0, numPassed: 0, numPending: 0, numCancelled: 0, numNotFinished: 0 }
     const status = []
     for (const [, checkMap] of this.checkFilesMap!.entries()) {
@@ -327,7 +350,9 @@ export default abstract class AbstractListReporter implements Reporter {
         }
       }
     }
-    status.push('')
+    if (!lineEnded) {
+      status.push('')
+    }
     status.push([
       counts.numFailed ? chalk.bold.red(`${counts.numFailed} failed`) : undefined,
       counts.numDegraded ? chalk.bold.yellow(`${counts.numDegraded} degraded`) : undefined,
@@ -342,12 +367,9 @@ export default abstract class AbstractListReporter implements Reporter {
       status.push(maxFailuresMessage)
     }
     status.push('')
-    const statusString = status.join('\n')
-    printLn(statusString)
-    if (this._shouldRenderLiveSummary()) {
-      // Ansi escape code for erasing the line and moving the cursor up.
-      this._clearString = '\r\x1B[K\r\x1B[1A'.repeat(statusString.split('\n').length + 1)
-    }
+    // The brief summary is final output on stdout (onEnd), so it never joins
+    // the redraw loop and must not register erase codes.
+    printLn(status.join('\n'))
   }
 
   // Checks that fail with a run error (e.g. the CLI timing out while waiting for a result)
@@ -400,10 +422,6 @@ export default abstract class AbstractListReporter implements Reporter {
 
     printLn(lines.join('\n'), 2)
     this.hasPrintedTestSessionReference = true
-  }
-
-  _printTip (tip: string): void {
-    printLn(`Tip > ${chalk.white(tip)}`, 2)
   }
 
   _runLocationString (): string {

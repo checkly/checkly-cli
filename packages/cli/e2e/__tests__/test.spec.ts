@@ -88,7 +88,7 @@ describe('test', { timeout: 45000 }, () => {
       } catch (err) {
         if (err instanceof ExecaError) {
           expect(err.exitCode).toBe(1)
-          expect(err.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+          expect(err.stderr).toContain('Unable to find checks to run using [FILEARGS]=\'')
         } else {
           throw err
         }
@@ -97,7 +97,9 @@ describe('test', { timeout: 45000 }, () => {
 
     it('Should terminate successfully when no checks are found and --no-fail-on-no-matching is set', async () => {
       const result = await runTest(fixt, ['does-not-exist.js', '--no-fail-on-no-matching'])
-      expect(result.stdout).toContain('Unable to find checks to run using [FILEARGS]=\'')
+      // A notice on stderr; nothing ran, so there is no result on stdout.
+      expect(result.stderr).toContain('Unable to find checks to run using [FILEARGS]=\'')
+      expect(result.stdout).not.toContain('Unable to find checks to run')
     })
 
     it('Should list checks and not execute them with `--list`', async () => {
@@ -201,9 +203,9 @@ describe('test', { timeout: 45000 }, () => {
         await runTest(fixt, [])
       } catch (err) {
         if (err instanceof ExecaError) {
-          // A duplicate logicalId is now reported as a fatal validation
-          // diagnostic (printed to stdout) rather than a thrown error.
-          expect((err.stdout as unknown as string).replace(/(\n {4})/gm, ''))
+          // A duplicate logicalId is reported as a fatal validation
+          // diagnostic (printed to stderr) rather than a thrown error.
+          expect((err.stderr as unknown as string).replace(/(\n {4})/gm, ''))
             .toContain('A check-group with logicalId "my-check-group" already exists.')
           expect(err.exitCode).toBe(1)
         } else {

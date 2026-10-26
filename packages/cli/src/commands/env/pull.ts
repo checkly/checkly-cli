@@ -1,10 +1,10 @@
-import prompts from 'prompts'
 import * as path from 'path'
 import * as api from '../../rest/api.js'
 import { Flags, Args } from '@oclif/core'
 import { AuthCommand } from '../authCommand.js'
 import { escapeValue } from '../../services/util.js'
 import * as fs from 'fs/promises'
+import { prompt } from '../../helpers/prompts.js'
 
 const CONTENTS_PREFIX = '# Created by Checkly CLI\n'
 const CONTENTS_ENV_VARS = '# Environment variables\n'
@@ -61,13 +61,13 @@ export default class EnvPull extends AuthCommand {
       // By catching EEXIST rather than checking fs.existsSync,
       // we avoid a race condition when a file is created between writing and checking
       if (err.code === 'EEXIST') {
-        const { confirm } = await prompts({
+        const { confirm } = await prompt({
           name: 'confirm',
           type: 'confirm',
           message: `Found existing file ${filename}. Do you want to overwrite?`,
         })
         if (!confirm) {
-          this.log('Cancelled. No changes made.')
+          this.logToStderr('Cancelled. No changes made.')
           return
         }
         await fs.writeFile(filepath, fileContent)

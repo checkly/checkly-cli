@@ -85,6 +85,10 @@ The `confirmCommand` is the approved command, ready to run verbatim: it starts w
 
 Run `npx checkly skills communicate` for the full protocol details, or `npx checkly skills configure` for what `deploy` confirms.
 
+## Output Streams and Exit Codes
+
+stdout carries only the command's result: results, `--output json` documents (most failures print a JSON error document too), API pass-through bodies, and the confirmation/dry-run envelopes above. Progress, warnings, hints, prompts, and human-readable errors go to stderr, so `npx checkly <command> --output json | jq` sees nothing but the JSON. Check the exit code first, since some failures leave stdout empty: 0 success (degraded checks do not fail a run; read the results to spot them), 1 failure, 2 a usage error or `confirmation_required` (only the latter prints its envelope on stdout), 127 an unknown command.
+
 ## API Pass-Through (fallback for any endpoint)
 
 When no dedicated CLI command exists for an endpoint, use `npx checkly api` to make authenticated requests directly. The CLI handles auth headers and base URL automatically.

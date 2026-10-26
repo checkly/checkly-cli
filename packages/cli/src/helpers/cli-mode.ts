@@ -164,23 +164,24 @@ export function platformForOperator (operator: string): string | undefined {
 
 /**
  * For commands a person runs directly, such as `checkly login` showing its
- * code or `checkly logout` asking for confirmation: a terminal on stdin (stdout
- * may still be piped, e.g. into `tee`), or CHECKLY_CLI_MODE=interactive set
- * explicitly, for terminals Node does not recognise as one (e.g. mintty) and
- * for wrappers and tests that answer through pipes.
+ * code or `checkly logout` asking for confirmation: terminals on stdin and on
+ * stderr, where questions and instructions render (stdout may still be piped,
+ * e.g. into `tee`), or CHECKLY_CLI_MODE=interactive set explicitly, for
+ * terminals Node does not recognise as one (e.g. mintty) and for wrappers and
+ * tests that answer through pipes.
  */
 export function isPersonAtTerminal (): boolean {
-  return Boolean(process.stdin.isTTY) || process.env.CHECKLY_CLI_MODE === 'interactive'
+  return Boolean(process.stdin.isTTY && process.stderr.isTTY) || process.env.CHECKLY_CLI_MODE === 'interactive'
 }
 
 /**
  * For a login an authenticated command starts on its own: only with terminals
- * on both stdin and stdout. Anything less (pipes, redirects, an explicit mode
- * included) fails fast with the hint to log in, so an unattended run never
- * waits on a code nobody sees.
+ * on stdin and on stderr, where an inline login prints everything it shows.
+ * Anything less (pipes, redirects, an explicit mode included) fails fast with
+ * the hint to log in, so an unattended run never waits on a code nobody sees.
  */
 export function canLogInInline (): boolean {
-  return Boolean(process.stdin.isTTY && process.stdout.isTTY)
+  return Boolean(process.stdin.isTTY && process.stderr.isTTY)
 }
 
 export function detectCliMode (fileExists: (path: string) => boolean = existsSync): CliMode {

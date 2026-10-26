@@ -19,7 +19,7 @@ import { splitConfigFilePath, getGitInformation, getCiInformation, getEnvs } fro
 import { createReporters, ReporterType } from '../reporters/reporter.js'
 import commonMessages from '../messages/common-messages.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
-import { printLn, formatCheckTitle, CheckStatus } from '../reporters/util.js'
+import { printLn, printLnErr, formatCheckTitle, CheckStatus } from '../reporters/util.js'
 import { uploadSnapshots } from '../services/snapshot-service.js'
 import { isEntrypoint } from '../constructs/construct.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
@@ -203,7 +203,7 @@ export default class Test extends AuthCommand {
     const { maxFailures, notice: maxFailuresNotice } = prepareMaxFailures(
       maxFailuresFlag, checklyConfig.cli?.maxFailures, { detach, updateSnapshots })
     if (maxFailuresNotice) {
-      this.log(maxFailuresNotice)
+      this.logToStderr(maxFailuresNotice)
     }
     const account = this.account
     const availableRuntimes = await api.runtimes.getAll()
@@ -352,10 +352,18 @@ export default class Test extends AuthCommand {
     const checkBundles = Object.values(projectBundle.data.check)
 
     if (!checkBundles.length) {
-      this.log(`Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`)
-      // --list only reports what matches, so an empty answer is not a failure.
-      if (failOnNoMatching && !list) {
-        process.exitCode = 1
+      const message = `Unable to find checks to run${filePatterns[0] !== '.*' ? ' using [FILEARGS]=\'' + filePatterns + '\'' : ''}.`
+      if (list) {
+        // --list only reports what matches: the empty listing is its result,
+        // and not a failure.
+        this.log(message)
+      } else {
+        // A notice, not a result: nothing ran. The exit code says whether it
+        // fails the command.
+        this.logToStderr(message)
+        if (failOnNoMatching) {
+          process.exitCode = 1
+        }
       }
       return
     }
@@ -457,7 +465,7 @@ export default class Test extends AuthCommand {
   prepareTestRetryStrategy (retries?: number, configRetries?: number) {
     const numRetries = retries ?? configRetries ?? 0
     if (numRetries > MAX_RETRIES) {
-      printLn(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
+      printLnErr(`Defaulting to the maximum of ${MAX_RETRIES} retries.`)
     }
     return numRetries
       ? RetryStrategyBuilder.fixedStrategy({

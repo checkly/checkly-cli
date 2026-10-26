@@ -1,7 +1,7 @@
 import chalk from 'chalk'
-import prompts from 'prompts'
 import { copyToClipboard } from './clipboard.js'
 import { makeOnCancel } from './prompts-helpers.js'
+import { prompt } from '../prompts.js'
 
 const PROMPT_INDENT = '  '
 const MAX_VISIBLE_WIDTH = 80
@@ -17,7 +17,7 @@ export async function displayStarterPrompt (
   log(formatPrompt(promptText))
   log('')
 
-  const { copy } = await prompts({
+  const { copy } = await prompt({
     type: 'confirm',
     name: 'copy',
     message: 'Copy prompt to clipboard?',

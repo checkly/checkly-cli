@@ -1,5 +1,5 @@
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
+import type { Choice } from 'prompts'
 import logSymbols from 'log-symbols'
 import chalk from 'chalk'
 
@@ -14,6 +14,7 @@ import { ImportPlan } from '../../rest/projects.js'
 import { BaseCommand } from '../baseCommand.js'
 import { confirmCommit, performCommitAction } from './commit.js'
 import { reportNoCandidatePlans, selectPlanOrExit } from '../../helpers/import-plan-selection.js'
+import { prompt } from '../../helpers/prompts.js'
 
 export default class ImportApplyCommand extends AuthCommand {
   static hidden = false
@@ -74,7 +75,7 @@ export default class ImportApplyCommand extends AuthCommand {
     // commit prompt, and --no-commit opts out of it explicitly. Both leave
     // finalizing to a later `checkly deploy` or `checkly import commit`.
     if (noCommit || detectCliMode() !== 'interactive') {
-      this.log(`\
+      this.logToStderr(`\
   The plan is applied but not committed. To commit it, run:
 
     ${chalk.green(`npx checkly import commit --plan-id ${plan.id}`)}
@@ -91,7 +92,7 @@ export default class ImportApplyCommand extends AuthCommand {
   }
 
   async #selectPlan (plans: ImportPlan[]): Promise<ImportPlan> {
-    const choices: prompts.Choice[] = plans.map((plan, index) => ({
+    const choices: Choice[] = plans.map((plan, index) => ({
       title: `Plan #${index + 1} from ${new Date(plan.createdAt)}`,
       value: plan.id,
       description: `ID: ${plan.id}`,
@@ -105,16 +106,16 @@ export default class ImportApplyCommand extends AuthCommand {
 
     const plansById = plans.reduce((m, plan) => m.set(plan.id, plan), new Map<string, ImportPlan>())
 
-    const { planId } = await prompts({
+    const { planId } = await prompt({
       name: 'planId',
       type: 'select',
       message: `Found ${plans.length} unapplied plan(s). Which one to apply?`,
       choices,
     })
-    this.log()
+    this.logToStderr()
 
     if (planId === 'exit' || planId === undefined) {
-      this.log('Exiting without making any changes.')
+      this.logToStderr('Exiting without making any changes.')
       this.exit(0)
     }
 
@@ -128,18 +129,18 @@ export default class ImportApplyCommand extends AuthCommand {
 }
 
 export async function confirmApply (this: BaseCommand): Promise<boolean> {
-  const { apply } = await prompts({
+  const { apply } = await prompt({
     name: 'apply',
     type: 'confirm',
     message: 'Would you like to apply the plan now?',
   })
-  this.log()
+  this.logToStderr()
 
   if (apply) {
     return true
   }
 
-  this.log(`\
+  this.logToStderr(`\
   To apply your plan at a later time, please run:
 
     ${chalk.green('npx checkly import apply')}
@@ -165,9 +166,11 @@ export async function performApplyAction (this: BaseCommand, plan: ImportPlan) {
     throw err
   }
 
+  // The applied plan is the result (stdout); the explanation of what applying
+  // means and what comes next is chatter (stderr).
   this.log(`${logSymbols.success} ${chalk.bold('Your import plan has been applied!')}`)
-  this.log()
-  this.log(`\
+  this.logToStderr()
+  this.logToStderr(`\
   The code generated for the import plan is now linked to the underlying
   resources. If you deploy now, you are modifying the actual resources. You
   may still cancel the plan but any changes you've deployed cannot be undone.

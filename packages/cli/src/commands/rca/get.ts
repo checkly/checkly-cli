@@ -46,7 +46,7 @@ export default class RcaGet extends AuthCommand {
           this.log(JSON.stringify({ id: args.id, status: 'pending' }, null, 2))
         } else {
           this.log('Root cause analysis is still being generated.')
-          this.log(`Use ${this.config.bin} rca get ${args.id} --watch to wait for completion.`)
+          this.logToStderr(`Use ${this.config.bin} rca get ${args.id} --watch to wait for completion.`)
         }
         return
       }

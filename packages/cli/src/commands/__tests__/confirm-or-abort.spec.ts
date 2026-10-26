@@ -28,16 +28,21 @@ const basePreview: CommandPreview = {
 
 function createMockCommand (overrides: Record<string, unknown> = {}) {
   const logged: string[] = []
+  const loggedToStderr: string[] = []
   let exitCode: number | undefined
 
   return {
     log: vi.fn((msg: string) => logged.push(msg)),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg !== undefined) loggedToStderr.push(msg)
+    }),
     exit: vi.fn((code: number) => {
       exitCode = code
       throw new Error(`EXIT_${code}`)
     }),
     style: { outputFormat: undefined },
     logged,
+    loggedToStderr,
     get exitCode () {
       return exitCode
     },
@@ -148,7 +153,9 @@ describe('confirmOrAbort', () => {
       { force: false, dryRun: false },
     )
     expect(plan).toHaveBeenCalledOnce()
-    expect(ctx.logged[0]).toBe('Deploy preview\n\nThis will Deploy project "Acme"')
+    // The preview is the question's context, so it renders on stderr with it.
+    expect(ctx.loggedToStderr[0]).toBe('Deploy preview\n\nThis will Deploy project "Acme"')
+    expect(ctx.log).not.toHaveBeenCalled()
     expect(vi.mocked(prompts).mock.calls[0][0]).toMatchObject({ message: 'Apply these changes?' })
 
     // Neither a forced run nor an agent envelope shows the plan, so neither
@@ -315,6 +322,7 @@ describe('confirmOrAbort with alternatives', () => {
         { title: 'Cancel', value: 'cancel' },
       ],
       initial: 2,
+      stdout: process.stderr,
     })
     expect(alternative.run).not.toHaveBeenCalled()
     expect(ctx.exit).not.toHaveBeenCalled()

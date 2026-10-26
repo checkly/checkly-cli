@@ -47,7 +47,7 @@ export default class Bootstrap extends Command {
         return true
       }
 
-      if (process.stdin.isTTY && process.stdout.isTTY) {
+      if (process.stdin.isTTY && process.stderr.isTTY) {
         return true
       }
 
@@ -83,7 +83,7 @@ export default class Bootstrap extends Command {
     if (version === '0.0.1-dev') {
       try {
         const { data: packageInformation } = await axios.get('https://registry.npmjs.org/checkly/latest')
-        this.log(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
+        this.logToStderr(`\nNotice: replacing version '${version}' with latest '${packageInformation.version}'.\n`)
         version = packageInformation.version
       } catch {
         // No-op

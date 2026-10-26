@@ -29,11 +29,15 @@ function plan (id: string): ImportPlan {
 
 function createCommandContext (parsed: unknown) {
   const logged: string[] = []
+  const stderrLogged: string[] = []
   let exitCodeValue: number | undefined
   return {
     parse: vi.fn().mockResolvedValue(parsed),
     log: vi.fn((msg?: string) => {
       if (msg) logged.push(msg)
+    }),
+    logToStderr: vi.fn((msg?: string) => {
+      if (msg) stderrLogged.push(msg)
     }),
     exit: vi.fn((code: number) => {
       exitCodeValue = code
@@ -48,6 +52,7 @@ function createCommandContext (parsed: unknown) {
     },
     constructor: ImportApplyCommand,
     logged,
+    stderrLogged,
     get exitCodeValue () {
       return exitCodeValue
     },
@@ -119,7 +124,10 @@ describe('import apply command (non-interactive)', () => {
 
     await ImportApplyCommand.prototype.run.call(ctx as any)
 
-    expect(ctx.logged.join('\n')).toContain('import commit --plan-id abc123')
+    // The applied plan is the result on stdout; the follow-up command is guidance on stderr.
+    expect(ctx.logged.join('\n')).toContain('Your import plan has been applied!')
+    expect(ctx.logged.join('\n')).not.toContain('import commit')
+    expect(ctx.stderrLogged.join('\n')).toContain('import commit --plan-id abc123')
   })
 
   it('fails with exit 1 when --plan-id is given but no plans exist', async () => {
@@ -141,7 +149,9 @@ describe('import apply command (non-interactive)', () => {
 
     expect(ctx.exit).not.toHaveBeenCalled()
     expect(ctx.style.fatal).not.toHaveBeenCalled()
-    expect(ctx.logged.join('\n')).toContain('Nothing to apply')
+    // Nothing to do is information on stderr; stdout stays empty.
+    expect(ctx.stderrLogged.join('\n')).toContain('Nothing to apply')
+    expect(ctx.logged).toEqual([])
     expect(api.projects.applyImportPlan).not.toHaveBeenCalled()
   })
 })

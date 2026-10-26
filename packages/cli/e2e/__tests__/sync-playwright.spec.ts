@@ -66,7 +66,7 @@ describe('sync-playwright', () => {
       } catch (err) {
         if (err instanceof ExecaError) {
           expect(err.exitCode).toBe(1)
-          expect(err.stdout).toContain('Could not find any playwright.config file.')
+          expect(err.stderr).toContain('Could not find any playwright.config file.')
         } else {
           throw err
         }

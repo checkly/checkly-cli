@@ -46,6 +46,9 @@ export default defineConfig([
     // Holds git worktrees, each a full checkout of the repo with its own
     // in-progress code that must not be linted as part of this checkout.
     '**/.claude/',
+    // Scratch space for coding agents (session transcripts, demo tooling),
+    // never part of the shipped code.
+    '**/.context/',
     '**/dist/',
     `**/gen/`,
     '**/__checks__/**/*.spec.{js,ts,mjs}',
@@ -90,6 +93,28 @@ export default defineConfig([
     ],
     rules: {
       'no-console': 0,
+    },
+  },
+  {
+    // `prompts` renders on stdout by default, and stdout carries only command
+    // results. The helper renders questions on stderr instead.
+    files: ['packages/cli/src/**/*.ts', 'packages/create-cli/src/**/*.ts'],
+    ignores: [
+      'packages/cli/src/helpers/prompts.ts',
+      'packages/create-cli/src/utils/prompts.ts',
+      // Only inject or override answers; render nothing.
+      'packages/cli/src/commands/baseCommand.ts',
+      'packages/create-cli/src/commands/bootstrap.ts',
+      '**/__tests__/**',
+    ],
+    rules: {
+      'no-restricted-imports': ['error', {
+        paths: [{
+          name: 'prompts',
+          importNames: ['default'],
+          message: 'Ask through the package\'s prompts helper, which renders on stderr.',
+        }],
+      }],
     },
   },
   {

@@ -35,16 +35,19 @@ function createCommand (...argv: string[]) {
 }
 
 const originalStdinIsTTY = process.stdin.isTTY
+const originalStderrIsTTY = process.stderr.isTTY
 
 describe('checkly logout', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     delete process.env.CHECKLY_CLI_MODE
     process.stdin.isTTY = true
+    process.stderr.isTTY = true
   })
 
   afterEach(() => {
     process.stdin.isTTY = originalStdinIsTTY
+    process.stderr.isTTY = originalStderrIsTTY
     delete process.env.CHECKLY_CLI_MODE
   })
 

@@ -1,6 +1,5 @@
 import chalk from 'chalk'
 import { Flags } from '@oclif/core'
-import prompts from 'prompts'
 
 import { BaseCommand } from './baseCommand.js'
 import { detectCliMode, type CliMode } from '../helpers/cli-mode.js'
@@ -30,6 +29,7 @@ import {
   existingProjectFooter,
   localCliNote,
 } from '../helpers/onboarding/index.js'
+import { prompt } from '../helpers/prompts.js'
 
 const VALID_TARGETS = Object.keys(PLATFORM_TARGETS)
 
@@ -77,7 +77,10 @@ export default class Init extends BaseCommand {
     const { flags } = await this.parse(Init)
     const cliMode = detectCliMode()
     const projectDir = process.cwd()
-    const log = (msg: string) => this.log(msg)
+    // init is a wizard: its human output (banner, status lines, starter
+    // prompt, footers) is chatter, so it goes to stderr. Agent mode prints
+    // its JSON result with this.log, keeping stdout machine-readable.
+    const log = (msg: string) => this.logToStderr(msg)
     const explicitSkillState = await this.installExplicitTargetSkill(
       flags.target, log,
     )
@@ -129,7 +132,7 @@ export default class Init extends BaseCommand {
     log: (msg: string) => void,
     explicitSkillResult: SkillInstallResult | null,
   ): Promise<void> {
-    const { wantAgent } = await prompts({
+    const { wantAgent } = await prompt({
       type: 'confirm',
       name: 'wantAgent',
       message:
@@ -189,7 +192,7 @@ export default class Init extends BaseCommand {
       return
     }
 
-    const { wantExamples } = await prompts({
+    const { wantExamples } = await prompt({
       type: 'confirm',
       name: 'wantExamples',
       message: 'Add some demo checks to get started?',
@@ -308,7 +311,7 @@ export default class Init extends BaseCommand {
     }
 
     if (cliMode === 'interactive') {
-      const { createPkg } = await prompts({
+      const { createPkg } = await prompt({
         type: 'confirm',
         name: 'createPkg',
         message: 'No package.json found. Create one?',
