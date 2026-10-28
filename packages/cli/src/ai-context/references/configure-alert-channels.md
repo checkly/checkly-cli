@@ -9,7 +9,7 @@ All available alerts are described in the [Checkly docs](https://www.checklyhq.c
 
 *Important*: Don't make up email addresses, phone numbers, Slack channel names or similar static values. Scan the project to discover a valid configuration or ask what the values should be.
 
-For new Slack notifications, prefer `SlackAppAlertChannel`. It uses the Checkly Slack App and only needs Slack `#channel` names or `@user` handles in `slackChannels`.
+For new Slack notifications, prefer `SlackAppAlertChannel`. It uses the Checkly Slack App and only needs Slack `#channel` names or `@user` handles in `slackChannels`. It needs the Checkly Slack App connected to the Checkly account: without it, `npx checkly validate`, `test` and `deploy` fail with "Checkly Slack app not connected". If you can't confirm the app is connected, ask before adding one.
 
 ## Email Alert Channel
 

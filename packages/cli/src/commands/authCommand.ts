@@ -112,6 +112,8 @@ export abstract class AuthCommand extends BaseCommand {
     // Constructs validate against account-specific limits and have no access to
     // the command instance.
     Session.accountFeatures = this.#account?.features ?? []
+    Session.accountId = this.#account?.id
+    Session.accountConnectedIntegrations = this.#account?.connectedIntegrations
   }
 
   protected async validateProject (
