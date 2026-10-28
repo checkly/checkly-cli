@@ -1,5 +1,8 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { Diagnostics, ErrorDiagnostic } from './diagnostics.js'
 import { Session } from './session.js'
+
+const SLACK_INTEGRATION = 'SLACK'
 
 export interface SlackAppAlertChannelProps extends AlertChannelProps {
   /**
@@ -36,6 +39,33 @@ export class SlackAppAlertChannel extends AlertChannel {
 
   describe (): string {
     return `SlackAppAlertChannel:${this.logicalId}`
+  }
+
+  /**
+   * Refuses the channel when the account has no Checkly Slack app: its alerts
+   * cannot be delivered, whether the channel is new or was deployed before the
+   * app was disconnected. Skipped when the account's integrations are unknown.
+   */
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    const connected = Session.accountConnectedIntegrations
+    if (connected === undefined || connected.includes(SLACK_INTEGRATION) || !this.slackChannels?.length) {
+      return
+    }
+    const error = new Error(
+      `SlackAppAlertChannel '${this.logicalId}' needs the Checkly Slack app, which is not connected to this account,`
+      + ` so its alerts cannot be delivered.`,
+    )
+    diagnostics.add(new ErrorDiagnostic({
+      title: 'Checkly Slack app not connected',
+      message:
+        `${error.message}\n\n`
+        + `Hint: Connect the Checkly Slack app at`
+        + ` https://app.checklyhq.com/accounts/${Session.accountId}/settings/account/integrations,`
+        + ` or remove the channel.`,
+      error,
+    }))
   }
 
   synthesize () {

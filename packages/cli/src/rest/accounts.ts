@@ -17,6 +17,11 @@ export interface Account {
    * in which case standard limits apply.
    */
   features?: string[]
+  /**
+   * The integrations the account has connected, e.g. `SLACK` for the Checkly
+   * Slack app. Absent when the API predates it.
+   */
+  connectedIntegrations?: string[]
 }
 
 class Accounts {
