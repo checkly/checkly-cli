@@ -120,6 +120,16 @@ describe('EmbeddedPackagesMaterializer', () => {
       expect(tarballs.map(t => t.archiveFilename)).toEqual(['bar@2.0.0.tgz', 'bar@3.0.0.tgz'])
     })
 
+    it('reports the lockfile versions a name@version pin leaves unembedded', async () => {
+      const { unembedded } = await makeMaterializer(['bar@2.0.0']).plan()
+      expect(unembedded).toEqual([{ name: 'bar', embedded: ['2.0.0'], missing: ['3.0.0'] }])
+    })
+
+    it('reports no unembedded versions when every lockfile version is embedded', async () => {
+      const { unembedded } = await makeMaterializer(['bar', '@acme/foo']).plan()
+      expect(unembedded).toEqual([])
+    })
+
     it('resolves a scope wildcard to every matching package and version', async () => {
       await fs.writeFile(lockfilePath, `
 lockfileVersion: '9.0'

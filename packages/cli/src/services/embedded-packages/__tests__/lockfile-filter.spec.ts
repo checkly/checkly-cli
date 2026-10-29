@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 
-import { filterTarballsByLockfile } from '../lockfile-filter.js'
+import { filterTarballsByLockfile, findUnembeddedVersions } from '../lockfile-filter.js'
 
 const PNPM_LOCKFILE = `
 lockfileVersion: '9.0'
@@ -101,17 +101,58 @@ describe('filterTarballsByLockfile()', () => {
     expect(result.dropped).toEqual([dropped])
   })
 
+  it('reports lockfile versions of a kept package that are not embedded', () => {
+    const lockfile = PNPM_LOCKFILE + `  '@acme/kept@2.0.0':\n    resolution: {integrity: sha512-ddd}\n`
+    const result = filterTarballsByLockfile([kept], lockfile, 'pnpm-lock.yaml')
+    expect(result.unembedded).toEqual([{ name: '@acme/kept', embedded: ['1.2.3'], missing: ['2.0.0'] }])
+  })
+
+  it('measures unembedded versions against the kept set only', () => {
+    // A dropped tarball's name is gone from the lockfile entirely, so it
+    // cannot leave versions behind.
+    const result = filterTarballsByLockfile([kept, dropped], PNPM_LOCKFILE, 'pnpm-lock.yaml')
+    expect(result.unembedded).toEqual([])
+  })
+
   it('keeps every tarball when the lockfile cannot be parsed', () => {
     // An unparseable lockfile means the filter cannot know what survived;
     // shipping the pre-filter superset is the safe previous behavior.
     const result = filterTarballsByLockfile([kept, dropped], 'lockfileVersion: unknown\n', 'pnpm-lock.yaml')
     expect(result.kept).toEqual([kept, dropped])
     expect(result.dropped).toEqual([])
+    expect(result.unembedded).toEqual([])
   })
 
   it('keeps every tarball for an unsupported lockfile name', () => {
     const result = filterTarballsByLockfile([kept], 'anything', 'yarn.lock')
     expect(result.kept).toEqual([kept])
     expect(result.dropped).toEqual([])
+  })
+})
+
+describe('findUnembeddedVersions()', () => {
+  it('lists the lockfile versions of each embedded package that are not embedded', () => {
+    expect(findUnembeddedVersions(
+      [{ name: 'b', version: '1.0.0' }, { name: 'a', version: '2.0.0' }, { name: 'a', version: '3.0.0' }],
+      [
+        { name: 'b', version: '1.0.0' },
+        { name: 'b', version: '4.0.0' },
+        { name: 'a', version: '2.0.0' },
+        { name: 'a', version: '3.0.0' },
+        { name: 'a', version: '1.0.0' },
+        // npm lockfiles repeat a version for every nested copy.
+        { name: 'a', version: '1.0.0' },
+      ],
+    )).toEqual([
+      { name: 'a', embedded: ['2.0.0', '3.0.0'], missing: ['1.0.0'] },
+      { name: 'b', embedded: ['1.0.0'], missing: ['4.0.0'] },
+    ])
+  })
+
+  it('ignores packages that are not embedded at all', () => {
+    expect(findUnembeddedVersions(
+      [{ name: 'a', version: '1.0.0' }],
+      [{ name: 'a', version: '1.0.0' }, { name: 'other', version: '1.0.0' }],
+    )).toEqual([])
   })
 })

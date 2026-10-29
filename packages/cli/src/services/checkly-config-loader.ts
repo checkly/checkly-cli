@@ -126,7 +126,11 @@ export type ChecklyConfig<UpstreamName extends string = string> = {
        *
        * Each entry is a package name (`'@acme/private-utils'`), which embeds
        * every version of that package found in the workspace lockfile, or an
-       * exact `name@version` pin (`'legacy-private-pkg@2.1.0'`). Names may
+       * exact `name@version` pin (`'legacy-private-pkg@2.1.0'`). A runner
+       * installs an embedded package only in the versions that were
+       * embedded, so a pin suits a package the lockfile holds in that one
+       * version; the CLI warns when the lockfile also uses versions an
+       * entry left out, which npm installs on Checkly cannot resolve. Names may
        * contain `*` wildcards (`'@acme/*'`, `'acme-*'`); a single `*` never
        * crosses the `/` scope separator, while a `**` does — `'**'` matches
        * every package, and `'**-foo'` matches names ending in `-foo` in any
