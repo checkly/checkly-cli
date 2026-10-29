@@ -677,6 +677,7 @@ packages: {}
       { name: '@acme/outside', kind: 'unfetchable' },
     ])
   })
+
   it('resolves link targets against the importer directory', () => {
     const { excluded } = parsePnpmLockfilePackages(`
 lockfileVersion: '9.0'
