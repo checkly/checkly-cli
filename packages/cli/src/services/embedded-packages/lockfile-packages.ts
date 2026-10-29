@@ -231,7 +231,7 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
   const importers = data?.importers
   if (typeof importers === 'object' && importers !== null) {
     const linkedNames = new Set<string>()
-    for (const importer of Object.values<any>(importers)) {
+    for (const [importerPath, importer] of Object.entries<any>(importers)) {
       for (const group of ['dependencies', 'devDependencies', 'optionalDependencies']) {
         for (const [name, dep] of Object.entries<any>(importer?.[group] ?? {})) {
           const version = typeof dep === 'string' ? dep : dep?.version
@@ -239,8 +239,13 @@ export function parsePnpmLockfilePackages (content: string): LockfilePackages {
             linkedNames.add(name)
             // Same distinction as npm's `link: true` entries: a link whose
             // target escapes the workspace is not part of the project the
-            // bundle carries.
-            const target = version.slice('link:'.length)
+            // bundle carries. pnpm writes the target relative to the
+            // importer's directory, so a sibling member's link
+            // (`link:../design-system` from `packages/e2e`) stays inside.
+            const linkTarget = version.slice('link:'.length)
+            const target = path.isAbsolute(linkTarget)
+              ? linkTarget
+              : path.posix.join(importerPath, linkTarget)
             const escapesWorkspace = linkTargetEscapesWorkspace(target)
             result.excluded.push({
               name,

@@ -677,6 +677,37 @@ packages: {}
       { name: '@acme/outside', kind: 'unfetchable' },
     ])
   })
+
+  it('resolves link targets against the importer directory', () => {
+    const { excluded } = parsePnpmLockfilePackages(`
+lockfileVersion: '9.0'
+importers:
+  .: {}
+  packages/e2e:
+    dependencies:
+      '@acme/design-system':
+        specifier: workspace:*
+        version: link:../design-system
+      '@acme/outside':
+        specifier: file:../../../elsewhere
+        version: link:../../../elsewhere
+  packages/design-system: {}
+packages: {}
+`)
+    expect(excluded).toEqual([
+      {
+        name: '@acme/design-system',
+        reason: `'@acme/design-system' is a workspace package, which cannot be embedded as a registry tarball`,
+        kind: 'workspace',
+      },
+      {
+        name: '@acme/outside',
+        reason: `'@acme/outside' is a local directory link outside the workspace, which cannot be embedded`
+          + ` as a registry tarball`,
+        kind: 'unfetchable',
+      },
+    ])
+  })
 })
 
 describe('parseNpmLockfilePackages() links', () => {
