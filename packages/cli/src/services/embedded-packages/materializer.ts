@@ -21,6 +21,7 @@ import {
   redactUrl,
 } from './diagnostics.js'
 import { integrityHashToHex, strongestIntegrityHash, verifyIntegrity } from './integrity.js'
+import { UnembeddedVersions, findUnembeddedVersions } from './lockfile-filter.js'
 import {
   LockfileRegistryPackage,
   UnsupportedLockfileError,
@@ -89,6 +90,12 @@ export interface EmbeddedPackagesPlan {
    * diagnostics channel during project validation.
    */
   warnings: string[]
+  /**
+   * Packages the plan embeds in only some of their lockfile versions,
+   * measured against the full lockfile. A bundle whose lockfile gets pruned
+   * re-measures against the pruned one instead.
+   */
+  unembedded: UnembeddedVersions[]
   /**
    * The lockfile the specs were resolved against, for diagnostics that
    * name it once instead of once per issue. Absent when resolution never
@@ -296,7 +303,7 @@ export class EmbeddedPackagesMaterializer {
         message: `Embedded packages require a lockfile to resolve package versions and`
           + ` integrity hashes, but no lockfile was found for the project.`,
       })
-      return { tarballs: [], issues, warnings }
+      return { tarballs: [], issues, warnings, unembedded: [] }
     }
 
     let packages
@@ -312,7 +319,7 @@ export class EmbeddedPackagesMaterializer {
       // No lockfilePath in the result: the specs were never resolved
       // against the lockfile, so diagnostics must not credit it.
       issues.push({ type: 'unsupported-lockfile', message })
-      return { tarballs: [], issues, warnings }
+      return { tarballs: [], issues, warnings, unembedded: [] }
     }
 
     debug(
@@ -506,6 +513,7 @@ export class EmbeddedPackagesMaterializer {
       tarballs: [...tarballs.values()].sort((a, b) => a.archiveFilename.localeCompare(b.archiveFilename)),
       issues,
       warnings,
+      unembedded: findUnembeddedVersions([...tarballs.values()], packages.registry),
       lockfilePath,
     }
   }

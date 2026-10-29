@@ -647,6 +647,74 @@ describe('Bundler.finalize() embedded package materialization', () => {
     }))
   })
 
+  // The original lockfile plus a second @acme/kept version that only a
+  // workspace member outside the bundle needs, so pruning removes it.
+  const lockfileWithSecondKeptVersion = () => originalLockfile()
+    .replace(`snapshots:\n`, `  '@acme/kept@2.0.0':\n    resolution: {integrity: sha512-other}\n\nsnapshots:\n`)
+
+  const UNEMBEDDED_KEPT_WARNING = `Warning: bundle.packages.embed embeds '@acme/kept' only at version 1.0.0,`
+    + ` but the lockfile also uses 2.0.0. Checkly runners serve an embedded package's versions from the code`
+    + ` bundle alone, so installs that resolve package metadata, such as npm's, cannot find the others.`
+    + ` Embed every version the lockfile uses: list '@acme/kept' by name, without a version pin or a '!'`
+    + ` exclusion of individual versions.\n`
+
+  const makePinnedMaterializer = () => new EmbeddedPackagesMaterializer({
+    specs: ['@acme/kept@1.0.0'],
+    lockfilePath: path.join(dir, 'pnpm-lock.yaml'),
+    workspaceRoot: dir,
+    env: materializerEnv(),
+    homedir: homeDir,
+  })
+
+  it('warns when a pinned entry leaves other versions in the shipped lockfile unembedded', async () => {
+    vi.stubEnv('CHECKLY_LOCKFILE_PRUNE', '0')
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), lockfileWithSecondKeptVersion())
+    await seedCache(keptBytes)
+
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: await stubPruningPackageManager(),
+      embeddedPackagesMaterializer: makePinnedMaterializer(),
+    })
+    registerPartialWorkspace(bundler)
+    await bundler.finalize()
+
+    expect(stderrWrites.join('')).toEqual(UNEMBEDDED_KEPT_WARNING)
+  })
+
+  it('warns when a pinned entry leaves other versions in the pruned lockfile unembedded', async () => {
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), lockfileWithSecondKeptVersion())
+    await seedCache(keptBytes)
+
+    const prunedWithSecondKeptVersion = prunedLockfile()
+      .replace(`snapshots:\n`, `  '@acme/kept@2.0.0':\n    resolution: {integrity: sha512-other}\n\nsnapshots:\n`)
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: await stubPruningPackageManager(prunedWithSecondKeptVersion),
+      embeddedPackagesMaterializer: makePinnedMaterializer(),
+    })
+    registerPartialWorkspace(bundler)
+    await bundler.finalize()
+
+    expect(stderrWrites.join('')).toEqual(UNEMBEDDED_KEPT_WARNING)
+  })
+
+  it('does not warn about unembedded versions the pruned lockfile no longer uses', async () => {
+    await fs.writeFile(path.join(dir, 'pnpm-lock.yaml'), lockfileWithSecondKeptVersion())
+    await seedCache(keptBytes)
+
+    const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
+      tempDir: path.join(dir, 'out'),
+      packageManager: await stubPruningPackageManager(),
+      embeddedPackagesMaterializer: makePinnedMaterializer(),
+    })
+    registerPartialWorkspace(bundler)
+    const archive = await bundler.finalize()
+
+    expect(await listEntries(archive.archiveFile)).toContain('.checkly/embedded-packages/@acme+kept@1.0.0.tgz')
+    expect(stderrWrites.join('')).toEqual('')
+  })
+
   it('ships no embedded tarballs when the bundler has no materializer', async () => {
     const bundler = await Bundler.createForWorkspace(makeWorkspace(), {
       tempDir: path.join(dir, 'out'),
@@ -1861,6 +1929,7 @@ describe('Bundler.finalize() package pruning', () => {
         }],
         issues: [],
         warnings: [],
+        unembedded: [],
       }),
       // eslint-disable-next-line require-await
       materializeTarballs: async (kept: any[]) => {
