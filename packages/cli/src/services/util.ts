@@ -32,11 +32,13 @@ export interface GitHubActionsInformation {
   runAttempt?: string
   workflow?: string
   job?: string
+  jobId?: string
   eventName?: string
   ref?: string
   headRef?: string
   baseRef?: string
   serverUrl?: string
+  rerun?: string
 }
 
 export interface CiInformation {
@@ -157,6 +159,10 @@ function isGitHubReportingEnabled (): boolean {
   return value === 'true' || value === '1'
 }
 
+function getTrimmedEnv (name: string): string | undefined {
+  return process.env[name]?.trim() || undefined
+}
+
 export function findFilesRecursively (directory: string, ignoredPaths: Array<string> = []) {
   if (!fsSync.statSync(directory, { throwIfNoEntry: false })?.isDirectory()) {
     return []
@@ -274,11 +280,13 @@ export function getGitInformation (repoUrl?: string, cwd: string = process.cwd()
       runAttempt: process.env.CHECKLY_GITHUB_RUN_ATTEMPT,
       workflow: process.env.CHECKLY_GITHUB_WORKFLOW,
       job: process.env.CHECKLY_GITHUB_JOB,
+      jobId: getTrimmedEnv('CHECKLY_GITHUB_JOB_ID'),
       eventName: process.env.CHECKLY_GITHUB_EVENT_NAME,
       ref: process.env.CHECKLY_GITHUB_REF,
       headRef: process.env.CHECKLY_GITHUB_HEAD_REF,
       baseRef: process.env.CHECKLY_GITHUB_BASE_REF,
       serverUrl: process.env.CHECKLY_GITHUB_SERVER_URL,
+      rerun: getTrimmedEnv('CHECKLY_GITHUB_RERUN'),
     }
   }
 
