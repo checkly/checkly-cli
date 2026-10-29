@@ -15,6 +15,7 @@ import { checklyStorage } from '../../rest/api.js'
 import { PayloadTooLargeError } from '../../rest/errors.js'
 import { EMBEDDED_PACKAGES_ARCHIVE_DIR, EmbeddedPackagesMaterializer, PlannedTarball } from '../embedded-packages/materializer.js'
 import { filterTarballsByLockfile } from '../embedded-packages/lockfile-filter.js'
+import { capList } from '../embedded-packages/diagnostics.js'
 import {
   composeWorkspaceCacheHash,
   ComposeWorkspaceCacheHashOptions,
@@ -1100,7 +1101,8 @@ export class Bundler {
 
     // plan() is memoized and was already awaited in createForWorkspace, so
     // this resolves the same promise without extra work.
-    const { tarballs: embeddedPackages } = await materializer.plan()
+    const plan = await materializer.plan()
+    const embeddedPackages = plan.tarballs
 
     // The empty-bundle arm is load-bearing: every command calls finalize()
     // unconditionally, including on bundles no check registered files into,
@@ -1113,13 +1115,29 @@ export class Bundler {
     }
 
     let kept = embeddedPackages
+    let unembedded = plan.unembedded
     if (pruned !== undefined) {
       const filtered = filterTarballsByLockfile(embeddedPackages, pruned.content, pruned.name)
       kept = filtered.kept
+      unembedded = filtered.unembedded
       if (filtered.dropped.length > 0) {
         debug(`Embedded packages dropped with the pruned lockfile: ${
           filtered.dropped.map(tarball => `${tarball.name}@${tarball.version}`).join(', ')}`)
       }
+    }
+
+    // A warning rather than an error: installs that resolve through the
+    // runner's registry metadata (npm's) fail, but a lockfile install that
+    // fetches tarballs directly (pnpm 11's) still succeeds. Not limited to
+    // npm lockfiles, since other package managers' behaviour varies.
+    for (const { name, embedded, missing } of unembedded) {
+      process.stderr.write(
+        `Warning: bundle.packages.embed embeds '${name}' only at version ${capList(embedded, ', ', ' and ')}, `
+        + `but the lockfile also uses ${capList(missing, ', ', ' and ')}. Checkly runners serve an embedded `
+        + `package's versions from the code bundle alone, so installs that resolve package metadata, such as `
+        + `npm's, cannot find the others. Embed every version the lockfile uses: list '${name}' by name, `
+        + `without a version pin or a '!' exclusion of individual versions.\n`,
+      )
     }
 
     // Debug rather than user-facing output for now: a bare stderr line has
