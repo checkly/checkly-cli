@@ -2,7 +2,6 @@ const { URL } = require('node:url')
 
 const {
   EmailAlertChannel,
-  SlackAppAlertChannel,
   WebhookAlertChannel,
 } = require('checkly/constructs')
 
@@ -25,10 +24,13 @@ const emailChannel = new EmailAlertChannel('email-channel-1', {
   ...sendDefaults,
 })
 
-const slackChannel = new SlackAppAlertChannel('slack-channel-1', {
-  slackChannels: ['#ops'],
-  ...sendDefaults,
-})
+// A Slack channel needs the Checkly Slack app connected to your account first
+// (https://www.checklyhq.com/docs/integrations/alerts/slack/). Once it is, import
+// SlackAppAlertChannel from 'checkly/constructs' and uncomment:
+// const slackChannel = new SlackAppAlertChannel('slack-channel-1', {
+//   slackChannels: ['#ops'],
+//   ...sendDefaults,
+// })
 
 const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
   name: 'Pushover webhook',
@@ -49,6 +51,5 @@ const webhookChannel = new WebhookAlertChannel('webhook-channel-1', {
 
 module.exports = {
   emailChannel,
-  slackChannel,
   webhookChannel,
 }

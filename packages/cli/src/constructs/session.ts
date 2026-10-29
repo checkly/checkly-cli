@@ -90,6 +90,12 @@ export class Session {
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
   static accountFeatures: string[] = []
+  static accountId?: string
+  /**
+   * The integrations the authenticated account has connected, or undefined
+   * when unknown (not authenticated, or an API that does not report them).
+   */
+  static accountConnectedIntegrations?: string[]
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
   static playwrightProjectBundler?: PlaywrightProjectBundler
@@ -124,6 +130,8 @@ export class Session {
     this.loadingChecklyConfigFile = false
     this.checklyConfigFileConstructs = undefined
     this.accountFeatures = []
+    this.accountId = undefined
+    this.accountConnectedIntegrations = undefined
     this.privateLocations = []
     this.parsers = new Map<string, Parser>()
     this.playwrightProjectBundler = undefined
