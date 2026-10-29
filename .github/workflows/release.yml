@@ -110,6 +110,8 @@ jobs:
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
+        # A failed Slack notification must not fail the job: a later job of the release needs it.
+        continue-on-error: true
         uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
@@ -123,6 +125,8 @@ jobs:
       # Slack success alert
       - name: Slack Success Notification
         if: ${{ success() }}
+        # A failed Slack notification must not fail the job: a later job of the release needs it.
+        continue-on-error: true
         uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
@@ -175,6 +179,8 @@ jobs:
       # Slack failure alert
       - name: Slack Failure Notification
         if: ${{ failure() }}
+        # A failed Slack notification must not fail the job: a later job of the release needs it.
+        continue-on-error: true
         uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
@@ -188,6 +194,8 @@ jobs:
       # Slack success alert
       - name: Slack Success Notification
         if: ${{ success() }}
+        # A failed Slack notification must not fail the job: a later job of the release needs it.
+        continue-on-error: true
         uses: rtCamp/action-slack-notify@33ca3be66c6f378fe1610fd1d5258632dbed5e58 # v2.4.0
         env:
           SLACK_USERNAME: Checkly Github Bot
