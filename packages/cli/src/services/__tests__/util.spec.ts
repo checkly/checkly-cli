@@ -32,11 +32,13 @@ const ENV_KEYS = [
   'CHECKLY_GITHUB_RUN_ATTEMPT',
   'CHECKLY_GITHUB_WORKFLOW',
   'CHECKLY_GITHUB_JOB',
+  'CHECKLY_GITHUB_JOB_ID',
   'CHECKLY_GITHUB_EVENT_NAME',
   'CHECKLY_GITHUB_REF',
   'CHECKLY_GITHUB_HEAD_REF',
   'CHECKLY_GITHUB_BASE_REF',
   'CHECKLY_GITHUB_SERVER_URL',
+  'CHECKLY_GITHUB_RERUN',
 ] as const
 
 describe('util', () => {
@@ -174,11 +176,13 @@ describe('util', () => {
       process.env.CHECKLY_GITHUB_RUN_ATTEMPT = '2'
       process.env.CHECKLY_GITHUB_WORKFLOW = 'Checkly'
       process.env.CHECKLY_GITHUB_JOB = 'validate'
+      process.env.CHECKLY_GITHUB_JOB_ID = '42424242'
       process.env.CHECKLY_GITHUB_EVENT_NAME = 'pull_request'
       process.env.CHECKLY_GITHUB_REF = 'refs/pull/4/merge'
       process.env.CHECKLY_GITHUB_HEAD_REF = 'herve/test-checkly-action'
       process.env.CHECKLY_GITHUB_BASE_REF = 'main'
       process.env.CHECKLY_GITHUB_SERVER_URL = 'https://github.com'
+      process.env.CHECKLY_GITHUB_RERUN = 'repository-dispatch'
 
       expect(getGitInformation()).toEqual(expect.objectContaining({
         commitId: 'abc123def456',
@@ -195,13 +199,44 @@ describe('util', () => {
           runAttempt: '2',
           workflow: 'Checkly',
           job: 'validate',
+          jobId: '42424242',
           eventName: 'pull_request',
           ref: 'refs/pull/4/merge',
           headRef: 'herve/test-checkly-action',
           baseRef: 'main',
           serverUrl: 'https://github.com',
+          rerun: 'repository-dispatch',
         },
       }))
+    })
+
+    it('should trim the GitHub job id and re-run mode', () => {
+      process.env.CHECKLY_GITHUB_REPORT = 'true'
+      process.env.CHECKLY_GITHUB_SHA = 'abc123def456'
+      process.env.CHECKLY_GITHUB_JOB_ID = ' 42424242\n'
+      process.env.CHECKLY_GITHUB_RERUN = '  repository-dispatch '
+
+      expect(getGitInformation()?.github).toEqual(expect.objectContaining({
+        jobId: '42424242',
+        rerun: 'repository-dispatch',
+      }))
+    })
+
+    it.each([
+      ['unset', undefined],
+      ['empty', ''],
+      ['whitespace only', '  '],
+    ])('should leave the GitHub job id and re-run mode out of the payload when %s', (_, value) => {
+      process.env.CHECKLY_GITHUB_REPORT = 'true'
+      process.env.CHECKLY_GITHUB_SHA = 'abc123def456'
+      if (value !== undefined) {
+        process.env.CHECKLY_GITHUB_JOB_ID = value
+        process.env.CHECKLY_GITHUB_RERUN = value
+      }
+
+      const payload = JSON.parse(JSON.stringify(getGitInformation()))
+      expect(payload.github).not.toHaveProperty('jobId')
+      expect(payload.github).not.toHaveProperty('rerun')
     })
   })
 

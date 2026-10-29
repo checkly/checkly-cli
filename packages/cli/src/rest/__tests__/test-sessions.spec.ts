@@ -17,11 +17,13 @@ describe('TestSessions REST client', () => {
       runAttempt: '2',
       workflow: 'Checkly',
       job: 'validate',
+      jobId: '42424242',
       eventName: 'pull_request',
       ref: 'refs/pull/4/merge',
       headRef: 'herve/test-checkly-action',
       baseRef: 'main',
       serverUrl: 'https://github.com',
+      rerun: 'repository-dispatch',
     },
   }
 
