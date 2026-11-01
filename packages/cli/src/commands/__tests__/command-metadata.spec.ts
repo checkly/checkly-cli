@@ -47,6 +47,11 @@ import MembersDelete from '../members/delete.js'
 import Api from '../api.js'
 import TestSessionsList from '../test-sessions/list.js'
 import TestSessionsGet from '../test-sessions/get.js'
+import UiViewsList from '../ui-views/list.js'
+import UiViewsGet from '../ui-views/get.js'
+import UiViewsCreate from '../ui-views/create.js'
+import UiViewsUpdate from '../ui-views/update.js'
+import UiViewsDelete from '../ui-views/delete.js'
 import UsageTermsCommand from '../account/usage/terms.js'
 import UsageTermCommand from '../account/usage/term.js'
 import UsageProjectionsCommand from '../account/usage/projections.js'
@@ -72,6 +77,11 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['status-pages get', StatusPagesGet],
   ['test-sessions list', TestSessionsList],
   ['test-sessions get', TestSessionsGet],
+  ['ui-views list', UiViewsList],
+  ['ui-views get', UiViewsGet],
+  ['ui-views create', UiViewsCreate],
+  ['ui-views update', UiViewsUpdate],
+  ['ui-views delete', UiViewsDelete],
   ['account usage terms', UsageTermsCommand],
   ['account usage term', UsageTermCommand],
   ['account usage projections', UsageProjectionsCommand],
