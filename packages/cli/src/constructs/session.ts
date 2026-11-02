@@ -6,7 +6,7 @@ import { type EngineDetectionResult } from '../services/engine-detector.js'
 import { Parser } from '../services/check-parser/parser.js'
 import { Construct } from './construct.js'
 import { PrivateLocationApi } from '../rest/private-locations.js'
-import type { AccountIntegration } from '../rest/accounts.js'
+import type { Account } from '../rest/accounts.js'
 import {
   FileLoader,
   JitiFileLoader,
@@ -91,12 +91,11 @@ export class Session {
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
   static accountFeatures: string[] = []
-  static accountId?: string
   /**
-   * The integrations the API reports for the authenticated account, or
-   * undefined when not authenticated or the API does not report them.
+   * The authenticated account, for constructs that validate against it.
+   * Undefined when the command does not authenticate.
    */
-  static accountIntegrations?: AccountIntegration[]
+  static account?: Account
   static privateLocations: PrivateLocationApi[]
   static parsers = new Map<string, Parser>()
   static playwrightProjectBundler?: PlaywrightProjectBundler
@@ -131,8 +130,7 @@ export class Session {
     this.loadingChecklyConfigFile = false
     this.checklyConfigFileConstructs = undefined
     this.accountFeatures = []
-    this.accountId = undefined
-    this.accountIntegrations = undefined
+    this.account = undefined
     this.privateLocations = []
     this.parsers = new Map<string, Parser>()
     this.playwrightProjectBundler = undefined
