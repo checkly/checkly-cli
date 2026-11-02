@@ -90,7 +90,6 @@ export class Session {
   static verifyRuntimeDependencies = true
   static loadingChecklyConfigFile: boolean
   static checklyConfigFileConstructs?: Construct[]
-  static accountFeatures: string[] = []
   /**
    * The authenticated account, for constructs that validate against it.
    * Undefined when the command does not authenticate.
@@ -129,7 +128,6 @@ export class Session {
     this.verifyRuntimeDependencies = true
     this.loadingChecklyConfigFile = false
     this.checklyConfigFileConstructs = undefined
-    this.accountFeatures = []
     this.account = undefined
     this.privateLocations = []
     this.parsers = new Map<string, Parser>()

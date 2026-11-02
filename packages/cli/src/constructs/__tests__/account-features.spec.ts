@@ -4,6 +4,7 @@ import { ApiCheck, TcpMonitor, TcpRequest, UrlMonitor } from '../index.js'
 import { Diagnostics } from '../diagnostics.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
+import type { Account } from '../../rest/accounts.js'
 
 const EXTENDED_RESPONSE_TIME_LIMITS = 'EXTENDED_RESPONSE_TIME_LIMITS'
 
@@ -19,6 +20,13 @@ const newProject = () => {
   })
 }
 
+const withFeatures = (features: string[]): Account => ({
+  id: 'acc-1',
+  name: 'Test Account',
+  runtimeId: '2025.04',
+  features,
+})
+
 const validate = async (construct: { validate: (diagnostics: Diagnostics) => Promise<void> }) => {
   const diagnostics = new Diagnostics()
   await construct.validate(diagnostics)
@@ -27,12 +35,12 @@ const validate = async (construct: { validate: (diagnostics: Diagnostics) => Pro
 
 describe('account-aware response time limits', () => {
   afterEach(() => {
-    Session.accountFeatures = []
+    Session.account = undefined
   })
 
   it('rejects an extended response time without the feature', async () => {
     newProject()
-    Session.accountFeatures = []
+    Session.account = withFeatures([])
 
     const diagnostics = await validate(new TcpMonitor('tcp-standard', {
       name: 'Test Check',
@@ -50,7 +58,7 @@ describe('account-aware response time limits', () => {
 
   it('accepts an extended response time with the feature', async () => {
     newProject()
-    Session.accountFeatures = [EXTENDED_RESPONSE_TIME_LIMITS]
+    Session.account = withFeatures([EXTENDED_RESPONSE_TIME_LIMITS])
 
     const diagnostics = await validate(new TcpMonitor('tcp-extended', {
       name: 'Test Check',
@@ -64,7 +72,7 @@ describe('account-aware response time limits', () => {
 
   it('defers values above 45s to the API with the feature', async () => {
     newProject()
-    Session.accountFeatures = [EXTENDED_RESPONSE_TIME_LIMITS]
+    Session.account = withFeatures([EXTENDED_RESPONSE_TIME_LIMITS])
 
     const diagnostics = await validate(new TcpMonitor('tcp-over-extended', {
       name: 'Test Check',
@@ -77,7 +85,7 @@ describe('account-aware response time limits', () => {
 
   it('keeps the degraded <= max cross-check with the feature', async () => {
     newProject()
-    Session.accountFeatures = [EXTENDED_RESPONSE_TIME_LIMITS]
+    Session.account = withFeatures([EXTENDED_RESPONSE_TIME_LIMITS])
 
     const diagnostics = await validate(new TcpMonitor('tcp-degraded-above-max', {
       name: 'Test Check',
@@ -96,7 +104,7 @@ describe('account-aware response time limits', () => {
 
   it('raises the API check limit above its 30s standard', async () => {
     newProject()
-    Session.accountFeatures = [EXTENDED_RESPONSE_TIME_LIMITS]
+    Session.account = withFeatures([EXTENDED_RESPONSE_TIME_LIMITS])
 
     const diagnostics = await validate(new ApiCheck('api-extended', {
       name: 'Test Check',
@@ -109,7 +117,7 @@ describe('account-aware response time limits', () => {
 
   it('raises the URL monitor limit above its 30s standard', async () => {
     newProject()
-    Session.accountFeatures = [EXTENDED_RESPONSE_TIME_LIMITS]
+    Session.account = withFeatures([EXTENDED_RESPONSE_TIME_LIMITS])
 
     const diagnostics = await validate(new UrlMonitor('url-extended', {
       name: 'Test Check',
