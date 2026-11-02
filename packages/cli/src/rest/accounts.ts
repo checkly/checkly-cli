@@ -18,10 +18,16 @@ export interface Account {
    */
   features?: string[]
   /**
-   * The integrations the account has connected, e.g. `SLACK` for the Checkly
-   * Slack app. Absent when the API predates it.
+   * Every integration type the API reports, each marked connected or not, e.g.
+   * `SLACK` for the Checkly Slack app. A type missing from the list is one the
+   * API does not report. Absent when the API predates it.
    */
-  connectedIntegrations?: string[]
+  integrations?: AccountIntegration[]
+}
+
+export interface AccountIntegration {
+  type: string
+  connected: boolean
 }
 
 class Accounts {

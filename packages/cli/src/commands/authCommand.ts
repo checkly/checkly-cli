@@ -113,7 +113,7 @@ export abstract class AuthCommand extends BaseCommand {
     // the command instance.
     Session.accountFeatures = this.#account?.features ?? []
     Session.accountId = this.#account?.id
-    Session.accountConnectedIntegrations = this.#account?.connectedIntegrations
+    Session.accountIntegrations = this.#account?.integrations
   }
 
   protected async validateProject (
