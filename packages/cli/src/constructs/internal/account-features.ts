@@ -16,7 +16,7 @@ const EXTENDED_RESPONSE_TIME_LIMITS = 'EXTENDED_RESPONSE_TIME_LIMITS'
  * the API does not report features at all (older or self-hosted deployments).
  */
 export function responseTimeLimits (standard: number): ResponseTimeLimits {
-  const limit = Session.accountFeatures.includes(EXTENDED_RESPONSE_TIME_LIMITS)
+  const limit = Session.account?.features?.includes(EXTENDED_RESPONSE_TIME_LIMITS)
     ? Number.MAX_SAFE_INTEGER
     : standard
 

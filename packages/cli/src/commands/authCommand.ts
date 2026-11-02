@@ -111,7 +111,6 @@ export abstract class AuthCommand extends BaseCommand {
     config.pinEnvironment()
     // Constructs validate against account-specific limits and have no access to
     // the command instance.
-    Session.accountFeatures = this.#account?.features ?? []
     Session.account = this.#account
   }
 
