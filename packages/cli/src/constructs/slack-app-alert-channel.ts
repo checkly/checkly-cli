@@ -49,7 +49,7 @@ export class SlackAppAlertChannel extends AlertChannel {
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
-    const slack = Session.accountIntegrations?.find(({ type }) => type === SLACK_INTEGRATION)
+    const slack = Session.account?.integrations?.find(({ type }) => type === SLACK_INTEGRATION)
     if (slack === undefined || slack.connected || !this.slackChannels?.length) {
       return
     }
@@ -62,7 +62,7 @@ export class SlackAppAlertChannel extends AlertChannel {
       message:
         `${error.message}\n\n`
         + `Hint: Connect the Checkly Slack app at`
-        + ` https://app.checklyhq.com/accounts/${Session.accountId}/settings/account/integrations,`
+        + ` https://app.checklyhq.com/accounts/${Session.account?.id}/settings/account/integrations,`
         + ` or remove the channel.`,
       error,
     }))

@@ -4,6 +4,14 @@ import { SlackAppAlertChannel } from '../index.js'
 import { Diagnostics } from '../diagnostics.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
+import type { Account, AccountIntegration } from '../../rest/accounts.js'
+
+const withIntegrations = (integrations?: AccountIntegration[]): Account => ({
+  id: 'acc-1',
+  name: 'Test Account',
+  runtimeId: '2025.04',
+  integrations,
+})
 
 const validate = async (slackChannels: string[]) => {
   const diagnostics = new Diagnostics()
@@ -17,16 +25,14 @@ describe('SlackAppAlertChannel', () => {
       name: 'Test Project',
       repoUrl: 'https://github.com/checkly/checkly-cli',
     })
-    Session.accountId = 'acc-1'
   })
 
   afterEach(() => {
-    Session.accountId = undefined
-    Session.accountIntegrations = undefined
+    Session.account = undefined
   })
 
   it('refuses the channel when the account has no Checkly Slack app', async () => {
-    Session.accountIntegrations = [{ type: 'SLACK', connected: false }]
+    Session.account = withIntegrations([{ type: 'SLACK', connected: false }])
 
     const diagnostics = await validate(['#ops'])
 
@@ -45,7 +51,7 @@ describe('SlackAppAlertChannel', () => {
   })
 
   it('accepts the channel when the Checkly Slack app is connected', async () => {
-    Session.accountIntegrations = [{ type: 'SLACK', connected: true }]
+    Session.account = withIntegrations([{ type: 'SLACK', connected: true }])
 
     const diagnostics = await validate(['#ops'])
 
@@ -53,7 +59,7 @@ describe('SlackAppAlertChannel', () => {
   })
 
   it('skips the check when the API does not report integrations', async () => {
-    Session.accountIntegrations = undefined
+    Session.account = withIntegrations(undefined)
 
     const diagnostics = await validate(['#ops'])
 
@@ -61,7 +67,7 @@ describe('SlackAppAlertChannel', () => {
   })
 
   it('skips the check when the API does not report the Slack app', async () => {
-    Session.accountIntegrations = [{ type: 'OTHER', connected: false }]
+    Session.account = withIntegrations([{ type: 'OTHER', connected: false }])
 
     const diagnostics = await validate(['#ops'])
 
@@ -69,7 +75,7 @@ describe('SlackAppAlertChannel', () => {
   })
 
   it('accepts a channel without Slack destinations, which needs no Slack app', async () => {
-    Session.accountIntegrations = [{ type: 'SLACK', connected: false }]
+    Session.account = withIntegrations([{ type: 'SLACK', connected: false }])
 
     const diagnostics = await validate([])
 
