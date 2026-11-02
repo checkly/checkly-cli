@@ -22,11 +22,11 @@ describe('SlackAppAlertChannel', () => {
 
   afterEach(() => {
     Session.accountId = undefined
-    Session.accountConnectedIntegrations = undefined
+    Session.accountIntegrations = undefined
   })
 
   it('refuses the channel when the account has no Checkly Slack app', async () => {
-    Session.accountConnectedIntegrations = []
+    Session.accountIntegrations = [{ type: 'SLACK', connected: false }]
 
     const diagnostics = await validate(['#ops'])
 
@@ -45,15 +45,23 @@ describe('SlackAppAlertChannel', () => {
   })
 
   it('accepts the channel when the Checkly Slack app is connected', async () => {
-    Session.accountConnectedIntegrations = ['SLACK']
+    Session.accountIntegrations = [{ type: 'SLACK', connected: true }]
 
     const diagnostics = await validate(['#ops'])
 
     expect(diagnostics.isFatal()).toBe(false)
   })
 
-  it('skips the check when the API does not report connected integrations', async () => {
-    Session.accountConnectedIntegrations = undefined
+  it('skips the check when the API does not report integrations', async () => {
+    Session.accountIntegrations = undefined
+
+    const diagnostics = await validate(['#ops'])
+
+    expect(diagnostics.isFatal()).toBe(false)
+  })
+
+  it('skips the check when the API does not report the Slack app', async () => {
+    Session.accountIntegrations = [{ type: 'OTHER', connected: false }]
 
     const diagnostics = await validate(['#ops'])
 
@@ -61,7 +69,7 @@ describe('SlackAppAlertChannel', () => {
   })
 
   it('accepts a channel without Slack destinations, which needs no Slack app', async () => {
-    Session.accountConnectedIntegrations = []
+    Session.accountIntegrations = [{ type: 'SLACK', connected: false }]
 
     const diagnostics = await validate([])
 
