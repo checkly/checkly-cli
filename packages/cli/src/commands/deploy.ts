@@ -47,7 +47,7 @@ import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
-import { noteCliError } from '../services/error-reporting.js'
+import { noteCliError } from '../services/error-reporting/report.js'
 
 /**
  * The deploy payload fields that arrived with the preview endpoint, which a

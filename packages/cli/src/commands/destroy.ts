@@ -8,7 +8,7 @@ import { forceFlag } from '../helpers/flags.js'
 import { ProjectDeployCancelledError } from '../rest/projects.js'
 import { ConflictError } from '../rest/errors.js'
 import { prompt } from '../helpers/prompts.js'
-import { noteCliError } from '../services/error-reporting.js'
+import { noteCliError } from '../services/error-reporting/report.js'
 
 export default class Destroy extends AuthCommand {
   static hidden = false

@@ -11,7 +11,7 @@ import {
   TestSessionSchedulingOperation,
 } from '../rest/test-sessions.js'
 import { PlaywrightCheck } from '../constructs/index.js'
-import { noteCliError } from './error-reporting.js'
+import { noteCliError } from './error-reporting/report.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
