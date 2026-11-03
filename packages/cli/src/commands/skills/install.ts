@@ -12,7 +12,7 @@ import {
   promptForPlatformTarget,
 } from '../../services/skills.js'
 import { prompt } from '../../helpers/prompts.js'
-import { noteCliError } from '../../services/error-reporting.js'
+import { noteCliError } from '../../services/error-reporting/report.js'
 
 const SKILL_FILENAME = 'SKILL.md'
 

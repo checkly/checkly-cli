@@ -12,7 +12,7 @@ import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
 import { isDevelopmentBuild } from '../services/project-cli.js'
-import { noteCliError, reportNotedCliError } from '../services/error-reporting.js'
+import { noteCliError, reportNotedCliError } from '../services/error-reporting/report.js'
 import { detectCliMode } from '../helpers/cli-mode.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))

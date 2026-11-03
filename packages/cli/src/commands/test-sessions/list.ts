@@ -9,7 +9,7 @@ import {
   formatTestSessionsListNavigationHints,
   formatTestSessionsListPaginationInfo,
 } from '../../formatters/test-sessions.js'
-import { noteCliError } from '../../services/error-reporting.js'
+import { noteCliError } from '../../services/error-reporting/report.js'
 
 const statusOptions = ['running', 'failed', 'passed', 'cancelled'] as const
 const providerOptions = ['github', 'vercel', 'api', 'trigger', 'pw_reporter'] as const
