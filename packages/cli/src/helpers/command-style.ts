@@ -4,6 +4,7 @@ import { ux } from '@oclif/core'
 import { BaseCommand } from '../commands/baseCommand.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import { NotFoundError } from '../rest/errors.js'
+import { noteCliError } from '../services/error-reporting.js'
 import { wrap } from './wrap.js'
 import logSymbols from 'log-symbols'
 
@@ -102,6 +103,9 @@ export class CommandStyle {
    * `errorCode`); it appears only in the JSON envelope.
    */
   longError (title: string, message: string | Error, { code }: { code?: string } = {}) {
+    // Commands print the errors they catch here, so a CLI bug among them is
+    // reported when the command ends.
+    noteCliError(message)
     const hint = message instanceof NotFoundError ? this.c.notFoundHint() : undefined
     if (this.outputFormat === 'json') {
       // The searched account as data, so an agent need not parse the hint.
