@@ -11,6 +11,7 @@ import {
   TestSessionSchedulingOperation,
 } from '../rest/test-sessions.js'
 import { PlaywrightCheck } from '../constructs/index.js'
+import { noteCliError } from './error-reporting.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -234,6 +235,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
       this.disableAllTimeouts()
+      // Commands print this error and exit without throwing it, so a CLI bug
+      // in it is noted here to be reported when the command ends.
+      noteCliError(err)
       this.emit(Events.ERROR, err)
     } finally {
       // Stop any in-flight scheduling long-poll so it doesn't hold the

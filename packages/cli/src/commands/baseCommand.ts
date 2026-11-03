@@ -12,6 +12,8 @@ import { findStaleSkills } from '../services/skills.js'
 import { PackageJsonFile } from '../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson } from '../services/check-parser/package-files/package-manager.js'
 import { isDevelopmentBuild } from '../services/project-cli.js'
+import { noteCliError, reportNotedCliError } from '../services/error-reporting.js'
+import { detectCliMode } from '../helpers/cli-mode.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -195,7 +197,14 @@ export abstract class BaseCommand extends Command {
     if (err instanceof NotFoundError) {
       err.message = this.withNotFoundHint(err.message)
     }
-    // TODO: we can add Sentry here and log critical errors.
+    noteCliError(err, { handled: false })
     return super.catch(err)
+  }
+
+  protected async finally (err: Error | undefined): Promise<any> {
+    // Here and not in catch(), so it also sends the errors a command printed
+    // itself and only exited on (see noteCliError).
+    await reportNotedCliError(() => ({ version: this.config.version, command: this.id, cliMode: detectCliMode() }))
+    return super.finally(err)
   }
 }

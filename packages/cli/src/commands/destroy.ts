@@ -8,6 +8,7 @@ import { forceFlag } from '../helpers/flags.js'
 import { ProjectDeployCancelledError } from '../rest/projects.js'
 import { ConflictError } from '../rest/errors.js'
 import { prompt } from '../helpers/prompts.js'
+import { noteCliError } from '../services/error-reporting.js'
 
 export default class Destroy extends AuthCommand {
   static hidden = false
@@ -98,6 +99,7 @@ export default class Destroy extends AuthCommand {
     } catch (err: any) {
       this.style.actionFailure()
       if (err instanceof ProjectDeployCancelledError) {
+        noteCliError(err)
         this.style.longError('Your project could not be destroyed.', err.message)
       } else if (err instanceof ConflictError) {
         // deleteProject waits-and-retries behind an in-progress operation, so a
