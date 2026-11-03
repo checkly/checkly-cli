@@ -4,7 +4,7 @@ import { ux } from '@oclif/core'
 import { BaseCommand } from '../commands/baseCommand.js'
 import { Diagnostics } from '../constructs/diagnostics.js'
 import { NotFoundError } from '../rest/errors.js'
-import { noteCliError } from '../services/error-reporting.js'
+import { noteCliError } from '../services/error-reporting/report.js'
 import { wrap } from './wrap.js'
 import logSymbols from 'log-symbols'
 

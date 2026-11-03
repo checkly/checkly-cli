@@ -5,18 +5,16 @@ import path from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
+import { findCliBug, isCliBug } from '../classify.js'
+import { buildErrorEvent, releaseEnvironment } from '../event.js'
 import {
-  buildErrorEvent,
-  findCliBug,
-  isCliBug,
   isErrorReportingDisabled,
   noteCliError,
-  releaseEnvironment,
   reportCliError,
   reportNotedCliError,
   resetErrorReporting,
-  scrubMessage,
-} from '../error-reporting.js'
+} from '../report.js'
+import { scrubMessage } from '../scrub.js'
 
 const KEY = 'a'.repeat(72)
 
@@ -92,61 +90,70 @@ beforeEach(() => {
 })
 
 describe('isCliBug', () => {
-  it('accepts a runtime error raised in the CLI\'s own files', () => {
+  it('accepts a runtime error raised in the CLI\'s own files', async () => {
     expect(cliBug).toBeInstanceOf(TypeError)
-    expect(isCliBug(cliBug, installDir)).toBe(true)
+    expect(await isCliBug(cliBug, installDir)).toBe(true)
   })
 
-  it('accepts it when the stack names the file by URL, as the installed CLI\'s ES modules do', () => {
+  it('accepts it when the stack names the file by URL, as the installed CLI\'s ES modules do', async () => {
     // Vitest loads modules itself and its stacks show plain paths, so the URL form is built here:
     // file:///C:/... on Windows, with the space in the install path as %20.
     const url = pathToFileURL(path.join(installDir, 'dist', 'commands', 'deploy.js')).href
     expect(url).toContain('%20')
     const err = new TypeError('Cannot read properties of undefined (reading \'logicalId\')')
     err.stack = `TypeError: ${err.message}\n    at Deploy.run (${url}:12:34)\n    at async Deploy._run (${url}:1:1)`
-    expect(isCliBug(err, installDir)).toBe(true)
+    expect(await isCliBug(err, installDir)).toBe(true)
+  })
+
+  it('accepts it when the CLI\'s code ran through eval, whose frames name the file differently', async () => {
+    const file = path.join(installDir, 'dist', 'services', 'loader.js')
+    const err = new TypeError('Cannot read properties of undefined (reading \'x\')')
+    err.stack = `TypeError: ${err.message}\n`
+      + `    at eval (eval at load (${file}:1:2), <anonymous>:1:1)\n`
+      + `    at load (${file}:1:2)`
+    expect(await isCliBug(err, installDir)).toBe(true)
   })
 
   it('rejects the same error when it was raised outside the CLI, e.g. in a user\'s check file', async () => {
     const elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-other-'))
     try {
-      expect(isCliBug(cliBug, elsewhere)).toBe(false)
+      expect(await isCliBug(cliBug, elsewhere)).toBe(false)
     } finally {
       await fs.rm(elsewhere, { recursive: true, force: true })
     }
   })
 
-  it('rejects errors raised in a dependency of the CLI', () => {
+  it('rejects errors raised in a dependency of the CLI', async () => {
     expect(dependencyBug).toBeInstanceOf(TypeError)
-    expect(isCliBug(dependencyBug, installDir)).toBe(false)
+    expect(await isCliBug(dependencyBug, installDir)).toBe(false)
   })
 
-  it('rejects the TypeError Node raises for a malformed URL the user gave', () => {
+  it('rejects the TypeError Node raises for a malformed URL the user gave', async () => {
     expect(invalidUrl).toBeInstanceOf(TypeError)
     expect((invalidUrl as NodeJS.ErrnoException).code).toBe('ERR_INVALID_URL')
     // The same place counts as a CLI bug for any other TypeError, so only the code rejects it.
     const other = new TypeError('x')
     other.stack = invalidUrl.stack!.replace(/^TypeError.*$/m, 'TypeError: x')
-    expect(isCliBug(other, installDir)).toBe(true)
-    expect(isCliBug(invalidUrl, installDir)).toBe(false)
+    expect(await isCliBug(other, installDir)).toBe(true)
+    expect(await isCliBug(invalidUrl, installDir)).toBe(false)
   })
 
-  it('rejects errors the CLI throws on purpose', () => {
+  it('rejects errors the CLI throws on purpose', async () => {
     const intentional = new Error('Your Checkly configuration file is not valid.')
     intentional.stack = cliBug.stack!.replace(/^TypeError: .*$/m, 'Error: Your Checkly configuration file is not valid.')
-    expect(isCliBug(intentional, installDir)).toBe(false)
-    expect(isCliBug('a string', installDir)).toBe(false)
+    expect(await isCliBug(intentional, installDir)).toBe(false)
+    expect(await isCliBug('a string', installDir)).toBe(false)
   })
 })
 
 describe('findCliBug', () => {
-  it('finds the CLI bug a wrapper hides in its cause, as loading a check file does', () => {
+  it('finds the CLI bug a wrapper hides in its cause, as loading a check file does', async () => {
     const wrapper = new Error(`Error loading file '${installDir}/__checks__/api.check.ts'\n${cliBug.stack}`, {
       cause: cliBug,
     })
-    expect(isCliBug(wrapper, installDir)).toBe(false)
-    expect(findCliBug(wrapper, installDir)).toBe(cliBug)
-    expect(findCliBug(new Error('wrapper', { cause: dependencyBug }), installDir)).toBeUndefined()
+    expect(await isCliBug(wrapper, installDir)).toBe(false)
+    expect(await findCliBug(wrapper, installDir)).toBe(cliBug)
+    expect(await findCliBug(new Error('wrapper', { cause: dependencyBug }), installDir)).toBeUndefined()
   })
 })
 
@@ -301,9 +308,11 @@ describe('reportCliError', () => {
 
   it('sends the first error noted during the run when asked, as commands that print their errors need', async () => {
     await withIngest(async (dsn, received) => {
-      noteCliError(new Error('Your project could not be deployed.'), { packageRoot: installDir })
-      noteCliError(cliBug, { packageRoot: installDir })
-      noteCliError(invalidUrl, { packageRoot: installDir, handled: false })
+      noteCliError(new Error('Your project could not be deployed.'))
+      // A TypeError, but raised in a dependency: noted, then skipped when the run ends.
+      noteCliError(dependencyBug)
+      noteCliError(cliBug)
+      noteCliError(invalidUrl, { handled: false })
       expect(received).toHaveLength(0)
 
       await reportNotedCliError(() => ({ version: '7.1.0', command: 'deploy' }), {
@@ -331,7 +340,7 @@ describe('reportCliError', () => {
       await reportNotedCliError(context, { dsn, packageRoot: installDir, env: {} })
       expect(contextBuilt).toBe(false)
 
-      noteCliError(cliBug, { packageRoot: installDir, handled: false })
+      noteCliError(cliBug, { handled: false })
       await reportNotedCliError(context, { dsn, packageRoot: installDir, env: {} })
 
       expect(contextBuilt).toBe(true)

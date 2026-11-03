@@ -38,7 +38,7 @@ import { ConstructExport, Session } from '../../constructs/session.js'
 import { Diagnostics } from '../../constructs/index.js'
 import { Runtime } from '../../runtimes/index.js'
 import { prompt } from '../../helpers/prompts.js'
-import { noteCliError } from '../../services/error-reporting.js'
+import { noteCliError } from '../../services/error-reporting/report.js'
 
 type FriendExports = {
   [type in FriendResourceSync['type']]: Map<string, ConstructExport>
