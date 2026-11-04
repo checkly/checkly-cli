@@ -1,7 +1,6 @@
-import type { Event, Exception } from '@sentry/core'
-
-import { loadStackParser, MAX_CAUSE_DEPTH, PACKAGE_ROOT, realpath } from './classify.js'
+import { MAX_CAUSE_DEPTH, PACKAGE_ROOT, realpath } from './classify.js'
 import { cliDependencies, scrubFrame, scrubMessage } from './scrub.js'
+import { eventId, parseStack, type ErrorEvent, type Exception } from './sentry-protocol.js'
 
 export interface ErrorReportContext {
   /** The CLI version, `this.config.version`. */
@@ -29,26 +28,19 @@ export function releaseEnvironment (version: string): string {
  * are kept: an error's other properties (an axios error's request config with
  * its auth headers, for one) are never sent.
  */
-async function toExceptions (
-  err: Error,
-  packageRoot: string,
-  env: NodeJS.ProcessEnv,
-  handled: boolean,
-): Promise<Exception[]> {
-  const { exceptionFromError } = await import('@sentry/core')
-  const stackParser = await loadStackParser()
+function toExceptions (err: Error, packageRoot: string, env: NodeJS.ProcessEnv, handled: boolean): Exception[] {
   const dependencies = cliDependencies(packageRoot)
 
   const exceptions: Exception[] = []
   let current: unknown = err
   while (current instanceof Error && exceptions.length < MAX_CAUSE_DEPTH) {
-    const exception = exceptionFromError(stackParser, current)
+    const frames = parseStack(current.stack ?? '')
     exceptions.unshift({
       type: current.name,
       value: scrubMessage(current.message, env),
-      stacktrace: exception.stacktrace && {
-        frames: exception.stacktrace.frames?.map(frame => scrubFrame(frame, packageRoot, dependencies)),
-      },
+      stacktrace: frames.length
+        ? { frames: frames.map(frame => scrubFrame(frame, packageRoot, dependencies)) }
+        : undefined,
       mechanism: { type: 'generic', handled },
     })
     current = current.cause
@@ -57,21 +49,20 @@ async function toExceptions (
 }
 
 /** The Sentry event for `err`. Exported for tests. */
-export async function buildErrorEvent (
+export function buildErrorEvent (
   err: Error,
   context: ErrorReportContext,
   { packageRoot = PACKAGE_ROOT, env = process.env }: { packageRoot?: string, env?: NodeJS.ProcessEnv } = {},
-): Promise<Event> {
-  const { uuid4 } = await import('@sentry/core')
+): ErrorEvent {
   const runtime = process.versions.bun ? 'bun' : process.versions.deno ? 'deno' : 'node'
   return {
-    event_id: uuid4(),
+    event_id: eventId(),
     timestamp: Date.now() / 1000,
     platform: 'node',
     level: context.handled ? 'error' : 'fatal',
     release: `checkly@${context.version}`,
     environment: releaseEnvironment(context.version),
-    exception: { values: await toExceptions(err, realpath(packageRoot), env, !!context.handled) },
+    exception: { values: toExceptions(err, realpath(packageRoot), env, !!context.handled) },
     tags: {
       ...(context.command && { command: context.command }),
       ...(context.cliMode && { cli_mode: context.cliMode }),

@@ -90,70 +90,70 @@ beforeEach(() => {
 })
 
 describe('isCliBug', () => {
-  it('accepts a runtime error raised in the CLI\'s own files', async () => {
+  it('accepts a runtime error raised in the CLI\'s own files', () => {
     expect(cliBug).toBeInstanceOf(TypeError)
-    expect(await isCliBug(cliBug, installDir)).toBe(true)
+    expect(isCliBug(cliBug, installDir)).toBe(true)
   })
 
-  it('accepts it when the stack names the file by URL, as the installed CLI\'s ES modules do', async () => {
+  it('accepts it when the stack names the file by URL, as the installed CLI\'s ES modules do', () => {
     // Vitest loads modules itself and its stacks show plain paths, so the URL form is built here:
     // file:///C:/... on Windows, with the space in the install path as %20.
     const url = pathToFileURL(path.join(installDir, 'dist', 'commands', 'deploy.js')).href
     expect(url).toContain('%20')
     const err = new TypeError('Cannot read properties of undefined (reading \'logicalId\')')
     err.stack = `TypeError: ${err.message}\n    at Deploy.run (${url}:12:34)\n    at async Deploy._run (${url}:1:1)`
-    expect(await isCliBug(err, installDir)).toBe(true)
+    expect(isCliBug(err, installDir)).toBe(true)
   })
 
-  it('accepts it when the CLI\'s code ran through eval, whose frames name the file differently', async () => {
+  it('accepts it when the CLI\'s code ran through eval, whose frames name the file differently', () => {
     const file = path.join(installDir, 'dist', 'services', 'loader.js')
     const err = new TypeError('Cannot read properties of undefined (reading \'x\')')
     err.stack = `TypeError: ${err.message}\n`
       + `    at eval (eval at load (${file}:1:2), <anonymous>:1:1)\n`
       + `    at load (${file}:1:2)`
-    expect(await isCliBug(err, installDir)).toBe(true)
+    expect(isCliBug(err, installDir)).toBe(true)
   })
 
   it('rejects the same error when it was raised outside the CLI, e.g. in a user\'s check file', async () => {
     const elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-other-'))
     try {
-      expect(await isCliBug(cliBug, elsewhere)).toBe(false)
+      expect(isCliBug(cliBug, elsewhere)).toBe(false)
     } finally {
       await fs.rm(elsewhere, { recursive: true, force: true })
     }
   })
 
-  it('rejects errors raised in a dependency of the CLI', async () => {
+  it('rejects errors raised in a dependency of the CLI', () => {
     expect(dependencyBug).toBeInstanceOf(TypeError)
-    expect(await isCliBug(dependencyBug, installDir)).toBe(false)
+    expect(isCliBug(dependencyBug, installDir)).toBe(false)
   })
 
-  it('rejects the TypeError Node raises for a malformed URL the user gave', async () => {
+  it('rejects the TypeError Node raises for a malformed URL the user gave', () => {
     expect(invalidUrl).toBeInstanceOf(TypeError)
     expect((invalidUrl as NodeJS.ErrnoException).code).toBe('ERR_INVALID_URL')
     // The same place counts as a CLI bug for any other TypeError, so only the code rejects it.
     const other = new TypeError('x')
     other.stack = invalidUrl.stack!.replace(/^TypeError.*$/m, 'TypeError: x')
-    expect(await isCliBug(other, installDir)).toBe(true)
-    expect(await isCliBug(invalidUrl, installDir)).toBe(false)
+    expect(isCliBug(other, installDir)).toBe(true)
+    expect(isCliBug(invalidUrl, installDir)).toBe(false)
   })
 
-  it('rejects errors the CLI throws on purpose', async () => {
+  it('rejects errors the CLI throws on purpose', () => {
     const intentional = new Error('Your Checkly configuration file is not valid.')
     intentional.stack = cliBug.stack!.replace(/^TypeError: .*$/m, 'Error: Your Checkly configuration file is not valid.')
-    expect(await isCliBug(intentional, installDir)).toBe(false)
-    expect(await isCliBug('a string', installDir)).toBe(false)
+    expect(isCliBug(intentional, installDir)).toBe(false)
+    expect(isCliBug('a string', installDir)).toBe(false)
   })
 })
 
 describe('findCliBug', () => {
-  it('finds the CLI bug a wrapper hides in its cause, as loading a check file does', async () => {
+  it('finds the CLI bug a wrapper hides in its cause, as loading a check file does', () => {
     const wrapper = new Error(`Error loading file '${installDir}/__checks__/api.check.ts'\n${cliBug.stack}`, {
       cause: cliBug,
     })
-    expect(await isCliBug(wrapper, installDir)).toBe(false)
-    expect(await findCliBug(wrapper, installDir)).toBe(cliBug)
-    expect(await findCliBug(new Error('wrapper', { cause: dependencyBug }), installDir)).toBeUndefined()
+    expect(isCliBug(wrapper, installDir)).toBe(false)
+    expect(findCliBug(wrapper, installDir)).toBe(cliBug)
+    expect(findCliBug(new Error('wrapper', { cause: dependencyBug }), installDir)).toBeUndefined()
   })
 })
 
@@ -207,8 +207,8 @@ describe('scrubMessage', () => {
 })
 
 describe('buildErrorEvent', () => {
-  it('names the CLI\'s files relative to the package and nothing about the machine', async () => {
-    const event = await buildErrorEvent(cliBug, { version: '7.1.0', command: 'deploy', cliMode: 'ci' }, {
+  it('names the CLI\'s files relative to the package and nothing about the machine', () => {
+    const event = buildErrorEvent(cliBug, { version: '7.1.0', command: 'deploy', cliMode: 'ci' }, {
       packageRoot: installDir,
     })
 
@@ -230,15 +230,15 @@ describe('buildErrorEvent', () => {
     expect(event).not.toHaveProperty('user')
   })
 
-  it('does not count a dependency under the CLI\'s own node_modules as CLI code', async () => {
-    const event = await buildErrorEvent(dependencyBug, { version: '7.1.0' }, { packageRoot: installDir })
+  it('does not count a dependency under the CLI\'s own node_modules as CLI code', () => {
+    const event = buildErrorEvent(dependencyBug, { version: '7.1.0' }, { packageRoot: installDir })
 
     const frame = event.exception!.values![0].stacktrace!.frames!.at(-1)!
     expect(frame).toMatchObject({ filename: 'node_modules/some-dep/index.mjs', in_app: false })
   })
 
-  it('does not name a package the CLI does not depend on, which may be a private one of the user\'s', async () => {
-    const event = await buildErrorEvent(privatePackageBug, { version: '7.1.0' }, { packageRoot: installDir })
+  it('does not name a package the CLI does not depend on, which may be a private one of the user\'s', () => {
+    const event = buildErrorEvent(privatePackageBug, { version: '7.1.0' }, { packageRoot: installDir })
 
     const frame = event.exception!.values![0].stacktrace!.frames!.at(-1)!
     expect(frame).toEqual({ filename: '<dependency>', function: '<redacted>', in_app: false })

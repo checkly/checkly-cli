@@ -1,9 +1,9 @@
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type { StackFrame } from '@sentry/core'
 
 import { isOwnPath } from './classify.js'
+import type { StackFrame } from './sentry-protocol.js'
 
 /** The packages the CLI depends on directly; frames in other packages are the user's. */
 export function cliDependencies (packageRoot: string): Set<string> {
@@ -34,7 +34,7 @@ export function scrubFrame (frame: StackFrame, packageRoot: string, dependencies
   }
   if (isOwnPath(filename, packageRoot)) {
     const relative = path.relative(packageRoot, filename).split(path.sep).join('/')
-    return { ...frame, filename: `checkly/${relative}`, abs_path: undefined, module: undefined, in_app: true }
+    return { ...frame, filename: `checkly/${relative}`, in_app: true }
   }
   const normalized = filename.split(path.sep).join('/')
   const nodeModules = normalized.lastIndexOf('node_modules/')
@@ -44,13 +44,7 @@ export function scrubFrame (frame: StackFrame, packageRoot: string, dependencies
       // A package of the user's, possibly a private one: its name is not sent.
       return { filename: '<dependency>', function: '<redacted>', in_app: false }
     }
-    return {
-      ...frame,
-      filename: normalized.slice(nodeModules),
-      abs_path: undefined,
-      module: undefined,
-      in_app: false,
-    }
+    return { ...frame, filename: normalized.slice(nodeModules), in_app: false }
   }
   return { filename: '<project file>', function: '<redacted>', in_app: false }
 }
