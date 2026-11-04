@@ -117,7 +117,6 @@
     "@oclif/core": "^5.1.9",
     "@oclif/plugin-help": "^7.0.5",
     "@oclif/plugin-warn-if-update-available": "^4.0.4",
-    "@sentry/core": "^11.10.0",
     "acorn": "^8.19.0",
     "acorn-walk": "^8.3.5",
     "archiver": "^8.0.0",
