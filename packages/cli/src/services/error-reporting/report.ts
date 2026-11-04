@@ -8,6 +8,7 @@ import { isEnvFlagSet } from '../../helpers/cli-mode.js'
 import { isDevelopmentBuild } from '../project-cli.js'
 import { findCliBug, mayBeCliBug, PACKAGE_ROOT } from './classify.js'
 import { buildErrorEvent, type ErrorReportContext } from './event.js'
+import { envelopeEndpoint, serializeEventEnvelope } from './sentry-protocol.js'
 
 const debug = Debug('checkly:error-reporting')
 
@@ -63,14 +64,11 @@ function reportTarget (version: string, options: ErrorReportOptions): Target | u
 
 async function send (bug: Error, context: ErrorReportContext, { dsn, packageRoot, env }: Target): Promise<void> {
   reported = true
-  const { createEventEnvelope, getEnvelopeEndpointWithUrlEncodedAuth, makeDsn, serializeEnvelope } =
-    await import('@sentry/core')
-  const parsedDsn = makeDsn(dsn)
-  if (!parsedDsn) return
-  const event = await buildErrorEvent(bug, context, { packageRoot, env })
-  const envelope = createEventEnvelope(event, parsedDsn, { sdk: { name: 'checkly-cli', version: context.version } })
-  const url = getEnvelopeEndpointWithUrlEncodedAuth(parsedDsn)
-  const { status } = await axios.post(url, serializeEnvelope(envelope), assignProxy(url, {
+  const url = envelopeEndpoint(dsn)
+  if (!url) return
+  const event = buildErrorEvent(bug, context, { packageRoot, env })
+  const envelope = serializeEventEnvelope(event, { name: 'checkly-cli', version: context.version })
+  const { status } = await axios.post(url, envelope, assignProxy(url, {
     headers: { 'Content-Type': 'application/x-sentry-envelope' },
     timeout: SEND_TIMEOUT_MS,
     // `timeout` only limits the wait for a response; this also ends a
@@ -109,7 +107,7 @@ export async function reportNotedCliError (
     const target = reportTarget(base.version, options)
     if (!target) return
     for (const { error, handled } of noted) {
-      const bug = await findCliBug(error, target.packageRoot)
+      const bug = findCliBug(error, target.packageRoot)
       if (bug) return await send(bug, { ...base, handled }, target)
     }
   } catch (reportError) {
@@ -131,7 +129,7 @@ export async function reportCliError (
   try {
     const target = reportTarget(context.version, options)
     if (!target) return
-    const bug = await findCliBug(err, target.packageRoot)
+    const bug = findCliBug(err, target.packageRoot)
     if (bug) await send(bug, context, target)
   } catch (reportError) {
     debug('Could not report the error: %O', reportError)

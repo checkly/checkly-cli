@@ -1,7 +1,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import type { StackFrame, StackParser } from '@sentry/core'
+
+import { parseStack, type StackFrame } from './sentry-protocol.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -21,21 +22,6 @@ const USER_INPUT_ERROR_CODES = new Set(['ERR_INVALID_URL', 'ERR_INVALID_URL_SCHE
 // How deep to look into `cause` for the error a wrapper hides, e.g. the
 // TypeError in `Error loading file '…'`.
 export const MAX_CAUSE_DEPTH = 5
-
-let stackParser: Promise<StackParser> | undefined
-
-/**
- * Sentry's Node stack parser, the one the reported event uses too. Loaded on
- * first use, so a CLI run without a crash never loads @sentry/core.
- */
-export function loadStackParser (): Promise<StackParser> {
-  stackParser ??= (async () => {
-    const { createStackParser } = await import('@sentry/core')
-    const { nodeStackLineParser } = await import('@sentry/core/server')
-    return createStackParser(nodeStackLineParser())
-  })()
-  return stackParser
-}
 
 export function realpath (p: string): string {
   try {
@@ -71,8 +57,9 @@ function* errorChain (err: unknown): Generator<Error> {
 }
 
 /**
- * Whether `err` or one of its causes is of a type a CLI bug throws. Cheap and
- * synchronous, so it can run where an error is printed; `findCliBug` decides.
+ * Whether `err` or one of its causes is of a type a CLI bug throws. Cheap, so
+ * it can run where an error is printed; `findCliBug`, which reads the stack,
+ * decides.
  */
 export function mayBeCliBug (err: unknown): boolean {
   for (const error of errorChain(err)) {
@@ -82,8 +69,8 @@ export function mayBeCliBug (err: unknown): boolean {
 }
 
 // Code run through eval or `new Function` names its frame
-// `eval at load (/path/file.js:1:2), <anonymous>`, which Sentry keeps as the
-// filename. The file in the innermost parentheses is the one that ran it.
+// `eval at load (/path/file.js:1:2), <anonymous>`, which parseStack keeps as
+// the filename. The file in the innermost parentheses is the one that ran it.
 const EVAL_ORIGIN = /\(([^()]+):\d+:\d+\)/
 
 /** The file a frame's code is in, as a path. */
@@ -98,7 +85,7 @@ function frameFile (filename: string): string {
 
 /** The file of the frame that threw: the innermost one outside Node's own code. */
 function throwingFile (frames: StackFrame[]): string | undefined {
-  // Sentry orders frames outermost first.
+  // parseStack orders frames outermost first.
   for (let i = frames.length - 1; i >= 0; i--) {
     const filename = frames[i].filename
     if (filename && !filename.startsWith('node:')) return frameFile(filename)
@@ -111,9 +98,8 @@ function throwingFile (frames: StackFrame[]): string | undefined {
  * a bug throws, raised in a file of the CLI. A TypeError in a user's check
  * file, which the CLI loads and runs in its own process, is the user's.
  */
-export async function isCliBug (err: unknown, packageRoot: string = PACKAGE_ROOT): Promise<boolean> {
+export function isCliBug (err: unknown, packageRoot: string = PACKAGE_ROOT): boolean {
   if (!isBugType(err)) return false
-  const parseStack = await loadStackParser()
   const file = throwingFile(parseStack(err.stack ?? ''))
   return !!file && isOwnPath(file, realpath(packageRoot))
 }
@@ -123,9 +109,9 @@ export async function isCliBug (err: unknown, packageRoot: string = PACKAGE_ROOT
  * Error with the original as `cause`. Only that error is reported, not the
  * wrapper, whose message may quote a user's file and its stack.
  */
-export async function findCliBug (err: unknown, packageRoot: string = PACKAGE_ROOT): Promise<Error | undefined> {
+export function findCliBug (err: unknown, packageRoot: string = PACKAGE_ROOT): Error | undefined {
   for (const error of errorChain(err)) {
-    if (await isCliBug(error, packageRoot)) return error
+    if (isCliBug(error, packageRoot)) return error
   }
   return undefined
 }
