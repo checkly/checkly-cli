@@ -16,7 +16,8 @@ const debug = Debug('checkly:error-reporting')
 // rebuilds dist. Builds without it (local checkouts, forks, tests) report nothing.
 const DSN_FILE = path.join(PACKAGE_ROOT, 'error-reporting.json')
 
-const SEND_TIMEOUT_MS = 3000
+// One small POST; the error is printed after it, so the user waits this long at most.
+const SEND_TIMEOUT_MS = 1500
 
 // Enough to get past the ordinary errors a command prints before its bug.
 const MAX_NOTED_ERRORS = 5
@@ -39,6 +40,7 @@ interface Target {
 
 let reported = false
 let noted: Array<{ error: unknown, handled: boolean }> = []
+let defaultOptions: ErrorReportOptions = {}
 
 /** Whether the user turned error reporting off with `CHECKLY_NO_ERROR_REPORTING` or `DO_NOT_TRACK`. */
 export function isErrorReportingDisabled (env: NodeJS.ProcessEnv = process.env): boolean {
@@ -96,10 +98,14 @@ export function noteCliError (err: unknown, { handled = true }: { handled?: bool
   }
 }
 
-/** Sends the first noted error that is a CLI bug, if any. Never throws. */
+/**
+ * Sends the first noted error that is a CLI bug, if any. Reports at most one
+ * error per run, waits at most a few seconds, and never throws: a failed
+ * report must not change how the command fails.
+ */
 export async function reportNotedCliError (
   context: () => Omit<ErrorReportContext, 'handled'>,
-  options: ErrorReportOptions = {},
+  options: ErrorReportOptions = defaultOptions,
 ): Promise<void> {
   try {
     if (noted.length === 0) return
@@ -116,28 +122,16 @@ export async function reportNotedCliError (
 }
 
 /**
- * Reports `err`, or the CLI bug among its causes, to Checkly when it is a bug
- * in the CLI, the build is a release and the user has not turned reporting
- * off. Reports at most one error per run, waits at most a few seconds, and
- * never throws: a failed report must not change how the command fails.
+ * Sets the options `reportNotedCliError` uses when it is given none, as in
+ * `BaseCommand.finally`. For tests, which have no release DSN file.
  */
-export async function reportCliError (
-  err: unknown,
-  context: ErrorReportContext,
-  options: ErrorReportOptions = {},
-): Promise<void> {
-  try {
-    const target = reportTarget(context.version, options)
-    if (!target) return
-    const bug = findCliBug(err, target.packageRoot)
-    if (bug) await send(bug, context, target)
-  } catch (reportError) {
-    debug('Could not report the error: %O', reportError)
-  }
+export function setDefaultErrorReportOptions (options: ErrorReportOptions): void {
+  defaultOptions = options
 }
 
 /** Lets the next report go out again. For tests. */
 export function resetErrorReporting (): void {
   reported = false
   noted = []
+  defaultOptions = {}
 }

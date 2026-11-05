@@ -37,7 +37,7 @@ function toExceptions (err: Error, packageRoot: string, env: NodeJS.ProcessEnv, 
     const frames = parseStack(current.stack ?? '')
     exceptions.unshift({
       type: current.name,
-      value: scrubMessage(current.message, env),
+      value: scrubMessage(current.message, env, { packageRoot }),
       stacktrace: frames.length
         ? { frames: frames.map(frame => scrubFrame(frame, packageRoot, dependencies)) }
         : undefined,
