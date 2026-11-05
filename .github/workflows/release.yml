@@ -90,18 +90,26 @@ jobs:
       - name: Add SHORT_SHA env property with commit short sha
         run: echo "SHORT_SHA=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
       # Release builds report crashes in the CLI's own code to Checkly (see
-      # src/services/error-reporting.ts). The DSN is public by nature: it can only
+      # src/services/error-reporting/). The DSN is public by nature: it can only
       # send events to one project. Builds without the file report nothing.
       - name: Write the error reporting DSN for 'cli' package
         if: ${{ vars.CHECKLY_CLI_ERROR_DSN != '' }}
         env:
           DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
-        run: jq -n --arg dsn "$DSN" '{dsn: $dsn}' > error-reporting.json
+        run: |
+          jq -n --arg dsn "$DSN" '{dsn: $dsn}' > error-reporting.json
         working-directory: packages/cli
       - name: Set version and publish prerelease for 'cli' package
+        env:
+          DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
         run: |
           pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
           pnpm pack
+          # A package without the file would silently report nothing.
+          if [ -n "$DSN" ] && ! tar -tzf checkly-*.tgz | grep -qx 'package/error-reporting.json'; then
+            echo "::error::error-reporting.json is missing from the packed 'cli' package"
+            exit 1
+          fi
           npm publish checkly-*.tgz --provenance --tag prerelease
         working-directory: packages/cli
       - name: Set version and publish prerelease for 'create-cli' package
@@ -168,18 +176,26 @@ jobs:
       - run: rm -f packages/cli/README.md && cp README.md packages/cli
       - run: pnpm install --frozen-lockfile
       # Release builds report crashes in the CLI's own code to Checkly (see
-      # src/services/error-reporting.ts). The DSN is public by nature: it can only
+      # src/services/error-reporting/). The DSN is public by nature: it can only
       # send events to one project. Builds without the file report nothing.
       - name: Write the error reporting DSN for 'cli' package
         if: ${{ vars.CHECKLY_CLI_ERROR_DSN != '' }}
         env:
           DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
-        run: jq -n --arg dsn "$DSN" '{dsn: $dsn}' > error-reporting.json
+        run: |
+          jq -n --arg dsn "$DSN" '{dsn: $dsn}' > error-reporting.json
         working-directory: packages/cli
       - name: Set version and publish 'cli' package
+        env:
+          DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
         run: |
           pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version
           pnpm pack
+          # A package without the file would silently report nothing.
+          if [ -n "$DSN" ] && ! tar -tzf checkly-*.tgz | grep -qx 'package/error-reporting.json'; then
+            echo "::error::error-reporting.json is missing from the packed 'cli' package"
+            exit 1
+          fi
           npm publish checkly-*.tgz --provenance --tag ${{ needs.validate-tag.outputs.dist-tag }}
         working-directory: packages/cli
       - name: Set version and publish 'create-cli' package
