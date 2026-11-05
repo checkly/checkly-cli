@@ -21,5 +21,5 @@ local
 **/checkly-summary.md
 **/e2e/__tests__/fixtures/empty-project/e2e-test-project-*
 
-# Written by the release workflow; see packages/cli/src/services/error-reporting.ts
+# Written by the release workflow; see packages/cli/src/services/error-reporting/report.ts
 packages/cli/error-reporting.json
