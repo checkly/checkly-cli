@@ -81,6 +81,16 @@ export function isAccountNotAccessible (err: unknown): boolean {
 }
 
 /**
+ * The `errorCode` of a 403 for a Rocky AI request on an account that has
+ * Rocky AI switched off in its settings.
+ */
+export const ROCKY_AI_DISABLED = 'ERR_ROCKY_AI_DISABLED'
+
+export function isRockyAiDisabled (err: unknown): boolean {
+  return err instanceof ForbiddenError && err.data.errorCode === ROCKY_AI_DISABLED
+}
+
+/**
  * Error thrown when an API response indicates that the request conflicts
  * with server state.
  */

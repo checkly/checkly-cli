@@ -51,6 +51,25 @@ describe('CommandStyle.longError', () => {
     }])
   })
 
+  it('adds a given code to the JSON envelope', () => {
+    const { style, lines } = createStyle(undefined, 'json')
+    style.longError('Rocky AI is disabled for this account.', 'Enable it.', { code: 'ERR_ROCKY_AI_DISABLED' })
+
+    expect(lines()).toEqual([JSON.stringify({
+      error: 'Rocky AI is disabled for this account.',
+      detail: 'Enable it.',
+      code: 'ERR_ROCKY_AI_DISABLED',
+    })])
+  })
+
+  it('keeps a given code out of human output', () => {
+    const { style, errLines } = createStyle(undefined)
+    style.longError('Rocky AI is disabled for this account.', 'Enable it.', { code: 'ERR_ROCKY_AI_DISABLED' })
+
+    expect(errLines().join('\n')).toContain('Enable it.')
+    expect(errLines().join('\n')).not.toContain('ERR_ROCKY_AI_DISABLED')
+  })
+
   it('leaves other errors as they are', () => {
     const { style, errLines } = createStyle('Searched account "Acme" (acc-1).')
     style.longError('Failed.', new ServerError({ statusCode: 503, error: 'Unavailable', message: 'Down' }))
