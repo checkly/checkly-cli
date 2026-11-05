@@ -123,8 +123,8 @@ reported, because the CLI should have caught the mistake.
 
 A report contains:
 
-- the error type, its message and the stack trace, with paths reduced to the CLI's own files (your home directory,
-  project directory and file names are removed)
+- the error type, its message and the stack trace; paths in the CLI's own files are shortened to the file inside the
+  CLI (for example `checkly/dist/commands/deploy.js`), and every other path is removed
 - the CLI version, the command name (for example `deploy`), and whether the CLI runs in a terminal, in CI or for an
   AI agent
 - your operating system, CPU architecture and Node.js version
