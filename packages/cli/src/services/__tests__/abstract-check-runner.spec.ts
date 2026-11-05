@@ -34,6 +34,10 @@ vi.mock('../socket-client.js', () => ({
   },
 }))
 
+vi.mock('../error-reporting/report.js', () => ({
+  noteCliError: vi.fn(),
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -42,6 +46,7 @@ import { SocketClient } from '../socket-client.js'
 import { assets, testSessions } from '../../rest/api.js'
 import { PlaywrightCheck } from '../../constructs/index.js'
 import { TestSessionSchedulingFailedError } from '../../rest/test-sessions.js'
+import { noteCliError } from '../error-reporting/report.js'
 
 /** Minimal concrete subclass — scheduleChecks immediately returns with zero checks so the runner exits cleanly. */
 class StubCheckRunner extends AbstractCheckRunner {
@@ -563,6 +568,45 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     await run
     expect(events.filter(e => e === `${Events.CHECK_FAILED}:seq-api`)).toHaveLength(1)
     expect(events.filter(e => e === `${Events.CHECK_FINISHED}:api`)).toHaveLength(1)
+  })
+
+  it('fails the run with an error a listener throws while a result is processed', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    const reporterBug = new TypeError('Cannot read properties of undefined')
+    runner.on(Events.CHECK_SUCCESSFUL, () => {
+      throw reporterBug
+    })
+    const errors: unknown[] = []
+    runner.on(Events.ERROR, err => errors.push(err))
+
+    const run = runner.run()
+    await flush()
+    messageHandler!(resultTopic('seq-api'), JSON.stringify({
+      result: { hasFailures: false },
+      testResultId: 'tr-1',
+      resultType: 'FINAL',
+    }))
+    await flush()
+    await run
+
+    expect(errors).toEqual([reporterBug])
+    // Commands print the error without throwing it, so it is noted for the report here.
+    expect(noteCliError).toHaveBeenCalledWith(reporterBug)
+  })
+
+  it('fails the run when a result message cannot be read', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    const errors: unknown[] = []
+    runner.on(Events.ERROR, err => errors.push(err))
+
+    const run = runner.run()
+    await flush()
+    expect(() => messageHandler!(resultTopic('seq-api'), '{not json')).not.toThrow()
+    await flush()
+    await run
+
+    expect(errors).toHaveLength(1)
+    expect(errors[0]).toBeInstanceOf(SyntaxError)
   })
 
   it('restarts the timeout before fetching an ATTEMPT result, so a fetch near the deadline does not time out', async () => {

@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { isOwnPath } from './classify.js'
+import { isOwnPath, PACKAGE_ROOT } from './classify.js'
 import type { StackFrame } from './sentry-protocol.js'
 
 /** The packages the CLI depends on directly; frames in other packages are the user's. */
@@ -52,6 +52,7 @@ export function scrubFrame (frame: StackFrame, packageRoot: string, dependencies
 export interface ScrubOptions {
   cwd?: string
   home?: string
+  packageRoot?: string
   platform?: NodeJS.Platform
 }
 
@@ -66,16 +67,52 @@ function pathSpellings (dir: string): string[] {
   return [...new Set([dir, forward, url])]
 }
 
+// What may follow a path in a message: a separator, a closing bracket or
+// quote, or a full stop that ends a sentence.
+const PATH_END = '(?=[\\s\'"`():<>,;!\\]}]|\\.(?:\\s|$)|$)'
+
 /**
- * Replaces `dir`, and any path inside it, with `replacement`. Only whole path
- * segments match: a working directory `/app` leaves `/application/json` alone.
+ * Replaces `dir`, and any path inside it, with `replacement`, which gets the
+ * part after `dir`. Only whole path segments match: a working directory `/app`
+ * leaves `/application/json` alone.
  */
-function replaceDir (message: string, dir: string, replacement: string, platform: NodeJS.Platform): string {
+function replaceDir (
+  message: string,
+  dir: string,
+  replacement: (rest: string) => string,
+  platform: NodeJS.Platform,
+): string {
   if (!dir || dir.length < 2) return message
   const spellings = pathSpellings(dir.replace(/[\\/]+$/, '')).map(escapeRegExp).join('|')
-  const pattern = new RegExp(`(?:${spellings})(?:[\\\\/][^\\s'"\`()<>]*)?(?=[\\s'"\`():<>,;]|$)`,
+  const pattern = new RegExp(`(?:${spellings})([\\\\/][^\\s'"\`()<>]*)?${PATH_END}`,
     platform === 'win32' ? 'gi' : 'g')
-  return message.replace(pattern, replacement)
+  return message.replace(pattern, (_, rest: string | undefined) => replacement(rest ?? ''))
+}
+
+// Characters that end a path in a message. \x60 is a backtick.
+const NOT_PATH = String.raw`\s'"\x60()<>`
+
+// Any other absolute path, e.g. a CI checkout outside the working directory
+// or a --config file elsewhere, at the start of a word. `https://host/path` is
+// a URL and stays.
+const ABSOLUTE_PATH = new RegExp(String.raw`(^|[\s'"\x60(=,[{<])(?:` + [
+  String.raw`file:\/\/[^${NOT_PATH}]+`,
+  String.raw`\/(?=[^/${NOT_PATH}])[^${NOT_PATH}]*`,
+  String.raw`[A-Za-z]:[\\/][^${NOT_PATH}]*`,
+  // A UNC path, \\server\share.
+  String.raw`\\\\[^${NOT_PATH}]+`,
+].join('|') + ')', 'g')
+
+// A value given to a name that says it is secret: `token=abc`, `"password": "a b"`,
+// also access_token, client_secret, accessToken, x-api-key and the like.
+const SECRET_NAME = String.raw`[\w-]*(?:api[_-]?key|token|secret|password|passwd)`
+const SECRET_VALUE = new RegExp(String.raw`(${SECRET_NAME}["']?\s*[:=]\s*)("[^"]*"|'[^']*'|["']?[^\s"'&,;]+)`, 'gi')
+
+/** `<redacted>`, inside the quotes the value had. */
+function redactValue (value: string): string {
+  const quote = value[0]
+  if (quote !== '"' && quote !== '\'') return '<redacted>'
+  return value.length > 1 && value.endsWith(quote) ? `${quote}<redacted>${quote}` : `${quote}<redacted>`
 }
 
 /**
@@ -85,21 +122,28 @@ function replaceDir (message: string, dir: string, replacement: string, platform
 export function scrubMessage (
   message: string,
   env: NodeJS.ProcessEnv = process.env,
-  { cwd = process.cwd(), home = os.homedir(), platform = process.platform }: ScrubOptions = {},
+  {
+    cwd = process.cwd(),
+    home = os.homedir(),
+    packageRoot = PACKAGE_ROOT,
+    platform = process.platform,
+  }: ScrubOptions = {},
 ): string {
   let scrubbed = message
     // Checkly API keys.
     .replace(/\bcu_[A-Za-z0-9]{8,}\b/g, '<api key>')
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 <redacted>')
-    // Credentials in a URL.
-    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/@:]+(:[^\s/@]*)?@/gi, '$1<redacted>@')
-    // Also access_token, client_secret, accessToken, x-api-key and the like.
-    .replace(/([\w-]*(?:api[_-]?key|token|secret|password|passwd))(["']?\s*[:=]\s*["']?)[^\s"'&,;]+/gi,
-      '$1$2<redacted>')
+    // Credentials in a URL, up to the last `@` before the host: a password may contain one.
+    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/?#]*@/gi, '$1<redacted>@')
+    .replace(SECRET_VALUE, (_, name: string, value: string) => name + redactValue(value))
   for (const value of [env.CHECKLY_API_KEY, env.CHECKLY_ACCOUNT_ID]) {
     if (value && value.length >= 8) scrubbed = scrubbed.split(value).join('<redacted>')
   }
-  // The project first: it is usually inside the home directory.
-  scrubbed = replaceDir(scrubbed, cwd, '<project file>', platform)
-  return replaceDir(scrubbed, home, '<home file>', platform)
+  // The CLI's own files first, as frames name them: the CLI may be installed
+  // in the project or the home directory.
+  scrubbed = replaceDir(scrubbed, packageRoot, rest => `checkly${rest.replace(/\\/g, '/')}`, platform)
+  // The project next: it is usually inside the home directory.
+  scrubbed = replaceDir(scrubbed, cwd, () => '<project file>', platform)
+  scrubbed = replaceDir(scrubbed, home, () => '<home file>', platform)
+  return scrubbed.replace(ABSOLUTE_PATH, '$1<path>')
 }

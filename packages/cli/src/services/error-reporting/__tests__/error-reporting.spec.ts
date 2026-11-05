@@ -6,13 +6,13 @@ import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
 
 import { findCliBug, isCliBug } from '../classify.js'
-import { buildErrorEvent, releaseEnvironment } from '../event.js'
+import { buildErrorEvent, releaseEnvironment, type ErrorReportContext } from '../event.js'
 import {
   isErrorReportingDisabled,
   noteCliError,
-  reportCliError,
   reportNotedCliError,
   resetErrorReporting,
+  type ErrorReportOptions,
 } from '../report.js'
 import { scrubMessage } from '../scrub.js'
 
@@ -34,6 +34,12 @@ async function errorThrownIn (file: string, code: string): Promise<Error> {
     return err as Error
   }
   throw new Error(`${file} did not throw`)
+}
+
+/** Notes `err` and sends the report at once, as a command that ends with it does. */
+async function report (err: unknown, context: ErrorReportContext, options: ErrorReportOptions): Promise<void> {
+  noteCliError(err, { handled: !!context.handled })
+  await reportNotedCliError(() => context, options)
 }
 
 interface Received { url: string, body: string }
@@ -114,6 +120,21 @@ describe('isCliBug', () => {
     expect(isCliBug(err, installDir)).toBe(true)
   })
 
+  it.each([
+    ['String.repeat', '\'x\'.repeat(-1)'],
+    ['Array.reduce', '[].reduce((a, b) => a)'],
+    ['Date.toISOString', 'new Date(\'nope\').toISOString()'],
+    ['Array.map', '[1].map(undefined)'],
+    ['JSON.stringify', 'const a = {}; a.self = a; JSON.stringify(a)'],
+  ])('accepts an error that %s throws when the CLI\'s code calls it wrongly', async (name, code) => {
+    const file = path.join(installDir, 'dist', 'builtins', `${name}.mjs`)
+    const err = await errorThrownIn(file, code)
+    // The innermost frame is the built-in's, not a file's.
+    // The message may span lines (JSON.stringify's does), so look for the first frame.
+    expect(err.stack?.split('\n').find(line => line.startsWith('    at '))).toMatch(/\((?:<anonymous>|native)\)$/)
+    expect(isCliBug(err, installDir)).toBe(true)
+  })
+
   it('rejects the same error when it was raised outside the CLI, e.g. in a user\'s check file', async () => {
     const elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-other-'))
     try {
@@ -158,6 +179,8 @@ describe('findCliBug', () => {
 })
 
 describe('scrubMessage', () => {
+  const posix = { cwd: '/home/ann/acme', home: '/home/ann', packageRoot: '/opt/checkly', platform: 'linux' as const }
+
   it('removes credentials and paths that name the user', () => {
     const env = { CHECKLY_API_KEY: 'my-secret-api-key-value' }
     const message = [
@@ -171,7 +194,7 @@ describe('scrubMessage', () => {
       `cwd ${process.cwd()}/checkly.config.ts`,
     ].join('\n')
 
-    const scrubbed = scrubMessage(message, env)
+    const scrubbed = scrubMessage(message, env, { packageRoot: installDir })
 
     expect(scrubbed).not.toContain('cu_0123')
     expect(scrubbed).not.toContain('eyJhbGci')
@@ -183,26 +206,58 @@ describe('scrubMessage', () => {
     expect(scrubbed).toMatch(/cwd <project file>$/)
   })
 
+  it('removes whole passwords, also with an @ or, when quoted, a space in them', () => {
+    expect(scrubMessage('via http://bob:p@ss@proxy:3128 failed', {}, posix))
+      .toBe('via http://<redacted>@proxy:3128 failed')
+    expect(scrubMessage('{"password": "hunter two", "user": "bob"}', {}, posix))
+      .toBe('{"password": "<redacted>", "user": "bob"}')
+    expect(scrubMessage('password=\'hunter two\'', {}, posix)).toBe('password=\'<redacted>\'')
+    expect(scrubMessage('secret: "unterminated', {}, posix)).toBe('secret: "<redacted>')
+  })
+
   it('removes whole paths only, so a short working directory leaves other text alone', () => {
-    const scrubbed = scrubMessage('Cannot read \'/app/__checks__/acme.check.ts\' as /application/json from /app', {}, {
+    const scrubbed = scrubMessage('Cannot read \'/app/__checks__/acme.check.ts\' as application/json from /app.', {}, {
       cwd: '/app',
       home: '/root',
+      packageRoot: '/usr/lib/node_modules/checkly',
       platform: 'linux',
     })
-    expect(scrubbed).toBe('Cannot read \'<project file>\' as /application/json from <project file>')
+    expect(scrubbed).toBe('Cannot read \'<project file>\' as application/json from <project file>.')
+  })
+
+  it('names the CLI\'s own files relative to the package, and removes every other absolute path', () => {
+    const message = [
+      'Cannot find module \'/opt/checkly/dist/commands/deploy.js\'',
+      'no config in /builds/acme/repo. Tried /builds/acme/repo/checkly.config.ts, C:\\ci\\x.ts and file:///srv/a.ts',
+      'GET https://api.checklyhq.com/v1/checks failed',
+    ].join('\n')
+
+    const scrubbed = scrubMessage(message, {}, posix)
+
+    expect(scrubbed).toBe([
+      'Cannot find module \'checkly/dist/commands/deploy.js\'',
+      'no config in <path> Tried <path> <path> and <path>',
+      'GET https://api.checklyhq.com/v1/checks failed',
+    ].join('\n'))
   })
 
   it('removes Windows paths in any case, with forward slashes, and as file URLs', () => {
-    const options = { cwd: 'C:\\Users\\Ann Lee\\proj', home: 'C:\\Users\\Ann Lee', platform: 'win32' as const }
+    const options = {
+      cwd: 'C:\\Users\\Ann Lee\\proj',
+      home: 'C:\\Users\\Ann Lee',
+      packageRoot: 'C:\\Program Files\\nodejs\\node_modules\\checkly',
+      platform: 'win32' as const,
+    }
     const message = [
       'c:/users/ann lee/proj/checkly.config.ts',
       'file:///C:/Users/Ann%20Lee/proj/a.check.ts',
       'C:\\Users\\Ann Lee\\other\\x.ts',
+      'C:\\Program Files\\nodejs\\node_modules\\checkly\\dist\\index.js',
     ].join('\n')
 
     const scrubbed = scrubMessage(message, {}, options)
 
-    expect(scrubbed).toBe('<project file>\n<project file>\n<home file>')
+    expect(scrubbed).toBe('<project file>\n<project file>\n<home file>\ncheckly/dist/index.js')
   })
 })
 
@@ -263,12 +318,12 @@ describe('isErrorReportingDisabled', () => {
   })
 })
 
-describe('reportCliError', () => {
+describe('reportNotedCliError', () => {
   it('sends one envelope with the error to the DSN\'s project', async () => {
     await withIngest(async (dsn, received) => {
-      await reportCliError(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })
+      await report(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })
       // Once per run: a second error in the same run is not sent.
-      await reportCliError(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })
+      await report(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })
 
       expect(received).toHaveLength(1)
       expect(received[0].url).toMatch(/^\/api\/123\/envelope\/\?.*sentry_key=a{72}/)
@@ -285,11 +340,11 @@ describe('reportCliError', () => {
     ['the build is a development build', { version: '0.0.1-dev' }, {}],
   ])('sends nothing when %s', async (_, context, env) => {
     await withIngest(async (dsn, received) => {
-      await reportCliError(cliBug, context, { dsn, packageRoot: installDir, env })
+      await report(cliBug, context, { dsn, packageRoot: installDir, env })
       expect(received).toHaveLength(0)
 
       // The same call reports once the reason is gone, so the empty result above is not a broken server.
-      await reportCliError(cliBug, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {} })
+      await report(cliBug, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {} })
       expect(received).toHaveLength(1)
     })
   })
@@ -297,7 +352,7 @@ describe('reportCliError', () => {
   it('reports only the wrapped CLI bug, not the wrapper that quotes a user\'s file', async () => {
     await withIngest(async (dsn, received) => {
       const wrapper = new Error(`Error loading file '${installDir}/__checks__/api.check.ts'`, { cause: cliBug })
-      await reportCliError(wrapper, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {} })
+      await report(wrapper, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {} })
 
       expect(received).toHaveLength(1)
       expect(received[0].body).not.toContain('Error loading file')
@@ -354,18 +409,18 @@ describe('reportCliError', () => {
   it('reads the DSN from the file the release writes, and sends nothing without it', async () => {
     await withIngest(async (dsn, received) => {
       const missing = path.join(installDir, 'missing', 'error-reporting.json')
-      await reportCliError(cliBug, { version: '7.1.0' }, { dsnFile: missing, packageRoot: installDir, env: {} })
+      await report(cliBug, { version: '7.1.0' }, { dsnFile: missing, packageRoot: installDir, env: {} })
       expect(received).toHaveLength(0)
 
       const dsnFile = path.join(installDir, 'error-reporting.json')
       await fs.writeFile(dsnFile, JSON.stringify({ dsn }))
-      await reportCliError(cliBug, { version: '7.1.0' }, { dsnFile, packageRoot: installDir, env: {} })
+      await report(cliBug, { version: '7.1.0' }, { dsnFile, packageRoot: installDir, env: {} })
       expect(received).toHaveLength(1)
     })
   })
 
   it('never throws when the ingest is unreachable', async () => {
-    await expect(reportCliError(cliBug, { version: '7.1.0' }, {
+    await expect(report(cliBug, { version: '7.1.0' }, {
       dsn: `http://${KEY}@127.0.0.1:1/123`,
       packageRoot: installDir,
       env: {},

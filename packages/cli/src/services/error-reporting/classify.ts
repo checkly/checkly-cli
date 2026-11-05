@@ -83,12 +83,23 @@ function frameFile (filename: string): string {
   }
 }
 
-/** The file of the frame that threw: the innermost one outside Node's own code. */
+/** Whether `file` names a file: not `<anonymous>`, `index 0` or a `node:` module. */
+function isFile (file: string): boolean {
+  return path.isAbsolute(file) || path.win32.isAbsolute(file)
+}
+
+/**
+ * The file of the frame that threw: the innermost one in a file. A built-in
+ * that throws, e.g. `'x'.repeat(-1)`, adds a frame like `String.repeat
+ * (<anonymous>)` and Node's own modules add `node:` frames; the code that
+ * called them decides.
+ */
 function throwingFile (frames: StackFrame[]): string | undefined {
   // parseStack orders frames outermost first.
   for (let i = frames.length - 1; i >= 0; i--) {
     const filename = frames[i].filename
-    if (filename && !filename.startsWith('node:')) return frameFile(filename)
+    const file = filename && frameFile(filename)
+    if (file && isFile(file)) return file
   }
   return undefined
 }
