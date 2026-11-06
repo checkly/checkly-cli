@@ -108,6 +108,25 @@ const ABSOLUTE_PATH = new RegExp(String.raw`(^|[\s'"\x60(=,[{<])(?:` + [
 const SECRET_NAME = String.raw`[\w-]*(?:api[_-]?key|token|secret|password|passwd)`
 const SECRET_VALUE = new RegExp(String.raw`(${SECRET_NAME}["']?\s*[:=]\s*)("[^"]*"|'[^']*'|["']?[^\s"'&,;]+)`, 'gi')
 
+// A URL with an `@` somewhere, which may carry a user and password.
+const URL_WITH_AT = /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"\x60<>]*@[^\s'"\x60<>]*/gi
+
+/**
+ * A URL with credentials rebuilt from its scheme and host alone, and one that
+ * cannot be parsed withheld: a password may hold any character, so no pattern
+ * finds where it ends.
+ */
+function withoutUrlCredentials (url: string): string {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return `${url.slice(0, url.indexOf('://'))}://<redacted>`
+  }
+  if (!parsed.username && !parsed.password) return url
+  return `${parsed.protocol}//<redacted>@${parsed.host}`
+}
+
 /** `<redacted>`, inside the quotes the value had. */
 function redactValue (value: string): string {
   const quote = value[0]
@@ -133,8 +152,7 @@ export function scrubMessage (
     // Checkly API keys.
     .replace(/\bcu_[A-Za-z0-9]{8,}\b/g, '<api key>')
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 <redacted>')
-    // Credentials in a URL, up to the last `@` before the host: a password may contain one.
-    .replace(/(\b[a-z][a-z0-9+.-]*:\/\/)[^\s/?#]*@/gi, '$1<redacted>@')
+    .replace(URL_WITH_AT, withoutUrlCredentials)
     .replace(SECRET_VALUE, (_, name: string, value: string) => name + redactValue(value))
   for (const value of [env.CHECKLY_API_KEY, env.CHECKLY_ACCOUNT_ID]) {
     if (value && value.length >= 8) scrubbed = scrubbed.split(value).join('<redacted>')
