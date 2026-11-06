@@ -798,7 +798,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           )
         } catch (err) {
           if (err instanceof Error) {
-            this.style.longError(`Failed to install dependencies`, err.message) // TODO :
+            this.style.longError(`Failed to install dependencies`, err) // TODO :
           }
 
           this.style.comment(

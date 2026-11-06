@@ -122,7 +122,7 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
           command.logToStderr(skipped)
         }
         // The error names the files already rewritten, if any.
-        command.style.longError('Could not update your code.', err.message)
+        command.style.longError('Could not update your code.', err)
         command.logToStderr('Nothing was deployed.')
         command.exit(1)
       }
@@ -987,7 +987,7 @@ export default class Deploy extends AuthCommand {
             : 'Re-run the command. While plans are switched off it deploys without one.',
         )
       } else if (err instanceof ProjectDeployCancelledError) {
-        this.style.longError('Your deployment was cancelled.', err.message)
+        this.style.longError('Your deployment was cancelled.', err)
       } else if (err instanceof ConflictError) {
         // deploy() waits-and-retries behind an in-progress deployment, so a 409
         // only reaches here once that wait exceeded its deadline.

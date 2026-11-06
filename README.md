@@ -113,6 +113,34 @@ This provides your AI with documentation, best practices, and examples so it can
 
 Check out our [AI Agents & Coding Assistants docs](https://www.checklyhq.com/docs/integrations/ai/overview) for more best practices and examples.
 
+# Error reporting
+
+When the CLI crashes because of a bug in its own code, it sends one report about the crash to Checkly, so we can find
+and fix the bug. Only crashes inside the CLI's own files are reported (a `TypeError`, `ReferenceError` or
+`RangeError`). Errors in your own code, failed checks, API errors and network problems are never reported. Invalid
+configuration is normally shown as a clear message and not reported; if it makes the CLI crash instead, that crash is
+reported, because the CLI should have caught the mistake.
+
+A report contains:
+
+- the error type, its message and the stack trace; paths in the CLI's own files are shortened to the file inside the
+  CLI (for example `checkly/dist/commands/deploy.js`), paths in the CLI's dependencies start at `node_modules/`, and
+  every other path is replaced with a placeholder
+- the CLI version, the command name (for example `deploy`), and whether the CLI runs in a terminal, in CI or for an
+  AI agent
+- your operating system, CPU architecture and Node.js version
+
+A report never contains your API key, account ID, command arguments, environment variables, computer name or the
+contents of your files. Credentials found in an error message are removed before sending.
+
+To turn error reporting off, set either environment variable:
+
+```bash
+export CHECKLY_NO_ERROR_REPORTING=1
+# or the cross-tool convention
+export DO_NOT_TRACK=1
+```
+
 
 ## Need help?
 

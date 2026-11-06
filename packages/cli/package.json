@@ -43,7 +43,8 @@
     "/assets",
     "/constructs.js",
     "/constructs.d.ts",
-    "/oclif.manifest.json"
+    "/oclif.manifest.json",
+    "/error-reporting.json"
   ],
   "oclif": {
     "bin": "checkly",
