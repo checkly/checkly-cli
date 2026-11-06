@@ -3,7 +3,7 @@ import chalk from 'chalk'
 import { AuthCommand } from '../authCommand.js'
 import { normalizeFlagAliases, outputFlag } from '../../helpers/flags.js'
 import * as api from '../../rest/api.js'
-import { NotFoundError, InadequateEntitlementsError } from '../../rest/errors.js'
+import { NotFoundError, InadequateEntitlementsError, isRockyAiDisabled, ROCKY_AI_DISABLED } from '../../rest/errors.js'
 import { formatRcaPending, formatRcaCompleted } from '../../formatters/rca.js'
 
 export default class RcaRun extends AuthCommand {
@@ -115,6 +115,17 @@ export default class RcaRun extends AuthCommand {
       if (err instanceof NotFoundError) {
         const label = source.type === 'error-group' ? 'Error group' : 'Test session error group'
         this.style.shortError(this.withNotFoundHint(`${label} not found: ${source.id}.`))
+        process.exitCode = 1
+        return
+      }
+      if (isRockyAiDisabled(err)) {
+        const { accountId } = api.getDefaults()
+        this.style.longError(
+          'Rocky AI is disabled for this account.',
+          'An account owner can enable it in the Rocky AI settings: '
+          + `https://app.checklyhq.com/accounts/${accountId}/rocky-ai`,
+          { code: ROCKY_AI_DISABLED },
+        )
         process.exitCode = 1
         return
       }

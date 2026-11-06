@@ -85,7 +85,9 @@ One JSON envelope per surface, versioned by convention:
   `pagination` is `{ page, limit, total, totalPages }` for offset paging and
   `{ nextId, length }` for cursor paging. `data` is the array of entries —
   never the raw API response. See `AGENTS.md` for details.
-- **Error output in JSON mode**: `{ error, detail?, hint?, searchedAccount? }`.
+- **Error output in JSON mode**: `{ error, detail?, hint?, searchedAccount?, code? }`.
+  `code` is the API's machine-readable reason (e.g. `ERR_ROCKY_AI_DISABLED`)
+  when the command recognises one.
 - **Agent envelopes** (auth, `init`, confirmation, `--dry-run`): documents built
   around a `status` field (`success`, `action_required`,
   `confirmation_required`, `dry_run`, `error`) plus a `confirmCommand` for
