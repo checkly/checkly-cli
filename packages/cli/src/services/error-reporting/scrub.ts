@@ -108,8 +108,10 @@ const ABSOLUTE_PATH = new RegExp(String.raw`(^|[\s'"\x60(=,[{<])(?:` + [
 const SECRET_NAME = String.raw`[\w-]*(?:api[_-]?key|token|secret|password|passwd)`
 const SECRET_VALUE = new RegExp(String.raw`(${SECRET_NAME}["']?\s*[:=]\s*)("[^"]*"|'[^']*'|["']?[^\s"'&,;]+)`, 'gi')
 
-// A URL with an `@` somewhere, which may carry a user and password.
-const URL_WITH_AT = /\b[a-z][a-z0-9+.-]*:\/\/[^\s'"\x60<>]*@[^\s'"\x60<>]*/gi
+// A URL with an `@` somewhere, which may carry a user and password. Before
+// the last `@`, any character may be part of a password; after it, a quote or
+// bracket ends the URL.
+const URL_WITH_AT = /\b[a-z][a-z0-9+.-]*:\/\/\S*@[^\s'"\x60<>]*/gi
 
 /**
  * A URL with credentials rebuilt from its scheme and host alone, and one that
