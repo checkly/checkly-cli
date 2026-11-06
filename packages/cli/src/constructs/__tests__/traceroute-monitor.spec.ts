@@ -144,6 +144,35 @@ describe('TracerouteMonitor', () => {
       ]))
     })
 
+    it('should error when degradedResponseTime exceeds the default maxResponseTime', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 1001,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('the default "maxResponseTime" of 1000'),
+        }),
+      ]))
+    })
+
+    it('should accept degradedResponseTime alone at the default maxResponseTime', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 1000,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
     it('should error if maxResponseTime is above 30000', async () => {
       setupProject()
       const check = new TracerouteMonitor('test-check', {

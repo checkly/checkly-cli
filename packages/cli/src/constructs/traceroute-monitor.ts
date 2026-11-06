@@ -13,29 +13,32 @@ export interface TracerouteMonitorProps extends MonitorProps {
   request: TracerouteRequest
 
   /**
-   * The response time in milliseconds where the monitor should be considered
-   * degraded.
+   * The final-hop average round-trip time in milliseconds where the monitor
+   * should be considered degraded. Without `maxResponseTime`, values above 1000
+   * are rejected. A monitor can't show as degraded when the two limits are equal.
    *
-   * @defaultValue 10000
+   * @defaultValue 500
    * @minimum 0
    * @maximum 30000
    * @example
    * ```typescript
-   * degradedResponseTime: 5000  // Alert when the traceroute takes longer than 5 seconds
+   * degradedResponseTime: 300  // Degrade when the final-hop average reaches 300 ms
    * ```
    */
   degradedResponseTime?: number
 
   /**
-   * The response time in milliseconds where the monitor should be considered
-   * failing.
+   * The final-hop average round-trip time in milliseconds where the monitor
+   * should be considered failing. Without `degradedResponseTime`, values above 0
+   * and below 500 are rejected. A monitor can't show as degraded when the two
+   * limits are equal.
    *
-   * @defaultValue 20000
+   * @defaultValue 1000
    * @minimum 0
    * @maximum 30000
    * @example
    * ```typescript
-   * maxResponseTime: 20000  // Fail if the traceroute takes longer than 20 seconds
+   * maxResponseTime: 800  // Fail when the final-hop average reaches 800 ms
    * ```
    */
   maxResponseTime?: number
@@ -80,7 +83,7 @@ export class TracerouteMonitor extends Monitor {
     await validateResponseTimes(diagnostics, this, {
       ...responseTimeLimits(30_000),
       // Backend default applied when maxResponseTime is omitted.
-      defaultMaxResponseTime: 20_000,
+      defaultMaxResponseTime: 1_000,
     })
 
     for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
