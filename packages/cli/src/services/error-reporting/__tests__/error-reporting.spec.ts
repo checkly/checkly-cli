@@ -209,6 +209,13 @@ describe('scrubMessage', () => {
   it('removes whole passwords, also with an @ or, when quoted, a space in them', () => {
     expect(scrubMessage('via http://bob:p@ss@proxy:3128 failed', {}, posix))
       .toBe('via http://<redacted>@proxy:3128 failed')
+    // Not a valid URL, so it cannot be told where the password ends: all of it is withheld.
+    expect(scrubMessage('via http://bob:pa/ss@proxy:8080 failed', {}, posix)).toBe('via http://<redacted> failed')
+    expect(scrubMessage('GET https://admin:s3cret@api.example.com/v1/x?y=1 failed', {}, posix))
+      .toBe('GET https://<redacted>@api.example.com failed')
+    // An @ in the path is not a credential.
+    expect(scrubMessage('see https://example.com/users/@ann for more', {}, posix))
+      .toBe('see https://example.com/users/@ann for more')
     expect(scrubMessage('{"password": "hunter two", "user": "bob"}', {}, posix))
       .toBe('{"password": "<redacted>", "user": "bob"}')
     expect(scrubMessage('password=\'hunter two\'', {}, posix)).toBe('password=\'<redacted>\'')
