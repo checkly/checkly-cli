@@ -9,8 +9,8 @@ new TracerouteMonitor('example-com-traceroute', {
   name: 'example.com Traceroute',
   activated: true,
   group: uptimeGroup,
-  degradedResponseTime: 10000,
-  maxResponseTime: 20000,
+  degradedResponseTime: 500,
+  maxResponseTime: 1000,
   request: {
     url: 'example.com',
     protocol: 'TCP',
