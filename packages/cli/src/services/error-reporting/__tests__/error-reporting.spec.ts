@@ -213,6 +213,13 @@ describe('scrubMessage', () => {
     expect(scrubMessage('via http://bob:pa/ss@proxy:8080 failed', {}, posix)).toBe('via http://<redacted> failed')
     expect(scrubMessage('GET https://admin:s3cret@api.example.com/v1/x?y=1 failed', {}, posix))
       .toBe('GET https://<redacted>@api.example.com failed')
+    for (const char of ['\'', '"', '\x60', '<', '>']) {
+      expect(scrubMessage(`via http://bob:pa${char}ss@proxy:8080 failed`, {}, posix))
+        .toBe('via http://<redacted>@proxy:8080 failed')
+    }
+    // A quote around the URL stays outside it.
+    expect(scrubMessage('connect \'http://bob:pass@proxy:8080\' failed', {}, posix))
+      .toBe('connect \'http://<redacted>@proxy:8080\' failed')
     // An @ in the path is not a credential.
     expect(scrubMessage('see https://example.com/users/@ann for more', {}, posix))
       .toBe('see https://example.com/users/@ann for more')
