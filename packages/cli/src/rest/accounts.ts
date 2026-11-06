@@ -17,6 +17,17 @@ export interface Account {
    * in which case standard limits apply.
    */
   features?: string[]
+  /**
+   * Every integration type the API reports, each marked connected or not, e.g.
+   * `SLACK` for the Checkly Slack app. A type missing from the list is one the
+   * API does not report. Absent when the API predates it.
+   */
+  integrations?: AccountIntegration[]
+}
+
+export interface AccountIntegration {
+  type: string
+  connected: boolean
 }
 
 class Accounts {
