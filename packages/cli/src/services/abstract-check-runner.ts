@@ -502,7 +502,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
       : this.timeout
     const checkTimeout = started ? executionTimeout : executionTimeout + MAX_SCHEDULING_DELAY_SECONDS
-    this.timeouts.set(sequenceId, setTimeout(() => {
+    this.timeouts.set(sequenceId, setTimeout(this.failingRun(() => {
       this.timeouts.delete(sequenceId)
       let errorMessage = started
         ? `Reached timeout of ${checkTimeout} seconds waiting for check result.`
@@ -520,7 +520,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       }
       this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage, { timedOut: true })
       this.emit(Events.CHECK_FINISHED, check)
-    }, checkTimeout * 1000))
+    }), checkTimeout * 1000))
   }
 
   private disableAllTimeouts () {
@@ -542,16 +542,31 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       return
     }
     this.schedulingDelayExceededTimeout = setTimeout(
-      () => {
+      this.failingRun(() => {
         this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED)
         this.schedulingDelayExceededTimeout = undefined
-      },
+      }),
       DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
     )
     this.on(Events.CHECK_INPROGRESS, () => {
       scheduledCheckCount++
       if (scheduledCheckCount === numChecks) clearTimeout(this.schedulingDelayExceededTimeout)
     })
+  }
+
+  /**
+   * `fn` for a timer: an error it throws, e.g. from a reporter listening to
+   * the events it emits, fails the run instead of ending the process as an
+   * uncaught exception.
+   */
+  private failingRun (fn: () => void): () => void {
+    return () => {
+      try {
+        fn()
+      } catch (err) {
+        this.failProcessing?.(err)
+      }
+    }
   }
 
   private disableTimeout (timeoutKey: string) {

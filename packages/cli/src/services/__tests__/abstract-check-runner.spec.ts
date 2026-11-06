@@ -594,6 +594,29 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(noteCliError).toHaveBeenCalledWith(reporterBug)
   })
 
+  it.each([
+    // A reporter's onCheckEnd for a check that timed out runs in the timeout's timer.
+    [Events.CHECK_FINISHED, (DEFAULT_CHECK_RUN_TIMEOUT_SECONDS + MAX_SCHEDULING_DELAY_SECONDS) * 1000],
+    // The hint that checks are still being scheduled is emitted from a timer after 20 s.
+    [Events.MAX_SCHEDULING_DELAY_EXCEEDED, 20_000],
+  ])('fails the run with an error a listener to %s throws from a timer', async (event, delayMs) => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    const reporterBug = new TypeError('Cannot read properties of undefined')
+    runner.on(event, () => {
+      throw reporterBug
+    })
+    const errors: unknown[] = []
+    runner.on(Events.ERROR, err => errors.push(err))
+
+    const run = runner.run()
+    await flush()
+    await vi.advanceTimersByTimeAsync(delayMs)
+    await run
+
+    expect(errors).toEqual([reporterBug])
+    expect(noteCliError).toHaveBeenCalledWith(reporterBug)
+  })
+
   it('fails the run when a result message cannot be read', async () => {
     const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
     const errors: unknown[] = []
