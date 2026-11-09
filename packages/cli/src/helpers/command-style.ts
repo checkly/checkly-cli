@@ -87,6 +87,8 @@ export class CommandStyle {
   }
 
   longWarning (title: string, message: string | Error) {
+    // A warning may also hide a CLI bug, e.g. a failed lookup after a deploy.
+    noteCliError(message)
     this.c.logToStderr(`${logSymbols.warning} ${title}`)
     this.c.logToStderr()
     this.c.logToStderr(chalk.yellow(this.#formatDescription(message)))
@@ -100,12 +102,17 @@ export class CommandStyle {
 
   /**
    * `code` is a machine-readable reason for the failure (usually the API's
-   * `errorCode`); it appears only in the JSON envelope.
+   * `errorCode`); it appears only in the JSON envelope. `cause` is the error
+   * behind a `message` given as text, which wraps where an Error does not.
    */
-  longError (title: string, message: string | Error, { code }: { code?: string } = {}) {
+  longError (
+    title: string,
+    message: string | Error,
+    { code, cause }: { code?: string, cause?: unknown } = {},
+  ) {
     // Commands print the errors they catch here, so a CLI bug among them is
     // reported when the command ends.
-    noteCliError(message)
+    noteCliError(cause ?? message)
     const hint = message instanceof NotFoundError ? this.c.notFoundHint() : undefined
     if (this.outputFormat === 'json') {
       // The searched account as data, so an agent need not parse the hint.

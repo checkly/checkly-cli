@@ -130,8 +130,8 @@ A report contains:
   AI agent
 - your operating system, CPU architecture and Node.js version
 
-A report never contains your API key, account ID, command arguments, environment variables, computer name or the
-contents of your files. Credentials found in an error message are removed before sending.
+A report never contains your API key, command arguments, environment variables, computer name or the contents of
+your files. Credentials found in an error message are removed before sending.
 
 To turn error reporting off, set either environment variable:
 

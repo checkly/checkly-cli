@@ -33,7 +33,6 @@ import { generateChecklyConfig } from '../../services/checkly-config-codegen.js'
 import { PackageJsonFile } from '../../services/check-parser/package-files/package-json-file.js'
 import { detectNearestPackageJson, detectPackageManager, knownPackageManagers, PackageManager } from '../../services/check-parser/package-files/package-manager.js'
 import { parseProject } from '../../services/project-parser.js'
-import { noteCliError } from '../../services/error-reporting/report.js'
 import { Project } from '../../constructs/project.js'
 import { ConstructExport, Session } from '../../constructs/session.js'
 import { Diagnostics } from '../../constructs/index.js'
@@ -799,9 +798,7 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
           )
         } catch (err) {
           if (err instanceof Error) {
-            // longError gets the message, which it wraps; the error is noted for the crash report.
-            noteCliError(err)
-            this.style.longError(`Failed to install dependencies`, err.message) // TODO :
+            this.style.longError(`Failed to install dependencies`, err.message, { cause: err }) // TODO :
           }
 
           this.style.comment(

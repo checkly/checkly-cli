@@ -1,6 +1,7 @@
 import type { Reporter } from '../reporters/reporter.js'
 import { cancel } from '../rest/api.js'
 import { Events } from './abstract-check-runner.js'
+import { noteCliError } from './error-reporting/report.js'
 
 type TestSessionCancelEmitter = {
   on(event: Events.CANCEL, listener: (testSessionId?: string) => Promise<void>): unknown
@@ -24,6 +25,8 @@ export function registerTestSessionCancelHandler (
       try {
         reporter.onCancel()
       } catch (err: any) {
+        // A reporter bug is a CLI bug; it is only warned about here.
+        noteCliError(err)
         process.stderr.write(`Warning: a reporter failed to report the cancellation: ${err?.message ?? err}\n`)
       }
     }

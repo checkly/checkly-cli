@@ -1,4 +1,4 @@
-import { MAX_CAUSE_DEPTH, PACKAGE_ROOT, realpath } from './classify.js'
+import { errorChain, PACKAGE_ROOT } from './classify.js'
 import { cliDependencies, scrubFrame, scrubMessage } from './scrub.js'
 import { eventId, parseStack, type ErrorEvent, type Exception } from './sentry-protocol.js'
 
@@ -38,8 +38,7 @@ function toExceptions (
   const dependencies = cliDependencies(packageRoot)
 
   const exceptions: Exception[] = []
-  let current: unknown = err
-  while (current instanceof Error && exceptions.length < MAX_CAUSE_DEPTH) {
+  for (const current of errorChain(err)) {
     const frames = parseStack(current.stack ?? '')
     exceptions.unshift({
       type: current.name,
@@ -49,12 +48,14 @@ function toExceptions (
         : undefined,
       mechanism: { type: 'generic', handled },
     })
-    current = current.cause
   }
   return exceptions
 }
 
-/** The Sentry event for `err`. Exported for tests. */
+/**
+ * The Sentry event for `err`, which happened at `timestamp` (ms). `packageRoot`
+ * is a real path, as the stack's files are. Exported for tests.
+ */
 export function buildErrorEvent (
   err: Error,
   context: ErrorReportContext,
@@ -62,17 +63,18 @@ export function buildErrorEvent (
     packageRoot = PACKAGE_ROOT,
     env = process.env,
     secrets = [],
-  }: { packageRoot?: string, env?: NodeJS.ProcessEnv, secrets?: string[] } = {},
+    timestamp = Date.now(),
+  }: { packageRoot?: string, env?: NodeJS.ProcessEnv, secrets?: string[], timestamp?: number } = {},
 ): ErrorEvent {
   const runtime = process.versions.bun ? 'bun' : process.versions.deno ? 'deno' : 'node'
   return {
     event_id: eventId(),
-    timestamp: Date.now() / 1000,
+    timestamp: timestamp / 1000,
     platform: 'node',
     level: context.handled ? 'error' : 'fatal',
     release: `checkly@${context.version}`,
     environment: releaseEnvironment(context.version),
-    exception: { values: toExceptions(err, realpath(packageRoot), env, secrets, !!context.handled) },
+    exception: { values: toExceptions(err, packageRoot, env, secrets, !!context.handled) },
     tags: {
       ...(context.command && { command: context.command }),
       ...(context.cliMode && { cli_mode: context.cliMode }),

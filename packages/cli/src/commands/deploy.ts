@@ -47,7 +47,6 @@ import { uploadSnapshots } from '../services/snapshot-service.js'
 import { BrowserCheckBundle } from '../constructs/browser-check-bundle.js'
 import { Runtime } from '../runtimes/index.js'
 import { Bundler } from '../services/check-parser/bundler.js'
-import { noteCliError } from '../services/error-reporting/report.js'
 
 /**
  * The deploy payload fields that arrived with the preview endpoint, which a
@@ -123,9 +122,7 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
           command.logToStderr(skipped)
         }
         // The error names the files already rewritten, if any.
-        // longError gets the message, which it wraps; the error is noted for the crash report.
-        noteCliError(err)
-        command.style.longError('Could not update your code.', err.message)
+        command.style.longError('Could not update your code.', err.message, { cause: err })
         command.logToStderr('Nothing was deployed.')
         command.exit(1)
       }

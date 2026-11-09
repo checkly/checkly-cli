@@ -2,7 +2,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 
-import { isOwnPath, PACKAGE_ROOT } from './classify.js'
+import { frameFile, isOwnPath, PACKAGE_ROOT } from './classify.js'
 import type { StackFrame } from './sentry-protocol.js'
 
 /** The packages the CLI depends on directly; frames in other packages are the user's. */
@@ -30,11 +30,10 @@ function withoutReceiver (name: string | undefined): string | undefined {
   return name?.replace(/^[^\s[]*\./, '')
 }
 
-/** Whether a frame's location is a file, rather than e.g. `<anonymous>` or `index 0` for a built-in. */
-function isFileLocation (filename: string): boolean {
-  // Also an eval's location, `eval at load (/path/file.js:1:2), <anonymous>`.
-  return filename.includes('/') || filename.includes('\\')
-}
+// Where V8 places a built-in's frame, as in `Array.map (<anonymous>)` and
+// `Promise.all (index 0)`. Code without a file of its own, such as
+// `evalmachine.<anonymous>` for a vm script, is not a built-in: it may be a user's.
+const BUILT_IN_LOCATION = /^(?:<anonymous>|native|index \d+)$/
 
 /**
  * Rewrites a frame's path so it says where in the CLI or its dependencies the
@@ -43,11 +42,11 @@ function isFileLocation (filename: string): boolean {
  * named at all.
  */
 export function scrubFrame (frame: StackFrame, packageRoot: string, dependencies: Set<string>): StackFrame {
-  const filename = frame.filename
-  if (!filename || filename.startsWith('node:') || !isFileLocation(filename)) {
-    // Node's own modules and built-ins such as `Array.map (<anonymous>)`.
+  if (!frame.filename || frame.filename.startsWith('node:') || BUILT_IN_LOCATION.test(frame.filename)) {
     return { ...frame, function: withoutReceiver(frame.function), in_app: false }
   }
+  // For an eval, the file that ran it, as isCliBug judges it.
+  const filename = frameFile(frame.filename)
   if (isOwnPath(filename, packageRoot)) {
     const relative = path.relative(packageRoot, filename).split(path.sep).join('/')
     return { ...frame, filename: `checkly/${relative}`, function: withoutReceiver(frame.function), in_app: true }
@@ -125,7 +124,9 @@ function replaceDir (
 // Any other absolute path, e.g. a CI checkout outside the working directory
 // or a --config file elsewhere, at the start of a word. `https://host/path` is
 // a URL and stays.
-const ABSOLUTE_PATH = new RegExp(String.raw`(^|[\s'"\x60(=,[{<])(?:` + [
+// After `>` and `]` too: a path may follow a placeholder, as in
+// `<redacted>/private/x` once a secret in the middle of it was removed.
+const ABSOLUTE_PATH = new RegExp(String.raw`(^|[\s'"\x60(=,[{<>\]:;|])(?:` + [
   String.raw`file:\/\/[^${NOT_PATH}]+`,
   String.raw`\/(?=[^/${NOT_PATH}])[^${NOT_PATH}]*`,
   String.raw`[A-Za-z]:[\\/][^${NOT_PATH}]*`,
@@ -163,20 +164,30 @@ function nextUrlStart (text: string): number {
  * A URL with credentials rebuilt from its scheme and host alone, and one that
  * cannot be parsed withheld: a password may hold any character, so no pattern
  * finds where it ends. A URL without credentials stays, but a URL inside it,
- * or right after it, may have some: `?next=http://user:pw@host`.
+ * or right after it, may have some: `?next=http://user:pw@host`. A loop, not
+ * recursion: a word may hold thousands of URL starts.
  */
 function withoutUrlCredentials (text: string): string {
-  const punctuation = TRAILING_PUNCTUATION.exec(text)?.[0] ?? ''
-  const url = text.slice(0, text.length - punctuation.length)
-  let parsed: URL
-  try {
-    parsed = new URL(url)
-  } catch {
-    return `${url.slice(0, url.indexOf('://'))}://<redacted>${punctuation}`
+  let kept = ''
+  let rest = text
+  while (rest.includes('@')) {
+    const punctuation = TRAILING_PUNCTUATION.exec(rest)?.[0] ?? ''
+    const url = rest.slice(0, rest.length - punctuation.length)
+    let parsed: URL
+    try {
+      parsed = new URL(url)
+    } catch {
+      return `${kept}${url.slice(0, url.indexOf('://'))}://<redacted>${punctuation}`
+    }
+    if (parsed.username || parsed.password) {
+      return `${kept}${parsed.protocol}//<redacted>@${parsed.host}${punctuation}`
+    }
+    const next = nextUrlStart(rest)
+    if (next === -1) break
+    kept += rest.slice(0, next)
+    rest = rest.slice(next)
   }
-  if (parsed.username || parsed.password) return `${parsed.protocol}//<redacted>@${parsed.host}${punctuation}`
-  const next = nextUrlStart(text)
-  return next === -1 ? text : text.slice(0, next) + text.slice(next).replace(URL_WITH_AT, withoutUrlCredentials)
+  return kept + rest
 }
 
 // Longer messages are cut before they are scrubbed, which bounds the work of
@@ -216,8 +227,8 @@ export function scrubMessage (
   }: ScrubOptions = {},
 ): string {
   let scrubbed = truncate(message)
-    // Checkly API keys.
-    .replace(/\bcu_[A-Za-z0-9]{8,}\b/g, '<api key>')
+    // Checkly user (cu_) and service (sv_) API keys.
+    .replace(/\b(?:cu|sv)_[A-Za-z0-9]{8,}\b/g, '<api key>')
     .replace(/\b(Bearer|Basic)\s+[A-Za-z0-9._~+/=-]+/gi, '$1 <redacted>')
     .replace(URL_WITH_AT, withoutUrlCredentials)
     .replace(SECRET_VALUE, (_, name: string, value: string) => name + redactValue(value))

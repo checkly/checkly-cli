@@ -1534,7 +1534,11 @@ new ApiCheck('api', {
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
-    expect(ctx.style.longError).toHaveBeenCalledWith('Could not update your code.', 'Could not write api.check.ts: EACCES. No file was changed.')
+    expect(ctx.style.longError).toHaveBeenCalledWith(
+      'Could not update your code.',
+      'Could not write api.check.ts: EACCES. No file was changed.',
+      { cause: expect.objectContaining({ message: 'Could not write api.check.ts: EACCES. No file was changed.' }) },
+    )
     expect(ctx.logged.join('\n')).not.toContain('Updated')
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })

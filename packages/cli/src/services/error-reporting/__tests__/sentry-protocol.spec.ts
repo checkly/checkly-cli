@@ -32,6 +32,13 @@ describe('parseStack', () => {
     expect(frame.filename).toBe('/Users/ann/C#/a?b/node_modules/checkly/dist/x.js')
   })
 
+  it('reads a frame without a function name whose path holds a parenthesis', () => {
+    const [frame] = parseStack('    at /Users/ann/My Stuff (old)/proj/node_modules/axios/lib/x.js:1:2')
+    expect(frame).toEqual({
+      filename: '/Users/ann/My Stuff (old)/proj/node_modules/axios/lib/x.js', function: '?', lineno: 1, colno: 2,
+    })
+  })
+
   it('keeps native Windows paths as they are', () => {
     expect(parseStack('    at run (C:\\Users\\Ann Lee\\cli\\dist\\y.js:5:6)')).toEqual([
       { filename: 'C:\\Users\\Ann Lee\\cli\\dist\\y.js', function: 'run', lineno: 5, colno: 6 },
