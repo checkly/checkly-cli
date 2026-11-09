@@ -8,7 +8,9 @@ import { BrowserCheck } from '../browser-check.js'
 import { Check } from '../check.js'
 import { CheckGroupV1 } from '../check-group-v1.js'
 import { CheckGroupV2 } from '../check-group-v2.js'
-import { MissingRunLocationDiagnostic } from '../construct-diagnostics.js'
+import * as constructs from '../index.js'
+import { InvalidPropertyValueDiagnostic, MissingRunLocationDiagnostic } from '../construct-diagnostics.js'
+import type { Construct } from '../construct.js'
 import { Diagnostics } from '../diagnostics.js'
 import { DnsMonitor } from '../dns-monitor.js'
 import { GrpcMonitor } from '../grpc-monitor.js'
@@ -24,6 +26,8 @@ import { TcpMonitor } from '../tcp-monitor.js'
 import { TracerouteMonitor } from '../traceroute-monitor.js'
 import { UrlMonitor } from '../url-monitor.js'
 import { loadSnapshot } from '../../runtimes/index.js'
+import { retiredRegionMessage } from '../../helpers/constants.js'
+import type { Region } from '../../index.js'
 
 type Factory = (extra: object) => Check
 
@@ -66,6 +70,28 @@ const scheduled: [string, Factory][] = [
     name: 'Traceroute', request: { url: 'example.com' }, ...extra,
   })],
 ]
+
+/** The abstract bases, and the one check type that never runs in a location. */
+const notScheduled = new Set(['RuntimeCheck', 'RepairableRuntimeCheck', 'Monitor', 'HeartbeatMonitor'])
+
+/**
+ * `me-south-1` is no longer a key of `Region`, but a JavaScript project or a
+ * cast can still pass it.
+ */
+const RETIRED = 'me-south-1' as keyof Region
+const MESSAGE = retiredRegionMessage('me-south-1')
+
+async function retiredLocationMessages (construct: Construct): Promise<(string | undefined)[]> {
+  const diagnostics = new Diagnostics()
+  await construct.validate(diagnostics)
+  return diagnostics.observations
+    .filter((observation): observation is InvalidPropertyValueDiagnostic =>
+      observation instanceof InvalidPropertyValueDiagnostic && observation.property === 'locations')
+    .map(diagnostic => {
+      expect(diagnostic.isFatal()).toBe(true)
+      return diagnostic.error?.message
+    })
+}
 
 async function locationDiagnostics (check: Check): Promise<MissingRunLocationDiagnostic[]> {
   const diagnostics = new Diagnostics()
@@ -158,6 +184,39 @@ describe('run locations', () => {
     ])('warns about a check in %s without locations', async (_label, createGroup) => {
       expect(await locationDiagnostics(create({ group: createGroup() }))).toHaveLength(1)
     })
+
+    it.each([
+      ['next to a valid one', { locations: [RETIRED, 'eu-central-1'] }],
+      ['only once when listed twice', { locations: [RETIRED, RETIRED] }],
+      ['on a test-only check', { locations: [RETIRED], testOnly: true }],
+    ])('reports a retired location %s', async (_label, extra) => {
+      expect(await retiredLocationMessages(create(extra))).toEqual([MESSAGE])
+    })
+
+    it('reports a retired location from the checks.locations default', async () => {
+      Session.checkDefaults = { locations: [RETIRED] }
+      expect(await retiredLocationMessages(create({}))).toEqual([MESSAGE])
+    })
+
+    it('does not crash on a locations value that is not a list', async () => {
+      expect(await retiredLocationMessages(create({ locations: RETIRED }))).toEqual([])
+    })
+  })
+
+  it('covers every scheduled check type', () => {
+    const checkTypes = Object.entries(constructs)
+      .filter(([, value]) => typeof value === 'function' && value.prototype instanceof Check)
+      .map(([name]) => name)
+      .filter(name => !notScheduled.has(name))
+    expect(scheduled.map(([name]) => name).sort()).toEqual(checkTypes.sort())
+  })
+
+  it.each([
+    ['CheckGroupV1', (locations: Array<keyof Region>) => new CheckGroupV1('group-v1', { name: 'Group', locations })],
+    ['CheckGroupV2', (locations: Array<keyof Region>) => new CheckGroupV2('group-v2', { name: 'Group', locations })],
+  ])('reports a retired location on a %s', async (_name, createGroup) => {
+    expect(await retiredLocationMessages(createGroup([RETIRED, 'eu-central-1']))).toEqual([MESSAGE])
+    expect(await retiredLocationMessages(createGroup(['eu-central-1']))).toEqual([])
   })
 
   it('does not require locations for a HeartbeatMonitor', async () => {
@@ -165,5 +224,13 @@ describe('run locations', () => {
       name: 'Heartbeat', period: 1, periodUnit: 'hours', grace: 1, graceUnit: 'hours',
     })
     expect(await locationDiagnostics(check)).toEqual([])
+  })
+
+  it('does not check the locations of a HeartbeatMonitor, which never runs in one', async () => {
+    Session.checkDefaults = { locations: [RETIRED] }
+    const check = new HeartbeatMonitor('heartbeat', {
+      name: 'Heartbeat', period: 1, periodUnit: 'hours', grace: 1, graceUnit: 'hours',
+    })
+    expect(await retiredLocationMessages(check)).toEqual([])
   })
 })
