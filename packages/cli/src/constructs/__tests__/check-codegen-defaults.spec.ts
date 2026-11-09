@@ -16,6 +16,7 @@ import { TcpMonitorCodegen, TcpMonitorResource } from '../tcp-monitor-codegen.js
 import { UrlMonitorCodegen, UrlMonitorResource } from '../url-monitor-codegen.js'
 import { Codegen } from '../internal/codegen/index.js'
 import { Program } from '../../sourcegen/index.js'
+import { generatedLocations } from './helpers/generated-locations.js'
 
 /**
  * What `buildCheckProps` generates for the values a check row carries as
@@ -192,6 +193,56 @@ describe('buildCheckProps defaults', () => {
       const api = projectDefaultsFor('API', sections)!
       expect([api('activated'), api('muted')]).toEqual([true, true])
       expect(projectDefaultsFor('API', undefined)).toBeUndefined()
+    })
+  })
+
+  /**
+   * `checkly import` must not write a location the CLI rejects: a
+   * retired one is left out before the comparison with the project default.
+   */
+  describe('retired locations', () => {
+    it('leaves a retired location out and keeps the others in order', async () => {
+      const source = await renderResource(env, baseResource({ locations: ['me-south-1', 'eu-central-1'] }))
+      expect(generatedLocations(source)).toEqual(['eu-central-1'])
+      expect(source).not.toContain('me-south-1')
+
+      const between = await renderResource(env, baseResource({ locations: ['eu-west-1', 'me-south-1', 'us-east-1'] }))
+      expect(generatedLocations(between)).toEqual(['eu-west-1', 'us-east-1'])
+    })
+
+    it('generates no locations when the row holds only retired ones and the project sets none', async () => {
+      const source = await renderResource(env, baseResource({ locations: ['me-south-1'] }))
+      expect(generatedLocations(source)).toBeUndefined()
+      expect(source).not.toContain('me-south-1')
+    })
+
+    it('generates no locations for a row whose other locations are the project default', async () => {
+      projectDefaults = { checks: { locations: ['eu-west-1'] } }
+      const source = await renderResource(env, baseResource({ locations: ['me-south-1', 'eu-west-1'] }))
+      expect(generatedLocations(source)).toBeUndefined()
+      expect(source).not.toContain('me-south-1')
+    })
+
+    /** Omitting it would hand the check a project default it never had. */
+    it('spells out no locations when the row holds only retired ones and the project has a default', async () => {
+      projectDefaults = { checks: { locations: ['eu-west-1'] } }
+      const source = await renderResource(env, baseResource({ locations: ['me-south-1'] }))
+      expect(generatedLocations(source)).toEqual([])
+      expect(source).not.toContain('me-south-1')
+    })
+
+    it('leaves a retired location out of every check type, which all build their props here', async () => {
+      const url: UrlMonitorResource = {
+        id: 'u', checkType: 'URL', name: 'U', locations: ['me-south-1', 'eu-central-1'], request: { url: 'https://example.com' },
+      }
+      const dns: DnsMonitorResource = {
+        id: 'dns', checkType: 'DNS', name: 'DNS', locations: ['me-south-1'], request: { query: 'example.com', recordType: 'A' },
+      }
+      const urlSource = await renderWith(env, program => new UrlMonitorCodegen(program), url)
+      expect(generatedLocations(urlSource)).toEqual(['eu-central-1'])
+      const dnsSource = await renderWith(env, program => new DnsMonitorCodegen(program), dns)
+      expect(generatedLocations(dnsSource)).toBeUndefined()
+      expect(urlSource + dnsSource).not.toContain('me-south-1')
     })
   })
 

@@ -9,6 +9,7 @@ import { valueForKeyValuePair } from './key-value-pair-codegen.js'
 import { RetryStrategyResource, valueForRetryStrategy } from './retry-strategy-codegen.js'
 import { valueForPrivateLocationFromId } from './private-location-codegen.js'
 import { valueForAlertChannelFromId } from './alert-channel-codegen.js'
+import { isRetiredRegion } from '../helpers/constants.js'
 
 export interface BrowserCheckConfigResource {
   testMatch: string | string[]
@@ -82,7 +83,8 @@ function buildCheckGroupProps (
   }
 
   if (resource.locations) {
-    const locations = resource.locations
+    /** A retired location no longer type-checks or validates; see buildCheckProps. */
+    const locations = resource.locations.filter(location => !isRetiredRegion(location))
     if (locations.length > 0) {
       builder.array('locations', builder => {
         for (const location of locations) {
