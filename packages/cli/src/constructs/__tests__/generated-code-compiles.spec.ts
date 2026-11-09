@@ -107,6 +107,22 @@ describe('generated code compiles', () => {
       alertSettings: {},
       apiCheckDefaults: { basicAuth: { username: '', password: 'p' } },
     }
+    /**
+     * A retired location is no longer a `Region`, so the generated construct
+     * would not compile with it: the codegen leaves it out.
+     */
+    const onRetiredLocation: ApiCheckResource = {
+      id: 'retired',
+      checkType: 'API',
+      name: 'On a retired location',
+      request: { url: 'https://example.com', method: 'GET' },
+      locations: ['me-south-1', 'eu-central-1'],
+    }
+    const groupOnRetiredLocation: CheckGroupResource = {
+      id: 8,
+      name: 'Group on a retired location',
+      locations: ['me-south-1', 'eu-central-1'],
+    }
     const channel: IncidentioAlertChannelResource = {
       id: 9,
       type: 'WEBHOOK',
@@ -128,6 +144,7 @@ describe('generated code compiles', () => {
 
     const groupCodegen = new CheckGroupCodegen(program)
     groupCodegen.prepare('group', group, context)
+    groupCodegen.prepare('group-retired', groupOnRetiredLocation, context)
     const channelCodegen = new IncidentioAlertChannelCodegen(program)
     channelCodegen.prepare('incidents', channel, context)
     new ApiCheckCodegen(program).gencode('api', apiCheck, context)
@@ -135,11 +152,13 @@ describe('generated code compiles', () => {
     new PlaywrightCheckCodegen(program).gencode('suite', suite, context)
     new PlaywrightCheckCodegen(program).gencode('suite-deno', suiteOnUnknownEngine, context)
     groupCodegen.gencode('group', group, context)
+    new ApiCheckCodegen(program).gencode('retired', onRetiredLocation, context)
+    groupCodegen.gencode('group-retired', groupOnRetiredLocation, context)
     channelCodegen.gencode('incidents', channel, context)
     await program.realize()
 
     const generated = program.paths.filter(file => file.endsWith('.ts'))
-    expect(generated.length).toBeGreaterThanOrEqual(6)
+    expect(generated.length).toBeGreaterThanOrEqual(8)
     // TypeScript reports file names with forward slashes on every platform.
     const generatedNames = new Set(generated.map(file => file.replaceAll('\\', '/')))
 
