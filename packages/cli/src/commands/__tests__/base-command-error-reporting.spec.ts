@@ -16,6 +16,31 @@ class CrashingCommand extends BaseCommand {
   }
 }
 
+class MessageCommand extends BaseCommand {
+  run (): Promise<void> {
+    try {
+      const resource: any = undefined
+      return resource.logicalId
+    } catch (err) {
+      // The message, so it wraps; the error is passed for the report.
+      this.style.longError('Could not read the resource.', (err as Error).message, { cause: err })
+      this.exit(1)
+    }
+  }
+}
+
+class WarningCommand extends BaseCommand {
+  run (): Promise<void> {
+    try {
+      const resource: any = undefined
+      resource.logicalId()
+    } catch (err) {
+      this.style.longWarning('Could not read the resource.', err as Error)
+    }
+    return Promise.resolve()
+  }
+}
+
 class PrintingCommand extends BaseCommand {
   run (): Promise<void> {
     try {
@@ -90,10 +115,30 @@ describe('BaseCommand error reporting', () => {
     expect(received[0].exception.values[0]).toMatchObject({ type: 'TypeError', mechanism: { handled: true } })
   })
 
+  it('reports a CLI bug a command printed as a message, given as the cause', async () => {
+    await expect(new MessageCommand([], config)._run()).rejects.toThrow('EEXIT: 1')
+
+    expect(received).toHaveLength(1)
+    expect(received[0].exception.values[0]).toMatchObject({ type: 'TypeError', mechanism: { handled: true } })
+  })
+
+  it('reports a CLI bug a command only warned about', async () => {
+    await new WarningCommand([], config)._run()
+
+    expect(received).toHaveLength(1)
+    expect(received[0].exception.values[0]).toMatchObject({ type: 'TypeError', mechanism: { handled: true } })
+  })
+
   it('sends nothing for a development build', async () => {
+    // The same crash in a release build is reported.
+    await expect(new CrashingCommand([], config)._run()).rejects.toThrow(TypeError)
+    expect(received).toHaveLength(1)
+    resetErrorReporting()
+    setDefaultErrorReportOptions({ dsn, env: {} })
+
     config.version = '0.0.1-dev'
     await expect(new CrashingCommand([], config)._run()).rejects.toThrow(TypeError)
 
-    expect(received).toHaveLength(0)
+    expect(received).toHaveLength(1)
   })
 })

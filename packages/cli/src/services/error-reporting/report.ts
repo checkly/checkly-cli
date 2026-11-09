@@ -7,7 +7,7 @@ import { assignProxy } from '../proxy.js'
 import { isEnvFlagSet } from '../../helpers/cli-mode.js'
 import { isDevelopmentBuild } from '../project-cli.js'
 import config from '../config.js'
-import { findCliBug, mayBeCliBug, PACKAGE_ROOT } from './classify.js'
+import { findCliBug, mayBeCliBug, PACKAGE_ROOT, realpath } from './classify.js'
 import { buildErrorEvent, type ErrorReportContext } from './event.js'
 import { envelopeEndpoint, serializeEventEnvelope } from './sentry-protocol.js'
 
@@ -43,7 +43,7 @@ interface Target {
 }
 
 let reported = false
-let noted: Array<{ error: unknown, handled: boolean }> = []
+let noted: Array<{ error: unknown, handled: boolean, at: number }> = []
 let defaultOptions: ErrorReportOptions = {}
 
 /** Whether the user turned error reporting off with `CHECKLY_NO_ERROR_REPORTING` or `DO_NOT_TRACK`. */
@@ -69,17 +69,18 @@ function reportTarget (version: string, options: ErrorReportOptions): Target | u
   return {
     dsn,
     env,
-    packageRoot: options.packageRoot ?? PACKAGE_ROOT,
+    // Real, as the stack's files are; resolved once for every error checked.
+    packageRoot: realpath(options.packageRoot ?? PACKAGE_ROOT),
     secrets: options.secrets ?? config.getCredentialValues(),
   }
 }
 
-async function send (bug: Error, context: ErrorReportContext, target: Target): Promise<void> {
+async function send (bug: Error, at: number, context: ErrorReportContext, target: Target): Promise<void> {
   const { dsn, packageRoot, env, secrets } = target
   reported = true
   const url = envelopeEndpoint(dsn)
   if (!url) return
-  const event = buildErrorEvent(bug, context, { packageRoot, env, secrets })
+  const event = buildErrorEvent(bug, context, { packageRoot, env, secrets, timestamp: at })
   const envelope = serializeEventEnvelope(event, { name: 'checkly-cli', version: context.version })
   const { status } = await axios.post(url, envelope, assignProxy(url, {
     headers: { 'Content-Type': 'application/x-sentry-envelope' },
@@ -103,7 +104,7 @@ async function send (bug: Error, context: ErrorReportContext, target: Target): P
  */
 export function noteCliError (err: unknown, { handled = true }: { handled?: boolean } = {}): void {
   try {
-    if (noted.length < MAX_NOTED_ERRORS && mayBeCliBug(err)) noted.push({ error: err, handled })
+    if (noted.length < MAX_NOTED_ERRORS && mayBeCliBug(err)) noted.push({ error: err, handled, at: Date.now() })
   } catch {
     // Never let reporting change how a command fails.
   }
@@ -123,9 +124,9 @@ export async function reportNotedCliError (
     const base = context()
     const target = reportTarget(base.version, options)
     if (!target) return
-    for (const { error, handled } of noted) {
+    for (const { error, handled, at } of noted) {
       const bug = findCliBug(error, target.packageRoot)
-      if (bug) return await send(bug, { ...base, handled }, target)
+      if (bug) return await send(bug, at, { ...base, handled }, target)
     }
   } catch (reportError) {
     debug('Could not report the error: %O', reportError)

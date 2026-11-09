@@ -4,6 +4,9 @@ import { EventEmitter } from 'node:events'
 import { Events } from '../abstract-check-runner.js'
 import { cancelTestSessionBestEffort, registerTestSessionCancelHandler } from '../test-session-cancel.js'
 import { captureStderr } from '../../testing/capture-stderr.js'
+import { noteCliError } from '../error-reporting/report.js'
+
+vi.mock('../error-reporting/report.js', () => ({ noteCliError: vi.fn() }))
 
 function makeReporter () {
   return {
@@ -87,8 +90,9 @@ describe('registerTestSessionCancelHandler', () => {
   it('keeps a throwing reporter from stopping the others or the cancel request', async () => {
     const runner = new EventEmitter()
     const failingReporter = makeReporter()
+    const reporterError = new Error('stdout closed')
     failingReporter.onCancel.mockImplementation(() => {
-      throw new Error('stdout closed')
+      throw reporterError
     })
     const reporter = makeReporter()
     const cancelClient = {
@@ -111,6 +115,8 @@ describe('registerTestSessionCancelHandler', () => {
       expect(reporter.onCancel).toHaveBeenCalledTimes(1)
       expect(cancelClient.cancelTestSession).toHaveBeenCalledWith({ testSessionId: 'ts-playwright' })
       expect(stderr.join('')).toContain('a reporter failed to report the cancellation: stdout closed')
+      // Only warned about, so noted for the crash report in case it is a CLI bug.
+      expect(noteCliError).toHaveBeenCalledWith(reporterError)
     } finally {
       process.off('unhandledRejection', onUnhandledRejection)
     }

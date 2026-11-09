@@ -3,7 +3,7 @@ import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { findCliBug, isCliBug } from '../classify.js'
 import { buildErrorEvent, releaseEnvironment, type ErrorReportContext } from '../event.js'
@@ -252,6 +252,35 @@ describe('scrubMessage', () => {
       .toBe('account <redacted> failed')
   })
 
+  it('removes the rest of a path a secret was in', () => {
+    expect(scrubMessage('cannot open /srv/builds/acme-corp-prod/checks/billing-secret/x.ts', {}, {
+      ...posix,
+      secrets: ['acme-corp-prod'],
+    })).toBe('cannot open <path><redacted><path>')
+    expect(scrubMessage('cannot open /srv/cu_0123456789abcdef/private/x', {}, posix))
+      .toBe('cannot open <path><api key><path>')
+  })
+
+  it('removes a path right after a colon or a bracket', () => {
+    expect(scrubMessage('config at path:/builds/acme/private-repo/x.ts', {}, posix)).toBe('config at path:<path>')
+    expect(scrubMessage('Cannot read file:/builds/acme/x.ts', {}, posix)).toBe('Cannot read file:<path>')
+    expect(scrubMessage('one;/builds/a\ntwo|/builds/b\n[x]/builds/c', {}, posix))
+      .toBe('one;<path>\ntwo|<path>\n[x]<path>')
+    // A URL is not a path.
+    expect(scrubMessage('GET https://api.checklyhq.com:443/v1/checks failed', {}, posix))
+      .toBe('GET https://api.checklyhq.com:443/v1/checks failed')
+  })
+
+  it('removes Checkly user and service API keys', () => {
+    expect(scrubMessage('keys cu_0123456789abcdef and sv_0123456789abcdef', {}, posix))
+      .toBe('keys <api key> and <api key>')
+  })
+
+  it('handles a word with thousands of URL starts', () => {
+    const message = `${'ab://'.repeat(1600)}@`
+    expect(() => scrubMessage(message, {}, posix)).not.toThrow()
+  })
+
   it('removes a path with a space in a directory name outside the project and home', () => {
     expect(scrubMessage('see /Users/Ann Lee/proj/x.ts now', {}, posix)).toBe('see <path> now')
     expect(scrubMessage('see C:\\Users\\Ann Lee\\proj\\x.ts now', {}, posix)).toBe('see <path> now')
@@ -268,7 +297,7 @@ describe('scrubMessage', () => {
     for (const word of ['a', 'a.', 'a-', 'x://', 'tok']) {
       const start = performance.now()
       scrubMessage(word.repeat(200_000), {}, posixOptions)
-      // Unbounded, some of these took seconds.
+      // The patterns must stay fast on long input: the report delays the CLI's exit.
       expect(performance.now() - start).toBeLessThan(1000)
     }
     const long = `${'word '.repeat(1630)}http://bob:secret@proxy:3128 ${'x'.repeat(100)}`
@@ -372,6 +401,16 @@ describe('scrubFrame', () => {
       .toEqual([{ filename: 'checkly/dist/constructs/api-check.js', function: 'synthesize', lineno: 1, colno: 2, in_app: true }])
   })
 
+  it('names the CLI\'s file for code it ran through eval, as isCliBug judges it', () => {
+    expect(frames('    at eval (eval at load (/opt/checkly/dist/services/loader.js:1:2), <anonymous>:1:1)'))
+      .toEqual([{ filename: 'checkly/dist/services/loader.js', function: 'eval', lineno: 1, colno: 1, in_app: true }])
+  })
+
+  it('does not name code that has no file, such as a vm script, which may be a user\'s', () => {
+    expect(frames('    at acmeSecretHelper (evalmachine.<anonymous>:3:9)'))
+      .toEqual([{ filename: '<project file>', function: '<redacted>', in_app: false }])
+  })
+
   it('keeps built-ins as built-ins, not as a user\'s file', () => {
     expect(frames('    at Array.map (<anonymous>)\n    at Promise.all (index 0)')).toEqual([
       { filename: 'index 0', function: 'all', in_app: false },
@@ -408,6 +447,23 @@ describe('reportNotedCliError', () => {
       expect(received).toHaveLength(1)
       expect(received[0].body).toContain('no checks in account <redacted>')
       expect(received[0].body).not.toContain(accountId)
+    })
+  })
+
+  it('dates the report when the error was noted, not when it is sent', async () => {
+    await withIngest(async (dsn, received) => {
+      const notedAt = Date.now()
+      noteCliError(cliBug)
+      const later = vi.spyOn(Date, 'now').mockReturnValue(notedAt + 20 * 60_000)
+      try {
+        await reportNotedCliError(() => ({ version: '7.1.0' }), { dsn, packageRoot: installDir, env: {} })
+      } finally {
+        later.mockRestore()
+      }
+
+      const item = JSON.parse(received[0].body.split('\n')[2])
+      expect(item.timestamp * 1000).toBeLessThan(notedAt + 1000)
+      expect(item.timestamp * 1000).toBeGreaterThanOrEqual(notedAt)
     })
   })
 

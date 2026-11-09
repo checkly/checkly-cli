@@ -82,7 +82,7 @@ export interface DeclaringFileOptions {
   platformPath?: path.PlatformPath
 }
 
-function isInside (root: string, file: string, platformPath: path.PlatformPath): boolean {
+export function isInside (root: string, file: string, platformPath: path.PlatformPath = path): boolean {
   const relative = platformPath.relative(root, file)
   const escapes = relative === '..' || relative.startsWith(`..${platformPath.sep}`)
   return !escapes && !platformPath.isAbsolute(relative)

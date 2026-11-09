@@ -2,6 +2,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
+import { isInside } from '../../constructs/internal/declaring-file.js'
 import { parseStack, type StackFrame } from './sentry-protocol.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -21,7 +22,7 @@ const USER_INPUT_ERROR_CODES = new Set(['ERR_INVALID_URL', 'ERR_INVALID_URL_SCHE
 
 // How deep to look into `cause` for the error a wrapper hides, e.g. the
 // TypeError in `Error loading file '…'`.
-export const MAX_CAUSE_DEPTH = 5
+const MAX_CAUSE_DEPTH = 5
 
 export function realpath (p: string): string {
   try {
@@ -31,14 +32,9 @@ export function realpath (p: string): string {
   }
 }
 
-function isInside (file: string, dir: string): boolean {
-  const relative = path.relative(dir, file)
-  return !!relative && relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative)
-}
-
 /** Whether `file` is one of the CLI's own files, not one of its dependencies. */
 export function isOwnPath (file: string, packageRoot: string): boolean {
-  return isInside(file, packageRoot) && !isInside(file, path.join(packageRoot, 'node_modules'))
+  return isInside(packageRoot, file) && !isInside(path.join(packageRoot, 'node_modules'), file)
 }
 
 /** Whether `err` is of a type a CLI bug throws. Looks only at the error, not at its stack. */
@@ -48,7 +44,8 @@ function isBugType (err: unknown): err is Error {
     && !USER_INPUT_ERROR_CODES.has((err as NodeJS.ErrnoException).code ?? '')
 }
 
-function* errorChain (err: unknown): Generator<Error> {
+/** `err` and its causes, outermost first, at most MAX_CAUSE_DEPTH of them. */
+export function* errorChain (err: unknown): Generator<Error> {
   let current = err
   for (let depth = 0; current instanceof Error && depth < MAX_CAUSE_DEPTH; depth++) {
     yield current
@@ -73,8 +70,8 @@ export function mayBeCliBug (err: unknown): boolean {
 // the filename. The file in the innermost parentheses is the one that ran it.
 const EVAL_ORIGIN = /\(([^()]+):\d+:\d+\)/
 
-/** The file a frame's code is in, as a path. */
-function frameFile (filename: string): string {
+/** The file a frame's code is in, as a path: for an eval, the file that ran it. */
+export function frameFile (filename: string): string {
   const file = filename.startsWith('eval at ') ? EVAL_ORIGIN.exec(filename)?.[1] ?? filename : filename
   try {
     return file.startsWith('file:') ? fileURLToPath(file) : file
@@ -108,11 +105,12 @@ function throwingFile (frames: StackFrame[]): string | undefined {
  * Whether `err` is a bug in the CLI's own code: one of the runtime error types
  * a bug throws, raised in a file of the CLI. A TypeError in a user's check
  * file, which the CLI loads and runs in its own process, is the user's.
+ * `packageRoot` is a real path, as the stack's files are.
  */
 export function isCliBug (err: unknown, packageRoot: string = PACKAGE_ROOT): boolean {
   if (!isBugType(err)) return false
   const file = throwingFile(parseStack(err.stack ?? ''))
-  return !!file && isOwnPath(file, realpath(packageRoot))
+  return !!file && isOwnPath(file, packageRoot)
 }
 
 /**

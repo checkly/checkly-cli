@@ -255,7 +255,6 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       }
       this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
-      this.disableAllTimeouts()
       // Commands print this error and exit without throwing it, so a CLI bug
       // in it is noted here to be reported when the command ends.
       noteCliError(err)

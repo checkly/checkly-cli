@@ -9,6 +9,7 @@ import {
   formatTestSessionsListNavigationHints,
   formatTestSessionsListPaginationInfo,
 } from '../../formatters/test-sessions.js'
+import { noteCliError } from '../../services/error-reporting/report.js'
 
 const statusOptions = ['running', 'failed', 'passed', 'cancelled'] as const
 const providerOptions = ['github', 'vercel', 'api', 'trigger', 'pw_reporter'] as const
@@ -154,6 +155,8 @@ export default class TestSessionsList extends AuthCommand {
       from = parseUnixTimestamp(flags.from, 'from')
       to = parseUnixTimestamp(flags.to, 'to')
     } catch (err: any) {
+      // Printed as a message, so a CLI bug in it is noted for the crash report.
+      noteCliError(err)
       this.error(err.message)
     }
 

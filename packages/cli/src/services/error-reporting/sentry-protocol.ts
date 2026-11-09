@@ -46,6 +46,11 @@ const MAX_LINE_LENGTH = 1024
 // `file:line:column`, or e.g. `<anonymous>`, `native` or `index 0` without one.
 const FRAME_LINE = /^\s*at (?:async )?(?:(.+?)\s+\()?(?:(.+):(\d+):(\d+)?|([^)]+))\)?/
 
+// A frame without a function name: `at /path/file.js:1:2`. Told apart from a
+// named one by not ending in `)`: its path may itself hold ` (`, as in
+// `/Users/ann/My Stuff (old)/x.js`, which FRAME_LINE would read as a name.
+const UNNAMED_FRAME_LINE = /^\s*at (?:async )?(.+):(\d+):(\d+)$/
+
 /** A frame's file as a path: `file:///C:/Ann%20Lee/x.js` is `C:/Ann Lee/x.js`. Other names stay as they are. */
 function framePath (location: string): string {
   if (!location.startsWith('file://')) return location
@@ -67,6 +72,11 @@ function functionName (name: string | undefined): string {
 
 function parseFrame (line: string): StackFrame | undefined {
   if (line.length > MAX_LINE_LENGTH) return undefined
+  const unnamed = UNNAMED_FRAME_LINE.exec(line.trimEnd())
+  if (unnamed) {
+    const [, file, lineno, colno] = unnamed
+    return { filename: framePath(file), function: '?', lineno: Number(lineno), colno: Number(colno) }
+  }
   const match = FRAME_LINE.exec(line)
   if (!match) return undefined
   const [, name, file, lineno, colno, location] = match
