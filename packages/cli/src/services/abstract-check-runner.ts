@@ -90,8 +90,10 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   queue: PQueue
   // Stop waiting for the remaining checks once this many checks have failed.
   readonly maxFailures?: number
-  // Set when the run stopped early; results that arrive afterwards are dropped.
+  // Set when the run stopped at its max failures limit.
   private _maxFailuresReached = false
+  // Set when the run stopped or ended; results that arrive afterwards are dropped.
+  private stopped = false
   // Rejects the run with an error thrown while processing a result, e.g. by a
   // reporter. Nothing awaits the queued tasks, so without it such an error
   // would end the process as an unhandled rejection.
@@ -162,7 +164,16 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       }
 
       const processingFailed = new Promise<never>((_, reject) => {
-        this.failProcessing = reject
+        this.failProcessing = err => {
+          if (this.stopped) {
+            // Nothing awaits the run any more, so the command never prints
+            // this error; note it so a CLI bug in it is still reported.
+            noteCliError(err)
+            return
+          }
+          this.stop()
+          reject(err)
+        }
       })
       // Observed by the race below; keeps a failure before it from becoming an unhandled rejection.
       processingFailed.catch(() => {})
@@ -250,6 +261,9 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       noteCliError(err)
       this.emit(Events.ERROR, err)
     } finally {
+      // Also clears the scheduling-delay timer, which would otherwise keep
+      // the process alive and fire after the run has finished.
+      this.stop()
       // Stop any in-flight scheduling long-poll so it doesn't hold the
       // process open after the run has settled.
       schedulingWatchAbort.abort()
@@ -359,7 +373,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           await this.processCheckResult(result)
           links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
         } catch (err: any) {
-          if (this._maxFailuresReached) {
+          if (this.stopped) {
             // The run stopped while this result was being fetched.
             return
           }
@@ -371,7 +385,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           this.emit(Events.CHECK_FINISHED, check)
           return
         }
-        if (this._maxFailuresReached) {
+        if (this.stopped) {
           // The run stopped while this result was being fetched.
           return
         }
@@ -467,8 +481,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           return
         }
         this._maxFailuresReached = true
-        this.disableAllTimeouts()
-        this.queue.clear()
+        this.stop()
         resolve()
       })
     })
@@ -521,6 +534,13 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage, { timedOut: true })
       this.emit(Events.CHECK_FINISHED, check)
     }), checkTimeout * 1000))
+  }
+
+  /** Drops every pending timer and queued result: nothing more is reported. */
+  private stop () {
+    this.stopped = true
+    this.disableAllTimeouts()
+    this.queue.clear()
   }
 
   private disableAllTimeouts () {

@@ -109,6 +109,33 @@ describe('config', () => {
     })
   })
 
+  describe('getCredentialValues', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      vi.restoreAllMocks()
+    })
+
+    it('lists the pinned variables and what the run read from the stores, without opening a store', async () => {
+      vi.resetModules()
+      const { default: fresh } = await import('../config.js')
+      const { default: FreshConf } = await import('conf')
+      const stored: Record<string, string> = { apiKey: 'cak_login', accountId: 'acc-1', accountName: 'Acme Corp' }
+      vi.mocked(FreshConf).mockImplementation(function () {
+        return { get: (key: string) => stored[key] }
+      } as any)
+      vi.stubEnv('CHECKLY_API_KEY', 'cu_env')
+      vi.stubEnv('CHECKLY_ACCOUNT_ID', 'acc-env')
+      fresh.pinEnvironment()
+
+      expect(fresh.getCredentialValues()).toEqual(['cu_env', 'acc-env'])
+      // Opening a store creates its file.
+      expect(FreshConf).not.toHaveBeenCalled()
+
+      expect(fresh.hasStoredLogin()).toBe(true)
+      expect(fresh.getCredentialValues()).toEqual(['cu_env', 'acc-env', 'cak_login', 'acc-1', 'Acme Corp'])
+    })
+  })
+
   describe('pinEnvironment', () => {
     // A fresh module per test, so a pin never leaks into other tests.
     async function freshConfig (store: { apiKey?: string, accountId?: string } = {}) {

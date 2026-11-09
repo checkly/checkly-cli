@@ -98,7 +98,7 @@ export default class Destroy extends AuthCommand {
     } catch (err: any) {
       this.style.actionFailure()
       if (err instanceof ProjectDeployCancelledError) {
-        this.style.longError('Your project could not be destroyed.', err)
+        this.style.longError('Your project could not be destroyed.', err.message)
       } else if (err instanceof ConflictError) {
         // deleteProject waits-and-retries behind an in-progress operation, so a
         // 409 only reaches here once that wait exceeded its deadline.

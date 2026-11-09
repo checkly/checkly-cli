@@ -52,7 +52,8 @@ function framePath (location: string): string {
   let file = location.slice('file://'.length)
   if (/^\/[A-Za-z]:/.test(file)) file = file.slice(1)
   try {
-    return decodeURI(file)
+    // Not decodeURI, which leaves `%23` and `%3F` for `#` and `?` encoded.
+    return decodeURIComponent(file)
   } catch {
     return file
   }

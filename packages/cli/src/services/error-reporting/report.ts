@@ -6,6 +6,7 @@ import Debug from 'debug'
 import { assignProxy } from '../proxy.js'
 import { isEnvFlagSet } from '../../helpers/cli-mode.js'
 import { isDevelopmentBuild } from '../project-cli.js'
+import config from '../config.js'
 import { findCliBug, mayBeCliBug, PACKAGE_ROOT } from './classify.js'
 import { buildErrorEvent, type ErrorReportContext } from './event.js'
 import { envelopeEndpoint, serializeEventEnvelope } from './sentry-protocol.js'
@@ -30,12 +31,15 @@ export interface ErrorReportOptions {
   /** The CLI's install directory; frames inside it are the CLI's own code. */
   packageRoot?: string
   env?: NodeJS.ProcessEnv
+  /** Values to remove from the report. Defaults to the credentials and account the CLI holds. */
+  secrets?: string[]
 }
 
 interface Target {
   dsn: string
   packageRoot: string
   env: NodeJS.ProcessEnv
+  secrets: string[]
 }
 
 let reported = false
@@ -61,14 +65,21 @@ function reportTarget (version: string, options: ErrorReportOptions): Target | u
   const env = options.env ?? process.env
   if (reported || isDevelopmentBuild(version) || isErrorReportingDisabled(env)) return undefined
   const dsn = options.dsn ?? readReleaseDsn(options.dsnFile ?? DSN_FILE)
-  return dsn ? { dsn, env, packageRoot: options.packageRoot ?? PACKAGE_ROOT } : undefined
+  if (!dsn) return undefined
+  return {
+    dsn,
+    env,
+    packageRoot: options.packageRoot ?? PACKAGE_ROOT,
+    secrets: options.secrets ?? config.getCredentialValues(),
+  }
 }
 
-async function send (bug: Error, context: ErrorReportContext, { dsn, packageRoot, env }: Target): Promise<void> {
+async function send (bug: Error, context: ErrorReportContext, target: Target): Promise<void> {
+  const { dsn, packageRoot, env, secrets } = target
   reported = true
   const url = envelopeEndpoint(dsn)
   if (!url) return
-  const event = buildErrorEvent(bug, context, { packageRoot, env })
+  const event = buildErrorEvent(bug, context, { packageRoot, env, secrets })
   const envelope = serializeEventEnvelope(event, { name: 'checkly-cli', version: context.version })
   const { status } = await axios.post(url, envelope, assignProxy(url, {
     headers: { 'Content-Type': 'application/x-sentry-envelope' },
