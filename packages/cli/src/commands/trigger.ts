@@ -22,7 +22,9 @@ import { printLnErr } from '../reporters/util.js'
 import { NoMatchingChecksError, TestResultsShortLinks } from '../rest/test-sessions.js'
 import { Session, RetryStrategyBuilder } from '../constructs/index.js'
 import { DEFAULT_REGION } from '../helpers/constants.js'
-import { prepareMaxFailures, prepareReportersTypes, validateDetachReporterTypes } from '../helpers/test-helper.js'
+import {
+  prepareMaxFailures, prepareReportersTypes, rejectRetiredRunLocation, validateDetachReporterTypes,
+} from '../helpers/test-helper.js'
 import { cancelTestSessionBestEffort, registerTestSessionCancelHandler } from '../services/test-session-cancel.js'
 
 const MAX_RETRIES = 3
@@ -251,6 +253,7 @@ export default class Trigger extends AuthCommand {
   ): Promise<RunLocation> {
     // Command line options take precedence
     if (cliFlags.runLocation) {
+      rejectRetiredRunLocation(cliFlags.runLocation, 'flag')
       const { data: availableLocations } = await api.locations.getAll()
       if (availableLocations.some(l => l.region === cliFlags.runLocation)) {
         return { type: 'PUBLIC', region: cliFlags.runLocation }
@@ -264,6 +267,7 @@ export default class Trigger extends AuthCommand {
         + ` Please only specify one run location. The configured locations were' +
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
     } else if (configOptions.runLocation) {
+      rejectRetiredRunLocation(configOptions.runLocation, 'config')
       return { type: 'PUBLIC', region: configOptions.runLocation }
     } else if (configOptions.privateRunLocation) {
       return this.preparePrivateRunLocation(configOptions.privateRunLocation)
