@@ -137,6 +137,26 @@ class ChecklyConfig {
     return id ? { id, name: this.data.get<string>('accountName') as string || id } : undefined
   }
 
+  /**
+   * The credentials and account details this run has read: the pinned
+   * variables and what `checkly login` stored. For removing them from crash
+   * reports. Never opens a store the run has not opened, which would create
+   * its file.
+   */
+  getCredentialValues (): string[] {
+    const values = [this.pinnedEnv?.CHECKLY_API_KEY, this.pinnedEnv?.CHECKLY_ACCOUNT_ID]
+    try {
+      values.push(
+        this._auth?.get('apiKey') as string | undefined,
+        this._data?.get('accountId') as string | undefined,
+        this._data?.get('accountName') as string | undefined,
+      )
+    } catch {
+      // An unreadable store holds nothing to remove.
+    }
+    return values.filter((value): value is string => typeof value === 'string' && value !== '')
+  }
+
   /** Whether `checkly login` stored both a key and a default account. */
   hasStoredLogin (): boolean {
     return Boolean(this.auth.get<string>('apiKey')) && this.getStoredAccountId() !== ''

@@ -27,6 +27,11 @@ describe('parseStack', () => {
     expect(windows).toMatchObject({ filename: 'C:/Users/Ann Lee/cli/dist/x.js', function: 'Deploy._run' })
   })
 
+  it('decodes every character a file URL encodes, also # and ?', () => {
+    const [frame] = parseStack('    at run (file:///Users/ann/C%23/a%3Fb/node_modules/checkly/dist/x.js:1:2)')
+    expect(frame.filename).toBe('/Users/ann/C#/a?b/node_modules/checkly/dist/x.js')
+  })
+
   it('keeps native Windows paths as they are', () => {
     expect(parseStack('    at run (C:\\Users\\Ann Lee\\cli\\dist\\y.js:5:6)')).toEqual([
       { filename: 'C:\\Users\\Ann Lee\\cli\\dist\\y.js', function: 'run', lineno: 5, colno: 6 },

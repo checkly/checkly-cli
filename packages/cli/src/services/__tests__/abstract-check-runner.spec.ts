@@ -632,6 +632,80 @@ describe('AbstractCheckRunner — timeout racing an in-flight result', () => {
     expect(errors[0]).toBeInstanceOf(SyntaxError)
   })
 
+  it('stops the run when a listener throws, so a result being fetched is not reported after the error', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    record(runner)
+    const reporterBug = new TypeError('Cannot read properties of undefined')
+    runner.on(Events.CHECK_FAILED, () => {
+      throw reporterBug
+    })
+    const errors: unknown[] = []
+    runner.on(Events.ERROR, err => errors.push(err))
+    let resolveLogs!: (value: unknown) => void
+    vi.mocked(assets.getLogs).mockReturnValue(new Promise(resolve => {
+      resolveLogs = resolve
+    }) as any)
+
+    const run = runner.run()
+    await flush()
+    messageHandler!(topic('seq-api', 'run-start'), JSON.stringify({}))
+    // The Playwright check's result waits on its logs while the API check times out.
+    messageHandler!(resultTopic('seq-pw'), JSON.stringify({
+      result: { hasFailures: true, assets: { logs: 'logs.json' } },
+      testResultId: 'tr-1',
+      resultType: 'FINAL',
+    }))
+    await flush()
+    expect(assets.getLogs).toHaveBeenCalledTimes(1)
+
+    await vi.advanceTimersByTimeAsync(DEFAULT_CHECK_RUN_TIMEOUT_SECONDS * 1000)
+    await run
+    resolveLogs([])
+    await flush()
+
+    expect(errors).toEqual([reporterBug])
+    expect(events).toEqual([`${Events.CHECK_FAILED}:seq-api`])
+  })
+
+  it('notes an error raised after the run ended, which nothing prints', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    const errors: unknown[] = []
+    runner.on(Events.ERROR, err => errors.push(err))
+
+    const run = runner.run()
+    await flush()
+    messageHandler!(topic('seq-api', 'error'), JSON.stringify({}))
+    messageHandler!(topic('seq-pw', 'error'), JSON.stringify({}))
+    await flush()
+    await run
+    expect(noteCliError).not.toHaveBeenCalled()
+
+    messageHandler!(resultTopic('seq-api'), '{not json')
+    await flush()
+
+    expect(errors).toEqual([])
+    expect(noteCliError).toHaveBeenCalledWith(expect.any(SyntaxError))
+  })
+
+  it('clears the scheduling-delay timer when the run finishes before every check started', async () => {
+    const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
+    let delayExceeded = 0
+    runner.on(Events.MAX_SCHEDULING_DELAY_EXCEEDED, () => delayExceeded++)
+
+    const run = runner.run()
+    await flush()
+    // Neither check sends run-start, so the scheduling-delay timer is still armed.
+    messageHandler!(topic('seq-api', 'error'), JSON.stringify({}))
+    messageHandler!(topic('seq-pw', 'error'), JSON.stringify({}))
+    await flush()
+    await run
+
+    // A timer left armed would keep the process alive after the run.
+    expect(vi.getTimerCount()).toBe(0)
+    await vi.advanceTimersByTimeAsync(20_000)
+    expect(delayExceeded).toBe(0)
+  })
+
   it('restarts the timeout before fetching an ATTEMPT result, so a fetch near the deadline does not time out', async () => {
     const runner = new TwoCheckRunner('acc-1', DEFAULT_CHECK_RUN_TIMEOUT_SECONDS, false)
     record(runner)

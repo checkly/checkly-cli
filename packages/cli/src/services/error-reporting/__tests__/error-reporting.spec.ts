@@ -14,7 +14,8 @@ import {
   resetErrorReporting,
   type ErrorReportOptions,
 } from '../report.js'
-import { scrubMessage } from '../scrub.js'
+import { scrubFrame, scrubMessage } from '../scrub.js'
+import { parseStack } from '../sentry-protocol.js'
 
 const KEY = 'a'.repeat(72)
 
@@ -229,6 +230,53 @@ describe('scrubMessage', () => {
     expect(scrubMessage('secret: "unterminated', {}, posix)).toBe('secret: "<redacted>')
   })
 
+  it('removes a password in any URL of a word, not only in the first', () => {
+    expect(scrubMessage('proxies: http://a.com,http://user:pw@b.com', {}, posix))
+      .toBe('proxies: http://a.com,http://<redacted>@b.com')
+    expect(scrubMessage('redirect https://x.com/?next=http://user:secretpw@host', {}, posix))
+      .toBe('redirect https://x.com/?next=http://<redacted>@host')
+  })
+
+  it('keeps the host of a URL with a password, and the punctuation after it', () => {
+    expect(scrubMessage('Could not connect to proxy (http://user:pass@proxy:8080).', {}, posix))
+      .toBe('Could not connect to proxy (http://<redacted>@proxy:8080).')
+    expect(scrubMessage('[http://user:pass@proxy:8080], retrying', {}, posix))
+      .toBe('[http://<redacted>@proxy:8080], retrying')
+  })
+
+  it('removes the credentials and account the CLI holds, e.g. from `checkly login`', () => {
+    const accountId = '2ae3bcc8-1111-2222-3333-444455556666'
+    expect(scrubMessage(`GET /v1/accounts/${accountId}/checks failed`, {}, { ...posix, secrets: [accountId] }))
+      .not.toContain(accountId)
+    expect(scrubMessage(`account ${accountId} failed`, {}, { ...posix, secrets: [accountId] }))
+      .toBe('account <redacted> failed')
+  })
+
+  it('removes a path with a space in a directory name outside the project and home', () => {
+    expect(scrubMessage('see /Users/Ann Lee/proj/x.ts now', {}, posix)).toBe('see <path> now')
+    expect(scrubMessage('see C:\\Users\\Ann Lee\\proj\\x.ts now', {}, posix)).toBe('see <path> now')
+    expect(scrubMessage('in /home/ann/acme/my checks/a.ts now', {}, posix)).toBe('in <project file> now')
+  })
+
+  it('leaves words with a colon alone when the working directory is a drive root', () => {
+    const options = { cwd: 'C:\\', home: 'C:\\Users\\ann', packageRoot: 'C:\\p', platform: 'win32' as const }
+    expect(scrubMessage('Topic: x ABC: y C:\\work\\a.ts', {}, options)).toBe('Topic: x ABC: y <path>')
+  })
+
+  it('scrubs a long message quickly, cut at a space so no secret is cut in half', () => {
+    const posixOptions = posix
+    for (const word of ['a', 'a.', 'a-', 'x://', 'tok']) {
+      const start = performance.now()
+      scrubMessage(word.repeat(200_000), {}, posixOptions)
+      // Unbounded, some of these took seconds.
+      expect(performance.now() - start).toBeLessThan(1000)
+    }
+    const long = `${'word '.repeat(1630)}http://bob:secret@proxy:3128 ${'x'.repeat(100)}`
+    const scrubbed = scrubMessage(long, {}, posixOptions)
+    expect(scrubbed).toMatch(/http:\/\/<redacted>@proxy:3128 <truncated>$/)
+    expect(scrubbed).not.toContain('secret')
+  })
+
   it('removes whole paths only, so a short working directory leaves other text alone', () => {
     const scrubbed = scrubMessage('Cannot read \'/app/__checks__/acme.check.ts\' as application/json from /app.', {}, {
       cwd: '/app',
@@ -250,7 +298,8 @@ describe('scrubMessage', () => {
 
     expect(scrubbed).toBe([
       'Cannot find module \'checkly/dist/commands/deploy.js\'',
-      'no config in <path> Tried <path> <path> and <path>',
+      // A word with a separator after a path may be part of it, `/Users/Ann Lee/x`: it is removed with it.
+      'no config in <path> Tried <path> and <path>',
       'GET https://api.checklyhq.com/v1/checks failed',
     ].join('\n'))
   })
@@ -315,6 +364,22 @@ describe('buildErrorEvent', () => {
   })
 })
 
+describe('scrubFrame', () => {
+  const frames = (stack: string) => parseStack(stack).map(frame => scrubFrame(frame, '/opt/checkly', new Set()))
+
+  it('does not name the class a method was called on, which may be a user\'s subclass', () => {
+    expect(frames('    at AcmeBillingInternalCheck.synthesize (/opt/checkly/dist/constructs/api-check.js:1:2)'))
+      .toEqual([{ filename: 'checkly/dist/constructs/api-check.js', function: 'synthesize', lineno: 1, colno: 2, in_app: true }])
+  })
+
+  it('keeps built-ins as built-ins, not as a user\'s file', () => {
+    expect(frames('    at Array.map (<anonymous>)\n    at Promise.all (index 0)')).toEqual([
+      { filename: 'index 0', function: 'all', in_app: false },
+      { filename: '<anonymous>', function: 'map', in_app: false },
+    ])
+  })
+})
+
 describe('releaseEnvironment', () => {
   it('tells releases apart by version', () => {
     expect(releaseEnvironment('7.1.0')).toBe('production')
@@ -333,6 +398,19 @@ describe('isErrorReportingDisabled', () => {
 })
 
 describe('reportNotedCliError', () => {
+  it('removes the credentials and account the CLI holds from what it sends', async () => {
+    const accountId = '2ae3bcc8-1111-2222-3333-444455556666'
+    const bug = new TypeError(`no checks in account ${accountId}`)
+    bug.stack = `TypeError: ${bug.message}\n    at run (${path.join(installDir, 'dist', 'x.js')}:1:2)`
+    await withIngest(async (dsn, received) => {
+      await report(bug, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {}, secrets: [accountId] })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].body).toContain('no checks in account <redacted>')
+      expect(received[0].body).not.toContain(accountId)
+    })
+  })
+
   it('sends one envelope with the error to the DSN\'s project', async () => {
     await withIngest(async (dsn, received) => {
       await report(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })

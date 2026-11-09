@@ -97,6 +97,12 @@ jobs:
         env:
           DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
         run: |
+          # The CLI ignores a DSN it cannot read, e.g. one ending in a slash,
+          # and would then report nothing.
+          if ! [[ "$DSN" =~ ^https?://[^/@]+@[^/]+(/[^/]+)*/[0-9]+$ ]]; then
+            echo "::error::CHECKLY_CLI_ERROR_DSN is not a DSN of the form https://<key>@<host>/<project id>"
+            exit 1
+          fi
           jq -n --arg dsn "$DSN" '{dsn: $dsn}' > error-reporting.json
         working-directory: packages/cli
       - name: Set version and publish prerelease for 'cli' package
@@ -183,6 +189,12 @@ jobs:
         env:
           DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
         run: |
+          # The CLI ignores a DSN it cannot read, e.g. one ending in a slash,
+          # and would then report nothing.
+          if ! [[ "$DSN" =~ ^https?://[^/@]+@[^/]+(/[^/]+)*/[0-9]+$ ]]; then
+            echo "::error::CHECKLY_CLI_ERROR_DSN is not a DSN of the form https://<key>@<host>/<project id>"
+            exit 1
+          fi
           jq -n --arg dsn "$DSN" '{dsn: $dsn}' > error-reporting.json
         working-directory: packages/cli
       - name: Set version and publish 'cli' package

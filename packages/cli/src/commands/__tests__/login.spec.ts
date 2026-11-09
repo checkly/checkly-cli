@@ -62,6 +62,10 @@ vi.mock('../../auth/api-key', () => ({ credentialsFromTokens: vi.fn() }))
 vi.mock('../../auth/index', () => ({ AuthContext: vi.fn() }))
 vi.mock('../../services/check-parser/package-files/package-manager', () => ({ detectPackageManager: vi.fn() }))
 vi.mock('../../services/checkly-config-loader', () => ({ getChecklyConfigFile: vi.fn() }))
+vi.mock('../../services/error-reporting/report', async importOriginal => ({
+  ...await importOriginal<typeof import('../../services/error-reporting/report.js')>(),
+  noteCliError: vi.fn(),
+}))
 
 import open from 'open'
 import { ux } from '@oclif/core'
@@ -77,6 +81,7 @@ import {
 } from '../../rest/errors.js'
 import { detectPackageManager } from '../../services/check-parser/package-files/package-manager.js'
 import { getChecklyConfigFile } from '../../services/checkly-config-loader.js'
+import { noteCliError } from '../../services/error-reporting/report.js'
 import Login from '../login.js'
 
 const mockConfig = {
@@ -363,6 +368,17 @@ describe('checkly login', () => {
       await expect(cmd.run()).rejects.toThrow('EXIT_1')
 
       expect(jsonLines(cmd)).toEqual([{ status: 'error', reason: 'access_denied', message: 'Blocked by policy' }])
+    })
+
+    it('notes an unexpected error it prints, so a CLI bug in it is reported', async () => {
+      storePendingCode({ approved: false })
+      const bug = new TypeError('Cannot read properties of undefined (reading \'token\')')
+      deviceFlow.pollOnce.mockRejectedValue(bug)
+      const cmd = createCommand()
+      await expect(cmd.run()).rejects.toThrow('EXIT_1')
+
+      expect(jsonLines(cmd).at(-1)).toMatchObject({ status: 'error' })
+      expect(noteCliError).toHaveBeenCalledWith(bug)
     })
 
     it('continues with the key another run stored with the same code', async () => {
