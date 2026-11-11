@@ -35,6 +35,25 @@ export interface ScrubOptions {
   cwd?: string
   home?: string
   packageRoot?: string
+  platform?: NodeJS.Platform
+}
+
+function escapeRegExp (text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+/**
+ * Replaces `dir` where it is a whole path segment: a working directory `/app`
+ * leaves `/application/json` alone. On Windows also with forward slashes, as in
+ * `C:/Users/ann` and file URLs, and in any case.
+ */
+function replaceDir (message: string, dir: string, replacement: string, platform: NodeJS.Platform): string {
+  const trimmed = dir.replace(/[\\/]+$/, '')
+  // A root, `/` or `C:\`, would match every path.
+  if (trimmed.replace(/:$/, '').length < 2) return message
+  const spellings = platform === 'win32' ? [trimmed, trimmed.replace(/\\/g, '/')] : [trimmed]
+  const pattern = new RegExp(`(?:${spellings.map(escapeRegExp).join('|')})(?![\\w-])`, platform === 'win32' ? 'gi' : 'g')
+  return message.replace(pattern, replacement)
 }
 
 /**
@@ -43,18 +62,23 @@ export interface ScrubOptions {
  */
 export function scrubMessage (
   message: string,
-  { cwd = process.cwd(), home = os.homedir(), packageRoot = PACKAGE_ROOT }: ScrubOptions = {},
+  {
+    cwd = process.cwd(),
+    home = os.homedir(),
+    packageRoot = PACKAGE_ROOT,
+    platform = process.platform,
+  }: ScrubOptions = {},
 ): string {
   let scrubbed = message
     // Checkly user (cu_) and service (sv_) API keys.
     .replace(/\b(?:cu|sv)_[A-Za-z0-9]{8,}\b/g, '<api key>')
     .replace(/\b(Bearer|Basic)\s+\S+/gi, '$1 <redacted>')
-    .replace(/\b(\w+:\/\/)[^\s/@]+@/g, '$1<redacted>@')
+    // Up to the last `@` before the host: a password may hold one.
+    .replace(/\b(\w+:\/\/)[^\s/]+@/g, '$1<redacted>@')
   // The CLI first: it may be installed in the project or the home directory,
   // and the project is usually inside the home directory.
   for (const [dir, replacement] of [[packageRoot, 'checkly'], [cwd, '<project>'], [home, '~']]) {
-    // A root, `/` or `C:\`, would match every path.
-    if (dir.replace(/[\\/:]+$/, '').length > 1) scrubbed = scrubbed.split(dir).join(replacement)
+    scrubbed = replaceDir(scrubbed, dir, replacement, platform)
   }
   return scrubbed
 }

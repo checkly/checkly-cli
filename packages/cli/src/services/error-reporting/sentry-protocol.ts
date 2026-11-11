@@ -51,10 +51,15 @@ const FRAME_LINE = /^\s*at (?:async )?(?:(.+?)\s+\()?(?:(.+):(\d+):(\d+)?|([^)]+
 // `/Users/ann/My Stuff (old)/x.js`, which FRAME_LINE would read as a name.
 const UNNAMED_FRAME_LINE = /^\s*at (?:async )?(.+):(\d+):(\d+)$/
 
-/** A frame's file as a path: `file:///C:/Ann%20Lee/x.js` is `C:/Ann Lee/x.js`. Other names stay as they are. */
+/**
+ * A frame's file as a path: `file:///C:/Ann%20Lee/x.js` is `C:/Ann Lee/x.js`,
+ * and `file://server/share/x.js` on a network share is `//server/share/x.js`.
+ * Other names stay as they are.
+ */
 function framePath (location: string): string {
   if (!location.startsWith('file://')) return location
-  let file = location.slice('file://'.length)
+  // `file:///path` has an empty host; `file://server/path` keeps `//server`.
+  let file = location.startsWith('file:///') ? location.slice('file://'.length) : location.slice('file:'.length)
   if (/^\/[A-Za-z]:/.test(file)) file = file.slice(1)
   try {
     // Not decodeURI, which leaves `%23` and `%3F` for `#` and `?` encoded.

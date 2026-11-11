@@ -19,8 +19,9 @@ const DSN_FILE = path.join(PACKAGE_ROOT, 'error-reporting.json')
 // One small POST; the error is printed after it, so the user waits this long at most.
 const SEND_TIMEOUT_MS = 1500
 
-// Enough to get past the ordinary errors a command prints before its bug.
-const MAX_NOTED_ERRORS = 5
+// Bounds what a run holds on to. Errors of the bug types that are not CLI bugs
+// (a user's check, a dependency) count too, so this is far above what one run notes.
+const MAX_NOTED_ERRORS = 50
 
 export interface ErrorReportOptions {
   /** The DSN to report to. Defaults to the one in `dsnFile`. */
@@ -101,9 +102,10 @@ export function noteCliError (err: unknown, { handled = true }: { handled?: bool
 }
 
 /**
- * Sends the first noted error that is a CLI bug, if any. Reports at most one
- * error per run, waits at most a few seconds, and never throws: a failed
- * report must not change how the command fails.
+ * Sends one noted CLI bug, if any: the first one that ended the command, else
+ * the first one a command printed. Reports at most one error per run, waits at
+ * most a few seconds, and never throws: a failed report must not change how
+ * the command fails.
  */
 export async function reportNotedCliError (
   context: () => Omit<ErrorReportContext, 'handled'>,
@@ -114,10 +116,12 @@ export async function reportNotedCliError (
     const base = context()
     const target = reportTarget(base.version, options)
     if (!target) return
-    for (const { error, handled, at } of noted) {
+    const bugs = noted.flatMap(({ error, handled, at }) => {
       const bug = findCliBug(error, target.packageRoot)
-      if (bug) return await send(bug, at, { ...base, handled }, target)
-    }
+      return bug ? [{ bug, handled, at }] : []
+    })
+    const chosen = bugs.find(({ handled }) => !handled) ?? bugs[0]
+    if (chosen) await send(chosen.bug, chosen.at, { ...base, handled: chosen.handled }, target)
   } catch (reportError) {
     debug('Could not report the error: %O', reportError)
   }

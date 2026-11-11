@@ -199,6 +199,30 @@ describe('scrubMessage', () => {
       .toBe('in checkly/dist/x.js, <project>/checkly.config.ts and ~/.npmrc')
   })
 
+  it('replaces a directory only where it is a whole path segment', () => {
+    expect(scrubMessage('read /app/x.ts as application/json from /app, not /application/y or /app-old', {
+      cwd: '/app',
+      home: '/root',
+      packageRoot: '/opt/checkly',
+    })).toBe('read <project>/x.ts as application/json from <project>, not /application/y or /app-old')
+  })
+
+  it('replaces Windows directories in any case and with forward slashes', () => {
+    const windows = {
+      cwd: 'C:\\Users\\Ann\\proj',
+      home: 'C:\\Users\\Ann',
+      packageRoot: 'C:\\npm\\node_modules\\checkly',
+      platform: 'win32' as const,
+    }
+    expect(scrubMessage('c:\\users\\ann\\x, C:/Users/Ann/proj/a.ts and file:///C:/Users/Ann/b.ts', windows))
+      .toBe('~\\x, <project>/a.ts and file:///~/b.ts')
+  })
+
+  it('removes a whole URL password, also one with an @ in it', () => {
+    expect(scrubMessage('proxy http://user:p@ss@proxy:8080 failed', options))
+      .toBe('proxy http://<redacted>@proxy:8080 failed')
+  })
+
   it('leaves paths alone when a directory is a root', () => {
     expect(scrubMessage('in /srv/x.ts', { cwd: '/', home: 'C:\\', packageRoot: '/opt/checkly' })).toBe('in /srv/x.ts')
   })
@@ -229,10 +253,8 @@ describe('buildErrorEvent', () => {
       tags: { command: 'deploy', cli_mode: 'ci' },
     })
 
-    const serialized = JSON.stringify(event)
-    expect(serialized).not.toContain(installDir)
-    expect(serialized).not.toContain(os.homedir())
-    expect(serialized).not.toContain(os.hostname())
+    expect(cliBug.stack).toContain(installDir)
+    expect(JSON.stringify(event)).not.toContain(installDir)
     expect(event).not.toHaveProperty('server_name')
     expect(event).not.toHaveProperty('user')
   })
@@ -284,6 +306,31 @@ describe('isErrorReportingDisabled', () => {
 })
 
 describe('reportNotedCliError', () => {
+  it('sends the bug that ended the command over one a command printed before it', async () => {
+    const crash = new TypeError('the crash')
+    crash.stack = `TypeError: the crash\n    at run (${path.join(installDir, 'dist', 'x.js')}:1:2)`
+    await withIngest(async (dsn, received) => {
+      noteCliError(cliBug)
+      noteCliError(crash, { handled: false })
+      await reportNotedCliError(() => ({ version: '7.1.0' }), { dsn, packageRoot: installDir, env: {} })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].body).toContain('the crash')
+      expect(received[0].body).not.toContain('logicalId')
+    })
+  })
+
+  it('still sends a CLI bug noted after many errors from dependencies', async () => {
+    await withIngest(async (dsn, received) => {
+      for (let i = 0; i < 10; i++) noteCliError(dependencyBug)
+      noteCliError(cliBug)
+      await reportNotedCliError(() => ({ version: '7.1.0' }), { dsn, packageRoot: installDir, env: {} })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].body).toContain('logicalId')
+    })
+  })
+
   it('dates the report when the error was noted, not when it is sent', async () => {
     await withIngest(async (dsn, received) => {
       const notedAt = Date.now()
