@@ -125,15 +125,12 @@ A report contains:
 
 - the error type, its message and the stack trace; paths in the CLI's own files are shortened to the file inside the
   CLI (for example `checkly/dist/commands/deploy.js`), paths in any installed package, including your own packages,
-  start at `node_modules/`, and every other path in the stack trace is replaced with a placeholder. In the message,
-  the CLI's folder, your project folder and your home folder are replaced with placeholders
+  start at `node_modules/`, and every other path in the stack trace is replaced with a placeholder
 - the CLI version, the command name (for example `deploy`), and whether the CLI runs in a terminal, in CI or for an
   AI agent
 - your operating system, CPU architecture and Node.js version
 
-The CLI removes Checkly API keys, `Bearer` and `Basic` tokens and passwords in URLs from the message, and replaces
-your project and home folders.
-
+  start at `node_modules/`, and every other path in the stack trace is replaced with a placeholder
 To turn error reporting off, set either environment variable:
 
 ```bash
