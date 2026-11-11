@@ -23,7 +23,6 @@ let installDir: string
 let cliBug: Error
 let dependencyBug: Error
 let invalidUrl: Error
-let privatePackageBug: Error
 
 async function errorThrownIn (file: string, code: string): Promise<Error> {
   await fs.mkdir(path.dirname(file), { recursive: true })
@@ -76,10 +75,6 @@ beforeAll(async () => {
   )
   dependencyBug = await errorThrownIn(
     path.join(installDir, 'node_modules', 'some-dep', 'index.mjs'),
-    'null.x',
-  )
-  privatePackageBug = await errorThrownIn(
-    path.join(installDir, 'node_modules', '@acme-internal', 'billing', 'index.mjs'),
     'null.x',
   )
   invalidUrl = await errorThrownIn(
@@ -180,176 +175,41 @@ describe('findCliBug', () => {
 })
 
 describe('scrubMessage', () => {
-  const posix = { cwd: '/home/ann/acme', home: '/home/ann', packageRoot: '/opt/checkly', platform: 'linux' as const }
+  const options = { cwd: '/home/ann/acme', home: '/home/ann', packageRoot: '/opt/checkly' }
 
-  it('removes credentials and paths that name the user', () => {
-    const env = { CHECKLY_API_KEY: 'my-secret-api-key-value' }
+  it('removes Checkly API keys, auth headers and URL passwords', () => {
     const message = [
-      'key cu_0123456789abcdef0123456789abcdef',
+      'keys cu_0123456789abcdef and sv_0123456789abcdef',
       'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.e30.abc',
-      'https://user:pass@proxy.example.com:8080',
-      'token=abc123',
-      'https://x/cb?access_token=SECRET1 client_secret=SECRET2 accessToken: SECRET3',
-      'env my-secret-api-key-value',
-      `home ${os.homedir()}/file`,
-      `cwd ${process.cwd()}/checkly.config.ts`,
+      'via http://bob:secret@proxy:8080 failed',
+      'GET https://api.checklyhq.com:443/v1/checks failed',
     ].join('\n')
 
-    const scrubbed = scrubMessage(message, env, { packageRoot: installDir })
-
-    expect(scrubbed).not.toContain('cu_0123')
-    expect(scrubbed).not.toContain('eyJhbGci')
-    expect(scrubbed).not.toContain('user:pass')
-    expect(scrubbed).not.toContain('abc123')
-    expect(scrubbed).not.toMatch(/SECRET[123]/)
-    expect(scrubbed).not.toContain('my-secret-api-key-value')
-    expect(scrubbed).not.toContain(os.homedir())
-    expect(scrubbed).toMatch(/cwd <project file>$/)
-  })
-
-  it('removes whole passwords, also with an @ or, when quoted, a space in them', () => {
-    expect(scrubMessage('via http://bob:p@ss@proxy:3128 failed', {}, posix))
-      .toBe('via http://<redacted>@proxy:3128 failed')
-    // Not a valid URL, so it cannot be told where the password ends: all of it is withheld.
-    expect(scrubMessage('via http://bob:pa/ss@proxy:8080 failed', {}, posix)).toBe('via http://<redacted> failed')
-    expect(scrubMessage('GET https://admin:s3cret@api.example.com/v1/x?y=1 failed', {}, posix))
-      .toBe('GET https://<redacted>@api.example.com failed')
-    for (const char of ['\'', '"', '\x60', '<', '>']) {
-      expect(scrubMessage(`via http://bob:pa${char}ss@proxy:8080 failed`, {}, posix))
-        .toBe('via http://<redacted>@proxy:8080 failed')
-    }
-    // A quote around the URL stays outside it.
-    expect(scrubMessage('connect \'http://bob:pass@proxy:8080\' failed', {}, posix))
-      .toBe('connect \'http://<redacted>@proxy:8080\' failed')
-    // An @ in the path is not a credential.
-    expect(scrubMessage('see https://example.com/users/@ann for more', {}, posix))
-      .toBe('see https://example.com/users/@ann for more')
-    expect(scrubMessage('{"password": "hunter two", "user": "bob"}', {}, posix))
-      .toBe('{"password": "<redacted>", "user": "bob"}')
-    expect(scrubMessage('password=\'hunter two\'', {}, posix)).toBe('password=\'<redacted>\'')
-    expect(scrubMessage('secret: "unterminated', {}, posix)).toBe('secret: "<redacted>')
-  })
-
-  it('removes a password in any URL of a word, not only in the first', () => {
-    expect(scrubMessage('proxies: http://a.com,http://user:pw@b.com', {}, posix))
-      .toBe('proxies: http://a.com,http://<redacted>@b.com')
-    expect(scrubMessage('redirect https://x.com/?next=http://user:secretpw@host', {}, posix))
-      .toBe('redirect https://x.com/?next=http://<redacted>@host')
-  })
-
-  it('keeps the host of a URL with a password, and the punctuation after it', () => {
-    expect(scrubMessage('Could not connect to proxy (http://user:pass@proxy:8080).', {}, posix))
-      .toBe('Could not connect to proxy (http://<redacted>@proxy:8080).')
-    expect(scrubMessage('[http://user:pass@proxy:8080], retrying', {}, posix))
-      .toBe('[http://<redacted>@proxy:8080], retrying')
-  })
-
-  it('removes the credentials and account the CLI holds, e.g. from `checkly login`', () => {
-    const accountId = '2ae3bcc8-1111-2222-3333-444455556666'
-    expect(scrubMessage(`GET /v1/accounts/${accountId}/checks failed`, {}, { ...posix, secrets: [accountId] }))
-      .not.toContain(accountId)
-    expect(scrubMessage(`account ${accountId} failed`, {}, { ...posix, secrets: [accountId] }))
-      .toBe('account <redacted> failed')
-  })
-
-  it('removes the rest of a path a secret was in', () => {
-    expect(scrubMessage('cannot open /srv/builds/acme-corp-prod/checks/billing-secret/x.ts', {}, {
-      ...posix,
-      secrets: ['acme-corp-prod'],
-    })).toBe('cannot open <path><redacted><path>')
-    expect(scrubMessage('cannot open /srv/cu_0123456789abcdef/private/x', {}, posix))
-      .toBe('cannot open <path><api key><path>')
-  })
-
-  it('removes a path right after a colon or a bracket', () => {
-    expect(scrubMessage('config at path:/builds/acme/private-repo/x.ts', {}, posix)).toBe('config at path:<path>')
-    expect(scrubMessage('Cannot read file:/builds/acme/x.ts', {}, posix)).toBe('Cannot read file:<path>')
-    expect(scrubMessage('one;/builds/a\ntwo|/builds/b\n[x]/builds/c', {}, posix))
-      .toBe('one;<path>\ntwo|<path>\n[x]<path>')
-    // A URL is not a path.
-    expect(scrubMessage('GET https://api.checklyhq.com:443/v1/checks failed', {}, posix))
-      .toBe('GET https://api.checklyhq.com:443/v1/checks failed')
-  })
-
-  it('removes Checkly user and service API keys', () => {
-    expect(scrubMessage('keys cu_0123456789abcdef and sv_0123456789abcdef', {}, posix))
-      .toBe('keys <api key> and <api key>')
-  })
-
-  it('handles a word with thousands of URL starts', () => {
-    const message = `${'ab://'.repeat(1600)}@`
-    expect(() => scrubMessage(message, {}, posix)).not.toThrow()
-  })
-
-  it('removes a path with a space in a directory name outside the project and home', () => {
-    expect(scrubMessage('see /Users/Ann Lee/proj/x.ts now', {}, posix)).toBe('see <path> now')
-    expect(scrubMessage('see C:\\Users\\Ann Lee\\proj\\x.ts now', {}, posix)).toBe('see <path> now')
-    expect(scrubMessage('in /home/ann/acme/my checks/a.ts now', {}, posix)).toBe('in <project file> now')
-  })
-
-  it('leaves words with a colon alone when the working directory is a drive root', () => {
-    const options = { cwd: 'C:\\', home: 'C:\\Users\\ann', packageRoot: 'C:\\p', platform: 'win32' as const }
-    expect(scrubMessage('Topic: x ABC: y C:\\work\\a.ts', {}, options)).toBe('Topic: x ABC: y <path>')
-  })
-
-  it('scrubs a long message quickly, cut at a space so no secret is cut in half', () => {
-    const posixOptions = posix
-    for (const word of ['a', 'a.', 'a-', 'x://', 'tok']) {
-      const start = performance.now()
-      scrubMessage(word.repeat(200_000), {}, posixOptions)
-      // The patterns must stay fast on long input: the report delays the CLI's exit.
-      expect(performance.now() - start).toBeLessThan(1000)
-    }
-    const long = `${'word '.repeat(1630)}http://bob:secret@proxy:3128 ${'x'.repeat(100)}`
-    const scrubbed = scrubMessage(long, {}, posixOptions)
-    expect(scrubbed).toMatch(/http:\/\/<redacted>@proxy:3128 <truncated>$/)
-    expect(scrubbed).not.toContain('secret')
-  })
-
-  it('removes whole paths only, so a short working directory leaves other text alone', () => {
-    const scrubbed = scrubMessage('Cannot read \'/app/__checks__/acme.check.ts\' as application/json from /app.', {}, {
-      cwd: '/app',
-      home: '/root',
-      packageRoot: '/usr/lib/node_modules/checkly',
-      platform: 'linux',
-    })
-    expect(scrubbed).toBe('Cannot read \'<project file>\' as application/json from <project file>.')
-  })
-
-  it('names the CLI\'s own files relative to the package, and removes every other absolute path', () => {
-    const message = [
-      'Cannot find module \'/opt/checkly/dist/commands/deploy.js\'',
-      'no config in /builds/acme/repo. Tried /builds/acme/repo/checkly.config.ts, C:\\ci\\x.ts and file:///srv/a.ts',
-      'GET https://api.checklyhq.com/v1/checks failed',
-    ].join('\n')
-
-    const scrubbed = scrubMessage(message, {}, posix)
-
-    expect(scrubbed).toBe([
-      'Cannot find module \'checkly/dist/commands/deploy.js\'',
-      // A word with a separator after a path may be part of it, `/Users/Ann Lee/x`: it is removed with it.
-      'no config in <path> Tried <path> and <path>',
-      'GET https://api.checklyhq.com/v1/checks failed',
+    expect(scrubMessage(message, options)).toBe([
+      'keys <api key> and <api key>',
+      'Authorization: Bearer <redacted>',
+      'via http://<redacted>@proxy:8080 failed',
+      'GET https://api.checklyhq.com:443/v1/checks failed',
     ].join('\n'))
   })
 
-  it('removes Windows paths in any case, with forward slashes, and as file URLs', () => {
-    const options = {
-      cwd: 'C:\\Users\\Ann Lee\\proj',
-      home: 'C:\\Users\\Ann Lee',
-      packageRoot: 'C:\\Program Files\\nodejs\\node_modules\\checkly',
-      platform: 'win32' as const,
+  it('replaces the CLI, project and home directories', () => {
+    const message = 'in /opt/checkly/dist/x.js, /home/ann/acme/checkly.config.ts and /home/ann/.npmrc'
+    expect(scrubMessage(message, options))
+      .toBe('in checkly/dist/x.js, <project>/checkly.config.ts and ~/.npmrc')
+  })
+
+  it('leaves paths alone when a directory is a root', () => {
+    expect(scrubMessage('in /srv/x.ts', { cwd: '/', home: 'C:\\', packageRoot: '/opt/checkly' })).toBe('in /srv/x.ts')
+  })
+
+  it('scrubs a long message quickly', () => {
+    for (const word of ['a', 'a.', 'x://', 'cu_']) {
+      const start = performance.now()
+      scrubMessage(word.repeat(200_000), options)
+      // The report delays the CLI's exit.
+      expect(performance.now() - start).toBeLessThan(1000)
     }
-    const message = [
-      'c:/users/ann lee/proj/checkly.config.ts',
-      'file:///C:/Users/Ann%20Lee/proj/a.check.ts',
-      'C:\\Users\\Ann Lee\\other\\x.ts',
-      'C:\\Program Files\\nodejs\\node_modules\\checkly\\dist\\index.js',
-    ].join('\n')
-
-    const scrubbed = scrubMessage(message, {}, options)
-
-    expect(scrubbed).toBe('<project file>\n<project file>\n<home file>\ncheckly/dist/index.js')
   })
 })
 
@@ -383,23 +243,10 @@ describe('buildErrorEvent', () => {
     const frame = event.exception!.values![0].stacktrace!.frames!.at(-1)!
     expect(frame).toMatchObject({ filename: 'node_modules/some-dep/index.mjs', in_app: false })
   })
-
-  it('does not name a package the CLI does not depend on, which may be a private one of the user\'s', () => {
-    const event = buildErrorEvent(privatePackageBug, { version: '7.1.0' }, { packageRoot: installDir })
-
-    const frame = event.exception!.values![0].stacktrace!.frames!.at(-1)!
-    expect(frame).toEqual({ filename: '<dependency>', function: '<redacted>', in_app: false })
-    expect(JSON.stringify(event)).not.toContain('acme-internal')
-  })
 })
 
 describe('scrubFrame', () => {
-  const frames = (stack: string) => parseStack(stack).map(frame => scrubFrame(frame, '/opt/checkly', new Set()))
-
-  it('does not name the class a method was called on, which may be a user\'s subclass', () => {
-    expect(frames('    at AcmeBillingInternalCheck.synthesize (/opt/checkly/dist/constructs/api-check.js:1:2)'))
-      .toEqual([{ filename: 'checkly/dist/constructs/api-check.js', function: 'synthesize', lineno: 1, colno: 2, in_app: true }])
-  })
+  const frames = (stack: string) => parseStack(stack).map(frame => scrubFrame(frame, '/opt/checkly'))
 
   it('names the CLI\'s file for code it ran through eval, as isCliBug judges it', () => {
     expect(frames('    at eval (eval at load (/opt/checkly/dist/services/loader.js:1:2), <anonymous>:1:1)'))
@@ -408,13 +255,13 @@ describe('scrubFrame', () => {
 
   it('does not name code that has no file, such as a vm script, which may be a user\'s', () => {
     expect(frames('    at acmeSecretHelper (evalmachine.<anonymous>:3:9)'))
-      .toEqual([{ filename: '<project file>', function: '<redacted>', in_app: false }])
+      .toEqual([{ filename: '<project file>', in_app: false }])
   })
 
   it('keeps built-ins as built-ins, not as a user\'s file', () => {
     expect(frames('    at Array.map (<anonymous>)\n    at Promise.all (index 0)')).toEqual([
-      { filename: 'index 0', function: 'all', in_app: false },
-      { filename: '<anonymous>', function: 'map', in_app: false },
+      { filename: 'index 0', function: 'Promise.all', in_app: false },
+      { filename: '<anonymous>', function: 'Array.map', in_app: false },
     ])
   })
 })
@@ -437,19 +284,6 @@ describe('isErrorReportingDisabled', () => {
 })
 
 describe('reportNotedCliError', () => {
-  it('removes the credentials and account the CLI holds from what it sends', async () => {
-    const accountId = '2ae3bcc8-1111-2222-3333-444455556666'
-    const bug = new TypeError(`no checks in account ${accountId}`)
-    bug.stack = `TypeError: ${bug.message}\n    at run (${path.join(installDir, 'dist', 'x.js')}:1:2)`
-    await withIngest(async (dsn, received) => {
-      await report(bug, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {}, secrets: [accountId] })
-
-      expect(received).toHaveLength(1)
-      expect(received[0].body).toContain('no checks in account <redacted>')
-      expect(received[0].body).not.toContain(accountId)
-    })
-  })
-
   it('dates the report when the error was noted, not when it is sent', async () => {
     await withIngest(async (dsn, received) => {
       const notedAt = Date.now()

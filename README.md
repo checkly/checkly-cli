@@ -124,14 +124,16 @@ reported, because the CLI should have caught the mistake.
 A report contains:
 
 - the error type, its message and the stack trace; paths in the CLI's own files are shortened to the file inside the
-  CLI (for example `checkly/dist/commands/deploy.js`), paths in the CLI's dependencies start at `node_modules/`, and
-  every other path is replaced with a placeholder
+  CLI (for example `checkly/dist/commands/deploy.js`), paths in dependencies start at `node_modules/`, and every other
+  path in the stack trace is replaced with a placeholder. In the message, the CLI's folder, your project folder and
+  your home folder are replaced with placeholders
 - the CLI version, the command name (for example `deploy`), and whether the CLI runs in a terminal, in CI or for an
   AI agent
 - your operating system, CPU architecture and Node.js version
 
 A report never contains your API key, command arguments, environment variables, computer name or the contents of
-your files. Credentials found in an error message are removed before sending.
+your files. Checkly API keys, `Bearer` and `Basic` tokens and passwords in URLs are removed from the message before
+sending.
 
 To turn error reporting off, set either environment variable:
 

@@ -1,5 +1,5 @@
 import { errorChain, PACKAGE_ROOT } from './classify.js'
-import { cliDependencies, scrubFrame, scrubMessage } from './scrub.js'
+import { scrubFrame, scrubMessage } from './scrub.js'
 import { eventId, parseStack, type ErrorEvent, type Exception } from './sentry-protocol.js'
 
 export interface ErrorReportContext {
@@ -28,23 +28,15 @@ export function releaseEnvironment (version: string): string {
  * are kept: an error's other properties (an axios error's request config with
  * its auth headers, for one) are never sent.
  */
-function toExceptions (
-  err: Error,
-  packageRoot: string,
-  env: NodeJS.ProcessEnv,
-  secrets: string[],
-  handled: boolean,
-): Exception[] {
-  const dependencies = cliDependencies(packageRoot)
-
+function toExceptions (err: Error, packageRoot: string, handled: boolean): Exception[] {
   const exceptions: Exception[] = []
   for (const current of errorChain(err)) {
     const frames = parseStack(current.stack ?? '')
     exceptions.unshift({
       type: current.name,
-      value: scrubMessage(current.message, env, { packageRoot, secrets }),
+      value: scrubMessage(current.message, { packageRoot }),
       stacktrace: frames.length
-        ? { frames: frames.map(frame => scrubFrame(frame, packageRoot, dependencies)) }
+        ? { frames: frames.map(frame => scrubFrame(frame, packageRoot)) }
         : undefined,
       mechanism: { type: 'generic', handled },
     })
@@ -61,10 +53,8 @@ export function buildErrorEvent (
   context: ErrorReportContext,
   {
     packageRoot = PACKAGE_ROOT,
-    env = process.env,
-    secrets = [],
     timestamp = Date.now(),
-  }: { packageRoot?: string, env?: NodeJS.ProcessEnv, secrets?: string[], timestamp?: number } = {},
+  }: { packageRoot?: string, timestamp?: number } = {},
 ): ErrorEvent {
   const runtime = process.versions.bun ? 'bun' : process.versions.deno ? 'deno' : 'node'
   return {
@@ -74,7 +64,7 @@ export function buildErrorEvent (
     level: context.handled ? 'error' : 'fatal',
     release: `checkly@${context.version}`,
     environment: releaseEnvironment(context.version),
-    exception: { values: toExceptions(err, packageRoot, env, secrets, !!context.handled) },
+    exception: { values: toExceptions(err, packageRoot, !!context.handled) },
     tags: {
       ...(context.command && { command: context.command }),
       ...(context.cliMode && { cli_mode: context.cliMode }),
