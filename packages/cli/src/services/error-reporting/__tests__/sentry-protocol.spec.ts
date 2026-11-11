@@ -32,6 +32,11 @@ describe('parseStack', () => {
     expect(frame.filename).toBe('/Users/ann/C#/a?b/node_modules/checkly/dist/x.js')
   })
 
+  it('keeps the server of a file URL on a network share', () => {
+    const [frame] = parseStack('    at run (file://server/share/npm/node_modules/checkly/dist/x.js:1:2)')
+    expect(frame.filename).toBe('//server/share/npm/node_modules/checkly/dist/x.js')
+  })
+
   it('reads a frame without a function name whose path holds a parenthesis', () => {
     const [frame] = parseStack('    at /Users/ann/My Stuff (old)/proj/node_modules/axios/lib/x.js:1:2')
     expect(frame).toEqual({
