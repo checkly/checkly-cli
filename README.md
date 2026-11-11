@@ -131,9 +131,9 @@ A report contains:
   AI agent
 - your operating system, CPU architecture and Node.js version
 
-A report never contains your API key, command arguments, environment variables, computer name or the contents of
-your files. Checkly API keys, `Bearer` and `Basic` tokens and passwords in URLs are removed from the message before
-sending.
+A report never includes your command arguments, environment variables, computer name or user name as separate data.
+The error message is sent as it is, except that Checkly API keys, `Bearer` and `Basic` tokens and passwords in URLs are
+removed, and the folders named above are replaced.
 
 To turn error reporting off, set either environment variable:
 
