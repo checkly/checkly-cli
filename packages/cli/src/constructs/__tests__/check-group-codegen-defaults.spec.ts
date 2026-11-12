@@ -53,6 +53,15 @@ const baseResource = (overrides: Partial<CheckGroupResource> = {}): CheckGroupRe
 
 const RUN_BASED = { escalationType: 'RUN_BASED' as const, runBasedEscalation: { failedRunThreshold: 3 } }
 
+/** The `locations` a generated construct sets, in order, or `undefined` when it sets none. */
+function generatedLocations (source: string): string[] | undefined {
+  const match = /(?<![A-Za-z])locations: \[([^\]]*)\]/.exec(source)
+  if (match === null) {
+    return
+  }
+  return [...match[1].matchAll(/'([^']*)'/g)].map(([, location]) => location)
+}
+
 describe('CheckGroupCodegen defaults', () => {
   let env: RenderEnv
 
@@ -95,6 +104,25 @@ describe('CheckGroupCodegen defaults', () => {
     expect(await renderResource(env, baseResource({ concurrency: 3 }))).toContain('concurrency: 3')
     expect(await renderResource(env, baseResource({ concurrency: 1 }))).toContain('concurrency: 1')
     expect(await renderResource(env, baseResource())).not.toContain('concurrency')
+  })
+
+  /** `checkly import` must not write a location the CLI rejects. */
+  describe('retired locations', () => {
+    it('leaves a retired location out and keeps the others in order', async () => {
+      const source = await renderResource(env, baseResource({ locations: ['me-south-1', 'eu-central-1'] }))
+      expect(generatedLocations(source)).toEqual(['eu-central-1'])
+      expect(source).not.toContain('me-south-1')
+
+      const between = await renderResource(env, baseResource({ locations: ['eu-west-1', 'me-south-1', 'us-east-1'] }))
+      expect(generatedLocations(between)).toEqual(['eu-west-1', 'us-east-1'])
+    })
+
+    it('generates no locations when the group holds only retired ones, or none', async () => {
+      const source = await renderResource(env, baseResource({ locations: ['me-south-1'] }))
+      expect(generatedLocations(source)).toBeUndefined()
+      expect(source).not.toContain('me-south-1')
+      expect(generatedLocations(await renderResource(env, baseResource({ locations: [] })))).toBeUndefined()
+    })
   })
 
   it('keeps an API check default basic auth credential with one empty field', async () => {

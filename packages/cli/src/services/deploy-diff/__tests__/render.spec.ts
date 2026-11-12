@@ -233,6 +233,26 @@ describe('renderResourceDiff', () => {
     expect(text).not.toContain('noRetries')
   })
 
+  /**
+   * The codegen leaves a retired location out of both renderings,
+   * so the deployed one the code drops is named on a line of its own.
+   */
+  it('still shows a retired location the deploy removes', () => {
+    const { local } = scenario({ locations: ['eu-central-1'] })
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/locations/k1', origin: 'code', before: 'me-south-1' }],
+        before: deployed({ locations: ['me-south-1', 'eu-central-1'] }),
+        redactions: [],
+      },
+      local,
+    )
+    expect(lines).toEqual(['/locations/k1: "me-south-1" -> (absent)'])
+  })
+
   it('leaves a deployed snippet reference out of both sides', () => {
     const { local } = scenario({ request: { url: 'https://example.com/v2/health', method: 'GET' } })
     const lines = render(

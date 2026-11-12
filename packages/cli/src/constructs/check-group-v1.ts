@@ -27,7 +27,7 @@ import { MultiStepCheck } from './multi-step-check.js'
 import { PrivateLocationGroupAssignment } from './private-location-group-assignment.js'
 import { Ref } from './ref.js'
 import { Session } from './session.js'
-import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
+import { validateRemovedDoubleCheck, validateRetiredLocations } from './internal/common-diagnostics.js'
 import { SINGLE_RETRY_ELSEWHERE } from './internal/default-retry-strategy.js'
 import { CheckRetryStrategy } from './check.js'
 import { MonitorRetryStrategy } from './monitor.js'
@@ -386,6 +386,8 @@ export class CheckGroupV1 extends Construct {
     await this.onBeforeValidate(diagnostics)
 
     await this.validateDoubleCheck(diagnostics)
+
+    validateRetiredLocations(diagnostics, this.locations)
 
     if (this.environmentVariables) {
       this.environmentVariables.forEach(ev => {
