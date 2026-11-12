@@ -3,6 +3,8 @@ import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
+import { PLATFORM_TARGETS } from '../../services/skills.js'
+
 const referencesDir = join(dirname(fileURLToPath(import.meta.url)), '../references')
 
 function readReference (name: string): Promise<string> {
@@ -21,6 +23,28 @@ describe('AI context investigation references', () => {
     for (const content of contents) {
       expect(content).not.toMatch(/each disabled entitlement includes an `upgradeUrl`/i)
       expect(content).toMatch(/may include an `upgradeUrl`|only when .*includes|only when present/i)
+    }
+  })
+
+  it('offers the agent skill install before the config is written', async () => {
+    const content = normalizeLineEndings(await readReference('initialize.md'))
+
+    const installStep = content.indexOf('#### Step 2: Install the Checkly agent skill')
+    const configStep = content.indexOf('#### Step 5 — Create the config file')
+
+    expect(installStep).toBeGreaterThan(-1)
+    expect(configStep).toBeGreaterThan(installStep)
+
+    expect(content).toContain('**Do you want to install the Checkly agent skill into this project?**')
+    expect(content).toContain('npx checkly skills install --target <platform>')
+    expect(content).toContain('never install it silently')
+    // The decline branch must keep setup going instead of stopping at the question.
+    expect(content).toContain('**no** — continue the setup without it.')
+
+    // Every target the install command accepts should be named, so the agent
+    // does not have to guess one.
+    for (const target of Object.keys(PLATFORM_TARGETS)) {
+      expect(content).toContain(`\`${target}\``)
     }
   })
 
