@@ -39,7 +39,20 @@ Continue with the following steps:
 
 Check if `npx checkly --version` works. If not, run `npm install --save-dev checkly`.
 
-#### Step 2: Gather the project requirements
+#### Step 2: Install the Checkly agent skill
+
+The skill carries the conventions the rest of this setup depends on: when to use the CLI versus the Checkly MCP server, keeping both on the same account, never picking an account for the user, the confirmation protocol for writes, and the output stream and exit code conventions. Installing it now also leaves the project ready for the next session.
+
+The install writes a file into the user's repository, so ask first and never install it silently:
+
+**Do you want to install the Checkly agent skill into this project?**
+
+- **yes** — run `npx checkly skills install --target <platform>`, where `<platform>` is the agent you are running in: `amp`, `claude`, `cline`, `codex`, `continue`, `cursor`, `gemini-cli`, `github-copilot`, `goose`, `opencode`, `roo` or `windsurf`. Use `--path <dir>` instead when the user names a directory. Always pass one of the two: without them the command only prints the available flags unless it has an interactive terminal. If a skill file already exists, the command says so and writes nothing; only re-run it with `--force` once the user agrees to overwrite.
+- **no** — continue the setup without it. Run `npx checkly skills` for the current action list (it needs no install and no authentication), and keep in mind that the conventions above live only in the skill file, not in this reference. Offer `npx checkly skills install` again whenever the user wants them.
+
+If the skill was installed, read it before moving on, so the remaining steps follow its rules.
+
+#### Step 3: Gather the project requirements
 
 Ask the user the following questions to determine the setup:
 
@@ -61,7 +74,7 @@ Run `npx checkly skills configure alert-channels` to access up-to-date informati
    - **next to the resource** — place the `check.ts` files next to page routes, api endpoints etc.
 
 
-#### Step 3 — Check your account plan
+#### Step 4 — Check your account plan
 
 Before writing checks, verify what your account can do:
 
@@ -79,7 +92,7 @@ If a feature the user wants is disabled, share its `upgradeUrl` only when the re
 
 Run `npx checkly skills manage plan` for the full reference.
 
-#### Step 4 — Create the config file
+#### Step 5 — Create the config file
 
 Run the following command to retrieve the configure skill reference:
 
@@ -103,7 +116,7 @@ Present the generated configuration to the user and ask if it looks correct. All
 
 Congratulate the user on completing the config. Now it's time to test the configuration and turn everything into monitoring!
 
-#### Step 5: Log in to Checkly CLI
+#### Step 6: Log in to Checkly CLI
 
 To use the Checkly CLI the user needs to be logged in. Run the following command:
 
@@ -118,7 +131,7 @@ If the user is NOT logged in, run the login yourself unless the user prefers API
 - **Option A: `npx checkly login`** — Works for agents. It prints a JSON `action_required` line with a URL and a short code and exits: give both to the user, then run `npx checkly login --wait`, which returns once they have approved. With several accounts it stops at a `select_account` line listing them; ask the user which one and run `npx checkly login --account-id <id>`. Details are in the skill's "Logging in as an agent" section. Any authenticated command starts this flow on its own when no credentials are stored. To pin this project to one account, put `CHECKLY_ACCOUNT_ID=<id>` (without `CHECKLY_API_KEY`) in its `.env`.
 - **Option B: Environment variables** — For CI/CD, or when the user prefers keys: they set `CHECKLY_API_KEY` and `CHECKLY_ACCOUNT_ID` (API keys are created at https://app.checklyhq.com/accounts/settings/user/api-keys). Once both are set, re-run `npx checkly whoami` to verify.
 
-#### Step 6: Summarize and test the new monitoring configuration
+#### Step 7: Summarize and test the new monitoring configuration
 
 Read the generated `checkly.config.ts` (or `checkly.config.js`) and summarize the configured checks, locations, and frequencies.
 
