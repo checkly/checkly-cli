@@ -130,7 +130,10 @@ A report contains:
   AI agent
 - your operating system, CPU architecture and Node.js version
 
-  start at `node_modules/`, and every other path in the stack trace is replaced with a placeholder
+The message is sent as it is, with two exceptions. The CLI removes Checkly API keys, `Bearer` and `Basic` tokens and
+user names and passwords in URLs. It replaces the paths of the CLI's folder, the folder you run the CLI from and your
+home folder with placeholders.
+
 To turn error reporting off, set either environment variable:
 
 ```bash
