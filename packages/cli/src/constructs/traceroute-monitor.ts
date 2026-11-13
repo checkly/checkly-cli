@@ -6,6 +6,10 @@ import { validateTracerouteAssertion } from './traceroute-assertion-validation.j
 import { TracerouteRequest } from './traceroute-request.js'
 import { responseTimeLimits } from './internal/account-features.js'
 
+// Backend defaults applied when a limit is omitted.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 500
+const DEFAULT_MAX_RESPONSE_TIME = 1000
+
 export interface TracerouteMonitorProps extends MonitorProps {
   /**
    * Determines the request that the monitor is going to run.
@@ -13,29 +17,32 @@ export interface TracerouteMonitorProps extends MonitorProps {
   request: TracerouteRequest
 
   /**
-   * The response time in milliseconds where the monitor should be considered
-   * degraded.
+   * The final-hop average round-trip time in milliseconds where the monitor
+   * should be considered degraded. Without `maxResponseTime`, values above 1000
+   * are rejected. A monitor can't show as degraded when the two limits are equal.
    *
-   * @defaultValue 10000
+   * @defaultValue 500
    * @minimum 0
    * @maximum 30000
    * @example
    * ```typescript
-   * degradedResponseTime: 5000  // Alert when the traceroute takes longer than 5 seconds
+   * degradedResponseTime: 300  // Degrade when the final-hop average reaches 300 ms
    * ```
    */
   degradedResponseTime?: number
 
   /**
-   * The response time in milliseconds where the monitor should be considered
-   * failing.
+   * The final-hop average round-trip time in milliseconds where the monitor
+   * should be considered failing. Without `degradedResponseTime`, values above 0
+   * and below 500 are rejected. A monitor can't show as degraded when the two
+   * limits are equal.
    *
-   * @defaultValue 20000
+   * @defaultValue 1000
    * @minimum 0
    * @maximum 30000
    * @example
    * ```typescript
-   * maxResponseTime: 20000  // Fail if the traceroute takes longer than 20 seconds
+   * maxResponseTime: 800  // Fail when the final-hop average reaches 800 ms
    * ```
    */
   maxResponseTime?: number
@@ -79,8 +86,9 @@ export class TracerouteMonitor extends Monitor {
 
     await validateResponseTimes(diagnostics, this, {
       ...responseTimeLimits(30_000),
-      // Backend default applied when maxResponseTime is omitted.
-      defaultMaxResponseTime: 20_000,
+      defaultDegradedResponseTime: DEFAULT_DEGRADED_RESPONSE_TIME,
+      defaultMaxResponseTime: DEFAULT_MAX_RESPONSE_TIME,
+      zeroMaxResponseTimeDisablesFailure: true,
     })
 
     for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
@@ -93,8 +101,8 @@ export class TracerouteMonitor extends Monitor {
       ...super.synthesize(),
       checkType: 'TRACEROUTE',
       request: this.request,
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

@@ -9,6 +9,7 @@ import { PrivateLocation } from '../../../constructs/private-location.js'
 import { IncidentioAlertChannel } from '../../../constructs/incidentio-alert-channel.js'
 import { MSTeamsAlertChannel } from '../../../constructs/msteams-alert-channel.js'
 import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel.js'
+import { TracerouteMonitor } from '../../../constructs/traceroute-monitor.js'
 import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
@@ -576,6 +577,44 @@ describe('renderResourceDiff', () => {
     const changed = lines.filter(line => /^[-+](?![-+]{2} )/.test(line))
     expect(changed, changed.join('\n')).toHaveLength(2)
     expect(lines.join('\n')).not.toContain('ResponseTime')
+  })
+
+  it('shows a traceroute moving to the default limits as a change, not a removal', () => {
+    const check = new TracerouteMonitor('trace', { name: 'Trace', request: { url: 'example.com' } })
+    const local: ResourceSync[] = [{ type: 'check', logicalId: 'trace', member: true, payload: check.synthesize() }]
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'trace',
+        physicalId: 'trace-uuid',
+        action: 'UPDATE',
+        changes: [
+          { path: '/degradedResponseTime', origin: 'code', before: 10000, after: 500 },
+          { path: '/maxResponseTime', origin: 'code', before: 20000, after: 1000 },
+        ],
+        before: {
+          id: 'trace-uuid',
+          checkType: 'TRACEROUTE',
+          name: 'Trace',
+          activated: true,
+          muted: false,
+          locations: [],
+          tags: [],
+          degradedResponseTime: 10000,
+          maxResponseTime: 20000,
+          request: { url: 'example.com' },
+          alertChannelSubscriptions: [],
+          privateLocationAssignments: [],
+        },
+        redactions: [],
+      },
+      local,
+    )
+    const text = lines.join('\n')
+    expect(text).toContain('-  degradedResponseTime: 10000,')
+    expect(text).toContain('+  degradedResponseTime: 500,')
+    expect(text).toContain('-  maxResponseTime: 20000,')
+    expect(text).toContain('+  maxResponseTime: 1000,')
   })
 
   it('shows an edit to a shape-change property as the construct diff it is', () => {

@@ -300,8 +300,8 @@ new TracerouteMonitor('example-com-traceroute', {
   name: 'example.com Traceroute',
   activated: true,
   locations: ['us-east-1', 'eu-west-1'],
-  degradedResponseTime: 10000,
-  maxResponseTime: 20000,
+  degradedResponseTime: 500,
+  maxResponseTime: 1000,
   request: {
     url: 'example.com',
     protocol: 'TCP',
