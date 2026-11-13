@@ -101,8 +101,8 @@ export class TracerouteMonitor extends Monitor {
       ...super.synthesize(),
       checkType: 'TRACEROUTE',
       request: this.request,
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

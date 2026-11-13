@@ -78,6 +78,18 @@ describe('TracerouteMonitor', () => {
     })
   })
 
+  it('should synthesize the default limits when they are not set', () => {
+    setupProject()
+    const check = new TracerouteMonitor('test-check', {
+      name: 'Test Check',
+      request,
+    })
+    expect(check.synthesize()).toMatchObject({
+      degradedResponseTime: 500,
+      maxResponseTime: 1000,
+    })
+  })
+
   it('should support setting groups with `group`', async () => {
     setupProject()
     const group = new CheckGroup('main-group', { name: 'Main Group', locations: [] })
