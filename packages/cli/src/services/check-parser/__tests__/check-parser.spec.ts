@@ -486,7 +486,6 @@ describe('dependency-parser - parser()', () => {
         toAbsolutePath('module', 'index.ts'),
         toAbsolutePath('pages/external.first.page.js'),
         toAbsolutePath('pages/external.second.page.ts'),
-        toAbsolutePath('type.ts'),
       ])
     })
 
@@ -786,6 +785,23 @@ describe('dependency-parser - parser()', () => {
       ])
     })
 
+    it('should not bundle files that only type-only imports and exports reach', async () => {
+      // `import type`, `export type { } from` and `export type * from` are erased when
+      // the check is transpiled, so the files they name never run. Following them
+      // bundled whatever those type files import, such as app UI code.
+      const toAbsolutePath = (...filepath: string[]) => fixt.abspath('type-only-imports', ...filepath)
+      const parser = new Parser({
+        supportedNpmModules: defaultNpmModules,
+        restricted: false,
+      })
+      const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
+      expect(dependencies.map(d => d.filePath).sort()).toEqual([
+        toAbsolutePath('dep.ts'),
+        // `import { type X }` is kept: with `verbatimModuleSyntax` it stays a side-effect import.
+        toAbsolutePath('inline-type.ts'),
+      ])
+    })
+
     it('should silently skip native binary (.node) imports (issue #1274)', async () => {
       // Native addons are loaded by Node.js at runtime via process.dlopen
       // and are not parseable as JavaScript. The parser should neither
@@ -1039,7 +1055,6 @@ describe('dependency-parser - parser()', () => {
         toAbsolutePath('module', 'index.ts'),
         toAbsolutePath('pages/external.first.page.js'),
         toAbsolutePath('pages/external.second.page.ts'),
-        toAbsolutePath('type.ts'),
       ])
     })
 
