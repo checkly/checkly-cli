@@ -308,6 +308,19 @@ describe('GrpcMonitor', () => {
       ]))
     })
 
+    it('should error when degradedResponseTime exceeds a maxResponseTime of 0', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 500,
+        maxResponseTime: 0,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+    })
+
     it('should not error within limits', async () => {
       setupProject()
       const check = new GrpcMonitor('test-check', {

@@ -173,6 +173,60 @@ describe('TracerouteMonitor', () => {
       expect(diags.isFatal()).toEqual(false)
     })
 
+    it('should error when maxResponseTime is below the default degradedResponseTime', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        maxResponseTime: 499,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(true)
+      expect(diags.observations).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('the default "degradedResponseTime" of 500'),
+        }),
+      ]))
+    })
+
+    it('should accept maxResponseTime alone at the default degradedResponseTime', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        maxResponseTime: 500,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should accept maxResponseTime 0 alone', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        maxResponseTime: 0,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
+    it('should accept any degradedResponseTime with maxResponseTime 0', async () => {
+      setupProject()
+      const check = new TracerouteMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: 500,
+        maxResponseTime: 0,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.isFatal()).toEqual(false)
+    })
+
     it('should error if maxResponseTime is above 30000', async () => {
       setupProject()
       const check = new TracerouteMonitor('test-check', {
