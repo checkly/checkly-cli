@@ -3,7 +3,7 @@ import { Session } from './session.js'
 
 export interface SlackAppAlertChannelProps extends AlertChannelProps {
   /**
-   * List of Slack #channels or @handles to notify.
+   * List of Slack #channels, channel IDs (such as C0123456789) or @handles to notify.
    * Private channels require the Checkly app to be invited first.
    * @example
    * ['#alerts', '#ops', '@alice']
