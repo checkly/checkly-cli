@@ -557,19 +557,26 @@ export class Parser {
         Parser.registerDependency(requireStringArg, 'require', dependencies)
       },
       ImportDeclaration (node: any) {
-      // For now, we only support literal strings in the import statement
+        // `import type` is erased when the check is transpiled, so the file never runs.
+        // `import { type X }` is kept: with `verbatimModuleSyntax` it stays a side-effect import.
+        if (node.importKind === 'type') return
+        // For now, we only support literal strings in the import statement
         if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportNamedDeclaration (node: any) {
       // The statement isn't importing another dependency
         if (node.source === null) return
+        // `export type { X } from` is erased when the check is transpiled.
+        if (node.exportKind === 'type') return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, 'import', dependencies)
       },
       ExportAllDeclaration (node: any) {
         if (node.source === null) return
+        // `export type * from` is erased when the check is transpiled.
+        if (node.exportKind === 'type') return
         // For now, we only support literal strings in the export statement
         if (node.source.type !== 'Literal') return
         Parser.registerDependency(node.source.value, 'import', dependencies)
