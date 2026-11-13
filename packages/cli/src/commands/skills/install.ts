@@ -12,6 +12,7 @@ import {
   promptForPlatformTarget,
 } from '../../services/skills.js'
 import { prompt } from '../../helpers/prompts.js'
+import { noteCliError } from '../../services/error-reporting/report.js'
 
 const SKILL_FILENAME = 'SKILL.md'
 
@@ -82,6 +83,7 @@ export default class SkillsInstall extends BaseCommand {
     try {
       return await readSkillFile()
     } catch (err: any) {
+      noteCliError(err)
       this.error(err.message, { exit: 1 })
     }
   }
@@ -125,6 +127,7 @@ export default class SkillsInstall extends BaseCommand {
       const writtenPath = await writeSkillToTarget(targetDir, content)
       this.style.shortSuccess(`Installed Checkly agent skill to: ${writtenPath}`)
     } catch (err: any) {
+      noteCliError(err)
       this.error(err.message, { exit: 1 })
     }
   }

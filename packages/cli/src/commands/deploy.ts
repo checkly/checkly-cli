@@ -122,7 +122,7 @@ function writeBackAlternatives (diff: DiffEntry[], project: Project, command: De
           command.logToStderr(skipped)
         }
         // The error names the files already rewritten, if any.
-        command.style.longError('Could not update your code.', err.message)
+        command.style.longError('Could not update your code.', err.message, { cause: err })
         command.logToStderr('Nothing was deployed.')
         command.exit(1)
       }

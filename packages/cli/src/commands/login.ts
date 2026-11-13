@@ -29,6 +29,7 @@ import commonMessages from '../messages/common-messages.js'
 import { detectPackageManager } from '../services/check-parser/package-files/package-manager.js'
 import { getChecklyConfigFile } from '../services/checkly-config-loader.js'
 import { shellQuote } from '../services/shell.js'
+import { noteCliError } from '../services/error-reporting/report.js'
 import { prompt } from '../helpers/prompts.js'
 
 export const selectAccount = async (
@@ -416,6 +417,8 @@ export default class Login extends BaseCommand {
         }
         throw error
       }
+      // Printed instead of thrown, so a CLI bug in it is noted for the crash report.
+      noteCliError(error)
       this.#print(JSON.stringify({ status: 'error', reason: errorReason(error), message: errorMessage(error) }))
       return false
     }
