@@ -6,6 +6,10 @@ import { validateTracerouteAssertion } from './traceroute-assertion-validation.j
 import { TracerouteRequest } from './traceroute-request.js'
 import { responseTimeLimits } from './internal/account-features.js'
 
+// Backend defaults applied when a limit is omitted.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 500
+const DEFAULT_MAX_RESPONSE_TIME = 1000
+
 export interface TracerouteMonitorProps extends MonitorProps {
   /**
    * Determines the request that the monitor is going to run.
@@ -82,8 +86,9 @@ export class TracerouteMonitor extends Monitor {
 
     await validateResponseTimes(diagnostics, this, {
       ...responseTimeLimits(30_000),
-      // Backend default applied when maxResponseTime is omitted.
-      defaultMaxResponseTime: 1_000,
+      defaultDegradedResponseTime: DEFAULT_DEGRADED_RESPONSE_TIME,
+      defaultMaxResponseTime: DEFAULT_MAX_RESPONSE_TIME,
+      zeroMaxResponseTimeDisablesFailure: true,
     })
 
     for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
