@@ -148,4 +148,55 @@ describe('GithubMdBuilder', () => {
 
     expect(markdown).toContain('|⏹️ Not finished (1 retry)|Slow Check|')
   })
+
+  test('escapes pipes and line breaks in check names and filenames so rows keep their columns', () => {
+    const map: checkFilesMap = new Map([
+      ['folder/a|b.check.ts', new Map([
+        ['seq-pipe', {
+          result: {
+            name: 'API | Production',
+            sourceFile: 'folder/a|b.check.ts',
+            checkType: 'API',
+            responseTime: 10,
+          } as any,
+          titleString: 'API | Production',
+          numRetries: 0,
+        }],
+        ['seq-newline', {
+          result: {
+            name: 'API\nProduction',
+            sourceFile: 'folder/a|b.check.ts',
+            checkType: 'API',
+            responseTime: 20,
+          } as any,
+          titleString: 'API\nProduction',
+          numRetries: 0,
+        }],
+        ['seq-pending', {
+          check: { name: 'Pending | Check', getSourceFile: () => 'folder/a|b.check.ts' } as any,
+          titleString: 'Pending | Check',
+          numRetries: 0,
+        }],
+      ])],
+    ])
+    const markdown = new GithubMdBuilder({
+      testSessionId: undefined,
+      numChecks: 3,
+      runLocation,
+      checkFilesMap: map,
+      maxFailuresReached: 1,
+    }).render()
+
+    expect(markdown).toContain('|API \\| Production|API|`folder/a\\|b.check.ts`|10ms |')
+    expect(markdown).toContain('|API Production|API|`folder/a\\|b.check.ts`|20ms |')
+    expect(markdown).toContain('|Pending \\| Check|-|`folder/a\\|b.check.ts`|- |')
+
+    const tableLines = markdown.split('\n').filter(line => line.startsWith('|'))
+    // header, separator and three rows, each one line
+    expect(tableLines).toHaveLength(5)
+    for (const line of tableLines) {
+      // Count unescaped pipes: 5 columns -> 6 delimiters
+      expect(line.match(/(?<!\\)\|/g)).toHaveLength(6)
+    }
+  })
 })
