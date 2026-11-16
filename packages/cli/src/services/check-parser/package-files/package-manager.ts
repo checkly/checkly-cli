@@ -472,7 +472,8 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     // With the workspace's own store pinned the re-resolution is answered
     // from the store, as it is when the same command runs in the checkout.
     // The value is the PARENT of what `pnpm store path` prints: pnpm
-    // appends its own version segment (`v10`, `v11`) to the setting unless
+    // appends its own store version segment (`v10` for pnpm 10, `v11` for
+    // pnpm 11 and 12) to the setting unless
     // the path already ends in exactly that segment, and the probe and the
     // install can resolve to different pnpm majors (corepack, mise and
     // volta pick the version per directory, and the temp dir's root
@@ -484,7 +485,11 @@ export class PNpmDetector extends PackageManagerDetector implements PackageManag
     // the store in its ndjson context event), it outranks a storeDir in a
     // materialized pnpm-workspace.yaml or .npmrc and npm_config_store_dir,
     // and npm/bun keep a single home-directory cache regardless of the
-    // project's location, so they need no equivalent.
+    // project's location, so they need no equivalent. Verified on pnpm 12
+    // as well: the flag is the store the install reports, and it outranks a
+    // storeDir in a materialized pnpm-workspace.yaml. pnpm 12 only creates
+    // the store directory once an install actually needs the store, so a
+    // prune that resolves nothing leaves no directory behind.
     //
     // The pruner does not compare the lockfile's `settings` section, so any
     // setting pnpm records there ships to the runner unchecked and could

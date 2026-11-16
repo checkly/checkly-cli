@@ -1,8 +1,10 @@
 import { spawnSync } from 'node:child_process'
 import { rmSync } from 'node:fs'
 import fs from 'node:fs/promises'
+import { createRequire } from 'node:module'
 import os from 'node:os'
 import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 
 import Debug from 'debug'
 import { describe, it, expect, afterAll, vi } from 'vitest'
@@ -619,11 +621,14 @@ describe('lockfile-pruner', () => {
       // read one from: the workspace's own pnpm-workspace.yaml (what the
       // lookup, run in the workspace root, must honor) and the materialized
       // copy in the prune temp dir (what an unpinned install would honor).
-      // pnpm creates its versioned store directory on every install,
-      // lockfile-only included, so which of the two directories appears
-      // tells which store the install used. The prune's own outcome is not
-      // asserted: an empty store legitimately falls back on a machine whose
-      // metadata cache is stale.
+      // Which store the install used is read from the `pnpm:context` event
+      // of pnpm's ndjson reporter, not from which store directory appears on
+      // disk: pnpm 10 and 11 create `<storeDir>/vN` on every install,
+      // lockfile-only included, but pnpm 12 creates it only once the install
+      // needs the store, and this fixture's prune (members only lose
+      // dependencies) resolves nothing, so no directory appears at all. The
+      // prune's own outcome is not asserted: an empty store legitimately
+      // falls back on a machine whose metadata cache is stale.
       const plantStoreDirDecoys = async () => {
         const root = await makeTempDir()
         await fs.cp(PNPM_FIXTURE_ROOT, root, { recursive: true })
@@ -638,41 +643,77 @@ describe('lockfile-pruner', () => {
           physical: false,
           content: `${workspaceYaml}storeDir: ${decoyStore}\n`,
         })
-        return { workspace, files, workspaceStore, decoyStore }
+        const storeReport = path.join(await makeTempDir(), 'store-report.json')
+        return { workspace, files, workspaceStore, decoyStore, storeReport }
       }
-      const versionedStoreCreatedIn = async (store: string) => {
-        const entries = await fs.readdir(store)
-        expect(entries).toEqual([expect.stringMatching(/^v\d+$/)])
+      // Wraps the real pnpm install in a node process that adds the ndjson
+      // reporter and writes the storeDir of every `pnpm:context` event to
+      // `reportFile`, while passing through stderr and the exit code. The
+      // wrapper spawns pnpm with execa, as the pruner itself does, so the
+      // pnpm.cmd shim resolves on Windows without a shell.
+      const reportingInstallStore = (base: PackageManager, reportFile: string): PackageManager => {
+        const execaUrl = pathToFileURL(createRequire(import.meta.url).resolve('execa')).href
+        const script = `
+          const [reportFile, execaUrl, executable, ...args] = process.argv.slice(1)
+          import(execaUrl).then(async ({ execa }) => {
+            const result = await execa(executable, [...args, '--reporter', 'ndjson'], { reject: false })
+            const storeDirs = [result.stdout, result.stderr].join('\\n').split(/\\r?\\n/).flatMap(line => {
+              try {
+                const event = JSON.parse(line)
+                return event.name === 'pnpm:context' ? [event.storeDir] : []
+              } catch {
+                return []
+              }
+            })
+            require('node:fs').writeFileSync(reportFile, JSON.stringify(storeDirs))
+            process.stderr.write(result.stderr ?? '')
+            process.exitCode = result.exitCode ?? 1
+          })
+        `
+        return Object.assign(Object.create(base), {
+          lockfileOnlyInstallCommand: (options?: LockfileOnlyInstallOptions) => {
+            const install = base.lockfileOnlyInstallCommand(options)
+            return install && new Runnable('node', ['-e', script, reportFile, execaUrl, install.executable, ...install.args])
+          },
+        })
+      }
+      // Asserts the install reported exactly one store, the versioned
+      // directory (`<store>/vN`) pnpm derives from the given storeDir.
+      const expectInstallUsedStore = async (reportFile: string, store: string) => {
+        const storeDirs: string[] = JSON.parse(await fs.readFile(reportFile, 'utf8'))
+        expect(storeDirs).toHaveLength(1)
+        expect(path.basename(storeDirs[0])).toMatch(/^v\d+$/)
+        // path.relative compares case-insensitively on Windows, where pnpm
+        // may report the drive letter in another case than path.join gave.
+        expect(path.relative(store, path.dirname(storeDirs[0]))).toEqual('')
       }
 
       it('resolves from the store of the workspace, not one chosen for the temp dir, with real pnpm', async () => {
-        const { workspace, files, workspaceStore, decoyStore } = await plantStoreDirDecoys()
+        const { workspace, files, workspaceStore, storeReport } = await plantStoreDirDecoys()
         await pruneBundledLockfile({
           workspace,
-          packageManager: new PNpmDetector(),
+          packageManager: reportingInstallStore(new PNpmDetector(), storeReport),
           files,
           env: testEnv(),
         })
-        await versionedStoreCreatedIn(workspaceStore)
-        await expect(fs.access(decoyStore)).rejects.toThrow()
+        await expectInstallUsedStore(storeReport, workspaceStore)
       }, 60_000)
 
       it('decoy control: pnpm honors the materialized storeDir when the store is not pinned', async () => {
         // Positive control for the test above: proves the planted channel
         // actually reaches the pnpm on PATH, so the pinning test cannot
         // pass vacuously.
-        const { workspace, files, workspaceStore, decoyStore } = await plantStoreDirDecoys()
+        const { workspace, files, decoyStore, storeReport } = await plantStoreDirDecoys()
         const unpinned: PackageManager = Object.assign(Object.create(new PNpmDetector()), {
           storeDirCommand: () => undefined,
         })
         await pruneBundledLockfile({
           workspace,
-          packageManager: unpinned,
+          packageManager: reportingInstallStore(unpinned, storeReport),
           files,
           env: testEnv(),
         })
-        await versionedStoreCreatedIn(decoyStore)
-        await expect(fs.access(workspaceStore)).rejects.toThrow()
+        await expectInstallUsedStore(storeReport, decoyStore)
       }, 60_000)
     })
 
