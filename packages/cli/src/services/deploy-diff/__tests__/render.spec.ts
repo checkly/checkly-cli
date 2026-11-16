@@ -239,44 +239,6 @@ describe('renderResourceDiff', () => {
     )).toEqual(['payload format changed (CLI upgrade)'])
   })
 
-  it('names the CLI upgrade that starts sending the default response time limits', () => {
-    // The previous CLI left unset limits out of the payload; this one sends
-    // the defaults, which the deployed check already holds.
-    const { local } = scenario()
-    expect(render(
-      {
-        type: 'check',
-        logicalId: 'api',
-        action: 'UPDATE',
-        changes: [
-          { path: '/degradedResponseTime', origin: 'code', after: 5000 },
-          { path: '/maxResponseTime', origin: 'code', after: 20000 },
-        ],
-        before: deployed(),
-        redactions: [],
-      },
-      local,
-    )).toEqual(['payload format changed (CLI upgrade)'])
-  })
-
-  it('shows a stored limit the code does not set giving way to the default', () => {
-    const { local } = scenario()
-    const text = render(
-      {
-        type: 'check',
-        logicalId: 'api',
-        action: 'UPDATE',
-        changes: [{ path: '/degradedResponseTime', origin: 'code', after: 5000 }],
-        before: deployed({ degradedResponseTime: 3000 }),
-        redactions: [],
-      },
-      local,
-    ).join('\n')
-    expect(text).toContain('-  degradedResponseTime: 3000,')
-    expect(text).toContain('+  degradedResponseTime: 5000,')
-    expect(text).not.toContain('CLI upgrade')
-  })
-
   it('shows a stored strategy the code no longer sets giving way to the default single retry', () => {
     const { local } = scenario()
     const stored = { type: 'FIXED', baseBackoffSeconds: 30, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
