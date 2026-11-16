@@ -797,7 +797,8 @@ describe('dependency-parser - parser()', () => {
       const { dependencies } = await parser.parse(toAbsolutePath('entrypoint.ts'))
       expect(dependencies.map(d => d.filePath).sort()).toEqual([
         toAbsolutePath('dep.ts'),
-        // `import { type X }` is kept: with `verbatimModuleSyntax` it stays a side-effect import.
+        // `import { type X }` is still followed: compiled with `verbatimModuleSyntax`, it stays a
+        // side-effect import.
         toAbsolutePath('inline-type.ts'),
       ])
     })

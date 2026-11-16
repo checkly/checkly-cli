@@ -558,7 +558,9 @@ export class Parser {
       },
       ImportDeclaration (node: any) {
         // `import type` is erased when the check is transpiled, so the file never runs.
-        // `import { type X }` is kept: with `verbatimModuleSyntax` it stays a side-effect import.
+        // `import { type X }` is still followed. The Checkly runtime drops it, but a project
+        // compiled with `verbatimModuleSyntax` keeps it as a side-effect import, so the file
+        // may run.
         if (node.importKind === 'type') return
         // For now, we only support literal strings in the import statement
         if (node.source.type !== 'Literal') return
