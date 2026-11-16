@@ -33,9 +33,10 @@ export interface TracerouteMonitorProps extends MonitorProps {
 
   /**
    * The final-hop average round-trip time in milliseconds where the monitor
-   * should be considered failing. Without `degradedResponseTime`, values above 0
-   * and below 500 are rejected. A monitor can't show as degraded when the two
-   * limits are equal.
+   * should be considered failing. Set to `0` to never fail on latency; the
+   * degraded limit then applies on its own. Without `degradedResponseTime`,
+   * values above 0 and below 500 are rejected. A monitor can't show as degraded
+   * when the two limits are equal.
    *
    * @defaultValue 1000
    * @minimum 0

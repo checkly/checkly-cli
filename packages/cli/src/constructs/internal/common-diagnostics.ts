@@ -171,12 +171,12 @@ export async function validateResponseTimes (
   // CLI validation but be rejected or produce a broken check server-side).
   const effectiveDegradedResponseTime = props.degradedResponseTime ?? limits.defaultDegradedResponseTime
   const effectiveMaxResponseTime = props.maxResponseTime ?? limits.defaultMaxResponseTime
-  if (
-    effectiveDegradedResponseTime === undefined
-    || effectiveMaxResponseTime === undefined
-    || effectiveDegradedResponseTime <= effectiveMaxResponseTime
-    || (limits.zeroMaxResponseTimeDisablesFailure && effectiveMaxResponseTime === 0)
-  ) {
+  // The comparison is written as "degraded > max" so that values that cannot
+  // be ordered (NaN) are not reported as an ordering problem.
+  const outOfOrder = effectiveDegradedResponseTime !== undefined
+    && effectiveMaxResponseTime !== undefined
+    && effectiveDegradedResponseTime > effectiveMaxResponseTime
+  if (!outOfOrder || (limits.zeroMaxResponseTimeDisablesFailure && effectiveMaxResponseTime === 0)) {
     return
   }
 

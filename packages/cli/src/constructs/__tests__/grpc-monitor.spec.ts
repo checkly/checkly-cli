@@ -321,6 +321,23 @@ describe('GrpcMonitor', () => {
       expect(diags.isFatal()).toEqual(true)
     })
 
+    it('should not report a NaN limit as an ordering problem', async () => {
+      setupProject()
+      const check = new GrpcMonitor('test-check', {
+        name: 'Test Check',
+        request,
+        degradedResponseTime: NaN,
+        maxResponseTime: 20000,
+      })
+      const diags = new Diagnostics()
+      await check.validate(diags)
+      expect(diags.observations).not.toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          message: expect.stringContaining('must be less than or equal to "maxResponseTime"'),
+        }),
+      ]))
+    })
+
     it('should not error within limits', async () => {
       setupProject()
       const check = new GrpcMonitor('test-check', {
