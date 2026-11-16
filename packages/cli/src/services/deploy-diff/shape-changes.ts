@@ -36,17 +36,7 @@ const SHAPE_CHANGE_PATHS: ReadonlySet<string> = new Set([
 // from an absent leaf. A private location's proxy URL is sensitive: the API
 // reports its first null plainly only when the row holds no proxy, so a
 // proxy the deploy clears still renders as a secret change.
-//
-// A check's limits differ: the API has always written the default of a limit
-// the payload left out, and does not know which value the CLI sends for one.
-// The deployed check therefore holds the default the CLI now sends, and the
-// first plan after the upgrade reports each limit as a code-origin change
-// from an absent leaf although a snapshot exists.
 const SHAPE_CHANGE_PATHS_BY_TYPE: ReadonlyMap<string, ReadonlySet<string>> = new Map([
-  [
-    'check',
-    new Set(['/degradedResponseTime', '/maxResponseTime', '/degradedPacketLossThreshold', '/maxPacketLossThreshold']),
-  ],
   ['alert-channel', new Set(['/sendRecovery', '/sendFailure', '/sendDegraded', '/sslExpiry', '/sslExpiryThreshold'])],
   ['private-location', new Set(['/proxyUrl'])],
   ['dashboard', new Set(['/customUrl', '/customDomain', '/logo', '/favicon', '/link', '/header', '/description'])],
