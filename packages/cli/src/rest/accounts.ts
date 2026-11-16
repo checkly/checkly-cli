@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface AddonTier {
   tier: string
@@ -19,12 +19,7 @@ export interface Account {
   features?: string[]
 }
 
-class Accounts {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Accounts extends RestResource {
   getAll () {
     return this.api.get<Array<Account>>('/next/accounts')
   }

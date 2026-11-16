@@ -5,7 +5,7 @@ import { readFile } from 'node:fs/promises'
 import type { Readable } from 'node:stream'
 import { buffer } from 'node:stream/consumers'
 import { AuthCommand } from './authCommand.js'
-import { api } from '../rest/api.js'
+import { getApi } from '../rest/api.js'
 import { parseFields } from '../helpers/api-fields.js'
 import { accountNotAvailable } from '../helpers/accounts.js'
 import { ACCOUNT_NOT_ACCESSIBLE } from '../rest/errors.js'
@@ -87,7 +87,7 @@ export default class Api extends AuthCommand {
 
     const endpoint = args.endpoint.startsWith('/') ? args.endpoint : `/${args.endpoint}`
 
-    const baseUrl = api.defaults.baseURL
+    const baseUrl = getApi().defaults.baseURL
     if (baseUrl) {
       const resolved = new URL(endpoint, baseUrl)
       if (resolved.origin !== new URL(baseUrl).origin) {
@@ -142,7 +142,7 @@ export default class Api extends AuthCommand {
       this.logToStderr('')
     }
 
-    const response = await api.request<Readable>(requestConfig)
+    const response = await getApi().request<Readable>(requestConfig)
 
     if (flags.verbose) {
       this.logToStderr(`< ${response.status} ${response.statusText}`)

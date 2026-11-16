@@ -1,10 +1,10 @@
-import { type AxiosInstance } from 'axios'
 import { GitInformation } from '../services/util.js'
 import { RetryStrategy, SharedFile } from '../constructs/index.js'
 import { compressJSONPayload } from './util.js'
 import { SequenceId } from '../services/abstract-check-runner.js'
 import { ForbiddenError, RequestTimeoutError } from './errors.js'
 import type { CheckResult } from './check-results.js'
+import { RestResource } from './rest-resource.js'
 
 const COMPLETION_MAX_WAIT_SECONDS = 30
 
@@ -189,12 +189,7 @@ export class NoMatchingChecksError extends Error {
   }
 }
 
-class TestSessions {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class TestSessions extends RestResource {
   async run (payload: RunTestSessionRequest) {
     return await this.api.post<RunTestSessionResponse>('/v1/test-sessions/run', payload, {
       transformRequest: compressJSONPayload,

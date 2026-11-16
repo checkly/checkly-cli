@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface CheckStatus {
   name: string
@@ -15,12 +15,7 @@ export interface CheckStatus {
   updated_at: string | null
 }
 
-class CheckStatuses {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class CheckStatuses extends RestResource {
   getAll () {
     return this.api.get<CheckStatus[]>('/v1/check-statuses')
   }

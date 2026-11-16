@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface Addon {
   tier: string
@@ -46,12 +46,7 @@ export interface AccountPlan {
   entitlements: Entitlement[]
 }
 
-class Entitlements {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Entitlements extends RestResource {
   getAll () {
     return this.api.get<AccountPlan>('/v1/accounts/me/entitlements')
   }

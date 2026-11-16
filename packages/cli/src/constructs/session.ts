@@ -58,10 +58,23 @@ export interface SharedFile {
 export type SharedFileRef = number
 
 export class Session {
-  static loader: FileLoader = new MixedFileLoader(
-    new NativeFileLoader(),
-    new JitiFileLoader(),
-  )
+  static #loader?: FileLoader
+
+  /**
+   * The loader for check and config files. The default one is created on
+   * first use, since creating it reads the loader preference from the
+   * environment, which a program that only imports a construct should not do.
+   */
+  static get loader (): FileLoader {
+    return Session.#loader ??= new MixedFileLoader(
+      new NativeFileLoader(),
+      new JitiFileLoader(),
+    )
+  }
+
+  static set loader (loader: FileLoader) {
+    Session.#loader = loader
+  }
 
   static project?: Project
   static basePath?: string

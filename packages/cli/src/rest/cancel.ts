@@ -1,12 +1,6 @@
-import { type AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
-class Cancel {
-  api: AxiosInstance
-
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Cancel extends RestResource {
   async cancelTestSession ({ testSessionId, sequenceId }: { testSessionId: string, sequenceId?: string[] }) {
     try {
       return await this.api.post(`/v1/test-sessions/${testSessionId}/cancel`, sequenceId ? { sequenceId } : undefined)

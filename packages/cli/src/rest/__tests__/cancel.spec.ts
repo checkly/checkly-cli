@@ -14,7 +14,7 @@ describe('Cancel', () => {
 
   beforeEach(() => {
     api = makeAxiosMock()
-    cancel = new Cancel(api)
+    cancel = new Cancel(() => api)
   })
 
   describe('cancelTestSession()', () => {

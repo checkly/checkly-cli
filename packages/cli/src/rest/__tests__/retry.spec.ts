@@ -9,7 +9,7 @@ import {
   ServerError,
   ValidationError,
 } from '../errors.js'
-import { api as productionApi } from '../api.js'
+import { getApi } from '../api.js'
 
 type Adapter = (config: InternalAxiosRequestConfig) => Promise<AxiosResponse>
 
@@ -304,7 +304,7 @@ describe('production api instance', () => {
 
     // The per-request adapter leaves the shared instance untouched for other
     // tests. Uses real (jittered) backoff delays: worst case ~750ms.
-    await expect(productionApi.get('/test', { adapter })).rejects.toThrowError(ServerError)
+    await expect(getApi().get('/test', { adapter })).rejects.toThrowError(ServerError)
     expect(adapter).toHaveBeenCalledTimes(3)
   })
 })

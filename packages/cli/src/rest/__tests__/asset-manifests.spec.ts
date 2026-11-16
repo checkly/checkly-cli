@@ -6,7 +6,7 @@ describe('AssetManifests REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { assets: [] } }),
     }
-    const assetManifests = new AssetManifests(api as any)
+    const assetManifests = new AssetManifests(() => api as any)
 
     const result = await assetManifests.getForCheckResult('check-id', 'result-id')
 
@@ -18,7 +18,7 @@ describe('AssetManifests REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { assets: [] } }),
     }
-    const assetManifests = new AssetManifests(api as any)
+    const assetManifests = new AssetManifests(() => api as any)
 
     const result = await assetManifests.getForCheckResult('check-id', 'result-id', {
       type: 'trace',
@@ -38,7 +38,7 @@ describe('AssetManifests REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { assets: [] } }),
     }
-    const assetManifests = new AssetManifests(api as any)
+    const assetManifests = new AssetManifests(() => api as any)
 
     const result = await assetManifests.getForTestSessionResult('session-id', 'result-id')
 
@@ -50,7 +50,7 @@ describe('AssetManifests REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { assets: [] } }),
     }
-    const assetManifests = new AssetManifests(api as any)
+    const assetManifests = new AssetManifests(() => api as any)
 
     const result = await assetManifests.getForTestSessionResult('session-id', 'result-id', {
       type: 'screenshot',

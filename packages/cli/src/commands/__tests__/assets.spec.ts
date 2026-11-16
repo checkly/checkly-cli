@@ -5,14 +5,16 @@ import { tmpdir } from 'node:os'
 import path from 'node:path'
 import type { AssetManifest } from '../../rest/asset-manifests.js'
 
+const rawApi = vi.hoisted(() => ({
+  get: vi.fn(),
+}))
+
 vi.mock('../../rest/api.js', () => ({
   assetManifests: {
     getForCheckResult: vi.fn(),
     getForTestSessionResult: vi.fn(),
   },
-  api: {
-    get: vi.fn(),
-  },
+  getApi: () => rawApi,
 }))
 
 vi.mock('axios', () => ({
@@ -112,7 +114,7 @@ describe('assets commands', () => {
     process.chdir(tempDir)
     vi.mocked(api.assetManifests.getForCheckResult).mockResolvedValue(manifest)
     vi.mocked(api.assetManifests.getForTestSessionResult).mockResolvedValue(manifest)
-    vi.mocked(api.api.get).mockResolvedValue({ data: Readable.from(['downloaded']) } as any)
+    vi.mocked(rawApi.get).mockResolvedValue({ data: Readable.from(['downloaded']) } as any)
     vi.mocked(axios.get).mockResolvedValue({ data: Readable.from(['downloaded']) } as any)
   })
 
@@ -348,7 +350,7 @@ describe('assets commands', () => {
     expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
       name: 'LOGS.TXT',
     })
-    expect(api.api.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
+    expect(rawApi.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
     expect(axios.get).not.toHaveBeenCalled()
     expect(summary.directory).toBe(path.dirname(expectedPath))
     expect(summary.files[0].path).toBe(expectedPath)
@@ -379,7 +381,7 @@ describe('assets commands', () => {
 
     await AssetsDownload.prototype.run.call(ctx as any)
 
-    expect(api.api.get).not.toHaveBeenCalled()
+    expect(rawApi.get).not.toHaveBeenCalled()
     expect(axios.get).toHaveBeenCalledWith(
       'https://assets.example.com/external-log.txt',
       expect.objectContaining({ responseType: 'stream' }),
@@ -441,7 +443,7 @@ describe('assets commands', () => {
   it('shows live progress in interactive human output', async () => {
     const originalIsTTY = process.stderr.isTTY
     Object.defineProperty(process.stderr, 'isTTY', { configurable: true, value: true })
-    vi.mocked(api.api.get).mockResolvedValue({
+    vi.mocked(rawApi.get).mockResolvedValue({
       data: Readable.from(['downloaded']),
       headers: { 'content-length': '10' },
     } as any)
@@ -545,7 +547,7 @@ describe('assets commands', () => {
         message: expect.stringContaining('Asset manifest is truncated (5 of 12 entries returned). Refusing to download because the filtered manifest is still incomplete after applying --type file.'),
       }),
     )
-    expect(api.api.get).not.toHaveBeenCalled()
+    expect(rawApi.get).not.toHaveBeenCalled()
     expect(axios.get).not.toHaveBeenCalled()
     expect(process.exitCode).toBe(1)
   })
@@ -570,7 +572,7 @@ describe('assets commands', () => {
     expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
       name: 'traces/checkout trace.zip',
     })
-    expect(api.api.get).toHaveBeenCalledWith('/download/trace', { responseType: 'stream' })
+    expect(rawApi.get).toHaveBeenCalledWith('/download/trace', { responseType: 'stream' })
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })
 
@@ -594,7 +596,7 @@ describe('assets commands', () => {
     expect(api.assetManifests.getForCheckResult).toHaveBeenCalledWith('check-id', 'result-id', {
       name: 'logs.txt',
     })
-    expect(api.api.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
+    expect(rawApi.get).toHaveBeenCalledWith('/download/logs', { responseType: 'stream' })
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('written')
   })
 
@@ -625,7 +627,7 @@ describe('assets commands', () => {
       }),
     )
     expect(process.exitCode).toBe(1)
-    expect(api.api.get).not.toHaveBeenCalled()
+    expect(rawApi.get).not.toHaveBeenCalled()
   })
 
   it('fails existing files by default', async () => {
@@ -684,7 +686,7 @@ describe('assets commands', () => {
       yield 'partial'
       throw new Error('stream failed')
     }
-    vi.mocked(api.api.get).mockResolvedValue({ data: Readable.from(failingDownload()) } as any)
+    vi.mocked(rawApi.get).mockResolvedValue({ data: Readable.from(failingDownload()) } as any)
     const ctx = createCommandContext({
       flags: {
         'check-id': 'check-id',
@@ -725,7 +727,7 @@ describe('assets commands', () => {
     await AssetsDownload.prototype.run.call(ctx as any)
 
     expect(JSON.parse(ctx.logged[0]).files[0].status).toBe('skipped')
-    expect(api.api.get).not.toHaveBeenCalled()
+    expect(rawApi.get).not.toHaveBeenCalled()
     await expect(readFile(existingPath, 'utf8')).resolves.toBe('existing')
   })
 

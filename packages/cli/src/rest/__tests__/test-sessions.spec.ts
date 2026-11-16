@@ -31,7 +31,7 @@ describe('TestSessions REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { testSessionId: 'session-id', sequenceIds: {} } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     await testSessions.run({
       name: 'Checkly',
@@ -52,7 +52,7 @@ describe('TestSessions REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { checks: [{ id: 'check-id' }], testSessionId: 'session-id', sequenceIds: {} } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     await testSessions.trigger({
       name: 'Checkly',
@@ -75,7 +75,7 @@ describe('TestSessions REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { testSessionId: 'session-id', results: [] } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     await testSessions.get('session-id')
 
@@ -86,7 +86,7 @@ describe('TestSessions REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { id: 'result-id' } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     await testSessions.getResult('session-id', 'result-id')
 
@@ -97,7 +97,7 @@ describe('TestSessions REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { testSessionId: 'session-id', status: 'PASSED', results: [] } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     await testSessions.getCompletion('session-id')
 
@@ -117,7 +117,7 @@ describe('TestSessions REST client', () => {
         }))
         .mockResolvedValueOnce({ data: completed }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     const result = await testSessions.pollUntilComplete('session-id')
 
@@ -132,7 +132,7 @@ describe('TestSessions REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { schedulingId: 'op-id', sequenceIds: {} } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     const payload = { name: 'project', checkRunJobs: [], project: { logicalId: 'p' }, runLocation: 'eu-central-1', shouldRecord: false }
     await testSessions.run(payload as any)
@@ -146,7 +146,7 @@ describe('TestSessions REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { schedulingId: 'op-id', status: 'SUCCEEDED', error: null } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
     const signal = new AbortController().signal
 
     await testSessions.getSchedulingCompletion('op-id', { signal })
@@ -168,7 +168,7 @@ describe('TestSessions REST client', () => {
         }))
         .mockResolvedValueOnce({ data: completed }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     const result = await testSessions.pollSchedulingUntilComplete('op-id')
 
@@ -184,7 +184,7 @@ describe('TestSessions REST client', () => {
         message: 'Still in progress.',
       })),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
     const controller = new AbortController()
     controller.abort()
 
@@ -197,7 +197,7 @@ describe('TestSessions REST client', () => {
     const api = {
       get: vi.fn().mockResolvedValue({ data: { length: 0, entries: [], nextId: null } }),
     }
-    const testSessions = new TestSessions(api as any)
+    const testSessions = new TestSessions(() => api as any)
 
     await testSessions.list({
       limit: 10,

@@ -29,7 +29,7 @@ describe('CheckSessions REST client', () => {
   it('triggers v2 check sessions with the provided target', async () => {
     const response = { sessions: [{ ...completedSession, status: 'PROGRESS', stoppedAt: null }] }
     const api = { post: vi.fn().mockResolvedValue({ data: response }) }
-    const checkSessions = new CheckSessions(api as any)
+    const checkSessions = new CheckSessions(() => api as any)
     const payload = {
       target: {
         matchTags: [['production', 'api'], ['critical']],
@@ -50,14 +50,14 @@ describe('CheckSessions REST client', () => {
         message: 'No matching checks were found.',
       })),
     }
-    const checkSessions = new CheckSessions(api as any)
+    const checkSessions = new CheckSessions(() => api as any)
 
     await expect(checkSessions.trigger({})).rejects.toBeInstanceOf(NoMatchingChecksError)
   })
 
   it('requests completion with the backend maximum long-poll duration', async () => {
     const api = { get: vi.fn().mockResolvedValue({ data: completedSession }) }
-    const checkSessions = new CheckSessions(api as any)
+    const checkSessions = new CheckSessions(() => api as any)
 
     await expect(checkSessions.getCompletion(completedSession.checkSessionId)).resolves.toEqual(completedSession)
     expect(api.get).toHaveBeenCalledWith(
@@ -76,7 +76,7 @@ describe('CheckSessions REST client', () => {
         }))
         .mockResolvedValueOnce({ data: completedSession }),
     }
-    const checkSessions = new CheckSessions(api as any)
+    const checkSessions = new CheckSessions(() => api as any)
 
     await expect(checkSessions.pollUntilComplete(completedSession.checkSessionId)).resolves.toEqual(completedSession)
     expect(api.get).toHaveBeenCalledTimes(2)
@@ -85,7 +85,7 @@ describe('CheckSessions REST client', () => {
   it('caps each long-poll to the remaining overall timeout', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(10_000)
     const api = { get: vi.fn().mockResolvedValue({ data: completedSession }) }
-    const checkSessions = new CheckSessions(api as any)
+    const checkSessions = new CheckSessions(() => api as any)
 
     await checkSessions.pollUntilComplete(completedSession.checkSessionId, 15_500)
 
@@ -98,7 +98,7 @@ describe('CheckSessions REST client', () => {
   it('fails before another request once the overall timeout is exhausted', async () => {
     vi.spyOn(Date, 'now').mockReturnValue(10_000)
     const api = { get: vi.fn() }
-    const checkSessions = new CheckSessions(api as any)
+    const checkSessions = new CheckSessions(() => api as any)
 
     await expect(checkSessions.pollUntilComplete(completedSession.checkSessionId, 10_000))
       .rejects

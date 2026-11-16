@@ -52,7 +52,7 @@ describe('Projects.preview', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     api = makeAxiosMock()
-    projects = new Projects(api)
+    projects = new Projects(() => api)
   })
 
   afterEach(() => {
@@ -160,7 +160,7 @@ describe('Projects.deploy dry run on a busy project', () => {
   beforeEach(() => {
     vi.useFakeTimers()
     api = makeAxiosMock()
-    projects = new Projects(api)
+    projects = new Projects(() => api)
   })
 
   afterEach(() => {
@@ -227,7 +227,7 @@ describe('Projects.deploy with a plan token', () => {
 
   beforeEach(() => {
     api = makeAxiosMock()
-    projects = new Projects(api)
+    projects = new Projects(() => api)
   })
 
   it('sends the plan, its token and the pruning flag, and omits all three when unset', async () => {

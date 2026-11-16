@@ -6,7 +6,7 @@ describe('Rca REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { id: 'rca-id' } }),
     }
-    const rca = new Rca(api as any)
+    const rca = new Rca(() => api as any)
 
     await rca.trigger('error-group-id')
 
@@ -20,7 +20,7 @@ describe('Rca REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { id: 'rca-id' } }),
     }
-    const rca = new Rca(api as any)
+    const rca = new Rca(() => api as any)
 
     await rca.trigger('error-group-id', 'some extra context')
 
@@ -34,7 +34,7 @@ describe('Rca REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { id: 'rca-id' } }),
     }
-    const rca = new Rca(api as any)
+    const rca = new Rca(() => api as any)
 
     await rca.triggerTestSessionErrorGroup('ts-error-group-id')
 
@@ -48,7 +48,7 @@ describe('Rca REST client', () => {
     const api = {
       post: vi.fn().mockResolvedValue({ data: { id: 'rca-id' } }),
     }
-    const rca = new Rca(api as any)
+    const rca = new Rca(() => api as any)
 
     await rca.triggerTestSessionErrorGroup('ts-error-group-id', 'some extra context')
 

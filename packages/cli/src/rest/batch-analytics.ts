@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface BatchAnalyticsResult {
   checkId: string
@@ -27,12 +27,7 @@ export const batchQuickRangeValues: BatchQuickRange[] = [
   'last24Hours', 'last7Days', 'thisWeek', 'lastWeek', 'lastMonth',
 ]
 
-class BatchAnalytics {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class BatchAnalytics extends RestResource {
   get (checkIds: string[], quickRange: BatchQuickRange = 'last24Hours') {
     return this.api.post<BatchAnalyticsResult[]>(
       '/v1/analytics/checks',

@@ -1,5 +1,5 @@
-import type { AxiosInstance } from 'axios'
 import { parseTotalFromContentRange } from '../helpers/content-range.js'
+import { RestResource } from './rest-resource.js'
 
 export interface AlertNotification {
   id: string
@@ -36,12 +36,7 @@ export interface PaginatedAlertNotifications {
   limit: number
 }
 
-class AlertNotifications {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class AlertNotifications extends RestResource {
   async getAll (params: AlertNotificationListParams = {}): Promise<PaginatedAlertNotifications> {
     const response = await this.api.get<AlertNotification[]>('/v1/alert-notifications', { params })
     const total = parseTotalFromContentRange(response.headers['content-range']) ?? response.data.length

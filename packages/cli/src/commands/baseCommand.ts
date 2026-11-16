@@ -3,7 +3,7 @@ import prompts from 'prompts'
 import { Command } from '@oclif/core'
 import { fileURLToPath } from 'node:url'
 import { dirname, relative } from 'node:path'
-import { api } from '../rest/api.js'
+import { getApi } from '../rest/api.js'
 import { assignProxy } from '../services/proxy.js'
 import { CommandStyle } from '../helpers/command-style.js'
 import { NotFoundError } from '../rest/errors.js'
@@ -143,7 +143,7 @@ export abstract class BaseCommand extends Command {
     await this.checkEngineCompatibility()
     await this.checkSkillFreshness()
 
-    api.defaults.headers['x-checkly-cli-version'] = await resolveReportedCliVersion(this.config.version)
+    getApi().defaults.headers['x-checkly-cli-version'] = await resolveReportedCliVersion(this.config.version)
 
     // This overrides prompts answers/selections (used on E2E tests)
     if (process.env.CHECKLY_E2E_PROMPTS_INJECTIONS) {

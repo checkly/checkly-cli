@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export const USAGE_INTERVALS = ['total', 'day', 'week', 'month'] as const
 export type UsageInterval = typeof USAGE_INTERVALS[number]
@@ -204,9 +204,7 @@ function toQuery (params: UsageSeriesParams): Record<string, string | number> {
   return query
 }
 
-class Usage {
-  constructor (private readonly api: AxiosInstance) {}
-
+class Usage extends RestResource {
   listTerms (params: UsageTermsParams = {}) {
     return this.api.get<UsageTermsCollection>('/v2/usage/terms', { params: toQuery(params) })
   }

@@ -1,4 +1,4 @@
-import { type AxiosInstance, isAxiosError } from 'axios'
+import { isAxiosError } from 'axios'
 import { Readable } from 'node:stream'
 import type { GitInformation } from '../services/util.js'
 import { compressJSONPayload } from './util.js'
@@ -7,6 +7,7 @@ import {
   ConflictError, ForbiddenError, handleErrorResponse, isAccountNotAccessible, NotFoundError, RequestTimeoutError,
 } from './errors.js'
 import { parseRetryAfter } from './retry.js'
+import { RestResource } from './rest-resource.js'
 
 export interface Project {
   name: string
@@ -520,12 +521,7 @@ function waitOutBusyProject (err: ConflictError): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, retryAfterMs))
 }
 
-class Projects {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Projects extends RestResource {
   getAll () {
     return this.api.get<Array<ProjectResponse>>('/next/projects')
   }

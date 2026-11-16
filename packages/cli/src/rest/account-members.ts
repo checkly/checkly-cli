@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export type AccountMemberRole = 'OWNER' | 'ADMIN' | 'READ_WRITE' | 'READ_RUN' | 'READ_ONLY'
 export type AccountMemberType = 'member' | 'invite'
@@ -55,12 +55,7 @@ export interface AccountMemberUpdateRolePayload {
   role: AccountMemberUpdateRole
 }
 
-class AccountMembers {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class AccountMembers extends RestResource {
   getAll (params?: AccountMembersListParams) {
     return this.api.get<AccountMembersResponse>('/v1/accounts/me/members', { params })
   }

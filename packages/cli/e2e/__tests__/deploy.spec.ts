@@ -25,7 +25,7 @@ async function cleanupProjects (projectLogicalId?: string) {
       'Authorization': `Bearer ${apiKey}`,
     },
   })
-  const projectsApi = new Projects(api)
+  const projectsApi = new Projects(() => api)
   if (projectLogicalId) {
     await projectsApi.deleteProject(projectLogicalId)
     return

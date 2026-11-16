@@ -1,6 +1,6 @@
 import axios from 'axios'
-import type { AxiosInstance } from 'axios'
 import { assignProxy } from '../services/proxy.js'
+import { RestResource } from './rest-resource.js'
 
 // eslint-disable-next-line no-restricted-syntax
 enum AssetType {
@@ -83,12 +83,7 @@ export type CheckResultAssets =
   | CheckResultAssetsV2
   | CheckResultAssetsV3
 
-export default class Assets {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+export default class Assets extends RestResource {
   getLogs (asset: CheckResultAssets): Promise<Array<{ time: number, msg: string, level: string }>> {
     return this.getAssets(AssetType.LOG, asset)
   }

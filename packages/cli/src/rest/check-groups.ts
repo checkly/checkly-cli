@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface CheckGroup {
   id: number
@@ -10,12 +10,7 @@ export interface CheckGroup {
   concurrency: number
 }
 
-class CheckGroups {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class CheckGroups extends RestResource {
   getAll () {
     return this.api.get<CheckGroup[]>('/v1/check-groups')
   }

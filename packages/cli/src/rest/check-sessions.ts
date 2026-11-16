@@ -1,6 +1,5 @@
-import type { AxiosInstance } from 'axios'
-
 import { NotFoundError, RequestTimeoutError } from './errors.js'
+import { RestResource } from './rest-resource.js'
 
 const COMPLETION_MAX_WAIT_SECONDS = 30
 
@@ -84,13 +83,7 @@ export class CheckSessionWaitTimeoutError extends Error {
   }
 }
 
-class CheckSessions {
-  api: AxiosInstance
-
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class CheckSessions extends RestResource {
   async trigger (payload: TriggerCheckSessionsRequest): Promise<TriggerCheckSessionsResponse> {
     try {
       const response = await this.api.post<TriggerCheckSessionsResponse>('/v2/check-sessions/trigger', payload)

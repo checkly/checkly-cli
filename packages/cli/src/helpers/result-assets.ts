@@ -214,7 +214,7 @@ export function hasArchiveEntries (assets: AssetManifestEntry[]): boolean {
 
 function archiveFileNameFromUrl (url: string): string {
   try {
-    const parsed = new URL(url, api.api.defaults?.baseURL)
+    const parsed = new URL(url, api.getApi().defaults?.baseURL)
     const segments = parsed.pathname.split('/').filter(Boolean)
     const redirectIndex = segments.lastIndexOf('redirect')
     const keySegment = redirectIndex > 0 ? segments[redirectIndex - 1] : segments.at(-1)
@@ -366,7 +366,7 @@ function progressTransform (
 
 function shouldUseAuthenticatedApiClient (url: string): boolean {
   try {
-    const apiBaseUrl = api.api.defaults.baseURL
+    const apiBaseUrl = api.getApi().defaults.baseURL
     if (!apiBaseUrl) return !URL.canParse(url)
     const resolvedUrl = new URL(url, apiBaseUrl)
     const resolvedApiUrl = new URL(apiBaseUrl)
@@ -378,7 +378,7 @@ function shouldUseAuthenticatedApiClient (url: string): boolean {
 
 function fetchAssetStream (assetUrl: string): Promise<AxiosResponse<NodeJS.ReadableStream>> {
   if (shouldUseAuthenticatedApiClient(assetUrl)) {
-    return api.api.get<NodeJS.ReadableStream>(assetUrl, { responseType: 'stream' })
+    return api.getApi().get<NodeJS.ReadableStream>(assetUrl, { responseType: 'stream' })
   }
 
   const config = assignProxy(assetUrl, { responseType: 'stream' })
