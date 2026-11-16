@@ -1,5 +1,13 @@
 minimumReleaseAge: 2880 # 2 days
 trustPolicy: no-downgrade
+trustPolicyExclude:
+  # Pinned by @types/node@22 (`~6.21.0`). It was published before newer
+  # undici-types releases gained provenance, so no-downgrade rejects it.
+  - undici-types@6.21.0
+saveExact: true
+allowBuilds:
+  esbuild: true
+  simple-git-hooks: true
 
 packages:
   - packages/*

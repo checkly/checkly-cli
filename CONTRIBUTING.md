@@ -2,20 +2,20 @@
 
 ### Dependencies
 
-You will need to install the project's npm dependencies:
+The repo uses pnpm 12, pinned by `devEngines.packageManager` in the root `package.json` (pnpm 11 or newer downloads and runs the pinned version automatically; pnpm 10 and older refuse to install, so upgrade them first with `npm install -g pnpm@latest`). Install the dependencies for both packages (cli and create-cli):
 
 ```bash
-npm install # this will install dependencies for both packages (cli and create-cli)
+pnpm install
 ```
 
 ## Creating CLI project locally
 
 To run a build with TS for type checking, run:
 ```bash
-npm run prepare --workspace packages/create-cli
+pnpm --filter create-checkly run prepare
 ```
 
-When running commands from the `packages/create-cli` directory, the `--workspace packages/create-cli` flag isn't necessary.
+When running commands from the `packages/create-cli` directory, the `--filter create-checkly` flag isn't necessary.
 
 ## Running locally
 
@@ -29,14 +29,14 @@ Also, you can use the `watch` mode to compile during your coding. You can use th
 export CHECKLY_ACCOUNT_ID=<YOUR_LOCAL_BACKEND_ACCOUNTID>
 export CHECKLY_API_KEY=<YOUR_LOCAL_BACKEND_API_KEY>
 export CHECKLY_ENV=local
-npm run watch --workspace packages/cli
+pnpm --filter checkly run watch
 ```
 
 ### Running E2E test locally
 
-To run the E2E tests pointing to your local backend use the `npm run test:e2e:local --workspace packages/cli`
+To run the E2E tests pointing to your local backend use the `pnpm --filter checkly run test:e2e:local`
 
-Remember that the `--workspace packages/cli` flag isn't necessary when running commands from the `packages/cli` directory.
+Remember that the `--filter checkly` flag isn't necessary when running commands from the `packages/cli` directory.
 
 
 ## Running from source in another project
@@ -63,9 +63,9 @@ The CLI ships agent skills (`skills/checkly/SKILL.md`) and serves reference docs
 
 When modifying AI context sources (`src/ai-context/skill.md`, `src/ai-context/references/`, or `src/ai-context/context.ts`):
 
-1. Run the full prepare step from the `packages/cli` directory:
+1. Run the full prepare step:
    ```bash
-   npm run prepare --workspace packages/cli
+   pnpm --filter checkly run prepare
    ```
    This compiles TypeScript, generates examples from fixtures, and runs `prepare-ai-context.ts` to produce the output in `dist/ai-context/`.
 
@@ -209,6 +209,6 @@ A construct's `synthesize()` sends every property with an explicit value, the de
 ## ESLint rules and commit messages
 
 Projects are configured to check code linting for staged files before each commit. Also, the commit message must follow config conventions.
-After running `npm run prepare` and install the `git` hooks, before each commit the `lint-staged` and `commitlint` will check if everything is fine.
+`pnpm install` installs the `git` hooks; before each commit, `lint-staged` and `commitlint` check that everything is fine.
 
 If you have a work-in-progress commit, you can bypass the checks using the `--no-verify` flag, for example: `git commit -m "WIP commit" --no-verify`.

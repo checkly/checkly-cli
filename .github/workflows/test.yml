@@ -83,8 +83,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22.x'
@@ -105,8 +103,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       # The lockfile-pruner tests exercising a real bun install skip themselves
       # when bun is not on PATH, so without this step they would silently never
       # run in CI. The version is pinned because the tests regenerate a
@@ -123,9 +119,8 @@ jobs:
       # tests (the fixture's packageManager field pins the exact Yarn Berry
       # version). Scoped to yarn on purpose: a bare `corepack enable` would
       # also shim pnpm into the setup-node bin dir, which precedes PNPM_HOME
-      # in PATH and would silently replace the pinned pnpm for every later
-      # step (this repo has no root packageManager field for corepack to
-      # resolve).
+      # in PATH and would silently replace the pnpm installed by
+      # pnpm/action-setup for every later step.
       - run: corepack enable yarn
       # Downloads the fixture-pinned Yarn versions (Berry 4 and 3) now, so
       # a registry or corepack failure surfaces here with an obvious
@@ -162,6 +157,50 @@ jobs:
           if-no-files-found: error
           path: packages/cli/dist/ai-context/*
           retention-days: 1
+  # The repo itself uses the pnpm version pinned in package.json, but users'
+  # projects may run older pnpm majors, which differ in where they read
+  # settings (.npmrc vs pnpm-workspace.yaml) and how they lay out the store.
+  # This job reruns the specs that drive a real pnpm against users' lockfiles
+  # with each older major on PATH. vitest runs from node_modules/.bin rather
+  # than through pnpm because an older pnpm cannot install this repo.
+  test-pnpm-compat:
+    name: test - pnpm ${{ matrix.pnpm }} projects
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        pnpm: ['10.34.9', '11.28.12']
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '22.x'
+          cache: "pnpm"
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run prepack
+      # The test sandbox installs the CLI from this tarball.
+      - run: pnpm pack
+        working-directory: packages/cli
+      - name: Put pnpm ${{ matrix.pnpm }} first on PATH
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pnpm-under-test" "pnpm@${{ matrix.pnpm }}"
+          echo "$RUNNER_TEMP/pnpm-under-test/node_modules/.bin" >> "$GITHUB_PATH"
+      # Fails the job if the older pnpm is not the one the specs will spawn.
+      # Runs outside the repo, whose pin would make pnpm 11 hand over to the
+      # pinned version.
+      - name: Check the pnpm on PATH
+        working-directory: ${{ runner.temp }}
+        run: test "$(pnpm --version)" = "${{ matrix.pnpm }}"
+      - run: >-
+          node_modules/.bin/vitest --run
+          src/services/check-parser/__tests__/lockfile-pruner.spec.ts
+          src/services/check-parser/__tests__/bundler.spec.ts
+          src/services/check-parser/__tests__/patched-dependencies.spec.ts
+          src/services/check-parser/package-files/__tests__/package-manager.spec.ts
+        working-directory: packages/cli
   test-windows:
     name: test - windows
     needs: changes
@@ -170,8 +209,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       # See test-ubuntu: provisions bun for the real-bun lockfile-pruner tests,
       # which otherwise skip themselves.
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -220,8 +257,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22.x'
@@ -247,8 +282,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22.x'
@@ -287,8 +320,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22.x'
@@ -303,8 +334,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '22.x'
@@ -325,6 +354,7 @@ jobs:
       - changes
       - lint
       - test-ubuntu
+      - test-pnpm-compat
       - test-e2e-checkly-ubuntu
       - test-e2e-create-checkly-ubuntu
     runs-on: ubuntu-latest

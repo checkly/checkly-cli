@@ -81,6 +81,7 @@ If `$ARGUMENTS` explicitly asks to update one of these, stop and confirm with th
   ```bash
   git checkout HEAD -- pnpm-lock.yaml && pnpm install
   ```
+- [ ] **pnpm itself.** Move `devEngines.packageManager.version` in the root `package.json` to the newest pnpm within the current major that is past the embargo, then run `pnpm install` so the lockfile's boot document (the leading YAML document holding `packageManagerDependencies`) records the new version. A new pnpm major is a separate change, not part of this update. Also move the `test-pnpm-compat` matrix in `.github/workflows/test.yml` to the newest release of each older pnpm major listed there that is past the embargo: that job tests the CLI against the pnpm versions users run.
 - [ ] Confirm the resulting `package.json` ranges and `pnpm-lock.yaml` reflect the intended versions; that the excluded packages (`@types/node`, `vitest`) are unchanged; that no embargoed version leaked into the lockfile; and that `pnpm install --frozen-lockfile` reports the lockfile is up to date.
 
 ## Phase 4: Verify
