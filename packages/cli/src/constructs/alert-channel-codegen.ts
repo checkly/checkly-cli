@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen/index.js'
+import { Codegen, Context, namedReference } from './internal/codegen/index.js'
 import { Program, GeneratedFile, ObjectValueBuilder, expr, ident, Value } from '../sourcegen/index.js'
 
 import { EmailAlertChannelCodegen } from './email-alert-channel-codegen.js'
@@ -69,15 +69,19 @@ export function buildAlertChannelProps (
 
 const construct = 'AlertChannel'
 
-export function valueForAlertChannelFromId (genfile: GeneratedFile, physicalId: number): Value {
+/**
+ * A `fromId()` reference, with the resource's name as a trailing comment
+ * when it is known (see `namedReference`).
+ */
+export function valueForAlertChannelFromId (genfile: GeneratedFile, physicalId: number, name?: string): Value {
   genfile.namedImport(construct, 'checkly/constructs')
 
-  return expr(ident(construct), builder => {
+  return namedReference(expr(ident(construct), builder => {
     builder.member(ident('fromId'))
     builder.call(builder => {
       builder.number(physicalId)
     })
-  })
+  }), name)
 }
 
 export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
@@ -114,8 +118,16 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
     }
   }
 
+  // Own keys only: a type named after an `Object.prototype` member
+  // (`constructor`, `toString`) is as unsupported as any other.
+  #codegenFor (type: string): Codegen<any> | undefined {
+    return Object.hasOwn(this.codegensByType, type)
+      ? this.codegensByType[type as AlertChannelType]
+      : undefined
+  }
+
   describe (resource: AlertChannelResource): string {
-    const codegen = this.codegensByType[resource.type]
+    const codegen = this.#codegenFor(resource.type)
     if (codegen === undefined) {
       throw new Error(`Unable to describe unsupported alert channel type '${resource.type}'.`)
     }
@@ -124,7 +136,7 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
   }
 
   prepare (logicalId: string, resource: AlertChannelResource, context: Context): void {
-    const codegen = this.codegensByType[resource.type]
+    const codegen = this.#codegenFor(resource.type)
     if (codegen === undefined) {
       throw new Error(`Unable to generate code for unsupported alert channel type '${resource.type}'.`)
     }
@@ -133,7 +145,7 @@ export class AlertChannelCodegen extends Codegen<AlertChannelResource> {
   }
 
   gencode (logicalId: string, resource: AlertChannelResource, context: Context): void {
-    const codegen = this.codegensByType[resource.type]
+    const codegen = this.#codegenFor(resource.type)
     if (codegen === undefined) {
       throw new Error(`Unable to generate code for unsupported alert channel type '${resource.type}'.`)
     }

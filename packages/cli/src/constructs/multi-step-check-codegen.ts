@@ -2,10 +2,12 @@ import { expr, ident } from '../sourcegen/index.js'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen.js'
 import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen.js'
 import { Codegen, Context } from './internal/codegen/index.js'
+import { MISSING_SCRIPT } from './browser-check-codegen.js'
 
 export interface MultiStepCheckResource extends RuntimeCheckResource {
   checkType: 'MULTI_STEP'
-  script: string
+  // Null on a row stored without one; see `MISSING_SCRIPT`.
+  script: string | null
   scriptPath?: string
   playwrightConfig?: PlaywrightConfigResource
 }
@@ -33,7 +35,7 @@ export class MultiStepCheckCodegen extends Codegen<MultiStepCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
-            const scriptFile = this.program.staticSpecFile(filePath.extless, resource.script)
+            const scriptFile = this.program.staticSpecFile(filePath.extless, resource.script ?? MISSING_SCRIPT)
             builder.string('entrypoint', file.relativePath(scriptFile))
           })
 

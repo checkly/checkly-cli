@@ -25,7 +25,7 @@ function createProjects (deployment: Record<string, unknown> = {}) {
     })),
   ))
   const api = { post, get } as unknown as AxiosInstance
-  return { projects: new Projects(api), post }
+  return { projects: new Projects(() => api), post }
 }
 
 const resources: ProjectSync = {

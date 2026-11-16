@@ -14,7 +14,7 @@ describe('CheckResults.getAll()', () => {
 
   beforeEach(() => {
     api = makeAxiosMock()
-    checkResults = new CheckResults(api)
+    checkResults = new CheckResults(() => api)
   })
 
   it('serializes the fields array as a comma-separated query string', async () => {

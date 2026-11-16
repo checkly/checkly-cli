@@ -30,6 +30,22 @@ export type ResourceType =
   | 'status-page-component'
   | 'status-page-automation-rule'
 
+/**
+ * A resource of a type no codegen covers. The message names the type, so it
+ * reads on its own in a list of resources that could not be generated.
+ *
+ * `name` is left as `Error`, like the codegens' other errors, because
+ * `checkly import` prints a failure with `toString()`.
+ */
+export class UnsupportedResourceTypeError extends Error {
+  readonly resourceType: string
+
+  constructor (message: string, resourceType: string) {
+    super(message)
+    this.resourceType = resourceType
+  }
+}
+
 export interface Resource {
   type: ResourceType
   logicalId: string
@@ -53,10 +69,16 @@ const resourceOrder: Record<ResourceType, number> = {
   'status-page-automation-rule': 480,
 }
 
+// Own keys only: a type named after an `Object.prototype` member
+// (`constructor`, `toString`) is as unknown as any other.
+function orderOf (type: string): number {
+  return Object.hasOwn(resourceOrder, type) ? resourceOrder[type as ResourceType] : -1
+}
+
 export function sortResources (resources: Resource[]): Resource[] {
   return resources.sort((a, b) => {
-    const ao = resourceOrder[a.type] ?? -1
-    const bo = resourceOrder[b.type] ?? -1
+    const ao = orderOf(a.type)
+    const bo = orderOf(b.type)
     return bo - ao
   })
 }
@@ -110,28 +132,42 @@ export class ConstructCodegen extends Codegen<Resource> {
     }
   }
 
+  /** The codegen for a resource type, own keys only (see `orderOf`). */
+  #codegenFor (type: string): Codegen<any> | undefined {
+    return Object.hasOwn(this.codegensByType, type) ? this.codegensByType[type as ResourceType] : undefined
+  }
+
   describe (resource: Resource): string {
-    const codegen = this.codegensByType[resource.type]
+    const codegen = this.#codegenFor(resource.type)
     if (codegen === undefined) {
-      throw new Error(`Unable to describe unsupported resource type '${resource.type}'.`)
+      throw new UnsupportedResourceTypeError(
+        `Unable to describe unsupported resource type '${resource.type}'.`,
+        resource.type,
+      )
     }
 
     return codegen.describe(resource.payload)
   }
 
   prepare (logicalId: string, resource: Resource, context: Context): void {
-    const codegen = this.codegensByType[resource.type]
+    const codegen = this.#codegenFor(resource.type)
     if (codegen === undefined) {
-      throw new Error(`Unable to generate code for unsupported resource type '${resource.type}'.`)
+      throw new UnsupportedResourceTypeError(
+        `Unable to generate code for unsupported resource type '${resource.type}'.`,
+        resource.type,
+      )
     }
 
     codegen.prepare(resource.logicalId, resource.payload, context)
   }
 
   gencode (logicalId: string, resource: Resource, context: Context): void {
-    const codegen = this.codegensByType[resource.type]
+    const codegen = this.#codegenFor(resource.type)
     if (codegen === undefined) {
-      throw new Error(`Unable to generate code for unsupported resource type '${resource.type}'.`)
+      throw new UnsupportedResourceTypeError(
+        `Unable to generate code for unsupported resource type '${resource.type}'.`,
+        resource.type,
+      )
     }
 
     codegen.gencode(resource.logicalId, resource.payload, context)

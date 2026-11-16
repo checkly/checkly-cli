@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen/index.js'
+import { Codegen, Context, type ProjectDefaults } from './internal/codegen/index.js'
 import { Program, ObjectValueBuilder, GeneratedFile } from '../sourcegen/index.js'
 import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckCodegen, ApiCheckResource } from './api-check-codegen.js'
@@ -20,8 +20,7 @@ import { IcmpMonitorCodegen, IcmpMonitorResource } from './icmp-monitor-codegen.
 import { GrpcMonitorCodegen, GrpcMonitorResource } from './grpc-monitor-codegen.js'
 import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen.js'
-import { Session } from './session.js'
-import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
+import type { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 
 /**
@@ -120,19 +119,38 @@ export type OmittableCheckProp = 'retryStrategy'
  * each build theirs in `configDefaultsGetter`): the type's own
  * `checkly.config` section first, then the shared `checks` section. A group's
  * check defaults, which sit in the constructs' chains too, carry only
- * `frequency`, which this lookup never asks for. Under `checkly import` the
- * config is loaded before code is generated; a run from a debug plan file
- * has no config and resolves to the backend defaults alone.
+ * `frequency`, which this lookup never asks for.
+ *
+ * `undefined` when the project is unknown (`ContextOptions.projectDefaults`
+ * is absent): any of the defaults could then be set, so no omission is safe.
  */
-export function projectDefaultsFor (checkType: string): ConfigDefaultsGetter<CheckConfigDefaults> {
+export function projectDefaultsFor (
+  checkType: string,
+  projectDefaults: ProjectDefaults | undefined,
+): ConfigDefaultsGetter<CheckConfigDefaults> | undefined {
+  if (projectDefaults === undefined) {
+    return undefined
+  }
+  const { checks, browserChecks, multiStepChecks } = projectDefaults
   switch (checkType) {
     case 'BROWSER':
-      return makeConfigDefaultsGetter(Session.browserCheckDefaults, Session.checkDefaults)
+      return makeConfigDefaultsGetter(browserChecks, checks)
     case 'MULTI_STEP':
-      return makeConfigDefaultsGetter(Session.multiStepCheckDefaults, Session.checkDefaults)
+      return makeConfigDefaultsGetter(multiStepChecks, checks)
     default:
-      return makeConfigDefaultsGetter(Session.checkDefaults)
+      return makeConfigDefaultsGetter(checks)
   }
+}
+
+/**
+ * Whether a project default could fill in a list the row leaves empty: always
+ * when the project is unknown, else when the default holds any entries.
+ */
+function defaultCouldFill (
+  defaults: ConfigDefaultsGetter<CheckConfigDefaults> | undefined,
+  prop: 'alertChannels' | 'privateLocations' | 'environmentVariables',
+): boolean {
+  return defaults === undefined || (defaults(prop) ?? []).length > 0
 }
 
 const sameList = (a: readonly string[], b: readonly string[]): boolean =>
@@ -183,38 +201,44 @@ export function buildCheckProps (
   // that differs from that is generated explicitly, even when it holds the
   // backend default, so an import does not hand the check to a project-wide
   // setting it never had. A prop the code being rendered spells out
-  // (`context.spelledOut`) is generated whatever its value. alertChannels, privateLocations and
-  // environmentVariables are one-directional: never left out when the row
-  // holds any (a value comparison against constructs or key/value/locked/
-  // secret objects is not attempted), and spelled out as empty when the
-  // project default would otherwise fill them. retryStrategy and frequency
-  // are always generated. A project default for alertEscalationPolicy or
-  // runtimeId still applies to a check generated without one: the construct
-  // has no way to say "the global policy" or "the account runtime".
-  const defaults = projectDefaultsFor(resource.checkType)
+  // (`context.spelledOut`) is generated whatever its value, and so is every
+  // one of them when the project is unknown (`context.projectDefaults` is
+  // absent). alertChannels, privateLocations and environmentVariables are
+  // one-directional: never left out when the row holds any (a value
+  // comparison against constructs or key/value/locked/secret objects is not
+  // attempted), and spelled out as empty when the project default would
+  // otherwise fill them, or might. retryStrategy and frequency are always
+  // generated, and so is a stored runtimeId. A project default for
+  // alertEscalationPolicy, or for runtimeId on a check that stores none,
+  // still applies to the generated check: the construct has no way to say
+  // "the global policy" or "the account runtime".
+  const defaults = projectDefaultsFor(resource.checkType, context.projectDefaults)
+  // Whether to write a prop even when its value is the one the construct
+  // would fill in by itself.
+  const spelledOut = (prop: string) => defaults === undefined || context.spelledOut(prop)
   const omitted = new Set<OmittableCheckProp>(options.omit ?? [])
 
   if (resource.activated !== undefined
-    && (resource.activated !== (defaults('activated') ?? true) || context.spelledOut('activated'))) {
+    && (resource.activated !== (defaults?.('activated') ?? true) || spelledOut('activated'))) {
     builder.boolean('activated', resource.activated)
   }
 
-  if (resource.muted !== undefined && (resource.muted !== (defaults('muted') ?? false) || context.spelledOut('muted'))) {
+  if (resource.muted !== undefined && (resource.muted !== (defaults?.('muted') ?? false) || spelledOut('muted'))) {
     builder.boolean('muted', resource.muted)
   }
 
   if (
     options.includeShouldFail
     && resource.shouldFail !== undefined
-    && (resource.shouldFail !== (defaults('shouldFail') ?? false) || context.spelledOut('shouldFail'))
+    && (resource.shouldFail !== (defaults?.('shouldFail') ?? false) || spelledOut('shouldFail'))
   ) {
     builder.boolean('shouldFail', resource.shouldFail)
   }
 
   if (resource.locations) {
     const locations = resource.locations
-    const implied = defaults('locations') ?? []
-    if (!sameList(locations, implied) || context.spelledOut('locations')) {
+    const implied = defaults?.('locations') ?? []
+    if (!sameList(locations, implied) || spelledOut('locations')) {
       builder.array('locations', builder => {
         for (const location of locations) {
           builder.string(location)
@@ -233,8 +257,8 @@ export function buildCheckProps (
 
   if (privateLocationIds === undefined) {
     // No assignment on the row; spelled out as none only when the project
-    // config would otherwise assign some.
-    if ((defaults('privateLocations') ?? []).length > 0) {
+    // config would otherwise assign some, or might.
+    if (defaultCouldFill(defaults, 'privateLocations')) {
       builder.array('privateLocations', () => {})
     }
   } else {
@@ -250,7 +274,11 @@ export function buildCheckProps (
             const id = context.importFriendVariable(privateLocationVariable, genfile)
             builder.value(id)
           } catch {
-            builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
+            builder.value(valueForPrivateLocationFromId(
+              genfile,
+              privateLocationId,
+              context.referencedName('private-location', privateLocationId),
+            ))
           }
         }
       }
@@ -259,7 +287,7 @@ export function buildCheckProps (
 
   if (resource.tags) {
     const tags = resource.tags
-    if (!sameList(tags, defaults('tags') ?? []) || context.spelledOut('tags')) {
+    if (!sameList(tags, defaults?.('tags') ?? []) || spelledOut('tags')) {
       builder.array('tags', builder => {
         for (const tag of tags) {
           builder.string(tag)
@@ -290,7 +318,11 @@ export function buildCheckProps (
         const id = context.importFriendVariable(groupVariable, genfile)
         builder.value('group', id)
       } catch {
-        builder.value('group', valueForCheckGroupFromId(genfile, resource.groupId))
+        builder.value('group', valueForCheckGroupFromId(
+          genfile,
+          resource.groupId,
+          context.referencedName('check-group', resource.groupId),
+        ))
       }
     }
   }
@@ -305,8 +337,8 @@ export function buildCheckProps (
 
   if (alertChannelIds === undefined) {
     // No subscription on the row; spelled out as none only when the project
-    // config would otherwise subscribe the check.
-    if ((defaults('alertChannels') ?? []).length > 0) {
+    // config would otherwise subscribe the check, or might.
+    if (defaultCouldFill(defaults, 'alertChannels')) {
       builder.array('alertChannels', () => {})
     }
   } else {
@@ -322,7 +354,11 @@ export function buildCheckProps (
             const id = context.importFriendVariable(alertChannelVariable, genfile)
             builder.value(id)
           } catch {
-            builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
+            builder.value(valueForAlertChannelFromId(
+              genfile,
+              alertChannelId,
+              context.referencedName('alert-channel', alertChannelId),
+            ))
           }
         }
       }
@@ -378,9 +414,9 @@ export function buildRuntimeCheckProps (
   if (resource.environmentVariables) {
     const variables = resource.environmentVariables
     // An empty list is spelled out when the project config would otherwise
-    // fill it.
-    const implied = projectDefaultsFor(resource.checkType)('environmentVariables') ?? []
-    if (variables.length > 0 || implied.length > 0) {
+    // fill it, or might.
+    const defaults = projectDefaultsFor(resource.checkType, context.projectDefaults)
+    if (variables.length > 0 || defaultCouldFill(defaults, 'environmentVariables')) {
       builder.array('environmentVariables', builder => {
         for (const variable of variables) {
           builder.value(valueForKeyValuePair(program, genfile, context, variable, 'environmentVariables'))

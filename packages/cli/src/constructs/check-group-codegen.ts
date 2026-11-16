@@ -1,4 +1,4 @@
-import { Codegen, Context, ImportSafetyViolation } from './internal/codegen/index.js'
+import { Codegen, Context, ImportSafetyViolation, namedReference } from './internal/codegen/index.js'
 import { decl, expr, GeneratedFile, ident, object, ObjectValueBuilder, Program, Value } from '../sourcegen/index.js'
 import { AlertEscalationResource, hasEscalationPolicy, valueForAlertEscalation } from './alert-escalation-policy-codegen.js'
 import { ApiCheckDefaultConfig } from './api-check.js'
@@ -113,7 +113,11 @@ function buildCheckGroupProps (
             const id = context.importFriendVariable(privateLocationVariable, genfile)
             builder.value(id)
           } catch {
-            builder.value(valueForPrivateLocationFromId(genfile, privateLocationId))
+            builder.value(valueForPrivateLocationFromId(
+              genfile,
+              privateLocationId,
+              context.referencedName('private-location', privateLocationId),
+            ))
           }
         }
       }
@@ -167,7 +171,11 @@ function buildCheckGroupProps (
             const id = context.importFriendVariable(alertChannelVariable, genfile)
             builder.value(id)
           } catch {
-            builder.value(valueForAlertChannelFromId(genfile, alertChannelId))
+            builder.value(valueForAlertChannelFromId(
+              genfile,
+              alertChannelId,
+              context.referencedName('alert-channel', alertChannelId),
+            ))
           }
         }
       }
@@ -307,15 +315,19 @@ function buildCheckGroupProps (
 
 const construct = 'CheckGroupV2'
 
-export function valueForCheckGroupFromId (genfile: GeneratedFile, physicalId: number): Value {
+/**
+ * A `fromId()` reference, with the resource's name as a trailing comment
+ * when it is known (see `namedReference`).
+ */
+export function valueForCheckGroupFromId (genfile: GeneratedFile, physicalId: number, name?: string): Value {
   genfile.namedImport(construct, 'checkly/constructs')
 
-  return expr(ident(construct), builder => {
+  return namedReference(expr(ident(construct), builder => {
     builder.member(ident('fromId'))
     builder.call(builder => {
       builder.number(physicalId)
     })
-  })
+  }), name)
 }
 
 export class CheckGroupCodegen extends Codegen<CheckGroupResource> {

@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface CheckResult {
   id: string
@@ -254,12 +254,7 @@ export interface ListCheckResultsParams {
   fields?: CheckResultField[]
 }
 
-class CheckResults {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class CheckResults extends RestResource {
   getAll (checkId: string, params: ListCheckResultsParams = {}) {
     // Serialize `fields` as a single comma-separated value rather than relying on
     // Axios array serialization. The backend accepts both `fields=id,startedAt`

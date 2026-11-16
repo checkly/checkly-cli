@@ -1,9 +1,11 @@
 import path, { dirname } from 'node:path'
 
 import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen/index.js'
-import { ProgramFile } from '../../../sourcegen/program.js'
-import { parseSnippetDependencies } from './snippet.js'
-import { ConstructExport } from '../../session.js'
+import { ProgramFile, StaticAuxiliaryFile } from '../../../sourcegen/program.js'
+import { isSafeSnippetFilename, parseSnippetDependencies } from './snippet.js'
+import type { ConstructExport } from '../../session.js'
+import type { CheckConfigDefaults } from '../../../services/checkly-config-loader.js'
+import type { FriendResourceSync } from '../../../rest/projects.js'
 
 export class MissingContextVariableMappingError extends Error {}
 
@@ -37,6 +39,24 @@ export interface FilenameOptions {
   unique?: boolean
   contentKey?: string
   case?: CaseFormat
+}
+
+/**
+ * A file name taken from a resource's tag, with `/` separators, or
+ * `undefined` if it would not stay below the directory it is joined to. It
+ * may name subdirectories (`team/orders`), but not an absolute path (`/x`,
+ * `C:x`, `\\server\share`), a `..` segment, an empty segment, or a NUL.
+ */
+function relativeFilename (name: string): string | undefined {
+  const normalized = name.replace(/\\/g, '/')
+  if (normalized.includes('\0') || normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) {
+    return undefined
+  }
+  const segments = normalized.split('/')
+  if (segments.some(segment => segment === '' || segment === '..')) {
+    return undefined
+  }
+  return normalized
 }
 
 const splitExt = (filePath: string): [string, string] => {
@@ -160,7 +180,45 @@ export interface ContextOptions {
    * value happens to be the default.
    */
   spelledOut?: ReadonlySet<string>
+  /**
+   * The `checks` defaults of the project the generated code will live in,
+   * which a generated check falls back to for a property it leaves out (see
+   * `projectDefaultsFor` in `check-codegen.ts`). `{}` stands for a project
+   * that sets none, where an omitted property means the backend default.
+   *
+   * Absent, the project is unknown, so a codegen cannot tell which omissions
+   * are safe: every check property a project default could fill in is then
+   * written out even at its default value, and an empty relation or variable
+   * list is written as `[]`.
+   */
+  projectDefaults?: ProjectDefaults
+  /**
+   * The names of resources a generated construct refers to by ID because the
+   * code being generated does not declare them, keyed by resource type and
+   * then by physical ID (as a string). A `fromId()` reference to a named
+   * resource carries the name in a trailing comment, so that a reader can
+   * tell what the ID stands for.
+   */
+  referencedNames?: ReferencedNames
 }
+
+/**
+ * The project-level check defaults of a `checkly.config`: the shared `checks`
+ * section and the sections for browser and multi-step checks.
+ */
+export interface ProjectDefaults {
+  checks?: CheckConfigDefaults
+  browserChecks?: CheckConfigDefaults
+  multiStepChecks?: CheckConfigDefaults
+}
+
+/**
+ * The resource types a generated construct can refer to with `fromId()`: the
+ * same types an import plan can name as friends.
+ */
+export type ReferencedResourceType = FriendResourceSync['type']
+
+export type ReferencedNames = Partial<Record<ReferencedResourceType, Readonly<Record<string, string>>>>
 
 /**
  * The child keys under a prefix among dotted paths: `retryStrategy` picks
@@ -189,13 +247,47 @@ export function pathsUnder (paths: ReadonlySet<string>, prefix: string): string[
   return children
 }
 
+function snippetFilenameCase (name: string): CaseFormat {
+  return isSafeSnippetFilename(name) ? 'identity' : 'kebab-case'
+}
+
+/**
+ * For each file `content` requires as a snippet, the names a snippet file
+ * may be registered under for it: with or without an extension.
+ */
+function requiredSnippetCandidates (content: string, sameFolder: boolean): string[][] {
+  return parseSnippetDependencies(content, sameFolder ? './' : undefined).map(filename => {
+    const { name } = path.parse(filename)
+    return [
+      name,
+      filename,
+      `${name}.ts`,
+      `${name}.js`,
+      `${filename}.ts`,
+      `${filename}.js`,
+    ]
+  })
+}
+
 export class Context {
   readonly maskedValues: ReadonlySet<string> | undefined
   readonly #spelledOut: ReadonlySet<string>
+  /** See `ContextOptions.projectDefaults`; `undefined` when the project is unknown. */
+  readonly projectDefaults: ProjectDefaults | undefined
+  readonly #referencedNames: ReferencedNames
 
   constructor (options: ContextOptions = {}) {
     this.maskedValues = options.maskedValues
     this.#spelledOut = options.spelledOut ?? new Set()
+    this.projectDefaults = options.projectDefaults
+    this.#referencedNames = options.referencedNames ?? {}
+  }
+
+  /** The name of a resource referenced by ID, if known (see `ContextOptions.referencedNames`). */
+  referencedName (type: ReferencedResourceType, physicalId: string | number): string | undefined {
+    const names = this.#referencedNames[type]
+    const key = String(physicalId)
+    return names !== undefined && Object.hasOwn(names, key) ? names[key] : undefined
   }
 
   /** Whether the code being rendered spells out the property at `path` (see `ContextOptions.spelledOut`). */
@@ -251,6 +343,9 @@ export class Context {
 
   #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
   #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
+  #usedAuxiliarySnippetFiles = new Set<ProgramFile>()
+  #refusedSnippetsByPhysicalId = new Map<number, Error>()
+  #refusedSnippetsByFilename = new Map<string, Error>()
 
   #reservedIdentifiersByFilePath = new Map<string, Map<string, VariableLocator>>()
 
@@ -305,7 +400,12 @@ export class Context {
     if (options?.tags !== undefined) {
       for (const tag of options.tags) {
         if (tag.startsWith(CHECKLY_IMPORT_FILENAME_TAG_PREFIX)) {
-          filename = tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length)
+          // A name that would leave `parent` is ignored, and the file is
+          // named after the hint instead.
+          const tagged = relativeFilename(tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length))
+          if (tagged !== undefined) {
+            filename = tagged
+          }
           break
         }
       }
@@ -668,27 +768,50 @@ export class Context {
     this.#auxiliarySnippetFilesByFilename.set(snippetFile.basename, snippetFile)
   }
 
+  /**
+   * The snippet file a script names by ID. Recorded as used by the generated
+   * code (`usedAuxiliarySnippetFiles`).
+   *
+   * @throws Error if the snippet, or a snippet it reaches, was refused
+   * (`registerRefusedSnippet`).
+   */
   lookupAuxiliarySnippetFile (physicalId: number): ProgramFile | undefined {
-    return this.#auxiliarySnippetFilesByPhysicalId.get(physicalId)
+    const refused = this.#refusedSnippetsByPhysicalId.get(physicalId)
+    if (refused !== undefined) {
+      throw refused
+    }
+    const file = this.#auxiliarySnippetFilesByPhysicalId.get(physicalId)
+    if (file !== undefined) {
+      this.#useSnippetFile(file)
+    }
+    return file
   }
 
+  /**
+   * The snippet files a check's script requires through `./snippets/`.
+   * Recorded as used by the generated code (`usedAuxiliarySnippetFiles`).
+   *
+   * @throws Error if the script, or a snippet it reaches, requires a refused
+   * snippet (`registerRefusedSnippet`).
+   */
   findScriptSnippetFiles (content: string): ProgramFile[] {
+    this.#throwIfRequiresRefused(content, false)
+    const files = this.snippetFilesRequiredBy(content)
+    for (const file of files) {
+      this.#useSnippetFile(file)
+    }
+    return files
+  }
+
+  /**
+   * The snippet files `content` requires, without recording them as used:
+   * through `./snippets/` only, or with `sameFolder` also as a sibling
+   * (`./other-snippet`), which is how a snippet that is itself required may
+   * require another.
+   */
+  snippetFilesRequiredBy (content: string, options?: { sameFolder?: boolean }): ProgramFile[] {
     const files = new Set<ProgramFile>()
-
-    const filenames = parseSnippetDependencies(content)
-
-    for (const filename of filenames) {
-      const { name } = path.parse(filename)
-
-      const candidates = [
-        name,
-        filename,
-        `${name}.ts`,
-        `${name}.js`,
-        `${filename}.ts`,
-        `${filename}.js`,
-      ]
-
+    for (const candidates of requiredSnippetCandidates(content, options?.sameFolder ?? false)) {
       for (const candidate of candidates) {
         const match = this.#auxiliarySnippetFilesByFilename.get(candidate)
         if (match !== undefined) {
@@ -697,7 +820,94 @@ export class Context {
         }
       }
     }
-
     return [...files]
+  }
+
+  /**
+   * Remembers a snippet the codegen cannot convert, instead of failing every
+   * resource for it: only a resource that names it by ID, or whose script
+   * reaches it through requires, fails, with `cause` as the reason.
+   *
+   * @param name The snippet's name, by which a script requires it (see
+   * `snippetFilename`); absent if it has none.
+   */
+  registerRefusedSnippet (physicalId: number, name: string | undefined, cause: Error) {
+    const refused = new Error(`Snippet #${physicalId} cannot be converted: ${cause.message}`, { cause })
+    this.#refusedSnippetsByPhysicalId.set(physicalId, refused)
+    if (name !== undefined) {
+      this.#refusedSnippetsByFilename.set(this.snippetFilename(name), refused)
+    }
+  }
+
+  /**
+   * The path of a snippet's file: `snippets/<name>`, the name kept as it is
+   * when it is one the backend allows in a file name (`isSafeSnippetFilename`),
+   * else in kebab-case. Snippets with the same name but different IDs get
+   * numbered paths.
+   */
+  snippetFilePath (physicalId: number, name: string): FilePath {
+    return this.filePath('snippets', name, {
+      unique: false,
+      contentKey: `snippet::${physicalId}`,
+      case: snippetFilenameCase(name),
+    })
+  }
+
+  /**
+   * The file name, without an extension, that a snippet's file is named
+   * after (see `snippetFilePath`), by which a script requires it.
+   */
+  snippetFilename (name: string): string {
+    return cased(name, snippetFilenameCase(name))
+  }
+
+  // A used snippet counts only once nothing it reaches is refused.
+  #useSnippetFile (file: ProgramFile) {
+    if (this.#refusedSnippetsByFilename.size > 0) {
+      const seen = new Set<ProgramFile>()
+      const queue = [file]
+      for (let next = queue.pop(); next !== undefined; next = queue.pop()) {
+        if (seen.has(next) || !(next instanceof StaticAuxiliaryFile)) {
+          continue
+        }
+        seen.add(next)
+        const content = next.content.toString()
+        this.#throwIfRequiresRefused(content, true)
+        queue.push(...this.snippetFilesRequiredBy(content, { sameFolder: true }))
+      }
+    }
+    this.#usedAuxiliarySnippetFiles.add(file)
+  }
+
+  #throwIfRequiresRefused (content: string, sameFolder: boolean) {
+    if (this.#refusedSnippetsByFilename.size === 0) {
+      return
+    }
+    for (const candidates of requiredSnippetCandidates(content, sameFolder)) {
+      // A converted snippet of the same name takes precedence, as a lookup
+      // of the files would find that one.
+      if (candidates.some(candidate => this.#auxiliarySnippetFilesByFilename.has(candidate))) {
+        continue
+      }
+      for (const candidate of candidates) {
+        const refused = this.#refusedSnippetsByFilename.get(candidate)
+        if (refused !== undefined) {
+          throw refused
+        }
+      }
+    }
+  }
+
+  /** Every registered snippet file. */
+  get auxiliarySnippetFiles (): ProgramFile[] {
+    return [...this.#auxiliarySnippetFilesByPhysicalId.values()]
+  }
+
+  /**
+   * The snippet files the generated code itself uses: those a script names
+   * by ID or requires, not counting what the snippets require in turn.
+   */
+  get usedAuxiliarySnippetFiles (): ReadonlySet<ProgramFile> {
+    return this.#usedAuxiliarySnippetFiles
   }
 }

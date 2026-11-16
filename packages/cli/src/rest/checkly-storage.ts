@@ -1,12 +1,7 @@
-import type { AxiosInstance } from 'axios'
 import type { Readable } from 'node:stream'
+import { RestResource } from './rest-resource.js'
 
-class ChecklyStorage {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class ChecklyStorage extends RestResource {
   upload (stream: Readable) {
     return this.api.post<{ key: string }>(
       '/next/checkly-storage/upload',

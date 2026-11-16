@@ -18,14 +18,9 @@ import { getRepoUrlFromGit, splitConfigFilePath } from '../../services/util.js'
 import { ChecklyConfig, ConfigNotFoundError, loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { ImportPlan, ProjectNotFoundError, ImportPlanFilter, ImportPlanOptions, ResourceSync, ImportPlanFriend, FriendResourceSync, NoImportableResourcesFoundError } from '../../rest/projects.js'
 import { cased, Comment, docComment, Program } from '../../sourcegen/index.js'
-import { ConstructCodegen, sortResources } from '../../constructs/construct-codegen.js'
-import { PREVIEW_ONLY_CHECK_TYPES } from '../../constructs/check-codegen.js'
+import { ConstructCodegen } from '../../constructs/construct-codegen.js'
 import { Context } from '../../constructs/internal/codegen/index.js'
-import {
-  isSnippet,
-  isSafeSnippetFilename,
-} from '../../constructs/internal/codegen/snippet.js'
-import { StaticAuxiliaryFile } from '../../sourcegen/program.js'
+import { generateIntoProgram } from '../../codegen/generate.js'
 import { ExitError } from '@oclif/core/errors'
 import { confirmCommit, performCommitAction } from './commit.js'
 import { confirmApply, performApplyAction } from './apply.js'
@@ -1150,176 +1145,24 @@ ${chalk.cyan('For safety, resources are not deletable until the plan has been co
     this.style.actionStart('Generating Checkly constructs for imported resources')
 
     try {
-      const context = new Context()
+      const failures = plan.changes
+        ? generateIntoProgram(plan.changes, program, codegen, {
+            // The project loaded for the import. A debug plan file is
+            // generated without one, and then resolves to the backend
+            // defaults alone.
+            projectDefaults: Session.projectDefaults(),
+            friendExport: (type, logicalId) => friendExports[type].get(logicalId),
+          })
+        : []
 
-      const failures = new Map<string, FailedResource>()
-
-      if (plan.changes) {
-        const { resources, friends, auxiliary } = plan.changes
-
-        if (friends) {
-          for (const resource of friends) {
-            try {
-              if (friendExports[resource.type] === undefined) {
-                throw new Error(`Unable to process unsupported friend resource type '${resource.type}'.`)
-              }
-
-              const friendExport = friendExports[resource.type].get(resource.logicalId)
-              if (friendExport === undefined) {
-                throw new Error(`Received friend resource '${resource.logicalId}' that was not requested for.`)
-              }
-
-              switch (resource.type) {
-                case 'alert-channel':
-                  context.registerFriendAlertChannel(resource.physicalId, friendExport)
-                  break
-                case 'check-group':
-                  context.registerFriendCheckGroup(resource.physicalId, friendExport)
-                  break
-                case 'private-location':
-                  context.registerFriendPrivateLocation(resource.physicalId, friendExport)
-                  break
-                case 'status-page-service':
-                  context.registerFriendStatusPageService(resource.physicalId, friendExport)
-                  break
-                case 'status-page':
-                  context.registerFriendStatusPage(resource.physicalId, friendExport)
-                  break
-                case 'status-page-component':
-                  context.registerFriendStatusPageComponent(resource.physicalId, friendExport)
-                  break
-              }
-            } catch (cause) {
-              throw new Error(`Failed to process friend resource '${resource.type}:${resource.physicalId}' (${resource.logicalId}): ${cause}`, { cause })
-            }
-          }
-        }
-
-        if (auxiliary) {
-          const globalSnippetFiles = new Set<StaticAuxiliaryFile>()
-
-          for (const resource of auxiliary) {
-            try {
-              switch (resource.type) {
-                case 'snippet': {
-                  const snippet = resource.payload
-
-                  if (!isSnippet(snippet)) {
-                    throw new Error(`Invalid auxiliary snippet`)
-                  }
-
-                  const snippetFilePath = context.filePath('snippets', snippet.name, {
-                    unique: false,
-                    contentKey: `snippet::${snippet.id}`,
-                    case: isSafeSnippetFilename(snippet.name) ? 'identity' : 'kebab-case',
-                  })
-
-                  const snippetFile = program.staticSupportFile(
-                    snippetFilePath.fullPath,
-                    snippet.script,
-                  )
-
-                  globalSnippetFiles.add(snippetFile)
-
-                  context.registerAuxiliarySnippetFile(snippet.id, snippetFile)
-
-                  break
-                }
-                default:
-                  throw new Error(`Unable to process unsupported auxiliary resource type '${resource.type}'.`)
-              }
-            } catch (cause) {
-              throw new Error(`Failed to process auxiliary resource '${resource.type}:${resource.physicalId}': ${cause}`, { cause })
-            }
-          }
-
-          // Due to questionable historical design choices, snippets may
-          // reference other snippets in two ways:
-          //
-          // 1. From the same folder (i.e. `require('./other-snippet')`) if
-          //    the requiring snippet is NOT the main entrypoint, but has
-          //    itself been required by another snippet or script.
-          // 2. From the magic './snippets' folder using
-          //    `require('./snippets/other-snippet')` irrespective of whether
-          //    the requiring snippet is the main entrypoint or not (works in
-          //    either case).
-          //
-          // To emulate this functionality with a proper file structure, we
-          // need to check if any global snippets are using the second method,
-          // and create appropriate aliases in the beatifully named
-          // './snippets/snippets/' folder so that the paths can resolve
-          // without modification.
-          for (const globalSnippetFile of globalSnippetFiles) {
-            const content = globalSnippetFile.content.toString()
-            const snippetFiles = context.findScriptSnippetFiles(content)
-            for (const snippetFile of snippetFiles) {
-              const localSnippetFile = program.generatedSupportFile(`snippets/snippets/${snippetFile.basename}`)
-              localSnippetFile.header(docComment(
-                `This file has been generated to help resolve cross-snippet imports.\n`
-                + `\n`
-                + `We recommend rewriting your imports to not reference this file, after which\n`
-                + `you may remove it.`,
-              ))
-              localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
-            }
-          }
-        }
-
-        sortResources(resources as any)
-
-        for (const resource of resources) {
-          try {
-            codegen.prepare(resource.logicalId, resource as any, context)
-          } catch (cause) {
-            if (!(cause instanceof Error)) {
-              throw cause
-            }
-
-            failures.set(resource.logicalId, {
-              resource,
-              cause,
-            })
-          }
-        }
-
-        for (const resource of resources) {
-          if (failures.has(resource.logicalId)) {
-            continue
-          }
-
-          try {
-            // A codegen that exists for the deploy preview only must not
-            // write a construct here: a suite that reaches a plan (an API
-            // without the rule that leaves them out) is reported as not
-            // importable instead.
-            const previewOnly = resource.type === 'check'
-              ? PREVIEW_ONLY_CHECK_TYPES.get(resource.payload?.checkType)
-              : undefined
-            if (previewOnly !== undefined) {
-              throw new Error(previewOnly)
-            }
-            codegen.gencode(resource.logicalId, resource as any, context)
-          } catch (cause) {
-            if (!(cause instanceof Error)) {
-              throw cause
-            }
-
-            failures.set(resource.logicalId, {
-              resource,
-              cause,
-            })
-          }
-        }
-      }
-
-      if (failures.size === 0) {
+      if (failures.length === 0) {
         this.style.actionSuccess()
       } else {
         this.style.actionFailure()
       }
 
       return {
-        failures: [...failures.values()],
+        failures,
       }
     } catch (err) {
       this.style.actionFailure()

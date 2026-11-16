@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { ApiCheckCodegen, ApiCheckResource } from '../api-check-codegen.js'
 import { projectDefaultsFor } from '../check-codegen.js'
-import { Context } from '../internal/codegen/context.js'
+import { Context, type ProjectDefaults } from '../internal/codegen/context.js'
 import { DnsMonitorCodegen, DnsMonitorResource } from '../dns-monitor-codegen.js'
 import { EmailAlertChannel } from '../email-alert-channel.js'
 import { PrivateLocation } from '../private-location.js'
@@ -37,6 +37,11 @@ async function createRenderEnv (): Promise<RenderEnv> {
   }
 }
 
+// The project defaults the next render generates against; `{}` (a project
+// without defaults) unless a test sets some, and `undefined` for an unknown
+// project.
+let projectDefaults: ProjectDefaults | undefined
+
 async function renderWith<T extends { id: string }> (
   env: RenderEnv,
   makeCodegen: (program: Program) => Codegen<T>,
@@ -48,7 +53,7 @@ async function renderWith<T extends { id: string }> (
     specFileSuffix: '.spec',
     language: 'typescript',
   })
-  makeCodegen(program).gencode(resource.id, resource, new Context())
+  makeCodegen(program).gencode(resource.id, resource, new Context({ projectDefaults }))
   await program.realize()
   const [filePath] = program.paths
   if (filePath === undefined) {
@@ -84,6 +89,7 @@ describe('buildCheckProps defaults', () => {
 
   beforeEach(() => {
     Session.project = new Project('proj', { name: 'Project' })
+    projectDefaults = {}
   })
 
   describe('alert escalation policy', () => {
@@ -150,7 +156,7 @@ describe('buildCheckProps defaults', () => {
     // With a project default in force, omitting the prop would hand the
     // check that default, so the row's own value is spelled out.
     it('generates the backend default explicitly when the project default differs', async () => {
-      Session.checkDefaults = { muted: true, tags: ['prod'], locations: ['eu-west-1'], activated: false }
+      projectDefaults = { checks: { muted: true, tags: ['prod'], locations: ['eu-west-1'], activated: false } }
       const source = await renderResource(env, baseResource({
         activated: true, muted: false, tags: [], locations: [],
       }))
@@ -161,28 +167,31 @@ describe('buildCheckProps defaults', () => {
     })
 
     it('leaves out a value the project default reproduces', async () => {
-      Session.checkDefaults = { muted: true, tags: ['prod'] }
+      projectDefaults = { checks: { muted: true, tags: ['prod'] } }
       const source = await renderResource(env, baseResource({ muted: true, tags: ['prod'] }))
       expect(source).not.toContain('muted')
       expect(source).not.toContain('tags')
     })
 
     it('generates a list that differs from the project default in order', async () => {
-      Session.checkDefaults = { tags: ['a', 'b'] }
+      projectDefaults = { checks: { tags: ['a', 'b'] } }
       const source = await renderResource(env, baseResource({ tags: ['b', 'a'] }))
       expect(source).toContain('tags: [')
     })
 
     it('resolves the browser and multi-step sections before the shared one', () => {
-      Session.checkDefaults = { activated: true, muted: true }
-      Session.browserCheckDefaults = { activated: false }
-      Session.multiStepCheckDefaults = { muted: false }
-      const browser = projectDefaultsFor('BROWSER')
+      const sections: ProjectDefaults = {
+        checks: { activated: true, muted: true },
+        browserChecks: { activated: false },
+        multiStepChecks: { muted: false },
+      }
+      const browser = projectDefaultsFor('BROWSER', sections)!
       expect([browser('activated'), browser('muted')]).toEqual([false, true])
-      const multiStep = projectDefaultsFor('MULTI_STEP')
+      const multiStep = projectDefaultsFor('MULTI_STEP', sections)!
       expect([multiStep('activated'), multiStep('muted')]).toEqual([true, false])
-      const api = projectDefaultsFor('API')
+      const api = projectDefaultsFor('API', sections)!
       expect([api('activated'), api('muted')]).toEqual([true, true])
+      expect(projectDefaultsFor('API', undefined)).toBeUndefined()
     })
   })
 
@@ -195,11 +204,11 @@ describe('buildCheckProps defaults', () => {
     })
 
     it('spells out empty relations and variables when the project default would fill them', async () => {
-      Session.checkDefaults = {
+      projectDefaults = { checks: {
         alertChannels: [new EmailAlertChannel('email', { address: 'ops@example.com' })],
         privateLocations: [new PrivateLocation('pl', { name: 'Office', slugName: 'office' })],
         environmentVariables: [{ key: 'REGION', value: 'eu' }],
-      }
+      } }
       const source = await renderResource(env, baseResource({ environmentVariables: [] }))
       expect(source).toContain('alertChannels: []')
       expect(source).toContain('privateLocations: []')
@@ -216,12 +225,59 @@ describe('buildCheckProps defaults', () => {
     })
 
     it('never generates shouldFail for a check type without it, whatever the row or the project sets', async () => {
-      Session.checkDefaults = { shouldFail: false }
+      projectDefaults = { checks: { shouldFail: false } }
       const dns: DnsMonitorResource = {
         id: 'dns', checkType: 'DNS', name: 'DNS', shouldFail: true, request: { query: 'example.com', recordType: 'A' },
       }
       const source = await renderWith(env, program => new DnsMonitorCodegen(program), dns)
       expect(source).not.toContain('shouldFail')
+    })
+  })
+
+  // Without project defaults, any omission could hand the check a default
+  // of the project the code ends up in, so none is made.
+  describe('when the project is unknown', () => {
+    beforeEach(() => {
+      projectDefaults = undefined
+    })
+
+    it('writes every prop a project default could fill in, at its backend default', async () => {
+      const source = await renderResource(env, baseResource({
+        activated: true, muted: false, shouldFail: false, tags: [], locations: [], environmentVariables: [],
+        runtimeId: '2025.04',
+      }))
+      expect(source).toContain('activated: true')
+      expect(source).toContain('muted: false')
+      expect(source).toContain('shouldFail: false')
+      expect(source).toContain('tags: []')
+      expect(source).toContain('locations: []')
+      expect(source).toContain('alertChannels: []')
+      expect(source).toContain('privateLocations: []')
+      expect(source).toContain('environmentVariables: []')
+      expect(source).toContain('runtimeId: \'2025.04\'')
+    })
+
+    it('leaves out what the row does not hold, and what no project default can set', async () => {
+      const source = await renderResource(env, baseResource())
+      expect(source).not.toMatch(/activated|muted|tags|locations: |runtimeId|environmentVariables|testOnly/)
+      expect(source).toContain('alertChannels: []')
+      expect(source).toContain('privateLocations: []')
+    })
+
+    it('matches the output for explicit project defaults that set every prop the row differs from', async () => {
+      const row = baseResource({ activated: true, muted: false, tags: [], locations: [], environmentVariables: [] })
+      const unknown = await renderResource(env, row)
+      projectDefaults = { checks: {
+        activated: false,
+        muted: true,
+        tags: ['prod'],
+        locations: ['eu-west-1'],
+        alertChannels: [new EmailAlertChannel('email', { address: 'ops@example.com' })],
+        privateLocations: [new PrivateLocation('pl', { name: 'Office', slugName: 'office' })],
+        environmentVariables: [{ key: 'REGION', value: 'eu' }],
+      } }
+      const explicit = await renderResource(env, row)
+      expect(unknown).toEqual(explicit)
     })
   })
 

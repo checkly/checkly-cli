@@ -38,7 +38,7 @@ describe('Projects.deploy', () => {
 
   beforeEach(() => {
     api = makeAxiosMock()
-    projects = new Projects(api)
+    projects = new Projects(() => api)
   })
 
   it('returns the preview diff synchronously for a dry run (no stream)', async () => {
@@ -189,7 +189,7 @@ describe('Projects.deploy cancel-in-progress', () => {
 
   beforeEach(() => {
     api = makeAxiosMock()
-    projects = new Projects(api)
+    projects = new Projects(() => api)
   })
 
   it('waits for the in-progress deployment then re-POSTs to success (no flag, no cancel)', async () => {
@@ -364,7 +364,7 @@ describe('Projects.deleteProject', () => {
 
   beforeEach(() => {
     api = makeAxiosMock()
-    projects = new Projects(api)
+    projects = new Projects(() => api)
   })
 
   it('submits the async delete, follows the SSE stream, reports progress, and resolves on SUCCEEDED', async () => {
@@ -495,7 +495,7 @@ describe('Projects import plan operations', () => {
     const api = makeAxiosMock()
     vi.mocked(api[method]).mockRejectedValue(new ForbiddenError({ statusCode: 403, error: 'Forbidden', message: 'Forbidden' }))
 
-    await expect(new Projects(api)[operation]('plan-1')).rejects.toBeInstanceOf(InvalidImportPlanStateError)
+    await expect(new Projects(() => api)[operation]('plan-1')).rejects.toBeInstanceOf(InvalidImportPlanStateError)
   })
 
   it.each(operations)('%s passes on a 403 for an account the credentials cannot access', async (operation, method) => {
@@ -505,6 +505,6 @@ describe('Projects import plan operations', () => {
     })
     vi.mocked(api[method]).mockRejectedValue(inaccessible)
 
-    await expect(new Projects(api)[operation]('plan-1')).rejects.toBe(inaccessible)
+    await expect(new Projects(() => api)[operation]('plan-1')).rejects.toBe(inaccessible)
   })
 })

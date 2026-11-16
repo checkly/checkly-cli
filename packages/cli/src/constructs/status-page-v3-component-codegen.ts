@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen/index.js'
+import { Codegen, Context, namedReference } from './internal/codegen/index.js'
 import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
 import { StatusPageV3ComponentType } from './status-page-v3-component.js'
 import { defaultConfigurationByType } from './internal/status-page-v3-component-configuration.js'
@@ -31,15 +31,19 @@ function nonDefaultConfiguration (
 
 const construct = 'StatusPageV3Component'
 
-export function valueForStatusPageV3ComponentFromId (genfile: GeneratedFile, physicalId: string): Value {
+/**
+ * A `fromId()` reference, with the resource's name as a trailing comment
+ * when it is known (see `namedReference`).
+ */
+export function valueForStatusPageV3ComponentFromId (genfile: GeneratedFile, physicalId: string, name?: string): Value {
   genfile.namedImport(construct, 'checkly/constructs')
 
-  return expr(ident(construct), builder => {
+  return namedReference(expr(ident(construct), builder => {
     builder.member(ident('fromId'))
     builder.call(builder => {
       builder.string(physicalId)
     })
-  })
+  }), name)
 }
 
 /**
@@ -59,7 +63,11 @@ export function valueForStatusPageV3ComponentRef (
       const variable = context.lookupFriendStatusPageComponent(physicalId)
       return context.importFriendVariable(variable, genfile)
     } catch {
-      return valueForStatusPageV3ComponentFromId(genfile, physicalId)
+      return valueForStatusPageV3ComponentFromId(
+        genfile,
+        physicalId,
+        context.referencedName('status-page-component', physicalId),
+      )
     }
   }
 }

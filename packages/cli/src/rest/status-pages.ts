@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface StatusPageService {
   id: string
@@ -37,12 +37,7 @@ export interface PaginatedStatusPages {
   length: number
 }
 
-class StatusPages {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class StatusPages extends RestResource {
   async getAll (params: StatusPageListParams = {}): Promise<PaginatedStatusPages> {
     const response = await this.api.get<PaginatedStatusPages>('/v1/status-pages', { params })
     return response.data

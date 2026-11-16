@@ -1,11 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { Readable } from 'node:stream'
 
+const api = vi.hoisted(() => ({
+  request: vi.fn(),
+  defaults: { baseURL: 'https://api.checklyhq.com', headers: {} },
+}))
+
 vi.mock('../../rest/api', () => ({
-  api: {
-    request: vi.fn(),
-    defaults: { baseURL: 'https://api.checklyhq.com' },
-  },
+  getApi: () => api,
   validateAuthentication: vi.fn().mockResolvedValue({ name: 'Test Account' }),
 }))
 
@@ -13,7 +15,6 @@ vi.mock('node:child_process', () => ({
   execFile: vi.fn(),
 }))
 
-import { api } from '../../rest/api.js'
 import { execFile } from 'node:child_process'
 import ApiCommand from '../api.js'
 

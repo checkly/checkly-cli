@@ -25,7 +25,8 @@ beforeAll(async () => {
   await listening
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('Expected a local TCP listener')
-  usage = new Usage(axios.create({ baseURL: `http://127.0.0.1:${address.port}`, proxy: false }))
+  const client = axios.create({ baseURL: `http://127.0.0.1:${address.port}`, proxy: false })
+  usage = new Usage(() => client)
 })
 beforeEach(() => {
   requests.length = 0

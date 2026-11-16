@@ -85,7 +85,18 @@ export class InitializedJitiFileLoaderState extends FileLoader {
 export type JitiFileLoaderOptions = FileLoaderOptions
 
 export class JitiFileLoader extends FileLoader {
-  static DEFAULT_PRIORITY = 500 + preferenceDelta('jiti')
+  static #defaultPriority?: number
+
+  // Accessors, so that the preference is read when a loader is created
+  // rather than when this module loads. A value assigned to the property
+  // replaces the computed one, as when it was a plain static.
+  static get DEFAULT_PRIORITY (): number {
+    return JitiFileLoader.#defaultPriority ?? 500 + preferenceDelta('jiti')
+  }
+
+  static set DEFAULT_PRIORITY (priority: number) {
+    JitiFileLoader.#defaultPriority = priority
+  }
 
   static state: FileLoader = new UninitializedJitiFileLoaderState()
 

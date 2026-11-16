@@ -1,5 +1,5 @@
-import type { AxiosInstance } from 'axios'
 import type { RootCauseAnalysis } from './error-groups.js'
+import { RestResource } from './rest-resource.js'
 
 export interface TriggerRcaResponse {
   id: string
@@ -7,12 +7,7 @@ export interface TriggerRcaResponse {
 
 const POLL_INTERVAL_MS = 2000
 
-class Rca {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Rca extends RestResource {
   trigger (errorGroupId: string, userContext?: string) {
     return this.api.post<TriggerRcaResponse>(
       `/v1/root-cause-analyses/error-groups/${errorGroupId}`,

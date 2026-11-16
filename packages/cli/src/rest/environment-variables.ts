@@ -1,5 +1,5 @@
-import { type AxiosInstance } from 'axios'
 import { ConflictError, NotFoundError } from './errors.js'
+import { RestResource } from './rest-resource.js'
 
 export interface EnvironmentVariable {
   key: string
@@ -34,12 +34,7 @@ export class EnvironmentVariableAlreadyExistsError extends Error {
   }
 }
 
-class EnvironmentVariables {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class EnvironmentVariables extends RestResource {
   getAll () {
     return this.api.get<Array<EnvironmentVariable>>('/v1/variables')
   }

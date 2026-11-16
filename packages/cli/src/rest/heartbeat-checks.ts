@@ -1,16 +1,11 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface HeartbeatCheck {
   pingUrl: string
   name: string
 }
 
-class HeartbeatChecks {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class HeartbeatChecks extends RestResource {
   get (id: string) {
     return this.api.get<HeartbeatCheck>(`/v1/checks/${id}`, {
       transformResponse: (data: any) => {

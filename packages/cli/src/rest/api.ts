@@ -154,35 +154,48 @@ function init (): AxiosInstance {
   return api
 }
 
-export const api = init()
+let instance: AxiosInstance | undefined
 
-export const accounts = new Accounts(api)
-export const user = new Users(api)
-export const projects = new Projects(api)
-export const assets = new Assets(api)
-export const assetManifests = new AssetManifests(api)
-export const runtimes = new Runtimes(api)
-export const locations = new Locations(api)
-export const privateLocations = new PrivateLocations(api)
-export const testSessions = new TestSessions(api)
-export const checkSessions = new CheckSessions(api)
-export const environmentVariables = new EnvironmentVariables(api)
-export const heartbeatCheck = new HeartbeatChecks(api)
-export const checklyStorage = new ChecklyStorage(api)
-export const checks = new Checks(api)
-export const checkStatuses = new CheckStatuses(api)
-export const checkResults = new CheckResults(api)
-export const checkGroups = new CheckGroups(api)
-export const errorGroups = new ErrorGroups(api)
-export const testSessionErrorGroups = new TestSessionErrorGroups(api)
-export const statusPages = new StatusPages(api)
-export const incidents = new Incidents(api)
-export const analytics = new Analytics(api)
-export const batchAnalytics = new BatchAnalytics(api)
-export const entitlements = new Entitlements(api)
-export const accountMembers = new AccountMembers(api)
-export const alertChannels = new AlertChannels(api)
-export const alertNotifications = new AlertNotifications(api)
-export const rca = new Rca(api)
-export const cancel = new Cancel(api)
-export const usage = new Usage(api)
+/**
+ * The CLI's axios instance, created on first use rather than when this
+ * module loads. Creating it reads the configured credentials and API host
+ * (from the environment or the `checkly login` store, which may create a
+ * config file), and every construct imports this module indirectly, so an
+ * eager client would do that for any program that merely imports a
+ * construct or the codegen.
+ */
+export function getApi (): AxiosInstance {
+  instance ??= init()
+  return instance
+}
+
+export const accounts = new Accounts(getApi)
+export const user = new Users(getApi)
+export const projects = new Projects(getApi)
+export const assets = new Assets(getApi)
+export const assetManifests = new AssetManifests(getApi)
+export const runtimes = new Runtimes(getApi)
+export const locations = new Locations(getApi)
+export const privateLocations = new PrivateLocations(getApi)
+export const testSessions = new TestSessions(getApi)
+export const checkSessions = new CheckSessions(getApi)
+export const environmentVariables = new EnvironmentVariables(getApi)
+export const heartbeatCheck = new HeartbeatChecks(getApi)
+export const checklyStorage = new ChecklyStorage(getApi)
+export const checks = new Checks(getApi)
+export const checkStatuses = new CheckStatuses(getApi)
+export const checkResults = new CheckResults(getApi)
+export const checkGroups = new CheckGroups(getApi)
+export const errorGroups = new ErrorGroups(getApi)
+export const testSessionErrorGroups = new TestSessionErrorGroups(getApi)
+export const statusPages = new StatusPages(getApi)
+export const incidents = new Incidents(getApi)
+export const analytics = new Analytics(getApi)
+export const batchAnalytics = new BatchAnalytics(getApi)
+export const entitlements = new Entitlements(getApi)
+export const accountMembers = new AccountMembers(getApi)
+export const alertChannels = new AlertChannels(getApi)
+export const alertNotifications = new AlertNotifications(getApi)
+export const rca = new Rca(getApi)
+export const cancel = new Cancel(getApi)
+export const usage = new Usage(getApi)

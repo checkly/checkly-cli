@@ -1,5 +1,5 @@
-import type { AxiosInstance } from 'axios'
 import { CheckTypes, type CheckType } from '../constants.js'
+import { RestResource } from './rest-resource.js'
 
 export type QuickRange = 'last24Hours' | 'last7Days' | 'last30Days' | 'thisWeek' | 'thisMonth' | 'lastWeek' | 'lastMonth'
 
@@ -68,12 +68,7 @@ export interface GetAnalyticsOptions {
   filterByStatus?: 'success' | 'failure'
 }
 
-class Analytics {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Analytics extends RestResource {
   async get (
     checkId: string, checkType: string, options: GetAnalyticsOptions = {},
   ): Promise<{ data: AnalyticsResponse }> {

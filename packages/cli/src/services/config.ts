@@ -12,7 +12,9 @@ const authSchema = {
   pendingDeviceAuthorization: { type: 'object' },
 }
 
-const projectSuffix = process.env.CHECKLY_ENV ?? ''
+// Read when a store is first opened rather than when this module loads, so
+// that importing the CLI's modules reads no environment.
+const projectSuffix = () => process.env.CHECKLY_ENV ?? ''
 
 // eslint-disable-next-line no-restricted-syntax
 enum Env {
@@ -44,7 +46,7 @@ class ChecklyConfig {
     return this._auth ?? (this._auth = new Conf({
       projectName: '@checkly/cli',
       configName: 'auth',
-      projectSuffix,
+      projectSuffix: projectSuffix(),
       // @ts-ignore
       schema: authSchema,
     }))
@@ -55,7 +57,7 @@ class ChecklyConfig {
     return this._data ?? (this._data = new Conf({
       projectName: '@checkly/cli',
       configName: 'config',
-      projectSuffix,
+      projectSuffix: projectSuffix(),
       // @ts-ignore
       schema: dataSchema,
     }))

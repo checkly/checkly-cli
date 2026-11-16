@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { ConstructCodegen } from '../../constructs/construct-codegen.js'
 import { Context, renderConstruct } from '../../constructs/internal/codegen/index.js'
 import type { Project } from '../../constructs/project.js'
+import { Session } from '../../constructs/session.js'
 import type { DiffChange, DiffEntry, ResourceSync } from '../../rest/projects.js'
 import { Program } from '../../sourcegen/index.js'
 import {
@@ -203,7 +204,9 @@ function renderSide (
     specFileSuffix: '.spec',
     language: 'typescript',
   })
-  const context = new Context({ maskedValues, spelledOut })
+  // The code is compared as it would read in the deployed project, so
+  // a property its defaults supply reads as left out.
+  const context = new Context({ maskedValues, spelledOut, projectDefaults: Session.projectDefaults() })
   const codegen = new SideCodegen(program, variableNames)
   registerProject(context, program, project, ids, variableNames)
   for (const relation of relations) {

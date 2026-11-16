@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface TestSessionErrorGroup {
   id: string
@@ -12,12 +12,7 @@ export interface TestSessionErrorGroup {
   archivedUntilNextEvent: boolean
 }
 
-class TestSessionErrorGroups {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class TestSessionErrorGroups extends RestResource {
   get (id: string) {
     return this.api.get<TestSessionErrorGroup>(`/v1/test-session-error-groups/${id}`)
   }

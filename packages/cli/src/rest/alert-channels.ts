@@ -1,5 +1,5 @@
-import type { AxiosInstance } from 'axios'
 import { parseTotalFromContentRange } from '../helpers/content-range.js'
+import { RestResource } from './rest-resource.js'
 
 export type AlertChannelType =
   | 'CALL'
@@ -58,12 +58,7 @@ export interface PaginatedAlertChannels {
   limit: number
 }
 
-class AlertChannels {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class AlertChannels extends RestResource {
   async getAllPaginated (params: AlertChannelListParams = {}): Promise<PaginatedAlertChannels> {
     const response = await this.api.get<AlertChannel[]>('/v1/alert-channels', { params })
     const total = parseTotalFromContentRange(response.headers['content-range']) ?? response.data.length

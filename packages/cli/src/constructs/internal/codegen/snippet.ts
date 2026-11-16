@@ -43,7 +43,11 @@ export function validateScript (content: string) {
 
 const SNIPPET_PATH_PREFIX = './snippets/'
 
-export function parseSnippetDependencies (content: string): string[] {
+/**
+ * The files `content` requires under `prefix` (by default the magic
+ * `./snippets/` folder), with the prefix removed.
+ */
+export function parseSnippetDependencies (content: string, prefix = SNIPPET_PATH_PREFIX): string[] {
   const {
     module: { dependencies },
     error,
@@ -54,6 +58,6 @@ export function parseSnippetDependencies (content: string): string[] {
   }
 
   return dependencies
-    .filter(({ importPath }) => importPath.startsWith(SNIPPET_PATH_PREFIX))
-    .map(({ importPath }) => importPath.slice(SNIPPET_PATH_PREFIX.length))
+    .filter(({ importPath }) => importPath.startsWith(prefix))
+    .map(({ importPath }) => importPath.slice(prefix.length))
 }

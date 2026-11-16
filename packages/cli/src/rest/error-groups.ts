@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface RcaEvidence {
   artifacts: Array<{ name: string, type: string }>
@@ -39,12 +39,7 @@ export interface ErrorGroup {
   rootCauseAnalyses?: RootCauseAnalysis[]
 }
 
-class ErrorGroups {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class ErrorGroups extends RestResource {
   getByCheckId (checkId: string) {
     return this.api.get<ErrorGroup[]>(`/v1/error-groups/checks/${checkId}`)
   }

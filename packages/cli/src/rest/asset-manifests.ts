@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export type AssetManifestEntryType = 'log' | 'trace' | 'video' | 'screenshot' | 'pcap' | 'report' | 'file'
 
@@ -27,12 +27,7 @@ export interface AssetManifest {
   entriesTotal?: number
 }
 
-class AssetManifests {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class AssetManifests extends RestResource {
   async getForCheckResult (
     checkId: string,
     checkResultId: string,

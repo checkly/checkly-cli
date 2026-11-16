@@ -1,5 +1,5 @@
-import type { AxiosInstance } from 'axios'
 import { parseTotalFromContentRange } from '../helpers/content-range.js'
+import { RestResource } from './rest-resource.js'
 
 export interface Check {
   id: string
@@ -38,12 +38,7 @@ export interface PaginatedChecks {
   limit: number
 }
 
-class Checks {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Checks extends RestResource {
   getAll (params: ListChecksParams = {}) {
     return this.api.get<Check[]>('/v1/checks', { params })
   }

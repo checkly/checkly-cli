@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export type IncidentSeverity = 'CRITICAL' | 'MAJOR' | 'MEDIUM' | 'MINOR'
 export type IncidentUpdateStatus = 'INVESTIGATING' | 'IDENTIFIED' | 'MONITORING' | 'RESOLVED'
@@ -58,12 +58,7 @@ export interface UpdateIncidentPayload {
   severity: IncidentSeverity
 }
 
-class Incidents {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Incidents extends RestResource {
   async getAll (params: IncidentListParams = {}): Promise<PaginatedIncidents> {
     const response = await this.api.get<PaginatedIncidents>('/v1/status-pages/incidents', { params })
     return response.data

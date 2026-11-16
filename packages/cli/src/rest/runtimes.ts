@@ -1,13 +1,7 @@
-import type { AxiosInstance } from 'axios'
-
 import { Runtime } from '../runtimes/index.js'
+import { RestResource } from './rest-resource.js'
 
-class Runtimes {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Runtimes extends RestResource {
   async getAll (): Promise<Runtime[]> {
     const resp = await this.api.get<Array<Runtime>>('/v1/runtimes')
     return resp.data

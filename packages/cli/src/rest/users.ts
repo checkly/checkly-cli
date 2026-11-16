@@ -1,4 +1,4 @@
-import type { AxiosInstance } from 'axios'
+import { RestResource } from './rest-resource.js'
 
 export interface User {
   id: string
@@ -6,12 +6,7 @@ export interface User {
   nickname?: string
 }
 
-class Users {
-  api: AxiosInstance
-  constructor (api: AxiosInstance) {
-    this.api = api
-  }
-
+class Users extends RestResource {
   get () {
     return this.api.get<User>('/next/users/me')
   }

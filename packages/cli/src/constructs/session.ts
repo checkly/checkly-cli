@@ -31,6 +31,7 @@ import { explainFromConstructSide, explainFromRunningSide, TWO_INSTALLS_MARKER }
 // initialisation failures it causes under bundlers such as Vite/vitest).
 import type { Project } from './project.js'
 import type { Check } from './check.js'
+import type { ProjectDefaults } from './internal/codegen/context.js'
 
 /**
  * A construct created outside a project, thrown by this copy of checkly.
@@ -58,10 +59,23 @@ export interface SharedFile {
 export type SharedFileRef = number
 
 export class Session {
-  static loader: FileLoader = new MixedFileLoader(
-    new NativeFileLoader(),
-    new JitiFileLoader(),
-  )
+  static #loader?: FileLoader
+
+  /**
+   * The loader for check and config files. The default one is created on
+   * first use, since creating it reads the loader preference from the
+   * environment, which a program that only imports a construct should not do.
+   */
+  static get loader (): FileLoader {
+    return Session.#loader ??= new MixedFileLoader(
+      new NativeFileLoader(),
+      new JitiFileLoader(),
+    )
+  }
+
+  static set loader (loader: FileLoader) {
+    Session.#loader = loader
+  }
 
   static project?: Project
   static basePath?: string
@@ -244,6 +258,19 @@ export class Session {
       Session.privateLocations = privateLocations
     }
     return Session.privateLocations
+  }
+
+  /**
+   * The loaded project's check defaults, for code generated to live in that
+   * project. Without a loaded project these are all unset, which a codegen
+   * reads as a project without defaults.
+   */
+  static projectDefaults (): ProjectDefaults {
+    return {
+      checks: this.checkDefaults,
+      browserChecks: this.browserCheckDefaults,
+      multiStepChecks: this.multiStepCheckDefaults,
+    }
   }
 
   static getRuntime (runtimeId?: string): Runtime | undefined {
