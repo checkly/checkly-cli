@@ -20,6 +20,12 @@ function nonNullable<T> (value: T): value is NonNullable<T> {
   return value !== null && value !== undefined
 }
 
+// Table cells are delimited by pipes and rows by line breaks, so user-provided
+// values (check names, file names) must not contain either.
+function escapeCell (value: unknown): string {
+  return String(value).replace(/\|/g, '\\|').replace(/\r?\n|\r/g, ' ')
+}
+
 export class GithubMdBuilder {
   testSessionId?: string
   numChecks: number
@@ -79,10 +85,10 @@ export class GithubMdBuilder {
           // Only a run that stopped early leaves checks without a result.
           this.tableRows.push(this.tableSeparator + [
             `⏹️ Not finished${retries}`,
-            `${(check as any)?.name}`,
+            escapeCell((check as any)?.name),
             // Checks fetched for `checkly trigger` carry their type; local constructs do not.
-            `${(check as any)?.checkType ?? '-'}`,
-            this.hasFilenames ? `\`${check?.getSourceFile?.()}\`` : undefined,
+            escapeCell((check as any)?.checkType ?? '-'),
+            this.hasFilenames ? `\`${escapeCell(check?.getSourceFile?.())}\`` : undefined,
             '- ',
             this.testSessionId ? '' : undefined,
           ].filter(nonNullable).join(this.tableSeparator) + this.tableSeparator)
@@ -94,11 +100,11 @@ export class GithubMdBuilder {
           : checkStatus === CheckStatus.FAILED ? '❌ Fail' : checkStatus === CheckStatus.DEGRADED ? '⚠️ Degraded' : '✅ Pass'
         const tableRow: Array<string> = [
           `${statusCell}${retries}`,
-          `${result.name}`,
+          escapeCell(result.name),
           // A check that failed with a run error (e.g. the CLI timing out while waiting for
           // a result) has no check type or response time, so fall back to a placeholder.
-          `${result.checkType ?? '-'}`,
-          this.hasFilenames ? `\`${result.sourceFile}\`` : undefined,
+          escapeCell(result.checkType ?? '-'),
+          this.hasFilenames ? `\`${escapeCell(result.sourceFile)}\`` : undefined,
           `${result.responseTime != null ? formatDuration(result.responseTime) : '-'} `,
         ].filter(nonNullable)
 
