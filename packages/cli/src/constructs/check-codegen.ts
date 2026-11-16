@@ -22,6 +22,7 @@ import { SslMonitorCodegen, SslMonitorResource } from './ssl-monitor-codegen.js'
 import { TracerouteMonitorCodegen, TracerouteMonitorResource } from './traceroute-monitor-codegen.js'
 import type { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
+import { isRetiredRegion } from '../helpers/constants.js'
 
 /**
  * Intent shape returned by the checks resource API.
@@ -236,7 +237,11 @@ export function buildCheckProps (
   }
 
   if (resource.locations) {
-    const locations = resource.locations
+    /**
+     * A retired location no longer type-checks or validates, so the generated
+     * code leaves it out, before the comparison with the project default.
+     */
+    const locations = resource.locations.filter(location => !isRetiredRegion(location))
     const implied = defaults?.('locations') ?? []
     if (!sameList(locations, implied) || spelledOut('locations')) {
       builder.array('locations', builder => {

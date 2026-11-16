@@ -3,10 +3,23 @@ import { Session } from '../constructs/index.js'
 import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { detectCliMode } from './cli-mode.js'
-import { DEFAULT_REGION } from './constants.js'
+import { DEFAULT_REGION, isRetiredRegion, retiredRegionMessage } from './constants.js'
 import { InvalidInputError } from './invalid-input-error.js'
 
 const unsupportedDetachedReporterTypes: ReporterType[] = ['json', 'github']
+
+/**
+ * Stops a retired run location before any API call, with the message the
+ * backend returns. A `--location` flag is invalid input (exit 2); a
+ * `cli.runLocation` from the Checkly config is invalid configuration (exit 1).
+ */
+export function rejectRetiredRunLocation (region: string, source: 'flag' | 'config'): void {
+  if (!isRetiredRegion(region)) {
+    return
+  }
+  const message = retiredRegionMessage(region)
+  throw source === 'flag' ? new InvalidInputError(message) : new Error(message)
+}
 
 export async function prepareRunLocation (
   configOptions: { runLocation?: keyof Region, privateRunLocation?: string } = {},
@@ -16,6 +29,7 @@ export async function prepareRunLocation (
 ): Promise<RunLocation> {
   // Command line options take precedence
   if (cliFlags.runLocation) {
+    rejectRetiredRunLocation(cliFlags.runLocation, 'flag')
     const { data: availableLocations } = await api.locations.getAll()
     if (availableLocations.some((l: { region: string | undefined }) => l.region === cliFlags.runLocation)) {
       return { type: 'PUBLIC', region: cliFlags.runLocation }
@@ -29,6 +43,7 @@ export async function prepareRunLocation (
       + ` Please only specify one run location. The configured locations were' +
         ' "${configOptions.runLocation}" and "${configOptions.privateRunLocation}"`)
   } else if (configOptions.runLocation) {
+    rejectRetiredRunLocation(configOptions.runLocation, 'config')
     return { type: 'PUBLIC', region: configOptions.runLocation }
   } else if (configOptions.privateRunLocation) {
     return preparePrivateRunLocation(configOptions.privateRunLocation, api, accountId)

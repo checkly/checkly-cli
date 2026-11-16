@@ -7,6 +7,7 @@ import {
 } from '../construct-diagnostics.js'
 import { Diagnostics, Diagnostic } from '../diagnostics.js'
 import { RetryStrategy } from '../retry-strategy.js'
+import { isRetiredRegion, retiredRegionMessage } from '../../helpers/constants.js'
 
 type RetryStrategyProps = {
   doubleCheck?: boolean
@@ -179,6 +180,24 @@ export async function validateResponseTimes (
             + `"maxResponseTime" of ${effectiveMaxResponseTime}. Set an explicit "maxResponseTime" `
             + `if you need a higher limit.`,
       ),
+    ))
+  }
+}
+
+/**
+ * Reports each retired location in `locations` once. `Region` no longer has
+ * them, but a JavaScript project, a cast or a `checks.locations` default can
+ * still set one, so the value is checked as it arrives.
+ */
+export function validateRetiredLocations (diagnostics: Diagnostics, locations: unknown): void {
+  if (!Array.isArray(locations)) {
+    return
+  }
+
+  for (const region of new Set(locations.filter(isRetiredRegion))) {
+    diagnostics.add(new InvalidPropertyValueDiagnostic(
+      'locations',
+      new Error(retiredRegionMessage(region)),
     ))
   }
 }

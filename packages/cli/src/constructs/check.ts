@@ -21,7 +21,7 @@ import { AlertEscalation } from './alert-escalation-policy.js'
 import { IncidentTrigger } from './incident.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { Diagnostics } from './diagnostics.js'
-import { validateRemovedDoubleCheck } from './internal/common-diagnostics.js'
+import { validateRemovedDoubleCheck, validateRetiredLocations } from './internal/common-diagnostics.js'
 import { SINGLE_RETRY_ELSEWHERE } from './internal/default-retry-strategy.js'
 import {
   InvalidPropertyValueDiagnostic,
@@ -508,6 +508,9 @@ export abstract class Check extends Construct {
   // in a location Checkly picks. A group's locations apply to its checks,
   // and test-only checks are never deployed.
   protected validateRunLocations (diagnostics: Diagnostics): void {
+    /** A retired location is always an error, also on a test-only check. */
+    validateRetiredLocations(diagnostics, this.locations)
+
     if (!Session.warnOnMissingCheckLocations || this.testOnly || hasRunLocation(this)) {
       return
     }

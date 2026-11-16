@@ -8,7 +8,10 @@ import {
   splitConfigFilePath, writeChecklyConfigFile,
 } from '../services/util.js'
 import { getChecklyConfigFile, loadChecklyConfig, PlaywrightSlimmedProp, resolveDependencyCacheVersion } from '../services/checkly-config-loader.js'
-import { prepareReportersTypes, prepareRunLocation, splitChecklyAndPlaywrightFlags, validateDetachReporterTypes } from '../helpers/test-helper.js'
+import {
+  prepareReportersTypes, prepareRunLocation, rejectRetiredRunLocation, splitChecklyAndPlaywrightFlags,
+  validateDetachReporterTypes,
+} from '../helpers/test-helper.js'
 import * as api from '../rest/api.js'
 import config from '../services/config.js'
 import { parseProject } from '../services/project-parser.js'
@@ -399,6 +402,11 @@ export default class PwTestCommand extends AuthCommand {
     frequency: number = 10,
     installCommand?: string,
   ): Promise<PlaywrightSlimmedProp> {
+    /**
+     * Checked here as well: `--create-check` writes this check into the Checkly config
+     * before the run location is prepared.
+     */
+    rejectRetiredRunLocation(runLocation, 'flag')
     const parseArgs = args.map(arg => shellQuote(arg))
     const input = parseArgs.join(' ') || ''
     const inputLogicalId = cased(input, 'kebab-case').substring(0, 50)

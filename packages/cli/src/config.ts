@@ -18,7 +18,6 @@ declare module './index.js' {
     'eu-west-3': string
     'eu-north-1': string
     'eu-south-1': string
-    'me-south-1': string
     'ap-southeast-1': string
     'ap-northeast-1': string
     'ap-east-1': string
