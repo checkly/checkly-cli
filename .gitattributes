@@ -8,3 +8,7 @@
 # the document splitter, which normalizes CRLF to LF as pnpm's own reader does.
 # A CRLF checkout on Windows would make that assertion fail by construction.
 packages/cli/src/services/__tests__/fixtures/pnpm12-lockfile/** -text
+
+# pnpm refuses to pack a bin whose shebang line ends in CRLF
+# (ERR_PNPM_BIN_CRLF), so a CRLF checkout on Windows could not pack the CLI.
+packages/*/bin/*.cjs text eol=lf

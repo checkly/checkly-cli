@@ -9,6 +9,8 @@ assistants, especially CLI command shape and output consistency rules.
 
 This is a **pnpm monorepo** with two packages: `packages/cli` (the main `checkly` CLI) and `packages/create-cli` (the `create-checkly` scaffolding tool). Both are ESM-only TypeScript.
 
+The repo uses pnpm 12, pinned exactly by `devEngines.packageManager` in the root `package.json`; CI's `pnpm/action-setup` reads the same pin, and `engines.pnpm` makes pnpm 10 and older refuse to install. pnpm settings (`allowBuilds`, `trustPolicy`, `saveExact`, ...) live in `pnpm-workspace.yaml`; pnpm 11+ ignores the `pnpm` field in `package.json` and non-auth `.npmrc` settings.
+
 ```bash
 # Install dependencies
 pnpm install

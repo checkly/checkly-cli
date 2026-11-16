@@ -78,8 +78,6 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
@@ -109,7 +107,11 @@ jobs:
         env:
           DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
         run: |
-          pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
+          # --no-git-checks in every `pnpm version` call here: pnpm refuses
+          # to bump a dirty working tree even with --no-git-tag-version, and
+          # by then the tree holds the untracked packages/cli/README.md copy
+          # (and, for create-checkly, the cli package's version bump).
+          pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version --no-git-checks
           pnpm pack
           # A package without the file would silently report nothing.
           if [ -n "$DSN" ] && ! tar -tzf checkly-*.tgz | grep -qx 'package/error-reporting.json'; then
@@ -120,7 +122,7 @@ jobs:
         working-directory: packages/cli
       - name: Set version and publish prerelease for 'create-cli' package
         run: |
-          pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version
+          pnpm version ${{ github.event.release.tag_name }}-prerelease-${{ env.SHORT_SHA }} --no-git-tag-version --no-git-checks
           pnpm pack
           npm publish create-checkly-*.tgz --provenance --tag prerelease
         working-directory: packages/create-cli
@@ -172,8 +174,6 @@ jobs:
       # the same commit the prerelease job above built.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
@@ -201,7 +201,7 @@ jobs:
         env:
           DSN: ${{ vars.CHECKLY_CLI_ERROR_DSN }}
         run: |
-          pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version
+          pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version --no-git-checks
           pnpm pack
           # A package without the file would silently report nothing.
           if [ -n "$DSN" ] && ! tar -tzf checkly-*.tgz | grep -qx 'package/error-reporting.json'; then
@@ -212,7 +212,7 @@ jobs:
         working-directory: packages/cli
       - name: Set version and publish 'create-cli' package
         run: |
-          pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version
+          pnpm version ${{ github.event.release.tag_name }} --no-git-tag-version --no-git-checks
           pnpm pack
           npm publish create-checkly-*.tgz --provenance --tag ${{ needs.validate-tag.outputs.dist-tag }}
         working-directory: packages/create-cli
@@ -309,8 +309,6 @@ jobs:
           fi
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: pnpm/action-setup@73e46992e05b19abd31f2f3c20e0e7370d762115 # v6.1.1
-        with:
-          version: 10
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: '24.x'
@@ -321,13 +319,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - name: Set version, pack, and publish 'cli' package
         run: |
-          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version
+          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version --no-git-checks
           pnpm pack
           npm publish checkly-*.tgz --provenance --tag "$TAG"
         working-directory: packages/cli
       - name: Set version, pack, and publish 'create-cli' package
         run: |
-          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version
+          pnpm version ${{ env.CANARY_VERSION }} --no-git-tag-version --no-git-checks
           pnpm pack
           npm publish create-checkly-*.tgz --provenance --tag "$TAG"
         working-directory: packages/create-cli
