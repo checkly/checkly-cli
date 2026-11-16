@@ -1,0 +1,458 @@
+import fs from 'node:fs/promises'
+import http from 'node:http'
+import os from 'node:os'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import { findCliBug, isCliBug } from '../classify.js'
+import { buildErrorEvent, releaseEnvironment, type ErrorReportContext } from '../event.js'
+import {
+  isErrorReportingDisabled,
+  noteCliError,
+  reportNotedCliError,
+  resetErrorReporting,
+  type ErrorReportOptions,
+} from '../report.js'
+import { scrubFrame, scrubMessage } from '../scrub.js'
+import { parseStack } from '../sentry-protocol.js'
+
+const KEY = 'a'.repeat(72)
+
+let installDir: string
+let cliBug: Error
+let dependencyBug: Error
+let invalidUrl: Error
+
+async function errorThrownIn (file: string, code: string): Promise<Error> {
+  await fs.mkdir(path.dirname(file), { recursive: true })
+  await fs.writeFile(file, `export function run () { ${code} }\n`)
+  const { run } = await import(pathToFileURL(file).href)
+  try {
+    run()
+  } catch (err) {
+    return err as Error
+  }
+  throw new Error(`${file} did not throw`)
+}
+
+/** Notes `err` and sends the report at once, as a command that ends with it does. */
+async function report (err: unknown, context: ErrorReportContext, options: ErrorReportOptions): Promise<void> {
+  noteCliError(err, { handled: !!context.handled })
+  await reportNotedCliError(() => context, options)
+}
+
+interface Received { url: string, body: string }
+
+async function withIngest (fn: (dsn: string, received: Received[]) => Promise<void>): Promise<void> {
+  const received: Received[] = []
+  const server = http.createServer((req, res) => {
+    let body = ''
+    req.on('data', chunk => {
+      body += chunk
+    })
+    req.on('end', () => {
+      received.push({ url: req.url ?? '', body })
+      res.writeHead(200, { 'Content-Type': 'application/json' }).end('{}')
+    })
+  })
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve))
+  const { port } = server.address() as { port: number }
+  try {
+    await fn(`http://${KEY}@127.0.0.1:${port}/123`, received)
+  } finally {
+    await new Promise(resolve => server.close(resolve))
+  }
+}
+
+beforeAll(async () => {
+  // The space makes ES module stack frames carry %20 in their file URLs.
+  installDir = await fs.realpath(await fs.mkdtemp(path.join(os.tmpdir(), 'checkly error reporting-')))
+  await fs.writeFile(path.join(installDir, 'package.json'), JSON.stringify({ dependencies: { 'some-dep': '1.0.0' } }))
+  cliBug = await errorThrownIn(
+    path.join(installDir, 'dist', 'commands', 'deploy.mjs'),
+    'const resource = undefined; return resource.logicalId',
+  )
+  dependencyBug = await errorThrownIn(
+    path.join(installDir, 'node_modules', 'some-dep', 'index.mjs'),
+    'null.x',
+  )
+  invalidUrl = await errorThrownIn(
+    path.join(installDir, 'dist', 'services', 'proxy.mjs'),
+    'new URL(\'not a url\')',
+  )
+})
+
+afterAll(async () => {
+  await fs.rm(installDir, { recursive: true, force: true })
+})
+
+beforeEach(() => {
+  resetErrorReporting()
+})
+
+describe('isCliBug', () => {
+  it('accepts a runtime error raised in the CLI\'s own files', () => {
+    expect(cliBug).toBeInstanceOf(TypeError)
+    expect(isCliBug(cliBug, installDir)).toBe(true)
+  })
+
+  it('accepts it when the stack names the file by URL, as the installed CLI\'s ES modules do', () => {
+    // Vitest loads modules itself and its stacks show plain paths, so the URL form is built here:
+    // file:///C:/... on Windows, with the space in the install path as %20.
+    const url = pathToFileURL(path.join(installDir, 'dist', 'commands', 'deploy.js')).href
+    expect(url).toContain('%20')
+    const err = new TypeError('Cannot read properties of undefined (reading \'logicalId\')')
+    err.stack = `TypeError: ${err.message}\n    at Deploy.run (${url}:12:34)\n    at async Deploy._run (${url}:1:1)`
+    expect(isCliBug(err, installDir)).toBe(true)
+  })
+
+  it('accepts it when the CLI\'s code ran through eval, whose frames name the file differently', () => {
+    const file = path.join(installDir, 'dist', 'services', 'loader.js')
+    const err = new TypeError('Cannot read properties of undefined (reading \'x\')')
+    err.stack = `TypeError: ${err.message}\n`
+      + `    at eval (eval at load (${file}:1:2), <anonymous>:1:1)\n`
+      + `    at load (${file}:1:2)`
+    expect(isCliBug(err, installDir)).toBe(true)
+  })
+
+  it.each([
+    ['String.repeat', '\'x\'.repeat(-1)'],
+    ['Array.reduce', '[].reduce((a, b) => a)'],
+    ['Date.toISOString', 'new Date(\'nope\').toISOString()'],
+    ['Array.map', '[1].map(undefined)'],
+    ['JSON.stringify', 'const a = {}; a.self = a; JSON.stringify(a)'],
+  ])('accepts an error that %s throws when the CLI\'s code calls it wrongly', async (name, code) => {
+    const file = path.join(installDir, 'dist', 'builtins', `${name}.mjs`)
+    const err = await errorThrownIn(file, code)
+    // The innermost frame is the built-in's, not a file's.
+    // The message may span lines (JSON.stringify's does), so look for the first frame.
+    expect(err.stack?.split('\n').find(line => line.startsWith('    at '))).toMatch(/\((?:<anonymous>|native)\)$/)
+    expect(isCliBug(err, installDir)).toBe(true)
+  })
+
+  it('rejects the same error when it was raised outside the CLI, e.g. in a user\'s check file', async () => {
+    const elsewhere = await fs.mkdtemp(path.join(os.tmpdir(), 'checkly-other-'))
+    try {
+      expect(isCliBug(cliBug, elsewhere)).toBe(false)
+    } finally {
+      await fs.rm(elsewhere, { recursive: true, force: true })
+    }
+  })
+
+  it('rejects errors raised in a dependency of the CLI', () => {
+    expect(dependencyBug).toBeInstanceOf(TypeError)
+    expect(isCliBug(dependencyBug, installDir)).toBe(false)
+  })
+
+  it('rejects the TypeError Node raises for a malformed URL the user gave', () => {
+    expect(invalidUrl).toBeInstanceOf(TypeError)
+    expect((invalidUrl as NodeJS.ErrnoException).code).toBe('ERR_INVALID_URL')
+    // The same place counts as a CLI bug for any other TypeError, so only the code rejects it.
+    const other = new TypeError('x')
+    other.stack = invalidUrl.stack!.replace(/^TypeError.*$/m, 'TypeError: x')
+    expect(isCliBug(other, installDir)).toBe(true)
+    expect(isCliBug(invalidUrl, installDir)).toBe(false)
+  })
+
+  it('rejects errors the CLI throws on purpose', () => {
+    const intentional = new Error('Your Checkly configuration file is not valid.')
+    intentional.stack = cliBug.stack!.replace(/^TypeError: .*$/m, 'Error: Your Checkly configuration file is not valid.')
+    expect(isCliBug(intentional, installDir)).toBe(false)
+    expect(isCliBug('a string', installDir)).toBe(false)
+  })
+})
+
+describe('findCliBug', () => {
+  it('finds the CLI bug a wrapper hides in its cause, as loading a check file does', () => {
+    const wrapper = new Error(`Error loading file '${installDir}/__checks__/api.check.ts'\n${cliBug.stack}`, {
+      cause: cliBug,
+    })
+    expect(isCliBug(wrapper, installDir)).toBe(false)
+    expect(findCliBug(wrapper, installDir)).toBe(cliBug)
+    expect(findCliBug(new Error('wrapper', { cause: dependencyBug }), installDir)).toBeUndefined()
+  })
+})
+
+describe('scrubMessage', () => {
+  const options = { cwd: '/home/ann/acme', home: '/home/ann', packageRoot: '/opt/checkly' }
+
+  it('removes Checkly API keys, auth headers and URL passwords', () => {
+    const message = [
+      'keys cu_0123456789abcdef and sv_0123456789abcdef',
+      'Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.e30.abc',
+      'via http://bob:secret@proxy:8080 failed',
+      'GET https://api.checklyhq.com:443/v1/checks failed',
+    ].join('\n')
+
+    expect(scrubMessage(message, options)).toBe([
+      'keys <api key> and <api key>',
+      'Authorization: Bearer <redacted>',
+      'via http://<redacted>@proxy:8080 failed',
+      'GET https://api.checklyhq.com:443/v1/checks failed',
+    ].join('\n'))
+  })
+
+  it('replaces the CLI, project and home directories', () => {
+    const message = 'in /opt/checkly/dist/x.js, /home/ann/acme/checkly.config.ts and /home/ann/.npmrc'
+    expect(scrubMessage(message, options))
+      .toBe('in checkly/dist/x.js, <project>/checkly.config.ts and ~/.npmrc')
+  })
+
+  it('replaces a directory only where it is a whole path segment', () => {
+    expect(scrubMessage('read /app/x.ts as application/json from /app, not /application/y or /app-old', {
+      cwd: '/app',
+      home: '/root',
+      packageRoot: '/opt/checkly',
+    })).toBe('read <project>/x.ts as application/json from <project>, not /application/y or /app-old')
+  })
+
+  it('replaces Windows directories in any case and with forward slashes', () => {
+    const windows = {
+      cwd: 'C:\\Users\\Ann\\proj',
+      home: 'C:\\Users\\Ann',
+      packageRoot: 'C:\\npm\\node_modules\\checkly',
+      platform: 'win32' as const,
+    }
+    expect(scrubMessage('c:\\users\\ann\\x, C:/Users/Ann/proj/a.ts and file:///C:/Users/Ann/b.ts', windows))
+      .toBe('~\\x, <project>/a.ts and file:///~/b.ts')
+  })
+
+  it('removes a whole URL password, also one with an @ in it', () => {
+    expect(scrubMessage('proxy http://user:p@ss@proxy:8080 failed', options))
+      .toBe('proxy http://<redacted>@proxy:8080 failed')
+  })
+
+  it('leaves paths alone when a directory is a root', () => {
+    expect(scrubMessage('in /srv/x.ts', { cwd: '/', home: 'C:\\', packageRoot: '/opt/checkly' })).toBe('in /srv/x.ts')
+  })
+
+  it('scrubs a long message quickly', () => {
+    for (const word of ['a', 'a.', 'x://', 'cu_']) {
+      const start = performance.now()
+      scrubMessage(word.repeat(200_000), options)
+      // The report delays the CLI's exit.
+      expect(performance.now() - start).toBeLessThan(1000)
+    }
+  })
+})
+
+describe('buildErrorEvent', () => {
+  it('names the CLI\'s files relative to the package and nothing about the machine', () => {
+    const event = buildErrorEvent(cliBug, { version: '7.1.0', command: 'deploy', cliMode: 'ci' }, {
+      packageRoot: installDir,
+    })
+
+    const [exception] = event.exception!.values!
+    expect(exception.type).toBe('TypeError')
+    const ownFrame = exception.stacktrace!.frames!.at(-1)!
+    expect(ownFrame).toMatchObject({ filename: 'checkly/dist/commands/deploy.mjs', function: 'run', in_app: true })
+    expect(event).toMatchObject({
+      release: 'checkly@7.1.0',
+      environment: 'production',
+      tags: { command: 'deploy', cli_mode: 'ci' },
+    })
+
+    expect(cliBug.stack).toContain(installDir)
+    expect(JSON.stringify(event)).not.toContain(installDir)
+    expect(event).not.toHaveProperty('server_name')
+    expect(event).not.toHaveProperty('user')
+  })
+
+  it('does not count a dependency under the CLI\'s own node_modules as CLI code', () => {
+    const event = buildErrorEvent(dependencyBug, { version: '7.1.0' }, { packageRoot: installDir })
+
+    const frame = event.exception!.values![0].stacktrace!.frames!.at(-1)!
+    expect(frame).toMatchObject({ filename: 'node_modules/some-dep/index.mjs', in_app: false })
+  })
+})
+
+describe('scrubFrame', () => {
+  const frames = (stack: string) => parseStack(stack).map(frame => scrubFrame(frame, '/opt/checkly'))
+
+  it('names the CLI\'s file for code it ran through eval, as isCliBug judges it', () => {
+    expect(frames('    at eval (eval at load (/opt/checkly/dist/services/loader.js:1:2), <anonymous>:1:1)'))
+      .toEqual([{ filename: 'checkly/dist/services/loader.js', function: 'eval', lineno: 1, colno: 1, in_app: true }])
+  })
+
+  it('does not name code that has no file, such as a vm script, which may be a user\'s', () => {
+    expect(frames('    at acmeSecretHelper (evalmachine.<anonymous>:3:9)'))
+      .toEqual([{ filename: '<project file>', in_app: false }])
+  })
+
+  it('keeps built-ins as built-ins, not as a user\'s file', () => {
+    expect(frames('    at Array.map (<anonymous>)\n    at Promise.all (index 0)')).toEqual([
+      { filename: 'index 0', function: 'Promise.all', in_app: false },
+      { filename: '<anonymous>', function: 'Array.map', in_app: false },
+    ])
+  })
+})
+
+describe('releaseEnvironment', () => {
+  it('tells releases apart by version', () => {
+    expect(releaseEnvironment('7.1.0')).toBe('production')
+    expect(releaseEnvironment('7.1.0-rc.2')).toBe('rc')
+    expect(releaseEnvironment('7.1.0-prerelease-abc1234')).toBe('prerelease')
+  })
+})
+
+describe('isErrorReportingDisabled', () => {
+  it('honours CHECKLY_NO_ERROR_REPORTING and DO_NOT_TRACK, and not an explicit off', () => {
+    expect(isErrorReportingDisabled({})).toBe(false)
+    expect(isErrorReportingDisabled({ CHECKLY_NO_ERROR_REPORTING: '1' })).toBe(true)
+    expect(isErrorReportingDisabled({ DO_NOT_TRACK: '1' })).toBe(true)
+    expect(isErrorReportingDisabled({ DO_NOT_TRACK: '0' })).toBe(false)
+  })
+})
+
+describe('reportNotedCliError', () => {
+  it('sends the bug that ended the command over one a command printed before it', async () => {
+    const crash = new TypeError('the crash')
+    crash.stack = `TypeError: the crash\n    at run (${path.join(installDir, 'dist', 'x.js')}:1:2)`
+    await withIngest(async (dsn, received) => {
+      noteCliError(cliBug)
+      noteCliError(crash, { handled: false })
+      await reportNotedCliError(() => ({ version: '7.1.0' }), { dsn, packageRoot: installDir, env: {} })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].body).toContain('the crash')
+      expect(received[0].body).not.toContain('logicalId')
+    })
+  })
+
+  it('still sends a CLI bug noted after many errors from dependencies', async () => {
+    await withIngest(async (dsn, received) => {
+      for (let i = 0; i < 10; i++) noteCliError(dependencyBug)
+      noteCliError(cliBug)
+      await reportNotedCliError(() => ({ version: '7.1.0' }), { dsn, packageRoot: installDir, env: {} })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].body).toContain('logicalId')
+    })
+  })
+
+  it('dates the report when the error was noted, not when it is sent', async () => {
+    await withIngest(async (dsn, received) => {
+      const notedAt = Date.now()
+      noteCliError(cliBug)
+      const later = vi.spyOn(Date, 'now').mockReturnValue(notedAt + 20 * 60_000)
+      try {
+        await reportNotedCliError(() => ({ version: '7.1.0' }), { dsn, packageRoot: installDir, env: {} })
+      } finally {
+        later.mockRestore()
+      }
+
+      const item = JSON.parse(received[0].body.split('\n')[2])
+      expect(item.timestamp * 1000).toBeLessThan(notedAt + 1000)
+      expect(item.timestamp * 1000).toBeGreaterThanOrEqual(notedAt)
+    })
+  })
+
+  it('sends one envelope with the error to the DSN\'s project', async () => {
+    await withIngest(async (dsn, received) => {
+      await report(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })
+      // Once per run: a second error in the same run is not sent.
+      await report(cliBug, { version: '7.1.0', command: 'deploy' }, { dsn, packageRoot: installDir, env: {} })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].url).toMatch(/^\/api\/123\/envelope\/\?.*sentry_key=a{72}/)
+      const [header, itemHeader, item] = received[0].body.split('\n').map(line => JSON.parse(line))
+      expect(header.sdk).toMatchObject({ name: 'checkly-cli', version: '7.1.0' })
+      expect(itemHeader.type).toBe('event')
+      expect(item.event_id).toBe(header.event_id)
+      expect(item.exception.values[0]).toMatchObject({ type: 'TypeError' })
+    })
+  })
+
+  it.each([
+    ['the user turned reporting off', { version: '7.1.0' }, { DO_NOT_TRACK: '1' }],
+    ['the build is a development build', { version: '0.0.1-dev' }, {}],
+  ])('sends nothing when %s', async (_, context, env) => {
+    await withIngest(async (dsn, received) => {
+      await report(cliBug, context, { dsn, packageRoot: installDir, env })
+      expect(received).toHaveLength(0)
+
+      // The same call reports once the reason is gone, so the empty result above is not a broken server.
+      await report(cliBug, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {} })
+      expect(received).toHaveLength(1)
+    })
+  })
+
+  it('reports only the wrapped CLI bug, not the wrapper that quotes a user\'s file', async () => {
+    await withIngest(async (dsn, received) => {
+      const wrapper = new Error(`Error loading file '${installDir}/__checks__/api.check.ts'`, { cause: cliBug })
+      await report(wrapper, { version: '7.1.0' }, { dsn, packageRoot: installDir, env: {} })
+
+      expect(received).toHaveLength(1)
+      expect(received[0].body).not.toContain('Error loading file')
+      const item = JSON.parse(received[0].body.split('\n')[2])
+      expect(item.exception.values.map((value: { type: string }) => value.type)).toEqual(['TypeError'])
+    })
+  })
+
+  it('sends the first error noted during the run when asked, as commands that print their errors need', async () => {
+    await withIngest(async (dsn, received) => {
+      noteCliError(new Error('Your project could not be deployed.'))
+      // A TypeError, but raised in a dependency: noted, then skipped when the run ends.
+      noteCliError(dependencyBug)
+      noteCliError(cliBug)
+      noteCliError(invalidUrl, { handled: false })
+      expect(received).toHaveLength(0)
+
+      await reportNotedCliError(() => ({ version: '7.1.0', command: 'deploy' }), {
+        dsn,
+        packageRoot: installDir,
+        env: {},
+      })
+
+      expect(received).toHaveLength(1)
+      const item = JSON.parse(received[0].body.split('\n')[2])
+      expect(item.exception.values[0].value).toBe(cliBug.message)
+      // The command printed it and exited, so it is not an unhandled crash.
+      expect(item.level).toBe('error')
+      expect(item.exception.values[0].mechanism).toEqual({ type: 'generic', handled: true })
+    })
+  })
+
+  it('reports an error that ended the command as an unhandled crash, and builds no context without one', async () => {
+    await withIngest(async (dsn, received) => {
+      let contextBuilt = false
+      const context = () => {
+        contextBuilt = true
+        return { version: '7.1.0' }
+      }
+      await reportNotedCliError(context, { dsn, packageRoot: installDir, env: {} })
+      expect(contextBuilt).toBe(false)
+
+      noteCliError(cliBug, { handled: false })
+      await reportNotedCliError(context, { dsn, packageRoot: installDir, env: {} })
+
+      expect(contextBuilt).toBe(true)
+      expect(received).toHaveLength(1)
+      const item = JSON.parse(received[0].body.split('\n')[2])
+      expect(item.level).toBe('fatal')
+      expect(item.exception.values[0].mechanism.handled).toBe(false)
+    })
+  })
+
+  it('reads the DSN from the file the release writes, and sends nothing without it', async () => {
+    await withIngest(async (dsn, received) => {
+      const missing = path.join(installDir, 'missing', 'error-reporting.json')
+      await report(cliBug, { version: '7.1.0' }, { dsnFile: missing, packageRoot: installDir, env: {} })
+      expect(received).toHaveLength(0)
+
+      const dsnFile = path.join(installDir, 'error-reporting.json')
+      await fs.writeFile(dsnFile, JSON.stringify({ dsn }))
+      await report(cliBug, { version: '7.1.0' }, { dsnFile, packageRoot: installDir, env: {} })
+      expect(received).toHaveLength(1)
+    })
+  })
+
+  it('never throws when the ingest is unreachable', async () => {
+    await expect(report(cliBug, { version: '7.1.0' }, {
+      dsn: `http://${KEY}@127.0.0.1:1/123`,
+      packageRoot: installDir,
+      env: {},
+    })).resolves.toBeUndefined()
+  })
+})

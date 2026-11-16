@@ -11,6 +11,7 @@ import {
   TestSessionSchedulingOperation,
 } from '../rest/test-sessions.js'
 import { PlaywrightCheck } from '../constructs/index.js'
+import { noteCliError } from './error-reporting/report.js'
 
 // eslint-disable-next-line no-restricted-syntax
 export enum Events {
@@ -89,8 +90,14 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
   queue: PQueue
   // Stop waiting for the remaining checks once this many checks have failed.
   readonly maxFailures?: number
-  // Set when the run stopped early; results that arrive afterwards are dropped.
+  // Set when the run stopped at its max failures limit.
   private _maxFailuresReached = false
+  // Set when the run stopped or ended; results that arrive afterwards are dropped.
+  private stopped = false
+  // Rejects the run with an error thrown while processing a result, e.g. by a
+  // reporter. Nothing awaits the queued tasks, so without it such an error
+  // would end the process as an unhandled rejection.
+  private failProcessing?: (err: unknown) => void
 
   constructor (
     accountId: string,
@@ -155,6 +162,21 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
         this.emit(Events.DETACH)
         return
       }
+
+      const processingFailed = new Promise<never>((_, reject) => {
+        this.failProcessing = err => {
+          if (this.stopped) {
+            // Nothing awaits the run any more, so the command never prints
+            // this error; note it so a CLI bug in it is still reported.
+            noteCliError(err)
+            return
+          }
+          this.stop()
+          reject(err)
+        }
+      })
+      // Observed by the race below; keeps a failure before it from becoming an unhandled rejection.
+      processingFailed.catch(() => {})
 
       socketClient = await SocketClient.connect()
 
@@ -227,15 +249,20 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       // Start the queue after the test session run rest call is completed to avoid race conditions
       this.queue.start()
 
-      await Promise.race([allChecksFinished, maxFailuresReached, schedulingFailed])
+      await Promise.race([allChecksFinished, maxFailuresReached, schedulingFailed, processingFailed])
       if (this.maxFailuresReached) {
         this.emit(Events.MAX_FAILURES_REACHED, this.maxFailures)
       }
       this.emit(Events.RUN_FINISHED, testSessionId)
     } catch (err) {
-      this.disableAllTimeouts()
+      // Commands print this error and exit without throwing it, so a CLI bug
+      // in it is noted here to be reported when the command ends.
+      noteCliError(err)
       this.emit(Events.ERROR, err)
     } finally {
+      // Also clears the scheduling-delay timer, which would otherwise keep
+      // the process alive and fire after the run has finished.
+      this.stop()
       // Stop any in-flight scheduling long-poll so it doesn't hold the
       // process open after the run has settled.
       schedulingWatchAbort.abort()
@@ -293,14 +320,19 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
 
   private async configureResultListener (checkRunSuiteId: string, socketClient: MqttClient): Promise<void> {
     socketClient.on('message', (topic: string, rawMessage: string | Buffer) => {
-      const message = JSON.parse(rawMessage.toString('utf8'))
-      const topicComponents = topic.split('/')
-      const sequenceId = topicComponents[4]
-      // eslint-disable-next-line @typescript-eslint/no-unused-vars
-      const checkRunId = topicComponents[5]
-      const subtopic = topicComponents[6]
+      try {
+        const message = JSON.parse(rawMessage.toString('utf8'))
+        const topicComponents = topic.split('/')
+        const sequenceId = topicComponents[4]
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
+        const checkRunId = topicComponents[5]
+        const subtopic = topicComponents[6]
 
-      this.queue.add(() => this.processMessage(sequenceId, subtopic, message))
+        this.queue.add(() => this.processMessage(sequenceId, subtopic, message))
+          .catch(err => this.failProcessing?.(err))
+      } catch (err) {
+        this.failProcessing?.(err)
+      }
     })
     await socketClient.subscribeAsync(`account/${this.accountId}/ad-hoc-check-results/${checkRunSuiteId}/+/+/+`)
   }
@@ -340,7 +372,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           await this.processCheckResult(result)
           links = testResultId && result.hasFailures && await this.getShortLinks(testResultId)
         } catch (err: any) {
-          if (this._maxFailuresReached) {
+          if (this.stopped) {
             // The run stopped while this result was being fetched.
             return
           }
@@ -352,7 +384,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           this.emit(Events.CHECK_FINISHED, check)
           return
         }
-        if (this._maxFailuresReached) {
+        if (this.stopped) {
           // The run stopped while this result was being fetched.
           return
         }
@@ -448,8 +480,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
           return
         }
         this._maxFailuresReached = true
-        this.disableAllTimeouts()
-        this.queue.clear()
+        this.stop()
         resolve()
       })
     })
@@ -483,7 +514,7 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       ? DEFAULT_PLAYWRIGHT_CHECK_RUN_TIMEOUT_SECONDS
       : this.timeout
     const checkTimeout = started ? executionTimeout : executionTimeout + MAX_SCHEDULING_DELAY_SECONDS
-    this.timeouts.set(sequenceId, setTimeout(() => {
+    this.timeouts.set(sequenceId, setTimeout(this.failingRun(() => {
       this.timeouts.delete(sequenceId)
       let errorMessage = started
         ? `Reached timeout of ${checkTimeout} seconds waiting for check result.`
@@ -501,7 +532,14 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       }
       this.emit(Events.CHECK_FAILED, sequenceId, check, errorMessage, { timedOut: true })
       this.emit(Events.CHECK_FINISHED, check)
-    }, checkTimeout * 1000))
+    }), checkTimeout * 1000))
+  }
+
+  /** Drops every pending timer and queued result: nothing more is reported. */
+  private stop () {
+    this.stopped = true
+    this.disableAllTimeouts()
+    this.queue.clear()
   }
 
   private disableAllTimeouts () {
@@ -523,16 +561,31 @@ export default abstract class AbstractCheckRunner extends EventEmitter {
       return
     }
     this.schedulingDelayExceededTimeout = setTimeout(
-      () => {
+      this.failingRun(() => {
         this.emit(Events.MAX_SCHEDULING_DELAY_EXCEEDED)
         this.schedulingDelayExceededTimeout = undefined
-      },
+      }),
       DEFAULT_SCHEDULING_DELAY_EXCEEDED_MS,
     )
     this.on(Events.CHECK_INPROGRESS, () => {
       scheduledCheckCount++
       if (scheduledCheckCount === numChecks) clearTimeout(this.schedulingDelayExceededTimeout)
     })
+  }
+
+  /**
+   * `fn` for a timer: an error it throws, e.g. from a reporter listening to
+   * the events it emits, fails the run instead of ending the process as an
+   * uncaught exception.
+   */
+  private failingRun (fn: () => void): () => void {
+    return () => {
+      try {
+        fn()
+      } catch (err) {
+        this.failProcessing?.(err)
+      }
+    }
   }
 
   private disableTimeout (timeoutKey: string) {
