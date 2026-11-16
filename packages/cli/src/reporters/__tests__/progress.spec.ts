@@ -3,7 +3,9 @@ import * as os from 'os'
 import * as path from 'path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import AbstractProgressReporter from '../abstract-progress.js'
 import GithubReporter from '../github.js'
+import JsonReporter from '../json.js'
 import { createReporters } from '../reporter.js'
 import type { SequenceId } from '../../services/abstract-check-runner.js'
 
@@ -65,23 +67,29 @@ function stdoutText () {
   return stripAnsi(printLnMock.mock.calls.map(([text]: [string]) => text).join('\n'))
 }
 
-describe('GithubReporter', () => {
-  let summaryFile: string
+// Both file reporters write their report to a temporary file instead of the
+// working directory.
+let reportDir: string
 
-  beforeEach(() => {
-    printLnMock.mockClear()
-    printLnErrMock.mockClear()
-    summaryFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'checkly-github-')), 'summary.md')
-    vi.stubEnv('CHECKLY_REPORTER_GITHUB_OUTPUT', summaryFile)
-  })
+beforeEach(() => {
+  printLnMock.mockClear()
+  printLnErrMock.mockClear()
+  reportDir = fs.mkdtempSync(path.join(os.tmpdir(), 'checkly-progress-'))
+  vi.stubEnv('CHECKLY_REPORTER_GITHUB_OUTPUT', path.join(reportDir, 'summary.md'))
+  vi.stubEnv('CHECKLY_REPORTER_JSON_OUTPUT', path.join(reportDir, 'report.json'))
+})
 
-  afterEach(() => {
-    vi.unstubAllEnvs()
-    fs.rmSync(path.dirname(summaryFile), { recursive: true, force: true })
-  })
+afterEach(() => {
+  vi.unstubAllEnvs()
+  fs.rmSync(reportDir, { recursive: true, force: true })
+})
 
+describe.each([
+  ['GithubReporter', GithubReporter],
+  ['JsonReporter', JsonReporter],
+] as const)('%s progress', (_name, Reporter) => {
   it('prints one progress line on stderr for each check as its result arrives', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+    const reporter = new Reporter(PUBLIC_RUN_LOCATION, false)
     reporter.onBegin([
       { check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId },
       { check: makeCheck('Second check'), sequenceId: 'seq-2' as SequenceId },
@@ -98,7 +106,7 @@ describe('GithubReporter', () => {
   })
 
   it('keeps the progress lines off stdout', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+    const reporter = new Reporter(PUBLIC_RUN_LOCATION, false)
     reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
     reporter.onCheckEnd('seq-1' as SequenceId, makeResult('First check'))
 
@@ -106,7 +114,7 @@ describe('GithubReporter', () => {
   })
 
   it('prints a progress line for an attempt that will be retried, without counting it as finished', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+    const reporter = new Reporter(PUBLIC_RUN_LOCATION, false)
     reporter.onBegin([{ check: makeCheck('Flaky check'), sequenceId: 'seq-1' as SequenceId }])
     printLnErrMock.mockClear()
 
@@ -121,7 +129,7 @@ describe('GithubReporter', () => {
   })
 
   it('leaves the source file out for checks without one, as with checkly trigger', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+    const reporter = new Reporter(PUBLIC_RUN_LOCATION, false)
     const check = { name: 'Deployed check', getSourceFile: () => undefined }
     reporter.onBegin([{ check, sequenceId: 'seq-1' as SequenceId }])
     printLnErrMock.mockClear()
@@ -136,7 +144,7 @@ describe('GithubReporter', () => {
   })
 
   it('prints a progress line above a live summary and draws the summary again', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+    const reporter = new Reporter(PUBLIC_RUN_LOCATION, false)
     reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
     // A live summary is on screen when streamed logs drew one in a terminal.
     reporter._clearString = '<clear summary>'
@@ -155,19 +163,19 @@ describe('GithubReporter', () => {
     expect(printSummary).toHaveBeenCalledWith({ stream: 'stderr' })
   })
 
-  it('prints no progress lines when printProgress is off', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false, { printProgress: false })
+  it('prints neither the header nor progress lines when printProgress is off', () => {
+    const reporter = new Reporter(PUBLIC_RUN_LOCATION, false, { printProgress: false })
     reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
-    printLnErrMock.mockClear()
 
     reporter.onCheckAttemptResult('seq-1', makeResult('First check', { hasFailures: true }))
     reporter.onCheckEnd('seq-1' as SequenceId, makeResult('First check'))
 
     expect(stderrLines()).toEqual([])
   })
+})
 
-  it('still writes the markdown summary with every check at the end', () => {
-    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+describe('report files', () => {
+  function runTwoChecks (reporter: AbstractProgressReporter) {
     reporter.onBegin([
       { check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId },
       { check: makeCheck('Second check'), sequenceId: 'seq-2' as SequenceId },
@@ -175,35 +183,75 @@ describe('GithubReporter', () => {
     reporter.onCheckEnd('seq-1' as SequenceId, makeResult('First check'))
     reporter.onCheckEnd('seq-2' as SequenceId, makeResult('Second check', { hasFailures: true }))
     reporter.onEnd()
+  }
 
-    const markdown = fs.readFileSync(summaryFile, 'utf8')
+  it('the github reporter still writes the markdown summary with every check', () => {
+    runTwoChecks(new GithubReporter(PUBLIC_RUN_LOCATION, false))
+
+    const markdown = fs.readFileSync(path.join(reportDir, 'summary.md'), 'utf8')
     expect(markdown).toContain('Ran **2** checks in **eu-west-1**.')
     expect(markdown).toContain('|✅ Pass|First check|')
     expect(markdown).toContain('|❌ Fail|Second check|')
   })
+
+  it('the json reporter still writes the JSON report with every check', () => {
+    runTwoChecks(new JsonReporter(PUBLIC_RUN_LOCATION, false))
+
+    const report = JSON.parse(fs.readFileSync(path.join(reportDir, 'report.json'), 'utf8'))
+    expect(report.checks.map((check: any) => [check.name, check.result])).toEqual([
+      ['First check', 'Pass'],
+      ['Second check', 'Fail'],
+    ])
+  })
 })
 
 describe('createReporters', () => {
-  function githubProgressLines (types: Parameters<typeof createReporters>[0]) {
-    const reporter = createReporters(types, PUBLIC_RUN_LOCATION, false)
-      .find(r => r instanceof GithubReporter) as GithubReporter
-    reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
-    printLnErrMock.mockClear()
-    reporter.onCheckEnd('seq-1' as SequenceId, makeResult('First check'))
-    return stderrLines()
+  // Drives every reporter createReporters returns and reports which ones
+  // printed a progress line, by their position in `types`.
+  function progressPrinters (types: Parameters<typeof createReporters>[0]) {
+    const reporters = createReporters(types, PUBLIC_RUN_LOCATION, false)
+    const printers: number[] = []
+    reporters.forEach((reporter, index) => {
+      reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
+      printLnErrMock.mockClear()
+      reporter.onCheckEnd('seq-1' as SequenceId, makeResult('First check'))
+      if (stderrLines().some(line => line.endsWith('[1/1]'))) {
+        printers.push(index)
+      }
+    })
+    return printers
   }
 
-  beforeEach(() => {
-    printLnMock.mockClear()
-    printLnErrMock.mockClear()
+  it.each([
+    [['github']],
+    [['json']],
+  ] as const)('lets %j print progress on its own', types => {
+    expect(progressPrinters([...types])).toEqual([0])
   })
 
-  it('lets the github reporter print progress when no other reporter prints to the console', () => {
-    expect(githubProgressLines(['github'])).toHaveLength(1)
-    expect(githubProgressLines(['github', 'json'])).toHaveLength(1)
+  it.each([
+    [['github', 'json']],
+    [['json', 'github']],
+    [['github', 'github']],
+    [['json', 'json']],
+  ] as const)('lets only the first reporter of %j print progress', types => {
+    expect(progressPrinters([...types])).toEqual([0])
   })
 
-  it.each(['list', 'dot', 'ci'] as const)('silences github progress next to the %s reporter', other => {
-    expect(githubProgressLines([other, 'github'])).toEqual([])
+  it.each([
+    [['list', 'json']],
+    [['ci', 'github', 'json']],
+    [['github', 'json']],
+    [['json', 'json']],
+  ] as const)('prints the "Running N checks" header once for %j', types => {
+    for (const reporter of createReporters([...types], PUBLIC_RUN_LOCATION, false)) {
+      reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
+    }
+    expect(stderrLines().filter(line => line.startsWith('Running 1 checks'))).toHaveLength(1)
+  })
+
+  it.each(['list', 'dot', 'ci'] as const)('silences github and json progress next to the %s reporter', other => {
+    const types = [other, 'github', 'json'] as const
+    expect(progressPrinters([...types]).filter(index => types[index] !== other)).toEqual([])
   })
 })
