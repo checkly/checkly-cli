@@ -119,10 +119,14 @@ type ResponseTimeProps = {
 export type ResponseTimeLimits = {
   degradedResponseTime: number
   maxResponseTime: number
-  // The per-type default that the backend applies to `maxResponseTime` when the
-  // caller omits it. Used so the degraded <= max cross-check still runs (against
-  // the effective max) when only `degradedResponseTime` is set explicitly.
+  // The per-type defaults that the backend applies when the caller omits a
+  // value. Used so the degraded <= max cross-check still runs (against the
+  // effective values) when only one of the two is set explicitly.
+  defaultDegradedResponseTime?: number
   defaultMaxResponseTime?: number
+  // Whether a `maxResponseTime` of 0 means "never fail on latency", in which
+  // case there is nothing to order `degradedResponseTime` against.
+  zeroMaxResponseTimeDisablesFailure?: boolean
 }
 
 // eslint-disable-next-line require-await
@@ -161,27 +165,43 @@ export async function validateResponseTimes (
     }
   }
 
-  // When `maxResponseTime` is omitted the backend applies a per-type default, so
-  // compare `degradedResponseTime` against that effective max. This catches the
-  // case where an explicit degraded value exceeds the default max (which would
-  // otherwise pass CLI validation but produce a broken check server-side).
+  // When a value is omitted the backend applies a per-type default, so compare
+  // against the effective values. This catches an explicit value on one side
+  // that conflicts with the default on the other (which would otherwise pass
+  // CLI validation but be rejected or produce a broken check server-side).
+  const effectiveDegradedResponseTime = props.degradedResponseTime ?? limits.defaultDegradedResponseTime
   const effectiveMaxResponseTime = props.maxResponseTime ?? limits.defaultMaxResponseTime
-  if (
-    props.degradedResponseTime !== undefined
+  // The comparison is written as "degraded > max" so that values that cannot
+  // be ordered (NaN) are not reported as an ordering problem.
+  const outOfOrder = effectiveDegradedResponseTime !== undefined
     && effectiveMaxResponseTime !== undefined
-    && props.degradedResponseTime > effectiveMaxResponseTime
-  ) {
+    && effectiveDegradedResponseTime > effectiveMaxResponseTime
+  if (!outOfOrder || (limits.zeroMaxResponseTimeDisablesFailure && effectiveMaxResponseTime === 0)) {
+    return
+  }
+
+  if (props.degradedResponseTime === undefined) {
     diagnostics.add(new InvalidPropertyValueDiagnostic(
-      'degradedResponseTime',
+      'maxResponseTime',
       new Error(
-        props.maxResponseTime !== undefined
-          ? `The value of "degradedResponseTime" must be less than or equal to "maxResponseTime".`
-          : `The value of "degradedResponseTime" must be less than or equal to the default `
-            + `"maxResponseTime" of ${effectiveMaxResponseTime}. Set an explicit "maxResponseTime" `
-            + `if you need a higher limit.`,
+        `The value of "maxResponseTime" must be greater than or equal to the default `
+        + `"degradedResponseTime" of ${effectiveDegradedResponseTime}. Set an explicit `
+        + `"degradedResponseTime" if you need a lower limit.`,
       ),
     ))
+    return
   }
+
+  diagnostics.add(new InvalidPropertyValueDiagnostic(
+    'degradedResponseTime',
+    new Error(
+      props.maxResponseTime !== undefined
+        ? `The value of "degradedResponseTime" must be less than or equal to "maxResponseTime".`
+        : `The value of "degradedResponseTime" must be less than or equal to the default `
+          + `"maxResponseTime" of ${effectiveMaxResponseTime}. Set an explicit "maxResponseTime" `
+          + `if you need a higher limit.`,
+    ),
+  ))
 }
 
 /**
