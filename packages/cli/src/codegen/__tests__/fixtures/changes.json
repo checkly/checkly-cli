@@ -1,0 +1,214 @@
+{
+  "resources": [
+    {
+      "logicalId": "api-check",
+      "physicalId": "aaaaaaaa-0000-4000-8000-000000000001",
+      "type": "check",
+      "payload": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000001",
+        "checkType": "API",
+        "name": "Orders API",
+        "frequency": 5,
+        "activated": true,
+        "muted": false,
+        "shouldFail": false,
+        "locations": ["eu-west-1"],
+        "tags": [],
+        "environmentVariables": [],
+        "groupId": 42,
+        "runtimeId": "2025.04",
+        "setupSnippetId": 2,
+        "tearDownSnippetId": null,
+        "localTearDownScript": "const helper = require('./snippets/auth-helper')\nhelper.cleanup()",
+        "useGlobalAlertSettings": true,
+        "retryStrategy": null,
+        "runParallel": false,
+        "request": {
+          "method": "GET",
+          "url": "https://api.example.com/orders",
+          "body": "",
+          "bodyType": "NONE",
+          "headers": [],
+          "queryParameters": [],
+          "assertions": [],
+          "basicAuth": { "username": "", "password": "" },
+          "followRedirects": true,
+          "skipSSL": false,
+          "ipFamily": "IPv4"
+        }
+      }
+    },
+    {
+      "logicalId": "url-monitor",
+      "physicalId": "aaaaaaaa-0000-4000-8000-000000000002",
+      "type": "check",
+      "payload": {
+        "id": "aaaaaaaa-0000-4000-8000-000000000002",
+        "checkType": "URL",
+        "name": "Homepage",
+        "frequency": 10,
+        "activated": true,
+        "muted": false,
+        "shouldFail": false,
+        "locations": [],
+        "tags": [],
+        "useGlobalAlertSettings": true,
+        "retryStrategy": null,
+        "request": {
+          "url": "https://www.example.com",
+          "followRedirects": true,
+          "skipSSL": false,
+          "ipFamily": "IPv4",
+          "assertions": []
+        }
+      }
+    },
+    {
+      "logicalId": "email-channel",
+      "physicalId": 7,
+      "type": "alert-channel",
+      "payload": {
+        "id": 7,
+        "type": "EMAIL",
+        "config": { "address": "ops@example.com" },
+        "sendRecovery": true,
+        "sendFailure": true,
+        "sendDegraded": false,
+        "sslExpiry": false,
+        "sslExpiryThreshold": 30
+      }
+    },
+    {
+      "logicalId": "subscription-in-plan",
+      "physicalId": 1001,
+      "type": "alert-channel-subscription",
+      "payload": { "alertChannelId": 7, "checkId": "aaaaaaaa-0000-4000-8000-000000000002" }
+    },
+    {
+      "logicalId": "subscription-outside-plan",
+      "physicalId": 1002,
+      "type": "alert-channel-subscription",
+      "payload": { "alertChannelId": 8, "checkId": "aaaaaaaa-0000-4000-8000-000000000002" }
+    },
+    {
+      "logicalId": "office-location",
+      "physicalId": "bbbbbbbb-0000-4000-8000-000000000001",
+      "type": "private-location",
+      "payload": {
+        "id": "bbbbbbbb-0000-4000-8000-000000000001",
+        "name": "Office",
+        "slugName": "office",
+        "icon": "location"
+      }
+    },
+    {
+      "logicalId": "assignment-in-plan",
+      "physicalId": "assignment-1",
+      "type": "private-location-check-assignment",
+      "payload": {
+        "privateLocationId": "bbbbbbbb-0000-4000-8000-000000000001",
+        "checkId": "aaaaaaaa-0000-4000-8000-000000000002"
+      }
+    },
+    {
+      "logicalId": "assignment-outside-plan",
+      "physicalId": "assignment-2",
+      "type": "private-location-check-assignment",
+      "payload": {
+        "privateLocationId": "bbbbbbbb-0000-4000-8000-000000000002",
+        "checkId": "aaaaaaaa-0000-4000-8000-000000000002"
+      }
+    },
+    {
+      "logicalId": "status-page",
+      "physicalId": "cccccccc-0000-4000-8000-000000000001",
+      "type": "status-page",
+      "payload": {
+        "id": "cccccccc-0000-4000-8000-000000000001",
+        "version": 3,
+        "name": "ACME Status",
+        "url": "acme-status",
+        "description": "All systems",
+        "defaultTheme": "DARK",
+        "allowIndexing": false
+      }
+    },
+    {
+      "logicalId": "platform-component",
+      "physicalId": "cccccccc-0000-4000-8000-000000000002",
+      "type": "status-page-component",
+      "payload": {
+        "id": "cccccccc-0000-4000-8000-000000000002",
+        "statusPageId": "cccccccc-0000-4000-8000-000000000001",
+        "parentId": null,
+        "type": "GROUP",
+        "name": "Platform",
+        "displayOrder": 0,
+        "configuration": { "expandedByDefault": true, "showHistoricalData": true }
+      }
+    },
+    {
+      "logicalId": "api-component",
+      "physicalId": "cccccccc-0000-4000-8000-000000000003",
+      "type": "status-page-component",
+      "payload": {
+        "id": "cccccccc-0000-4000-8000-000000000003",
+        "statusPageId": "cccccccc-0000-4000-8000-000000000001",
+        "parentId": "cccccccc-0000-4000-8000-000000000002",
+        "type": "SERVICE",
+        "name": "Public API",
+        "displayOrder": 1,
+        "configuration": { "showHistoricalData": false }
+      }
+    },
+    {
+      "logicalId": "outage-rule",
+      "physicalId": "cccccccc-0000-4000-8000-000000000004",
+      "type": "status-page-automation-rule",
+      "payload": {
+        "id": "cccccccc-0000-4000-8000-000000000004",
+        "statusPageId": "cccccccc-0000-4000-8000-000000000001",
+        "name": "API outage",
+        "enabled": true,
+        "firstUpdate": "Investigating",
+        "lastUpdate": "Resolved",
+        "notifySubscribers": true,
+        "tags": ["api"],
+        "coolDownWindowMinutes": 10,
+        "components": [
+          { "componentId": "cccccccc-0000-4000-8000-000000000003", "targetImpact": "MAJOR_OUTAGE" },
+          { "componentId": "cccccccc-0000-4000-8000-000000000099", "targetImpact": "DEGRADED_PERFORMANCE" }
+        ]
+      }
+    },
+    {
+      "logicalId": "playwright-suite",
+      "physicalId": "dddddddd-0000-4000-8000-000000000001",
+      "type": "check",
+      "payload": {
+        "id": "dddddddd-0000-4000-8000-000000000001",
+        "checkType": "PLAYWRIGHT",
+        "name": "E2E suite",
+        "frequency": 10,
+        "activated": true,
+        "muted": false,
+        "locations": ["eu-west-1"],
+        "tags": [],
+        "testCommand": "npx playwright test",
+        "useGlobalAlertSettings": true
+      }
+    }
+  ],
+  "auxiliary": [
+    {
+      "type": "snippet",
+      "physicalId": 1,
+      "payload": { "id": 1, "name": "auth-helper", "script": "module.exports = { cleanup () {} }\n" }
+    },
+    {
+      "type": "snippet",
+      "physicalId": 2,
+      "payload": { "id": 2, "name": "setup-login", "script": "const helper = require('./snippets/auth-helper')\nhelper.cleanup()\n" }
+    }
+  ]
+}

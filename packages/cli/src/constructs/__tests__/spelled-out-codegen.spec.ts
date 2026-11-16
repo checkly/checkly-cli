@@ -43,7 +43,9 @@ function render<T> (
     specFileSuffix: '.spec',
     language: 'typescript',
   })
-  const context = new Context({ spelledOut: new Set(spelledOut) })
+  // A project without defaults, as the deploy preview renders against the
+  // loaded project's.
+  const context = new Context({ spelledOut: new Set(spelledOut), projectDefaults: {} })
   return renderConstruct(makeCodegen(program), logicalId, resource, { context })
 }
 

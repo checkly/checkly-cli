@@ -8,6 +8,10 @@
   "exports": {
     ".": "./dist/index.js",
     "./constructs": "./dist/constructs/index.js",
+    "./codegen": {
+      "types": "./dist/codegen/index.d.ts",
+      "default": "./dist/codegen/index.js"
+    },
     "./loader": "./dist/loader/index.js",
     "./util": "./dist/util/index.js"
   },

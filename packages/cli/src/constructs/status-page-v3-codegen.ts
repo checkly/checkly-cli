@@ -1,4 +1,4 @@
-import { Codegen, Context } from './internal/codegen/index.js'
+import { Codegen, Context, namedReference } from './internal/codegen/index.js'
 import { statusPageV3ThemeColorProperties, statusPageV3Themes } from './internal/status-page-v3-theme-colors.js'
 import { decl, expr, GeneratedFile, ident, Value } from '../sourcegen/index.js'
 import { StatusPageTheme } from './status-page.js'
@@ -50,15 +50,19 @@ function themeColorEntries (themeColors: StatusPageV3ThemeColors): Array<[string
   return themes
 }
 
-export function valueForStatusPageV3FromId (genfile: GeneratedFile, physicalId: string): Value {
+/**
+ * A `fromId()` reference, with the resource's name as a trailing comment
+ * when it is known (see `namedReference`).
+ */
+export function valueForStatusPageV3FromId (genfile: GeneratedFile, physicalId: string, name?: string): Value {
   genfile.namedImport(construct, 'checkly/constructs')
 
-  return expr(ident(construct), builder => {
+  return namedReference(expr(ident(construct), builder => {
     builder.member(ident('fromId'))
     builder.call(builder => {
       builder.string(physicalId)
     })
-  })
+  }), name)
 }
 
 /**
@@ -78,7 +82,7 @@ export function valueForStatusPageV3Ref (
       const variable = context.lookupFriendStatusPage(physicalId)
       return context.importFriendVariable(variable, genfile)
     } catch {
-      return valueForStatusPageV3FromId(genfile, physicalId)
+      return valueForStatusPageV3FromId(genfile, physicalId, context.referencedName('status-page', physicalId))
     }
   }
 }

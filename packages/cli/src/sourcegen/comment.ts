@@ -41,6 +41,40 @@ export class CommentValue extends Value {
   }
 }
 
+/**
+ * A value carrying a line comment that belongs after it, past the comma that
+ * separates it from the next element: `AlertChannel.fromId(7), // Ops email`.
+ *
+ * Only an object property or an array element has such a place, so only
+ * `ObjectValue` and `ArrayValue` render the comment. Anywhere else (a call
+ * argument, say) the value renders alone, since a line comment there would
+ * swallow the rest of the line.
+ */
+export class TrailingCommentValue extends Value {
+  readonly value: Value
+  readonly comment: Comment
+
+  constructor (value: Value, comment: Comment) {
+    super()
+    this.value = value
+    this.comment = comment
+  }
+
+  render (output: Output): void {
+    this.value.render(output)
+  }
+}
+
+/**
+ * Text made safe for a single line comment: a line break (any of the ones
+ * JavaScript recognizes) would end the comment and turn the rest of the text
+ * into code, so each run of line breaks and the whitespace around it becomes
+ * one space.
+ */
+export function singleLineCommentText (text: string): string {
+  return text.replace(/\s*[\r\n\u2028\u2029]+\s*/g, ' ').trim()
+}
+
 export interface CommentOptions {
   stylized?: boolean
 }

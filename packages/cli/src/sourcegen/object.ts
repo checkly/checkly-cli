@@ -1,4 +1,4 @@
-import { Comment } from './comment.js'
+import { Comment, TrailingCommentValue } from './comment.js'
 import { Output } from './output.js'
 import { Value } from './value.js'
 
@@ -94,9 +94,11 @@ export class ObjectValue extends Value {
       output.cosmeticWhitespace()
       value.render(output)
       output.append(',')
-      if (options?.trailingComment) {
+      const trailingComment = options?.trailingComment
+        ?? (value instanceof TrailingCommentValue ? value.comment : undefined)
+      if (trailingComment) {
         output.cosmeticWhitespace()
-        options.trailingComment.render(output)
+        trailingComment.render(output)
         output.endLine({
           collapse: true,
         })
@@ -104,7 +106,8 @@ export class ObjectValue extends Value {
     }
 
     output.decreaseIndent()
-    output.endLine()
+    // A trailing line comment has ended the last line already.
+    output.endLine({ collapse: true })
     output.append('}')
   }
 }

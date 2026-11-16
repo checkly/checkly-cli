@@ -139,28 +139,35 @@ export class Program {
     return extname(path) === ''
   }
 
-  async realize (): Promise<void> {
+  /**
+   * Renders every file of the program in memory, in the order `realize()`
+   * writes them: generated files first, then static auxiliary files. Paths
+   * are relative to the program's root directory, as the program holds them.
+   */
+  render (): RenderedFile[] {
+    const files: RenderedFile[] = []
+
     for (const file of this.#generatedFiles.values()) {
-      const fullFilePath = path.resolve(this.#options.rootDirectory, file.path)
-      const { dir: fileDir } = path.parse(fullFilePath)
-
-      if (fileDir !== '') {
-        await mkdir(fileDir, {
-          recursive: true,
-        })
-      }
-
       const output = new Output()
       try {
         file.render(output)
       } catch (cause) {
+        const fullFilePath = path.resolve(this.#options.rootDirectory, file.path)
         throw new Error(`Failed to render output file '${fullFilePath}': ${cause}`, { cause })
       }
 
-      await writeFile(fullFilePath, output.finalize())
+      files.push({ path: file.path, content: output.finalize() })
     }
 
     for (const file of this.#staticAuxiliaryFiles.values()) {
+      files.push({ path: file.path, content: file.content })
+    }
+
+    return files
+  }
+
+  async realize (): Promise<void> {
+    for (const file of this.render()) {
       const fullFilePath = path.resolve(this.#options.rootDirectory, file.path)
       const { dir: fileDir } = path.parse(fullFilePath)
 
@@ -173,6 +180,13 @@ export class Program {
       await writeFile(fullFilePath, file.content)
     }
   }
+}
+
+/** A file of a program rendered to its final content. */
+export interface RenderedFile {
+  /** Relative to the program's root directory. */
+  path: string
+  content: string | Buffer
 }
 
 export abstract class ProgramFile {

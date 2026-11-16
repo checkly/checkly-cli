@@ -92,7 +92,11 @@ export class StatusPageCodegen extends Codegen<StatusPageResource> {
                         const id = context.importFriendVariable(serviceVariable, file)
                         builder.value(id)
                       } catch {
-                        builder.value(valueForStatusPageServiceFromId(file, service.id))
+                        builder.value(valueForStatusPageServiceFromId(
+                          file,
+                          service.id,
+                          context.referencedName('status-page-service', service.id),
+                        ))
                       }
                     }
                   }

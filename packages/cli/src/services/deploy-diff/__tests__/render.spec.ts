@@ -153,6 +153,28 @@ describe('renderResourceDiff', () => {
     expect(text).not.toContain('secret changed')
   })
 
+  // Both sides render as the code would read in the loaded project: a prop
+  // its `checks` defaults supply is left out, not spelled out.
+  it('renders against the loaded project\'s check defaults', () => {
+    Session.checkDefaults = { muted: true }
+    const { local } = scenario()
+    const lines = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        physicalId: 'check-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/muted', origin: 'code', before: false, after: true }],
+        before: deployed({ muted: false }),
+        redactions: [],
+      },
+      local,
+    )
+    expect(lines).toContain('-  muted: false,')
+    expect(lines.filter(line => /^\+.*muted/.test(line))).toEqual([])
+    expect(lines.join('\n')).not.toMatch(/activated|locations: \[\]/)
+  })
+
   it('prints one line for changes that carry only a cause', () => {
     const { local } = scenario()
     expect(render(

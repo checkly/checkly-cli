@@ -3,7 +3,9 @@ import path, { dirname } from 'node:path'
 import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen/index.js'
 import { ProgramFile } from '../../../sourcegen/program.js'
 import { parseSnippetDependencies } from './snippet.js'
-import { ConstructExport } from '../../session.js'
+import type { ConstructExport } from '../../session.js'
+import type { CheckConfigDefaults } from '../../../services/checkly-config-loader.js'
+import type { FriendResourceSync } from '../../../rest/projects.js'
 
 export class MissingContextVariableMappingError extends Error {}
 
@@ -37,6 +39,24 @@ export interface FilenameOptions {
   unique?: boolean
   contentKey?: string
   case?: CaseFormat
+}
+
+/**
+ * A file name taken from a resource's tag, with `/` separators, or
+ * `undefined` if it would not stay below the directory it is joined to. It
+ * may name subdirectories (`team/orders`), but not an absolute path (`/x`,
+ * `C:x`, `\\server\share`), a `..` segment, an empty segment, or a NUL.
+ */
+function relativeFilename (name: string): string | undefined {
+  const normalized = name.replace(/\\/g, '/')
+  if (normalized.includes('\0') || normalized.startsWith('/') || /^[A-Za-z]:/.test(normalized)) {
+    return undefined
+  }
+  const segments = normalized.split('/')
+  if (segments.some(segment => segment === '' || segment === '..')) {
+    return undefined
+  }
+  return normalized
 }
 
 const splitExt = (filePath: string): [string, string] => {
@@ -160,7 +180,45 @@ export interface ContextOptions {
    * value happens to be the default.
    */
   spelledOut?: ReadonlySet<string>
+  /**
+   * The `checks` defaults of the project the generated code will live in,
+   * which a generated check falls back to for a property it leaves out (see
+   * `projectDefaultsFor` in `check-codegen.ts`). `{}` stands for a project
+   * that sets none, where an omitted property means the backend default.
+   *
+   * Absent, the project is unknown, so a codegen cannot tell which omissions
+   * are safe: every check property a project default could fill in is then
+   * written out even at its default value, and an empty relation or variable
+   * list is written as `[]`.
+   */
+  projectDefaults?: ProjectDefaults
+  /**
+   * The names of resources a generated construct refers to by ID because the
+   * code being generated does not declare them, keyed by resource type and
+   * then by physical ID (as a string). A `fromId()` reference to a named
+   * resource carries the name in a trailing comment, so that a reader can
+   * tell what the ID stands for.
+   */
+  referencedNames?: ReferencedNames
 }
+
+/**
+ * The project-level check defaults of a `checkly.config`: the shared `checks`
+ * section and the sections for browser and multi-step checks.
+ */
+export interface ProjectDefaults {
+  checks?: CheckConfigDefaults
+  browserChecks?: CheckConfigDefaults
+  multiStepChecks?: CheckConfigDefaults
+}
+
+/**
+ * The resource types a generated construct can refer to with `fromId()`: the
+ * same types an import plan can name as friends.
+ */
+export type ReferencedResourceType = FriendResourceSync['type']
+
+export type ReferencedNames = Partial<Record<ReferencedResourceType, Readonly<Record<string, string>>>>
 
 /**
  * The child keys under a prefix among dotted paths: `retryStrategy` picks
@@ -192,10 +250,22 @@ export function pathsUnder (paths: ReadonlySet<string>, prefix: string): string[
 export class Context {
   readonly maskedValues: ReadonlySet<string> | undefined
   readonly #spelledOut: ReadonlySet<string>
+  /** See `ContextOptions.projectDefaults`; `undefined` when the project is unknown. */
+  readonly projectDefaults: ProjectDefaults | undefined
+  readonly #referencedNames: ReferencedNames
 
   constructor (options: ContextOptions = {}) {
     this.maskedValues = options.maskedValues
     this.#spelledOut = options.spelledOut ?? new Set()
+    this.projectDefaults = options.projectDefaults
+    this.#referencedNames = options.referencedNames ?? {}
+  }
+
+  /** The name of a resource referenced by ID, if known (see `ContextOptions.referencedNames`). */
+  referencedName (type: ReferencedResourceType, physicalId: string | number): string | undefined {
+    const names = this.#referencedNames[type]
+    const key = String(physicalId)
+    return names !== undefined && Object.hasOwn(names, key) ? names[key] : undefined
   }
 
   /** Whether the code being rendered spells out the property at `path` (see `ContextOptions.spelledOut`). */
@@ -305,7 +375,12 @@ export class Context {
     if (options?.tags !== undefined) {
       for (const tag of options.tags) {
         if (tag.startsWith(CHECKLY_IMPORT_FILENAME_TAG_PREFIX)) {
-          filename = tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length)
+          // A name that would leave `parent` is ignored, and the file is
+          // named after the hint instead.
+          const tagged = relativeFilename(tag.slice(CHECKLY_IMPORT_FILENAME_TAG_PREFIX.length))
+          if (tagged !== undefined) {
+            filename = tagged
+          }
           break
         }
       }

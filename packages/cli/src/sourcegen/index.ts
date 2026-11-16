@@ -23,6 +23,8 @@ export {
   DocComment,
   lineComment,
   LineComment,
+  singleLineCommentText,
+  TrailingCommentValue,
 } from './comment.js'
 export {
   VariableDeclaration,

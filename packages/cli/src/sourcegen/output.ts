@@ -22,6 +22,10 @@ class OutputLine {
     return this.#level
   }
 
+  set level (level: number) {
+    this.#level = level
+  }
+
   isEmpty (): boolean {
     return this.#chunks.length === 0
   }
@@ -62,6 +66,10 @@ export class Output {
 
   endLine (options?: EndLineOptions) {
     if (options?.collapse && this.#currentLine.isEmpty()) {
+      // The line is still to be written, so it takes the current indent,
+      // which may have changed since the line was started (a closing
+      // bracket after a line that ended in a comment).
+      this.#currentLine.level = this.#level
       return
     }
 
