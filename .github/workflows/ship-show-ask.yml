@@ -1,7 +1,13 @@
 name: Ship/Show/Ask auto-approval
 
+# pull_request, not pull_request_target: the job needs no secrets, and a PR from a branch in this
+# repo gets a GITHUB_TOKEN with the write permission below. GitHub blocks pull_request_target by
+# default in public repositories. The workflow file is taken from the PR branch, which grants
+# nothing new: anyone who can push a branch here can already tag the PR [ship]. pull_request does
+# not run while the PR has merge conflicts, so a title edit made then is applied only by the PR's
+# next event (usually the push that resolves the conflicts).
 on:
-  pull_request_target:
+  pull_request:
     types: [opened, synchronize, reopened, edited, ready_for_review]
 
 permissions:
@@ -28,8 +34,7 @@ jobs:
       github.event.pull_request.state == 'open' &&
       github.event.pull_request.draft == false
     steps:
-      # No checkout: this job only reads the PR title and calls the review API, so no untrusted
-      # PR code is ever executed under pull_request_target's privileged token.
+      # No checkout: this job only reads the PR title and calls the review API.
       - name: Approve or dismiss based on ship/show/ask title tag
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
