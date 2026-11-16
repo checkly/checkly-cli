@@ -6,6 +6,12 @@ import { CheckIntent, CheckIntentProps, ShouldFailProps } from './check.js'
 import { Session } from './session.js'
 import { UrlRequest } from './url-request.js'
 
+// Sent for a limit the code leaves unset. Must equal the default the API
+// applies to this check type: a change of the API default has to be made
+// here too.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 3000
+const DEFAULT_MAX_RESPONSE_TIME = 5000
+
 /**
  * Configuration properties for UrlMonitor.
  * Extends MonitorProps with URL-specific settings.
@@ -161,8 +167,8 @@ export class UrlMonitor extends Monitor {
         ...this.request,
         method: 'GET',
       },
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

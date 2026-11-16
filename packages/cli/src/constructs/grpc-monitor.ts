@@ -8,6 +8,12 @@ import { responseTimeLimits } from './internal/account-features.js'
 import { CheckIntent, CheckIntentProps } from './check.js'
 import { InvalidPropertyValueDiagnostic, RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 
+// Sent for a limit the code leaves unset. Must equal the default the API
+// applies to this check type: a change of the API default has to be made
+// here too.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 10000
+const DEFAULT_MAX_RESPONSE_TIME = 20000
+
 export interface GrpcMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the monitor is going to run.
@@ -92,8 +98,7 @@ export class GrpcMonitor extends Monitor {
       // gRPC allows thresholds up to 180s (calls can run to the 180s timeout),
       // matching the backend's gRPC response-time limits.
       ...responseTimeLimits(180_000),
-      // Backend default applied when maxResponseTime is omitted.
-      defaultMaxResponseTime: 20_000,
+      defaultMaxResponseTime: DEFAULT_MAX_RESPONSE_TIME,
     })
 
     for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
@@ -138,8 +143,8 @@ export class GrpcMonitor extends Monitor {
       ...super.synthesize(),
       checkType: 'GRPC',
       request: this.request,
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }
