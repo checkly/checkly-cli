@@ -7,6 +7,12 @@ import { validateSslAssertion } from './ssl-assertion-validation.js'
 import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
 
+// Sent for a limit the code leaves unset. Must equal the default the API
+// applies to this check type: a change of the API default has to be made
+// here too.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 3000
+const DEFAULT_MAX_RESPONSE_TIME = 10000
+
 export interface SslMonitorProps extends MonitorProps {
   /**
    * Determines the request that the monitor is going to run.
@@ -83,8 +89,7 @@ export class SslMonitor extends Monitor {
 
     await validateResponseTimes(diagnostics, this, {
       ...responseTimeLimits(30_000),
-      // Backend default applied when maxResponseTime is omitted.
-      defaultMaxResponseTime: 10_000,
+      defaultMaxResponseTime: DEFAULT_MAX_RESPONSE_TIME,
     })
 
     for (const [index, assertion] of (this.request.assertions ?? []).entries()) {
@@ -111,8 +116,8 @@ export class SslMonitor extends Monitor {
         sslClientCertificateId: this.request.sslConfig.sslClientCertificateId,
         assertions: this.request.assertions,
       },
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

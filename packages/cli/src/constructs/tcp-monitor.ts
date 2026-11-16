@@ -90,6 +90,12 @@ export interface TcpRequest {
   data?: string
 }
 
+// Sent for a limit the code leaves unset. Must equal the default the API
+// applies to this check type: a change of the API default has to be made
+// here too.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 3000
+const DEFAULT_MAX_RESPONSE_TIME = 5000
+
 export interface TcpMonitorProps extends MonitorProps, CheckIntentProps, ShouldFailProps {
   /**
    * Determines the request that the check is going to run.
@@ -99,7 +105,7 @@ export interface TcpMonitorProps extends MonitorProps, CheckIntentProps, ShouldF
    * The response time in milliseconds where a check should be considered degraded.
    * TCP checks have lower thresholds than HTTP checks due to protocol differences.
    *
-   * @defaultValue 4000
+   * @defaultValue 3000
    * @minimum 0
    * @maximum 5000
    * @example
@@ -181,8 +187,8 @@ export class TcpMonitor extends Monitor {
       ...super.synthesize(),
       checkType: 'TCP',
       request: this.request,
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

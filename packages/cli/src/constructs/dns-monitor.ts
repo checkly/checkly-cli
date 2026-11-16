@@ -7,6 +7,12 @@ import { RequiredPropertyDiagnostic } from './construct-diagnostics.js'
 import { responseTimeLimits } from './internal/account-features.js'
 import { CheckIntent, CheckIntentProps } from './check.js'
 
+// Sent for a limit the code leaves unset. Must equal the default the API
+// applies to this check type: a change of the API default has to be made
+// here too.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 500
+const DEFAULT_MAX_RESPONSE_TIME = 1000
+
 export interface DnsMonitorProps extends MonitorProps, CheckIntentProps {
   /**
    * Determines the request that the monitor is going to run.
@@ -119,8 +125,8 @@ export class DnsMonitor extends Monitor {
       ...super.synthesize(),
       checkType: 'DNS',
       request: this.request,
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

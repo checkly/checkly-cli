@@ -31,6 +31,12 @@ export type ApiCheckDefaultConfig = {
   assertions?: Array<Assertion>
 }
 
+// Sent for a limit the code leaves unset. Must equal the default the API
+// applies to this check type: a change of the API default has to be made
+// here too.
+const DEFAULT_DEGRADED_RESPONSE_TIME = 5000
+const DEFAULT_MAX_RESPONSE_TIME = 20000
+
 export interface ApiCheckProps extends RuntimeCheckProps, ShouldFailProps {
   /**
    *  Determines the request that the check is going to run.
@@ -48,7 +54,7 @@ export interface ApiCheckProps extends RuntimeCheckProps, ShouldFailProps {
    * The response time in milliseconds where a check should be considered degraded.
    * Used for performance monitoring and alerting on slow responses.
    *
-   * @defaultValue 10000
+   * @defaultValue 5000
    * @minimum 0
    * @maximum 30000
    * @example
@@ -322,8 +328,8 @@ export class ApiCheck extends RuntimeCheck {
       ...super.synthesize(),
       checkType: 'API',
       request: this.request,
-      degradedResponseTime: this.degradedResponseTime,
-      maxResponseTime: this.maxResponseTime,
+      degradedResponseTime: this.degradedResponseTime ?? DEFAULT_DEGRADED_RESPONSE_TIME,
+      maxResponseTime: this.maxResponseTime ?? DEFAULT_MAX_RESPONSE_TIME,
     }
   }
 }

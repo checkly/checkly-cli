@@ -79,6 +79,8 @@ function deployed (overrides: Record<string, unknown> = {}): Record<string, unkn
     groupId: 42,
     locations: [],
     tags: [],
+    degradedResponseTime: 5000,
+    maxResponseTime: 20000,
     request: { url: 'https://example.com/health', method: 'GET', headers: [], queryParameters: [], assertions: [] },
     alertChannelSubscriptions: [{ id: 1, alertChannelId: 7, checkId: 'check-uuid', activated: true }],
     privateLocationAssignments: [],
@@ -235,6 +237,44 @@ describe('renderResourceDiff', () => {
       },
       local,
     )).toEqual(['payload format changed (CLI upgrade)'])
+  })
+
+  it('names the CLI upgrade that starts sending the default response time limits', () => {
+    // The previous CLI left unset limits out of the payload; this one sends
+    // the defaults, which the deployed check already holds.
+    const { local } = scenario()
+    expect(render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [
+          { path: '/degradedResponseTime', origin: 'code', after: 5000 },
+          { path: '/maxResponseTime', origin: 'code', after: 20000 },
+        ],
+        before: deployed(),
+        redactions: [],
+      },
+      local,
+    )).toEqual(['payload format changed (CLI upgrade)'])
+  })
+
+  it('shows a stored limit the code does not set giving way to the default', () => {
+    const { local } = scenario()
+    const text = render(
+      {
+        type: 'check',
+        logicalId: 'api',
+        action: 'UPDATE',
+        changes: [{ path: '/degradedResponseTime', origin: 'code', after: 5000 }],
+        before: deployed({ degradedResponseTime: 3000 }),
+        redactions: [],
+      },
+      local,
+    ).join('\n')
+    expect(text).toContain('-  degradedResponseTime: 3000,')
+    expect(text).toContain('+  degradedResponseTime: 5000,')
+    expect(text).not.toContain('CLI upgrade')
   })
 
   it('shows a stored strategy the code no longer sets giving way to the default single retry', () => {
@@ -610,15 +650,15 @@ describe('renderResourceDiff', () => {
         logicalId: 'api',
         action: 'UPDATE',
         changes: [{ path: '/request/url', origin: 'code', before: 'https://example.com/health', after: 'https://example.com/v2/health' }],
-        // The row carries the response-time defaults the deploy filled in; the construct never said them.
-        before: deployed({ degradedResponseTime: 5000, maxResponseTime: 20000 }),
+        // The row carries the empty request lists the deploy filled in; the construct never said them.
+        before: deployed(),
         redactions: [],
       },
       local,
     )
     const changed = lines.filter(line => /^[-+](?![-+]{2} )/.test(line))
     expect(changed, changed.join('\n')).toHaveLength(2)
-    expect(lines.join('\n')).not.toContain('ResponseTime')
+    expect(lines.join('\n')).not.toMatch(/headers|queryParameters|assertions/)
   })
 
   it('shows a traceroute moving to the default limits as a change, not a removal', () => {
