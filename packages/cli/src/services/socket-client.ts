@@ -4,6 +4,42 @@ import { createProxyAgent } from '../services/proxy.js'
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
+// Node rejects a connection to a host with several addresses (e.g. IPv6 and
+// IPv4 for localhost) with an AggregateError whose own message is empty; the
+// reason is only in the per-address errors it carries.
+function describeError (err: unknown): string {
+  if (!(err instanceof Error)) {
+    return String(err)
+  }
+  if (err.message) {
+    return err.message
+  }
+  if (err instanceof AggregateError) {
+    const messages = err.errors.map(describeError).filter(Boolean)
+    if (messages.length) {
+      return messages.join('; ')
+    }
+  }
+  const { code } = err as { code?: unknown }
+  return typeof code === 'string' || typeof code === 'number' ? `${err.name} (${code})` : err.name
+}
+
+/**
+ * Error thrown when the connection that streams check results cannot be established.
+ */
+export class MqttConnectionError extends Error {
+  constructor (options: ErrorOptions) {
+    super(
+      `Could not connect to Checkly to receive check results. Please check that `
+      + `the internet connection is working.`
+      + `\n\n`
+      + `Details: ${describeError(options.cause)}`,
+      options,
+    )
+    this.name = 'MqttConnectionError'
+  }
+}
+
 async function backOffConnect (url: string, options: mqtt.IClientOptions, retryCount = 0):
 Promise<mqtt.MqttClient> {
   try {
@@ -19,7 +55,7 @@ Promise<mqtt.MqttClient> {
 }
 
 export class SocketClient {
-  static connect (): Promise<mqtt.MqttClient> {
+  static async connect (): Promise<mqtt.MqttClient> {
     const url = config.getMqttUrl()
     const accountId = config.getAccountId()
     const apiKey = config.getApiKey()
@@ -36,6 +72,10 @@ export class SocketClient {
       options.wsOptions = { agent }
     }
 
-    return backOffConnect(`${url}?authenticationScheme=userApiKey`, options, 0)
+    try {
+      return await backOffConnect(`${url}?authenticationScheme=userApiKey`, options, 0)
+    } catch (err) {
+      throw new MqttConnectionError({ cause: err })
+    }
   }
 }

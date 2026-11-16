@@ -21,7 +21,7 @@ vi.mock('../proxy.js', () => ({
 }))
 
 import { connectAsync } from 'mqtt'
-import { SocketClient } from '../socket-client.js'
+import { MqttConnectionError, SocketClient } from '../socket-client.js'
 
 const mockedConnectAsync = vi.mocked(connectAsync)
 
@@ -48,12 +48,33 @@ describe('SocketClient.connect', () => {
     )
   })
 
-  it('rethrows after the retry limit is exhausted', async () => {
-    mockedConnectAsync.mockRejectedValue(new Error('ECONNREFUSED'))
+  it('throws an MqttConnectionError after the retry limit is exhausted', async () => {
+    const original = new Error('ECONNREFUSED')
+    mockedConnectAsync.mockRejectedValue(original)
 
-    await expect(SocketClient.connect()).rejects.toThrow('ECONNREFUSED')
+    const error = await SocketClient.connect().catch(err => err)
 
+    expect(error).toBeInstanceOf(MqttConnectionError)
+    expect(error.message).toContain('Details: ECONNREFUSED')
+    expect(error.cause).toBe(original)
     // Initial attempt plus 4 retries (retryCount 1-4).
     expect(mockedConnectAsync).toHaveBeenCalledTimes(5)
+  })
+
+  it('describes an AggregateError with an empty message by its inner errors', async () => {
+    mockedConnectAsync.mockRejectedValue(Object.assign(new AggregateError([
+      new Error('connect ECONNREFUSED ::1:443'),
+      new Error('connect ECONNREFUSED 127.0.0.1:443'),
+    ], ''), { code: 'ECONNREFUSED' }))
+
+    await expect(SocketClient.connect()).rejects.toThrow(
+      'Details: connect ECONNREFUSED ::1:443; connect ECONNREFUSED 127.0.0.1:443',
+    )
+  })
+
+  it('falls back to the error name and code when there is no message', async () => {
+    mockedConnectAsync.mockRejectedValue(Object.assign(new Error(''), { code: 'ECONNRESET' }))
+
+    await expect(SocketClient.connect()).rejects.toThrow('Details: Error (ECONNRESET)')
   })
 })
