@@ -36,20 +36,22 @@ export const createReporters = (
   runLocation: RunLocation,
   verbose: boolean,
   options: ReporterOptions = {},
-): Reporter[] => types.map(t => {
+): Reporter[] => {
   const hasLiveConsoleReporter = types.some(type => LIVE_CONSOLE_REPORTERS.includes(type))
-  switch (t) {
-    case 'dot':
-      return new DotReporter(runLocation, verbose, options)
-    case 'list':
-      return new ListReporter(runLocation, verbose, options)
-    case 'ci':
-      return new CiReporter(runLocation, verbose, options)
-    case 'github':
-      return new GithubReporter(runLocation, verbose, { ...options, printProgress: !hasLiveConsoleReporter })
-    case 'json':
-      return new JsonReporter(runLocation, verbose, options)
-    default:
-      return new ListReporter(runLocation, verbose, options)
-  }
-})
+  return types.map(t => {
+    switch (t) {
+      case 'dot':
+        return new DotReporter(runLocation, verbose, options)
+      case 'list':
+        return new ListReporter(runLocation, verbose, options)
+      case 'ci':
+        return new CiReporter(runLocation, verbose, options)
+      case 'github':
+        return new GithubReporter(runLocation, verbose, { ...options, printProgress: !hasLiveConsoleReporter })
+      case 'json':
+        return new JsonReporter(runLocation, verbose, options)
+      default:
+        return new ListReporter(runLocation, verbose, options)
+    }
+  })
+}

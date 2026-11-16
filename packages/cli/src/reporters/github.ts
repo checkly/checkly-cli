@@ -4,6 +4,7 @@ import * as path from 'path'
 import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
 import { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
 import { TestResultsShortLinks } from '../rest/test-sessions.js'
+import type { ReporterOptions } from './reporter.js'
 import {
   CheckStatus,
   formatCheckTitle,
@@ -147,8 +148,7 @@ export class GithubMdBuilder {
   }
 }
 
-export type GithubReporterOptions = {
-  showStreamingHeaders?: boolean
+export type GithubReporterOptions = ReporterOptions & {
   // Print one line per check on stderr as its result arrives. On by default;
   // createReporters turns it off when a list, dot or ci reporter runs too.
   printProgress?: boolean
@@ -166,7 +166,7 @@ export default class GithubReporter extends AbstractListReporter {
   onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks): void {
     super.onCheckAttemptResult(sequenceId, checkResult, links)
     if (this.printProgress) {
-      printLnErr(formatCheckTitle(CheckStatus.RETRIED, checkResult, {
+      this._printProgressLine(formatCheckTitle(CheckStatus.RETRIED, checkResult, {
         includeSourceFile: Boolean(checkResult.sourceFile),
         printRetryDuration: true,
       }))
@@ -180,11 +180,26 @@ export default class GithubReporter extends AbstractListReporter {
     super.onCheckEnd(sequenceId, checkResult, testResultId, links)
     this.numFinished++
     if (this.printProgress) {
+      const { numRetries } = this.checkFilesMap!.get(checkResult.sourceFile)!.get(sequenceId)!
       const title = formatCheckTitle(resultToCheckStatus(checkResult), checkResult, {
         // `checkly trigger` results have no source file.
         includeSourceFile: Boolean(checkResult.sourceFile),
+        retries: numRetries,
       })
-      printLnErr(`${title} [${this.numFinished}/${this.numChecks}]`)
+      this._printProgressLine(`${title} [${this.numFinished}/${this.numChecks}]`)
+    }
+  }
+
+  // Streamed logs draw a live summary at the bottom of an interactive
+  // terminal, and the next redraw erases a fixed number of lines above the
+  // cursor. Print the line above that summary and draw it again, so the
+  // redraw erases the summary and not this line.
+  private _printProgressLine (line: string) {
+    const summaryShown = Boolean(this._clearString)
+    this._clearSummary()
+    printLnErr(line)
+    if (summaryShown) {
+      this._printSummary({ stream: 'stderr' })
     }
   }
 

@@ -116,7 +116,8 @@ describe('GithubReporter', () => {
     const lines = stderrLines()
     expect(lines).toHaveLength(2)
     expect(lines[0]).toBe(`↺ ${SOURCE_FILE} > Flaky check`)
-    expect(lines[1]).toContain(`${SOURCE_FILE} > Flaky check [1/1]`)
+    expect(lines[1]).toContain(`${SOURCE_FILE} > Flaky check`)
+    expect(lines[1]).toMatch(/\(1 retry\) \[1\/1\]$/)
   })
 
   it('leaves the source file out for checks without one, as with checkly trigger', () => {
@@ -132,6 +133,26 @@ describe('GithubReporter', () => {
     expect(lines[0]).toContain('Deployed check [1/1]')
     expect(lines[0]).not.toContain('undefined')
     expect(lines[0]).not.toContain('>')
+  })
+
+  it('prints a progress line above a live summary and draws the summary again', () => {
+    const reporter = new GithubReporter(PUBLIC_RUN_LOCATION, false)
+    reporter.onBegin([{ check: makeCheck('First check'), sequenceId: 'seq-1' as SequenceId }])
+    // A live summary is on screen when streamed logs drew one in a terminal.
+    reporter._clearString = '<clear summary>'
+    const printSummary = vi.spyOn(reporter, '_printSummary').mockImplementation(() => {
+      printLnErrMock('<summary>')
+    })
+    printLnErrMock.mockClear()
+
+    reporter.onCheckEnd('seq-1' as SequenceId, makeResult('First check'))
+
+    const lines = stderrLines()
+    expect(lines).toHaveLength(3)
+    expect(lines[0]).toBe('<clear summary>')
+    expect(lines[1]).toContain(`${SOURCE_FILE} > First check [1/1]`)
+    expect(lines[2]).toBe('<summary>')
+    expect(printSummary).toHaveBeenCalledWith({ stream: 'stderr' })
   })
 
   it('prints no progress lines when printProgress is off', () => {
