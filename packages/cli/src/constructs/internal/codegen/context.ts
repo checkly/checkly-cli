@@ -1,8 +1,8 @@
 import path, { dirname } from 'node:path'
 
 import { CaseFormat, GeneratedFile, IdentifierValue, cased } from '../../../sourcegen/index.js'
-import { ProgramFile } from '../../../sourcegen/program.js'
-import { parseSnippetDependencies } from './snippet.js'
+import { ProgramFile, StaticAuxiliaryFile } from '../../../sourcegen/program.js'
+import { isSafeSnippetFilename, parseSnippetDependencies } from './snippet.js'
 import type { ConstructExport } from '../../session.js'
 import type { CheckConfigDefaults } from '../../../services/checkly-config-loader.js'
 import type { FriendResourceSync } from '../../../rest/projects.js'
@@ -247,6 +247,28 @@ export function pathsUnder (paths: ReadonlySet<string>, prefix: string): string[
   return children
 }
 
+function snippetFilenameCase (name: string): CaseFormat {
+  return isSafeSnippetFilename(name) ? 'identity' : 'kebab-case'
+}
+
+/**
+ * For each file `content` requires as a snippet, the names a snippet file
+ * may be registered under for it: with or without an extension.
+ */
+function requiredSnippetCandidates (content: string, sameFolder: boolean): string[][] {
+  return parseSnippetDependencies(content, sameFolder ? './' : undefined).map(filename => {
+    const { name } = path.parse(filename)
+    return [
+      name,
+      filename,
+      `${name}.ts`,
+      `${name}.js`,
+      `${filename}.ts`,
+      `${filename}.js`,
+    ]
+  })
+}
+
 export class Context {
   readonly maskedValues: ReadonlySet<string> | undefined
   readonly #spelledOut: ReadonlySet<string>
@@ -322,6 +344,8 @@ export class Context {
   #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
   #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
   #usedAuxiliarySnippetFiles = new Set<ProgramFile>()
+  #refusedSnippetsByPhysicalId = new Map<number, Error>()
+  #refusedSnippetsByFilename = new Map<string, Error>()
 
   #reservedIdentifiersByFilePath = new Map<string, Map<string, VariableLocator>>()
 
@@ -747,11 +771,18 @@ export class Context {
   /**
    * The snippet file a script names by ID. Recorded as used by the generated
    * code (`usedAuxiliarySnippetFiles`).
+   *
+   * @throws Error if the snippet, or a snippet it reaches, was refused
+   * (`registerRefusedSnippet`).
    */
   lookupAuxiliarySnippetFile (physicalId: number): ProgramFile | undefined {
+    const refused = this.#refusedSnippetsByPhysicalId.get(physicalId)
+    if (refused !== undefined) {
+      throw refused
+    }
     const file = this.#auxiliarySnippetFilesByPhysicalId.get(physicalId)
     if (file !== undefined) {
-      this.#usedAuxiliarySnippetFiles.add(file)
+      this.#useSnippetFile(file)
     }
     return file
   }
@@ -759,11 +790,15 @@ export class Context {
   /**
    * The snippet files a check's script requires through `./snippets/`.
    * Recorded as used by the generated code (`usedAuxiliarySnippetFiles`).
+   *
+   * @throws Error if the script, or a snippet it reaches, requires a refused
+   * snippet (`registerRefusedSnippet`).
    */
   findScriptSnippetFiles (content: string): ProgramFile[] {
+    this.#throwIfRequiresRefused(content, false)
     const files = this.snippetFilesRequiredBy(content)
     for (const file of files) {
-      this.#usedAuxiliarySnippetFiles.add(file)
+      this.#useSnippetFile(file)
     }
     return files
   }
@@ -776,21 +811,7 @@ export class Context {
    */
   snippetFilesRequiredBy (content: string, options?: { sameFolder?: boolean }): ProgramFile[] {
     const files = new Set<ProgramFile>()
-
-    const filenames = parseSnippetDependencies(content, options?.sameFolder ? './' : undefined)
-
-    for (const filename of filenames) {
-      const { name } = path.parse(filename)
-
-      const candidates = [
-        name,
-        filename,
-        `${name}.ts`,
-        `${name}.js`,
-        `${filename}.ts`,
-        `${filename}.js`,
-      ]
-
+    for (const candidates of requiredSnippetCandidates(content, options?.sameFolder ?? false)) {
       for (const candidate of candidates) {
         const match = this.#auxiliarySnippetFilesByFilename.get(candidate)
         if (match !== undefined) {
@@ -799,8 +820,82 @@ export class Context {
         }
       }
     }
-
     return [...files]
+  }
+
+  /**
+   * Remembers a snippet the codegen cannot convert, instead of failing every
+   * resource for it: only a resource that names it by ID, or whose script
+   * reaches it through requires, fails, with `cause` as the reason.
+   *
+   * @param name The snippet's name, by which a script requires it (see
+   * `snippetFilename`); absent if it has none.
+   */
+  registerRefusedSnippet (physicalId: number, name: string | undefined, cause: Error) {
+    const refused = new Error(`Snippet #${physicalId} cannot be converted: ${cause.message}`, { cause })
+    this.#refusedSnippetsByPhysicalId.set(physicalId, refused)
+    if (name !== undefined) {
+      this.#refusedSnippetsByFilename.set(this.snippetFilename(name), refused)
+    }
+  }
+
+  /**
+   * The path of a snippet's file: `snippets/<name>`, the name kept as it is
+   * when it is one the backend allows in a file name (`isSafeSnippetFilename`),
+   * else in kebab-case. Snippets with the same name but different IDs get
+   * numbered paths.
+   */
+  snippetFilePath (physicalId: number, name: string): FilePath {
+    return this.filePath('snippets', name, {
+      unique: false,
+      contentKey: `snippet::${physicalId}`,
+      case: snippetFilenameCase(name),
+    })
+  }
+
+  /**
+   * The file name, without an extension, that a snippet's file is named
+   * after (see `snippetFilePath`), by which a script requires it.
+   */
+  snippetFilename (name: string): string {
+    return cased(name, snippetFilenameCase(name))
+  }
+
+  // A used snippet counts only once nothing it reaches is refused.
+  #useSnippetFile (file: ProgramFile) {
+    if (this.#refusedSnippetsByFilename.size > 0) {
+      const seen = new Set<ProgramFile>()
+      const queue = [file]
+      for (let next = queue.pop(); next !== undefined; next = queue.pop()) {
+        if (seen.has(next) || !(next instanceof StaticAuxiliaryFile)) {
+          continue
+        }
+        seen.add(next)
+        const content = next.content.toString()
+        this.#throwIfRequiresRefused(content, true)
+        queue.push(...this.snippetFilesRequiredBy(content, { sameFolder: true }))
+      }
+    }
+    this.#usedAuxiliarySnippetFiles.add(file)
+  }
+
+  #throwIfRequiresRefused (content: string, sameFolder: boolean) {
+    if (this.#refusedSnippetsByFilename.size === 0) {
+      return
+    }
+    for (const candidates of requiredSnippetCandidates(content, sameFolder)) {
+      // A converted snippet of the same name takes precedence, as a lookup
+      // of the files would find that one.
+      if (candidates.some(candidate => this.#auxiliarySnippetFilesByFilename.has(candidate))) {
+        continue
+      }
+      for (const candidate of candidates) {
+        const refused = this.#refusedSnippetsByFilename.get(candidate)
+        if (refused !== undefined) {
+          throw refused
+        }
+      }
+    }
   }
 
   /** Every registered snippet file. */

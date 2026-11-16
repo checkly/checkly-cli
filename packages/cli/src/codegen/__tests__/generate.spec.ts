@@ -641,3 +641,83 @@ describe('generateConstructFiles on stored rows', () => {
     ])
   })
 })
+
+// Callers pass every snippet of the account, including ones the codegen
+// cannot convert; only a resource that uses one fails for it.
+describe('generateConstructFiles with snippets it cannot convert', () => {
+  const snippet = (id: number, name: string, script: string | null) => ({
+    type: 'snippet',
+    physicalId: id,
+    payload: { id, name, script },
+  })
+  const auxiliary = [
+    snippet(1, 'login', 'module.exports = {}\n'),
+    snippet(2, 'legacy', '{{> partial }}\n'),
+    snippet(3, 'blank', null),
+  ]
+  const apiCheck = (logicalId: string, payload: Record<string, unknown>) => ({
+    type: 'check',
+    logicalId,
+    physicalId: logicalId,
+    payload: {
+      id: logicalId,
+      checkType: 'API',
+      name: logicalId,
+      request: { url: 'https://api.example.com', method: 'GET' },
+      ...payload,
+    },
+  })
+
+  it('generates a check that uses none of them, with only the snippet it uses', () => {
+    const { files, failures } = generateConstructFiles({
+      resources: [apiCheck('uses-login', { setupSnippetId: 1 })],
+      auxiliary,
+    })
+    expect(failures).toEqual([])
+    expect(files.map(file => file.path).filter(filePath => filePath.startsWith('snippets/'))).toEqual([
+      'snippets/login.ts',
+    ])
+  })
+
+  it('fails a check whose setup snippet is one, with the reason on the cause chain', () => {
+    const { files, failures } = generateConstructFiles({
+      resources: [apiCheck('uses-legacy', { setupSnippetId: 2 }), apiCheck('uses-login', { setupSnippetId: 1 })],
+      auxiliary,
+    })
+    expect(failures.map(failure => failure.resource.logicalId)).toEqual(['uses-legacy'])
+    expect(causeOfType(failures[0].cause, UnsupportedScriptError)?.message)
+      .toEqual('Conversion from legacy handlebars syntax is not supported.')
+    expect(files.some(file => file.path.includes('uses-legacy'))).toBe(false)
+  })
+
+  it('fails only a check that uses a snippet whose script does not parse', () => {
+    const broken = snippet(5, 'broken', 'module.exports = {\n')
+    const unused = generateConstructFiles({
+      resources: [apiCheck('a', {})],
+      auxiliary: [broken],
+    })
+    expect(unused.failures).toEqual([])
+    expect(unused.files.map(file => file.path)).toEqual(['resources/api-checks/a/a.check.ts'])
+
+    const { files, failures } = generateConstructFiles({
+      resources: [apiCheck('uses-broken', { setupSnippetId: 5 }), apiCheck('a', {})],
+      auxiliary: [broken],
+    })
+    expect(failures.map(failure => failure.resource.logicalId)).toEqual(['uses-broken'])
+    expect(failures[0].cause.message).toContain('Snippet #5 cannot be converted: Failed to parse')
+    expect(files.map(file => file.path)).toEqual(['resources/api-checks/a/a.check.ts'])
+  })
+
+  it('fails a check whose script requires one, directly or through another snippet', () => {
+    const { failures } = generateConstructFiles({
+      resources: [
+        apiCheck('requires-legacy', { localSetupScript: 'require(\'./snippets/legacy\')\n' }),
+        apiCheck('reaches-blank', { setupSnippetId: 4 }),
+      ],
+      auxiliary: [...auxiliary, snippet(4, 'wrapper', 'require(\'./blank\')\n')],
+    })
+    const causes = Object.fromEntries(failures.map(({ resource, cause }) => [resource.logicalId, cause]))
+    expect(causeOfType(causes['requires-legacy'], UnsupportedScriptError)).toBeDefined()
+    expect(causes['reaches-blank']?.message).toContain('Snippet #3 cannot be converted')
+  })
+})

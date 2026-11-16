@@ -5,7 +5,7 @@ import { ProgramFile, StaticAuxiliaryFile } from '../sourcegen/program.js'
 import { ConstructCodegen, sortResources } from '../constructs/construct-codegen.js'
 import { PREVIEW_ONLY_CHECK_TYPES } from '../constructs/check-codegen.js'
 import { Context, type ProjectDefaults, type ReferencedNames } from '../constructs/internal/codegen/index.js'
-import { isSnippet, isSafeSnippetFilename } from '../constructs/internal/codegen/snippet.js'
+import { isSnippet, parseSnippetDependencies } from '../constructs/internal/codegen/snippet.js'
 import type { ConstructExport } from '../constructs/session.js'
 import type { AuxiliaryResourceSync, FriendResourceSync } from '../rest/projects.js'
 
@@ -83,6 +83,35 @@ export interface GenerateIntoProgramOptions extends GenerateOptions {
    * which are then the only options it takes.
    */
   context?: Context
+  /**
+   * Whether a snippet the codegen cannot convert fails only the resources
+   * that use it (`Context.registerRefusedSnippet`), instead of the whole
+   * generation.
+   */
+  deferRefusedSnippets?: boolean
+}
+
+/**
+ * Why the codegen cannot take an auxiliary snippet, if it cannot. With
+ * `parse`, a script whose requires cannot be read is refused too, which
+ * would otherwise fail the generation as a whole when the snippet's own
+ * requires are resolved.
+ */
+function snippetRefusal (snippet: unknown, parse: boolean): Error | undefined {
+  try {
+    if (!isSnippet(snippet)) {
+      return new Error(`Invalid auxiliary snippet`)
+    }
+    if (parse) {
+      parseSnippetDependencies(snippet.script, './')
+    }
+    return undefined
+  } catch (cause) {
+    if (!(cause instanceof Error)) {
+      throw cause
+    }
+    return cause
+  }
 }
 
 type FriendType = FriendResourceSync['type']
@@ -165,15 +194,21 @@ export function generateIntoProgram<R extends GenerateResource> (
           case 'snippet': {
             const snippet = resource.payload
 
-            if (!isSnippet(snippet)) {
-              throw new Error(`Invalid auxiliary snippet`)
+            const deferred = options.deferRefusedSnippets ?? false
+            const refusal = snippetRefusal(snippet, deferred)
+            if (refusal !== undefined) {
+              if (!deferred) {
+                throw refusal
+              }
+              // One that cannot even be identified cannot be referred to.
+              if (typeof snippet?.id === 'number') {
+                const name = typeof snippet.name === 'string' ? snippet.name : undefined
+                context.registerRefusedSnippet(snippet.id, name, refusal)
+              }
+              break
             }
 
-            const snippetFilePath = context.filePath('snippets', snippet.name, {
-              unique: false,
-              contentKey: `snippet::${snippet.id}`,
-              case: isSafeSnippetFilename(snippet.name) ? 'identity' : 'kebab-case',
-            })
+            const snippetFilePath = context.snippetFilePath(snippet.id, snippet.name)
 
             const snippetFile = program.staticSupportFile(
               snippetFilePath.fullPath,
@@ -336,7 +371,10 @@ function unusedSnippetPaths (context: Context): Set<string> {
  * it happened, so look for these classes along the `cause` chain.
  *
  * `auxiliary` may hold every snippet of the account: only the snippets the
- * generated code uses are returned, with those they require in turn.
+ * generated code uses are returned, with those they require in turn. A
+ * snippet the codegen cannot convert fails only a resource that uses it,
+ * with the reason (such as an `UnsupportedScriptError`) on the `cause`
+ * chain.
  *
  * Friends (resources an import plan says the project already declares) are
  * not accepted, since there is no project to import them from: a `friends`
@@ -346,7 +384,7 @@ function unusedSnippetPaths (context: Context): Set<string> {
  * @experimental See the `checkly/codegen` entry: intended for Checkly's own
  * services, and not covered by semver guarantees until stated otherwise.
  *
- * @throws Error if an auxiliary resource cannot be processed.
+ * @throws Error if an auxiliary resource is of a type other than `snippet`.
  */
 export function generateConstructFiles (
   changes: GenerateChanges,
@@ -377,7 +415,7 @@ export function generateConstructFiles (
       { resources, auxiliary: changes.auxiliary },
       program,
       codegen,
-      { context },
+      { context, deferRefusedSnippets: true },
     )
 
     if (round.length === 0) {
