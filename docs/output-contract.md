@@ -51,7 +51,7 @@ Consequences:
 | Human-readable error reports; "no matching checks" from `test`, `trigger`, and `checks run`, whether or not it fails the command | stderr |
 | Interactive questions and the preview or plan shown before a confirmation | stderr |
 | `login` instructions in a terminal (URL, code, waiting notes) | stderr |
-| `checkly test` live progress: "Running N checks…", live summary redraws, streamed logs, dot-reporter marks | stderr |
+| `checkly test` live progress: "Running N checks…", live summary redraws, streamed logs, dot-reporter marks, github-reporter per-check lines | stderr |
 | oclif errors: usage errors, `this.error`, uncaught exceptions (plain text in every mode) | stderr |
 
 Where two rows seem to apply, the wizard rule wins: `init`, `import`, and
