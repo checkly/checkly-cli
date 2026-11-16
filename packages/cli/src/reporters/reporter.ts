@@ -27,9 +27,12 @@ export type ReporterOptions = {
 }
 
 // Reporters that already print each check to the console while the run is
-// in progress. The github reporter stays quiet next to one of these, so a
-// check never shows up twice in the same log.
+// in progress.
 const LIVE_CONSOLE_REPORTERS: ReporterType[] = ['list', 'dot', 'ci']
+
+// Reporters that write their report to a file at the end and print progress
+// lines while the run is in progress (AbstractProgressReporter).
+const PROGRESS_REPORTERS: ReporterType[] = ['github', 'json']
 
 export const createReporters = (
   types: ReporterType[],
@@ -37,8 +40,13 @@ export const createReporters = (
   verbose: boolean,
   options: ReporterOptions = {},
 ): Reporter[] => {
-  const hasLiveConsoleReporter = types.some(type => LIVE_CONSOLE_REPORTERS.includes(type))
-  return types.map(t => {
+  // At most one progress reporter prints progress, and none next to a live
+  // console reporter, so a check never shows up twice in the same log.
+  const progressIndex = types.some(type => LIVE_CONSOLE_REPORTERS.includes(type))
+    ? -1
+    : types.findIndex(type => PROGRESS_REPORTERS.includes(type))
+  return types.map((t, i) => {
+    const progressOptions = { ...options, printProgress: i === progressIndex }
     switch (t) {
       case 'dot':
         return new DotReporter(runLocation, verbose, options)
@@ -47,9 +55,9 @@ export const createReporters = (
       case 'ci':
         return new CiReporter(runLocation, verbose, options)
       case 'github':
-        return new GithubReporter(runLocation, verbose, { ...options, printProgress: !hasLiveConsoleReporter })
+        return new GithubReporter(runLocation, verbose, progressOptions)
       case 'json':
-        return new JsonReporter(runLocation, verbose, options)
+        return new JsonReporter(runLocation, verbose, progressOptions)
       default:
         return new ListReporter(runLocation, verbose, options)
     }

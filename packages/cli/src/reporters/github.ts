@@ -1,20 +1,9 @@
 import * as fs from 'fs'
 import * as path from 'path'
 
-import AbstractListReporter, { checkFilesMap } from './abstract-list.js'
-import { RunLocation, SequenceId } from '../services/abstract-check-runner.js'
-import { TestResultsShortLinks } from '../rest/test-sessions.js'
-import type { ReporterOptions } from './reporter.js'
-import {
-  CheckStatus,
-  formatCheckTitle,
-  formatDuration,
-  formatRunError,
-  getTestSessionUrl,
-  printLn,
-  printLnErr,
-  resultToCheckStatus,
-} from './util.js'
+import { checkFilesMap } from './abstract-list.js'
+import AbstractProgressReporter from './abstract-progress.js'
+import { CheckStatus, formatDuration, formatRunError, getTestSessionUrl, printLn, resultToCheckStatus } from './util.js'
 
 const outputFile = './checkly-github-report.md'
 
@@ -148,66 +137,7 @@ export class GithubMdBuilder {
   }
 }
 
-export type GithubReporterOptions = ReporterOptions & {
-  // Print one line per check on stderr as its result arrives. On by default;
-  // createReporters turns it off when a list, dot or ci reporter runs too.
-  printProgress?: boolean
-}
-
-export default class GithubReporter extends AbstractListReporter {
-  private readonly printProgress: boolean
-  private numFinished = 0
-
-  constructor (runLocation: RunLocation, verbose: boolean, options: GithubReporterOptions = {}) {
-    super(runLocation, verbose, options)
-    this.printProgress = options.printProgress ?? true
-  }
-
-  onCheckAttemptResult (sequenceId: string, checkResult: any, links?: TestResultsShortLinks): void {
-    super.onCheckAttemptResult(sequenceId, checkResult, links)
-    if (this.printProgress) {
-      this._printProgressLine(formatCheckTitle(CheckStatus.RETRIED, checkResult, {
-        includeSourceFile: Boolean(checkResult.sourceFile),
-        printRetryDuration: true,
-      }))
-    }
-  }
-
-  // The summary file is only written in onEnd. A long run would otherwise
-  // print nothing between "Running N checks" and the end, so each finished
-  // check gets one progress line on stderr.
-  onCheckEnd (sequenceId: SequenceId, checkResult: any, testResultId?: string, links?: TestResultsShortLinks) {
-    super.onCheckEnd(sequenceId, checkResult, testResultId, links)
-    this.numFinished++
-    if (this.printProgress) {
-      const { numRetries } = this.checkFilesMap!.get(checkResult.sourceFile)!.get(sequenceId)!
-      const title = formatCheckTitle(resultToCheckStatus(checkResult), checkResult, {
-        // `checkly trigger` results have no source file.
-        includeSourceFile: Boolean(checkResult.sourceFile),
-        retries: numRetries,
-      })
-      this._printProgressLine(`${title} [${this.numFinished}/${this.numChecks}]`)
-    }
-  }
-
-  // Streamed logs draw a live summary at the bottom of an interactive
-  // terminal, and the next redraw erases a fixed number of lines above the
-  // cursor. Print the line above that summary and draw it again, so the
-  // redraw erases the summary and not this line.
-  private _printProgressLine (line: string) {
-    const summaryShown = Boolean(this._clearString)
-    this._clearSummary()
-    printLnErr(line)
-    if (summaryShown) {
-      this._printSummary({ stream: 'stderr' })
-    }
-  }
-
-  onBegin (checks: Array<{ check: any, sequenceId: SequenceId }>, testSessionId?: string) {
-    super.onBegin(checks, testSessionId)
-    printLnErr(`Running ${this.numChecks} checks in ${this._runLocationString()}.`, 2)
-  }
-
+export default class GithubReporter extends AbstractProgressReporter {
   onEnd () {
     this._printBriefSummary()
     this._printExecutionErrors()
