@@ -1,5 +1,10 @@
 import { expr, ident, object, GeneratedFile, Value } from '../sourcegen/index.js'
-import { unsupportedAssertionSource, valueForGeneralAssertion, valueForNumericAssertion } from './internal/assertion-codegen.js'
+import {
+  unsupportedAssertionSource,
+  valueForGeneralAssertion,
+  valueForNumericAssertion,
+  withWireDefaults,
+} from './internal/assertion-codegen.js'
 import { GrpcAssertion, GrpcHealthStatus, grpcHealthStatusTargetByLabel } from './grpc-assertion.js'
 
 // Reverse of grpcHealthStatusTargetByLabel: numeric wire target -> friendly label.
@@ -28,6 +33,7 @@ function grpcHealthStatusLabelForTarget (target: string): GrpcHealthStatus | und
 // the raw `Assertion` object-literal shape is emitted instead — which the `Assertion`
 // type accepts as a plain string and faithfully round-trips the stored value.
 function valueForGrpcHealthCheckStatusAssertion (assertion: GrpcAssertion): Value {
+  assertion = withWireDefaults(assertion)
   const label = grpcHealthStatusLabelForTarget(assertion.target)
   if (label === undefined) {
     return object(builder => {

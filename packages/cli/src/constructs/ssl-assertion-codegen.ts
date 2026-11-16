@@ -4,6 +4,7 @@ import {
   valueForBooleanAssertion,
   valueForGeneralAssertion,
   valueForNumericAssertion,
+  withWireDefaults,
 } from './internal/assertion-codegen.js'
 import { isSslNumericTarget, sslPropertyValueType } from './ssl-assertion-grammar.js'
 import { SslAssertion } from './ssl-assertion.js'
@@ -41,6 +42,7 @@ export const booleanComparisons: Record<string, true> = {
 // `false`), so they fall through to the string form, which round-trips the value untouched
 // and is reported by validateSslAssertion instead.
 function valueForPropertyScopedAssertion (method: string, assertion: SslAssertion): Value {
+  assertion = withWireDefaults(assertion)
   const valueType = sslPropertyValueType(assertion.source, assertion.property)
 
   // Rendered with Number, not the helper's default parseInt: isSslNumericTarget has

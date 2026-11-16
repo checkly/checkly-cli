@@ -3,9 +3,17 @@ import { expr, ident } from '../sourcegen/index.js'
 import { buildRuntimeCheckProps, RuntimeCheckResource } from './check-codegen.js'
 import { PlaywrightConfigResource, valueForPlaywrightConfig } from './playwright-config-codegen.js'
 
+/**
+ * The spec file of a browser or multi-step check stored without a script:
+ * empty but for a line saying why, so the file explains itself. A stored
+ * empty script stays an empty file.
+ */
+export const MISSING_SCRIPT = '// This check had no script stored in Checkly.\n'
+
 export interface BrowserCheckResource extends RuntimeCheckResource {
   checkType: 'BROWSER'
-  script: string
+  // Null on a row stored without one; see `MISSING_SCRIPT`.
+  script: string | null
   scriptPath?: string
   sslCheckDomain?: string | null
   playwrightConfig?: PlaywrightConfigResource
@@ -34,15 +42,17 @@ export class BrowserCheckCodegen extends Codegen<BrowserCheckResource> {
         builder.string(logicalId)
         builder.object(builder => {
           builder.object('code', builder => {
-            validateScript(resource.script)
+            const script = resource.script ?? MISSING_SCRIPT
 
-            const snippetFiles = context.findScriptSnippetFiles(resource.script)
+            validateScript(script)
+
+            const snippetFiles = context.findScriptSnippetFiles(script)
             for (const snippetFile of snippetFiles) {
               const localSnippetFile = this.program.generatedSupportFile(`${file.dirname}/snippets/${snippetFile.basename}`)
               localSnippetFile.plainImport(localSnippetFile.relativePath(snippetFile))
             }
 
-            const scriptFile = this.program.staticSpecFile(filePath.extless, resource.script)
+            const scriptFile = this.program.staticSpecFile(filePath.extless, script)
             builder.string('entrypoint', file.relativePath(scriptFile))
           })
 

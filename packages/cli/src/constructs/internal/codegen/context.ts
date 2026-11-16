@@ -321,6 +321,7 @@ export class Context {
 
   #auxiliarySnippetFilesByPhysicalId = new Map<number, ProgramFile>()
   #auxiliarySnippetFilesByFilename = new Map<string, ProgramFile>()
+  #usedAuxiliarySnippetFiles = new Set<ProgramFile>()
 
   #reservedIdentifiersByFilePath = new Map<string, Map<string, VariableLocator>>()
 
@@ -743,14 +744,40 @@ export class Context {
     this.#auxiliarySnippetFilesByFilename.set(snippetFile.basename, snippetFile)
   }
 
+  /**
+   * The snippet file a script names by ID. Recorded as used by the generated
+   * code (`usedAuxiliarySnippetFiles`).
+   */
   lookupAuxiliarySnippetFile (physicalId: number): ProgramFile | undefined {
-    return this.#auxiliarySnippetFilesByPhysicalId.get(physicalId)
+    const file = this.#auxiliarySnippetFilesByPhysicalId.get(physicalId)
+    if (file !== undefined) {
+      this.#usedAuxiliarySnippetFiles.add(file)
+    }
+    return file
   }
 
+  /**
+   * The snippet files a check's script requires through `./snippets/`.
+   * Recorded as used by the generated code (`usedAuxiliarySnippetFiles`).
+   */
   findScriptSnippetFiles (content: string): ProgramFile[] {
+    const files = this.snippetFilesRequiredBy(content)
+    for (const file of files) {
+      this.#usedAuxiliarySnippetFiles.add(file)
+    }
+    return files
+  }
+
+  /**
+   * The snippet files `content` requires, without recording them as used:
+   * through `./snippets/` only, or with `sameFolder` also as a sibling
+   * (`./other-snippet`), which is how a snippet that is itself required may
+   * require another.
+   */
+  snippetFilesRequiredBy (content: string, options?: { sameFolder?: boolean }): ProgramFile[] {
     const files = new Set<ProgramFile>()
 
-    const filenames = parseSnippetDependencies(content)
+    const filenames = parseSnippetDependencies(content, options?.sameFolder ? './' : undefined)
 
     for (const filename of filenames) {
       const { name } = path.parse(filename)
@@ -774,5 +801,18 @@ export class Context {
     }
 
     return [...files]
+  }
+
+  /** Every registered snippet file. */
+  get auxiliarySnippetFiles (): ProgramFile[] {
+    return [...this.#auxiliarySnippetFilesByPhysicalId.values()]
+  }
+
+  /**
+   * The snippet files the generated code itself uses: those a script names
+   * by ID or requires, not counting what the snippets require in turn.
+   */
+  get usedAuxiliarySnippetFiles (): ReadonlySet<ProgramFile> {
+    return this.#usedAuxiliarySnippetFiles
   }
 }

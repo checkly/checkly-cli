@@ -14,6 +14,16 @@ export function unsupportedAssertionSource (source: never, kind?: string): never
   throw new Error(`${prefix} assertion source ${String(source)}`)
 }
 
+/**
+ * An assertion as stored, with a missing `property` read as `''` and a missing
+ * `regex` as `null`, the defaults the wire format writes for them. A stored
+ * row may leave either key out (an assertion created before the field
+ * existed, or by a client that omits empty fields).
+ */
+export function withWireDefaults<Source extends string> (assertion: Assertion<Source>): Assertion<Source> {
+  return { ...assertion, property: assertion.property ?? '', regex: assertion.regex ?? null }
+}
+
 export interface ValueForNumericAssertionOptions {
   hasProperty?: boolean
   /**
@@ -31,6 +41,7 @@ export function valueForNumericAssertion<Source extends string> (
   assertion: Assertion<Source>,
   options?: ValueForNumericAssertionOptions,
 ): Value {
+  assertion = withWireDefaults(assertion)
   const parse = options?.parse ?? ((target: string) => parseInt(target, 10))
   return expr(ident(klass), builder => {
     builder.member(ident(method))
@@ -83,6 +94,7 @@ export function valueForBooleanAssertion<Source extends string> (
   assertion: Assertion<Source>,
   options?: ValueForBooleanAssertionOptions,
 ): Value {
+  assertion = withWireDefaults(assertion)
   return expr(ident(klass), builder => {
     builder.member(ident(method))
     builder.call(builder => {
@@ -115,6 +127,7 @@ export function valueForGeneralAssertion<Source extends string> (
   assertion: Assertion<Source>,
   options?: ValueForGeneralAssertionOptions,
 ): Value {
+  assertion = withWireDefaults(assertion)
   return expr(ident(klass), builder => {
     builder.member(ident(method))
     builder.call(builder => {

@@ -474,3 +474,170 @@ describe('generateConstructFiles', () => {
     })
   })
 })
+
+// Payloads shaped like rows as the API stores and returns them, which leave
+// out or null fields the codegens otherwise always see set.
+describe('generateConstructFiles on stored rows', () => {
+  const check = (logicalId: string, payload: Record<string, unknown>) => ({
+    type: 'check',
+    logicalId,
+    physicalId: logicalId,
+    payload: { id: logicalId, name: logicalId, frequency: 10, ...payload },
+  })
+
+  it('writes a spec file saying so for a browser or multi-step check stored without a script', () => {
+    const { files, failures } = generateConstructFiles({
+      resources: [
+        check('browser', { checkType: 'BROWSER', script: null }),
+        check('multi-step', { checkType: 'MULTI_STEP', script: null }),
+        check('empty', { checkType: 'BROWSER', script: '' }),
+      ],
+    })
+    expect(failures).toEqual([])
+    const missing = '// This check had no script stored in Checkly.\n'
+    expect(file(files, 'resources/browser-checks/browser/browser.spec.ts')).toEqual(missing)
+    expect(file(files, 'resources/multi-step-checks/multi-step/multi-step.spec.ts')).toEqual(missing)
+    // A stored empty script is written as it is.
+    expect(file(files, 'resources/browser-checks/empty/empty.spec.ts')).toEqual('')
+    expect(file(files, 'resources/browser-checks/browser/browser.check.ts'))
+      .toContain('    entrypoint: \'./browser.spec.ts\',\n')
+  })
+
+  it('reads a locked value the reader may not see from the environment, keeping it locked', () => {
+    const request = { url: 'https://api.example.com', method: 'GET' }
+    const { files, failures } = generateConstructFiles({
+      resources: [
+        check('locked', {
+          checkType: 'API',
+          request,
+          environmentVariables: [
+            { key: 'API_TOKEN', value: null, locked: true, secret: false },
+            { key: 'REGION', value: 'eu', locked: true, secret: false },
+          ],
+        }),
+        check('secret', {
+          checkType: 'API',
+          request,
+          environmentVariables: [{ key: 'API_TOKEN', value: null, locked: false, secret: true }],
+        }),
+      ],
+    })
+    expect(failures).toEqual([])
+
+    const locked = file(files, 'resources/api-checks/locked/locked.check.ts')
+    expect(locked).toContain('import { API_TOKEN } from \'../../../secrets\'\n')
+    expect(locked).toContain([
+      '    {',
+      '      key: \'API_TOKEN\',',
+      '      value: API_TOKEN,',
+      '      locked: true,',
+      '    },',
+      '    {',
+      '      key: \'REGION\',',
+      '      value: \'eu\',',
+      '      locked: true,',
+      '    },',
+    ].join('\n'))
+    expect(locked).not.toContain('secret: true')
+
+    expect(file(files, 'resources/api-checks/secret/secret.check.ts')).toContain([
+      '      value: API_TOKEN,',
+      '      secret: true,',
+    ].join('\n'))
+
+    // One declaration for both.
+    const secrets = file(files, 'secrets.ts')
+    expect(secrets.match(/export const API_TOKEN = secret\('API_TOKEN'\)/g)).toHaveLength(1)
+    expect(secrets).toContain('import { secret } from \'checkly/util\'\n')
+  })
+
+  it('reads an assertion stored without a regex or property as having none', () => {
+    const { files, failures } = generateConstructFiles({
+      resources: [check('api', {
+        checkType: 'API',
+        request: {
+          url: 'https://api.example.com',
+          method: 'GET',
+          assertions: [
+            { source: 'STATUS_CODE', comparison: 'EQUALS', target: '200' },
+            { source: 'JSON_BODY', comparison: 'EQUALS', property: '$.ok', target: 'true' },
+            { source: 'TEXT_BODY', comparison: 'CONTAINS', target: 'ok' },
+          ],
+        },
+      })],
+    })
+    expect(failures).toEqual([])
+    const source = file(files, 'resources/api-checks/api/api.check.ts')
+    expect(source).toContain('AssertionBuilder.statusCode().equals(200),\n')
+    expect(source).toContain('AssertionBuilder.jsonBody(\'$.ok\').equals(\'true\'),\n')
+    expect(source).toContain('AssertionBuilder.textBody().contains(\'ok\'),\n')
+  })
+
+  it('reads a gRPC health status assertion stored without a regex or property as having none', () => {
+    const { files, failures } = generateConstructFiles({
+      resources: [check('grpc', {
+        checkType: 'GRPC',
+        request: {
+          url: 'grpc.example.com',
+          port: 50051,
+          grpcConfig: { mode: 'HEALTH', tls: true },
+          // 9 is no health status, so the assertion is written as a plain object.
+          assertions: [{ source: 'GRPC_HEALTHCHECK_STATUS', comparison: 'EQUALS', target: '9' }],
+        },
+      })],
+    })
+    expect(failures).toEqual([])
+    expect(file(files, 'resources/grpc-monitors/grpc.check.ts')).toContain([
+      '      {',
+      '        source: \'GRPC_HEALTHCHECK_STATUS\',',
+      '        comparison: \'EQUALS\',',
+      '        target: \'9\',',
+      '        property: \'\',',
+      '        regex: null,',
+      '      },',
+    ].join('\n'))
+  })
+
+  it('reads an SSL certificate assertion stored without a property as having none', () => {
+    const { files, failures } = generateConstructFiles({
+      resources: [check('ssl', {
+        checkType: 'SSL',
+        request: {
+          sslConfig: { hostname: 'example.com', port: 443 },
+          assertions: [{ source: 'CERTIFICATE', comparison: 'EQUALS', target: 'x' }],
+        },
+      })],
+    })
+    expect(failures).toEqual([])
+    expect(file(files, 'resources/ssl-monitors/ssl.check.ts'))
+      .toContain('SslAssertionBuilder.certificate().equals(\'x\'),\n')
+  })
+
+  it('returns only the snippets the generated code reaches', () => {
+    const snippet = (id: number, name: string, script: string) => ({
+      type: 'snippet',
+      physicalId: id,
+      payload: { id, name, script },
+    })
+    const request = { url: 'https://api.example.com', method: 'GET' }
+    const { files, failures } = generateConstructFiles({
+      resources: [check('exported', { checkType: 'API', request, setupSnippetId: 1 })],
+      auxiliary: [
+        // The exported check's setup, which requires two more snippets.
+        snippet(1, 'login', 'require(\'./snippets/token\')\nrequire(\'./headers\')\n'),
+        snippet(2, 'token', 'module.exports = {}\n'),
+        snippet(3, 'headers', 'module.exports = {}\n'),
+        // Another check's setup and what it requires.
+        snippet(4, 'cleanup', 'require(\'./snippets/teardown-helper\')\n'),
+        snippet(5, 'teardown-helper', 'module.exports = {}\n'),
+      ],
+    })
+    expect(failures).toEqual([])
+    expect(files.map(file => file.path).filter(filePath => filePath.startsWith('snippets/')).sort()).toEqual([
+      'snippets/headers.ts',
+      'snippets/login.ts',
+      'snippets/snippets/token.ts',
+      'snippets/token.ts',
+    ])
+  })
+})

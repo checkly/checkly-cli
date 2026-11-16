@@ -1,5 +1,7 @@
+import path from 'node:path'
+
 import { docComment, Program } from '../sourcegen/index.js'
-import { StaticAuxiliaryFile } from '../sourcegen/program.js'
+import { ProgramFile, StaticAuxiliaryFile } from '../sourcegen/program.js'
 import { ConstructCodegen, sortResources } from '../constructs/construct-codegen.js'
 import { PREVIEW_ONLY_CHECK_TYPES } from '../constructs/check-codegen.js'
 import { Context, type ProjectDefaults, type ReferencedNames } from '../constructs/internal/codegen/index.js'
@@ -75,6 +77,12 @@ export interface GenerateIntoProgramOptions extends GenerateOptions {
    * as not requested.
    */
   friendExport?: (type: FriendResourceSync['type'], logicalId: string) => ConstructExport | undefined
+  /**
+   * The context to generate against, for a caller that reads it afterwards.
+   * Without it, one is created from `projectDefaults` and `referencedNames`,
+   * which are then the only options it takes.
+   */
+  context?: Context
 }
 
 type FriendType = FriendResourceSync['type']
@@ -117,7 +125,7 @@ export function generateIntoProgram<R extends GenerateResource> (
   codegen: ConstructCodegen,
   options: GenerateIntoProgramOptions = {},
 ): GenerateFailure<R>[] {
-  const context = new Context({
+  const context = options.context ?? new Context({
     projectDefaults: options.projectDefaults,
     referencedNames: options.referencedNames,
   })
@@ -204,7 +212,9 @@ export function generateIntoProgram<R extends GenerateResource> (
     // without modification.
     for (const globalSnippetFile of globalSnippetFiles) {
       const content = globalSnippetFile.content.toString()
-      const snippetFiles = context.findScriptSnippetFiles(content)
+      // Not a use by the generated code: only what a construct's scripts use
+      // counts as one (`Context.usedAuxiliarySnippetFiles`).
+      const snippetFiles = context.snippetFilesRequiredBy(content)
       for (const snippetFile of snippetFiles) {
         const localSnippetFile = program.generatedSupportFile(`snippets/snippets/${snippetFile.basename}`)
         localSnippetFile.header(docComment(
@@ -270,6 +280,44 @@ export function generateIntoProgram<R extends GenerateResource> (
 }
 
 /**
+ * The paths of the snippet files, and of their `snippets/snippets/` aliases,
+ * that nothing generated needs: neither a construct's scripts, nor a snippet
+ * those reach by requiring it, directly or through further snippets.
+ */
+function unusedSnippetPaths (context: Context): Set<string> {
+  const reached = new Set<ProgramFile>()
+  // Snippets required through `./snippets/`, which resolve through an alias.
+  const aliased = new Set<ProgramFile>()
+  const queue = [...context.usedAuxiliarySnippetFiles]
+
+  for (let file = queue.pop(); file !== undefined; file = queue.pop()) {
+    if (reached.has(file)) {
+      continue
+    }
+    reached.add(file)
+    if (!(file instanceof StaticAuxiliaryFile)) {
+      continue
+    }
+    const content = file.content.toString()
+    for (const required of context.snippetFilesRequiredBy(content)) {
+      aliased.add(required)
+    }
+    queue.push(...context.snippetFilesRequiredBy(content, { sameFolder: true }))
+  }
+
+  const unused = new Set<string>()
+  for (const file of context.auxiliarySnippetFiles) {
+    if (!reached.has(file)) {
+      unused.add(path.normalize(file.path))
+    }
+    if (!aliased.has(file)) {
+      unused.add(path.join('snippets', 'snippets', file.basename))
+    }
+  }
+  return unused
+}
+
+/**
  * Generates `checkly/constructs` code for `changes` in memory: TypeScript
  * construct files (`*.check.ts`), the spec files of browser and multi-step
  * checks (`*.spec.ts`), and their support files (scripts, snippets). Nothing
@@ -286,6 +334,9 @@ export function generateIntoProgram<R extends GenerateResource> (
  * source, among them). An error raised while a construct expression is
  * being built reaches `failures` wrapped in a plain `Error` that adds where
  * it happened, so look for these classes along the `cause` chain.
+ *
+ * `auxiliary` may hold every snippet of the account: only the snippets the
+ * generated code uses are returned, with those they require in turn.
  *
  * Friends (resources an import plan says the project already declares) are
  * not accepted, since there is no project to import them from: a `friends`
@@ -320,16 +371,18 @@ export function generateConstructFiles (
       language: 'typescript',
     })
     const codegen = new ConstructCodegen(program)
+    const context = new Context({ projectDefaults, referencedNames })
 
     const round = generateIntoProgram(
       { resources, auxiliary: changes.auxiliary },
       program,
       codegen,
-      { projectDefaults, referencedNames },
+      { context },
     )
 
     if (round.length === 0) {
-      const files = program.render().map(file => ({
+      const unused = unusedSnippetPaths(context)
+      const files = program.render().filter(file => !unused.has(path.normalize(file.path))).map(file => ({
         path: file.path.replace(/\\/g, '/'),
         content: file.content.toString(),
       }))
