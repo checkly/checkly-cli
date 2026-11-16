@@ -177,6 +177,15 @@ export class FixtureSandbox {
     const result = await execa(executable, args, {
       cwd: this.#root,
       ...options,
+      env: {
+        // pnpm 11+ installs before `pnpm <bin>` and `pnpm exec` whenever the
+        // manifest and node_modules disagree. A sandbox's package.json need
+        // not list what its template installed, and its node_modules is a
+        // symlink to the template shared by every sandbox, so that install
+        // would prune the CLI from all of them.
+        pnpm_config_verify_deps_before_run: 'false',
+        ...options?.env,
+      },
     })
     return result
   }
