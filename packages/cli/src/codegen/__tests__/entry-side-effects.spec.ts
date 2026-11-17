@@ -45,7 +45,7 @@ describe('the checkly/codegen entry', () => {
       },
     })
 
-    const { generateConstructFiles } = await import('../index.js')
+    const { generateConstructDiff, generateConstructFiles } = await import('../index.js')
     const { files, failures } = generateConstructFiles({
       resources: [{
         type: 'check',
@@ -62,6 +62,23 @@ describe('the checkly/codegen entry', () => {
 
     expect(failures).toEqual([])
     expect(files.map(file => file.path)).toEqual(['resources/url-monitors/homepage.check.ts'])
+
+    const lines = generateConstructDiff({
+      resource: {
+        type: 'check',
+        logicalId: 'homepage',
+        payload: {
+          id: 'homepage',
+          checkType: 'URL',
+          name: 'Homepage',
+          frequency: 10,
+          request: { url: 'https://www.example.com' },
+        },
+      },
+      changes: [{ path: '/name', before: 'Old homepage', after: 'Homepage' }],
+      redactions: [],
+    })
+    expect(lines).toContainEqual({ kind: 'add', text: '  name: \'Homepage\',' })
     expect(createClient).not.toHaveBeenCalled()
     expect(openStore).not.toHaveBeenCalled()
     expect(reads).toEqual([])

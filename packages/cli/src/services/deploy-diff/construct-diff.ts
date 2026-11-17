@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
 import { ConstructCodegen } from '../../constructs/construct-codegen.js'
 import type { Resource } from '../../constructs/construct-codegen.js'
-import { Context, renderConstruct, type ProjectDefaults } from '../../constructs/internal/codegen/index.js'
-import type { DiffChange } from '../../rest/projects.js'
+import { Context, renderConstruct, type ProjectDefaults, type ReferencedNames } from '../../constructs/internal/codegen/index.js'
+import type { DiffChange, DiffEntry } from '../../rest/projects.js'
 import { Program } from '../../sourcegen/index.js'
 import { isMaskedMarker, markChanged, MASK, nodeAt, pointerSegments, registerUnderCodeName } from './import-shape.js'
 import { diffLines, type DiffLine } from './diff-lines.js'
@@ -111,7 +111,24 @@ function listChange (change: DiffChange, originNote: OriginNote): string {
   if (change.cause !== undefined) {
     return `${change.path}: changed (${change.cause})${originNote(change)}`
   }
-  return `${change.path}: ${inline(change.before)} -> ${inline(change.after)}${originNote(change)}`
+  let values: string
+  try {
+    values = `${inline(change.before)} -> ${inline(change.after)}`
+  } catch {
+    // A value no JSON can spell (a cycle, a bigint) leaves the path alone.
+    return `${change.path}: changed${originNote(change)}`
+  }
+  return `${change.path}: ${values}${originNote(change)}`
+}
+
+/**
+ * Whether every change the entry reports is named by a cause and none is a
+ * secret: such an entry is rendered as one `changed: <causes>` notice, with
+ * no diff, so it needs no deployed state, and the API sends it none.
+ */
+export function changedByCauseAlone (entry: DiffEntry): boolean {
+  const changes = entry.changes ?? []
+  return changes.length > 0 && changes.every(change => change.secret !== true && change.cause !== undefined)
 }
 
 /** The changes listed one per line, after the reason the listing stands in for the diff, if one is given. */
@@ -149,6 +166,8 @@ export interface RenderSettings {
    * `undefined` writes every property.
    */
   projectDefaults: ProjectDefaults | undefined
+  /** See `ContextOptions.referencedNames`: the names a `fromId()` reference carries in a comment. */
+  referencedNames?: ReferencedNames
   /**
    * Registers what the construct may refer to (other resources of the
    * project) before it is rendered. Without it a reference is rendered by
@@ -168,14 +187,14 @@ function renderSide (
   maskedValues: ReadonlySet<string>,
   settings: RenderSettings,
 ): string {
-  const { variableNames, spelledOut, projectDefaults, register } = settings
+  const { variableNames, spelledOut, projectDefaults, referencedNames, register } = settings
   const program = new Program({
     rootDirectory: '.',
     constructFileSuffix: '.check',
     specFileSuffix: '.spec',
     language: 'typescript',
   })
-  const context = new Context({ maskedValues, spelledOut, projectDefaults })
+  const context = new Context({ maskedValues, spelledOut, projectDefaults, referencedNames })
   const codegen = new SideCodegen(program, variableNames)
   register?.(context, program)
   for (const relation of relations) {
@@ -229,7 +248,11 @@ export interface DiffSide {
   relations: readonly Resource[]
   /** The reported value a secret change's mark is placed from on this side; undefined places none. */
   markFrom: (change: DiffChange) => unknown
-  /** Appended to the mask of a secret marked on this side, such as ` (changed)`; empty for a bare mask. */
+  /**
+   * Appended to the mask of a secret marked on this side, such as ` (changed)`;
+   * empty for a bare mask. It is printed exactly as given: only the sentinel's
+   * nonce tail is removed from the output.
+   */
   label: string
   /** This side's text of a property kept in a file of its own (see {@link OUTSIDE_CONSTRUCT}). */
   textAt: (change: DiffChange) => unknown
