@@ -12,6 +12,8 @@ import { TelegramAlertChannel } from '../../../constructs/telegram-alert-channel
 import { TracerouteMonitor } from '../../../constructs/traceroute-monitor.js'
 import { Project } from '../../../constructs/project.js'
 import { Session } from '../../../constructs/session.js'
+import { StatusPage } from '../../../constructs/status-page.js'
+import { StatusPageV3 } from '../../../constructs/status-page-v3.js'
 import type { DiffEntry, ResourceSync } from '../../../rest/projects.js'
 import { idKey, physicalIdsFromPlan } from '../import-shape.js'
 import { renderResourceDiff, type RenderedLine } from '../render.js'
@@ -1636,5 +1638,63 @@ describe('properties the upgraded CLI started sending', () => {
     expect(isShapeChangePath('/description', 'check')).toBe(false)
     expect(isShapeChangePath('/retryStrategy/type', 'check')).toBe(true)
     expect(isShapeChangePath('/retryStrategy/type', 'dashboard')).toBe(true)
+  })
+})
+
+describe('renderResourceDiff for a v2 status page', () => {
+  // The project registers every status page it declares before rendering,
+  // so a v2 page renders here although its own codegen registers no variable.
+  it('renders the construct diff of an updated v2 status page', () => {
+    const page = new StatusPage('page', { name: 'Renamed', url: 'acme-status', cards: [{ name: 'Card', services: [] }] })
+    const local: ResourceSync[] = [{ type: 'status-page', logicalId: 'page', member: true, payload: page.synthesize() }]
+    expect(render(
+      {
+        type: 'status-page',
+        logicalId: 'page',
+        physicalId: 'page-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/name', origin: 'code', before: 'ACME', after: 'Renamed' }],
+        before: {
+          id: 'page-uuid',
+          name: 'ACME',
+          url: 'acme-status',
+          cards: [{ id: 'card-uuid', name: 'Card', services: [] }],
+        },
+        redactions: [],
+      },
+      local,
+    ).filter(line => /^[-+]/.test(line))).toEqual([
+      '-  name: \'ACME\',',
+      '+  name: \'Renamed\',',
+    ])
+  })
+})
+
+describe('renderResourceDiff for a v3 status page', () => {
+  // A v3 page is a construct other code refers to: it is registered under
+  // its logical id on both sides, so renaming it changes the name line only.
+  it('renders a v3 status page\'s name change with the same variable on both sides', () => {
+    const page = new StatusPageV3('acme-page', { name: 'Renamed', url: 'acme-status' })
+    const local: ResourceSync[] = [{ type: 'status-page', logicalId: 'acme-page', member: true, payload: page.synthesize() }]
+    const lines = render(
+      {
+        type: 'status-page',
+        logicalId: 'acme-page',
+        physicalId: 'page-uuid',
+        action: 'UPDATE',
+        changes: [{ path: '/name', origin: 'code', before: 'ACME', after: 'Renamed' }],
+        before: { ...page.synthesize(), id: 'page-uuid', name: 'ACME' },
+        redactions: [],
+      },
+      local,
+    )
+    expect(lines).toEqual([
+      '@@',
+      ' export const acmePage = new StatusPageV3(\'acme-page\', {',
+      '-  name: \'ACME\',',
+      '+  name: \'Renamed\',',
+      '   url: \'acme-status\',',
+      ' })',
+    ])
   })
 })

@@ -14,11 +14,11 @@ import {
   UnshapeableError,
 } from './import-shape.js'
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
-import { diffSides, listing, note, ruleReaches, valueAt, type RenderedLine } from './construct-diff.js'
+import { changedByCauseAlone, diffSides, listing, note, ruleReaches, valueAt, type RenderedLine } from './construct-diff.js'
 import { isShapeChangePath } from './shape-changes.js'
 import type { VariableNames } from './variable-names.js'
 
-export type { RenderedLine } from './construct-diff.js'
+export { changedByCauseAlone, type RenderedLine } from './construct-diff.js'
 
 /**
  * The lines printed under one updated resource of a deploy preview: the
@@ -63,16 +63,6 @@ function originNote (change: DiffChange): string {
     default:
       return ''
   }
-}
-
-/**
- * Whether every change the entry reports is named by a cause and none is a
- * secret: such an entry is rendered as one `changed: <causes>` notice, with
- * no diff, so it needs no deployed state, and the API sends it none.
- */
-export function changedByCauseAlone (entry: DiffEntry): boolean {
-  const changes = entry.changes ?? []
-  return changes.length > 0 && changes.every(change => change.secret !== true && change.cause !== undefined)
 }
 
 export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] {

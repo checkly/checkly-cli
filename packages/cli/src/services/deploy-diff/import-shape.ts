@@ -727,6 +727,11 @@ export function registerUnderCodeName (
   if (lookup === undefined || registrar === undefined) {
     return
   }
+  // Only a v3 status page is a construct other code refers to; the codegen
+  // of an older one registers no variable.
+  if (resource.type === 'status-page' && (resource.payload as { version?: unknown }).version !== 3) {
+    return
+  }
   const id = (resource.payload as { id: string | number }).id
   const prepared = lookup(context, id)
   const { file } = prepared
