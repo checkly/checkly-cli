@@ -1,32 +1,24 @@
-import { randomUUID } from 'node:crypto'
-import { ConstructCodegen } from '../../constructs/construct-codegen.js'
-import { Context, renderConstruct } from '../../constructs/internal/codegen/index.js'
 import type { Project } from '../../constructs/project.js'
 import { Session } from '../../constructs/session.js'
 import type { DiffChange, DiffEntry, ResourceSync } from '../../rest/projects.js'
-import { Program } from '../../sourcegen/index.js'
 import {
   blankRedacted,
   carriesMarker,
   fillUnchangedFromBefore,
-  isMaskedMarker,
-  markChanged,
-  MASK,
-  nodeAt,
   type PhysicalIds,
-  pointerSegments,
   UNRENDERED_KEYS,
   registerProject,
-  registerUnderCodeName,
   relationResourcesForAfter,
   relationResourcesFromBefore,
   toImportResource,
   UnshapeableError,
 } from './import-shape.js'
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
+import { diffSides, listing, note, ruleReaches, valueAt, type RenderedLine } from './construct-diff.js'
 import { isShapeChangePath } from './shape-changes.js'
-import { diffLines, type DiffLine } from './diff-lines.js'
 import type { VariableNames } from './variable-names.js'
+
+export type { RenderedLine } from './construct-diff.js'
 
 /**
  * The lines printed under one updated resource of a deploy preview: the
@@ -35,31 +27,6 @@ import type { VariableNames } from './variable-names.js'
  * (spec 8.5). Everything here is reporting: a failure falls back to a coarser
  * listing of the reported changes, and never to a failed deploy.
  */
-
-/**
- * One line printed under an updated resource. A `DiffLine` is a line of the
- * construct diff; a `note` is a fact stated in words (a change the diff
- * cannot show, a secret's movement, a listed property); a `reason` says why
- * the listing stands in for the diff; a `nested` line belongs to the text
- * diff of a property kept in a file of its own, printed under its `note`.
- */
-export type RenderedLine =
-  | DiffLine
-  | { kind: 'note', text: string }
-  | { kind: 'reason', text: string }
-  | { kind: 'nested', line: DiffLine }
-
-const note = (text: string): RenderedLine => ({ kind: 'note', text })
-
-/** The line with its text transformed, whichever kind it is. */
-function mapText (line: RenderedLine, fn: (text: string) => string): RenderedLine {
-  if (line.kind === 'nested') {
-    return { kind: 'nested', line: { ...line.line, text: fn(line.line.text) } }
-  }
-  return { ...line, text: fn(line.text) }
-}
-
-const textOf = (line: RenderedLine): string => line.kind === 'nested' ? line.line.text : line.text
 
 export interface RenderResourceInput {
   /** The resource's preview entry, carrying `before`, `changes` and `redactions` under `detail: 'full'`. */
@@ -85,65 +52,6 @@ export interface RenderResourceInput {
   maxLines?: number
 }
 
-const INLINE_VALUE_CAP = 256
-
-/**
- * Properties a codegen writes to a file of its own rather than into the
- * construct — a browser or multi-step check's script to a spec file, an API
- * check's setup and teardown scripts to support files, a dashboard's CSS to
- * a style file — leaving an `entrypoint` path behind. A change to one is
- * invisible in the construct diff and is shown as a text diff of its own,
- * whether or not the constructs differ too.
- */
-const OUTSIDE_CONSTRUCT: Readonly<Record<string, ReadonlySet<string>>> = {
-  check: new Set(['/script', '/localSetupScript', '/localTearDownScript']),
-  dashboard: new Set(['/customCSS']),
-}
-
-function isOutsideConstruct (type: string, path: string): boolean {
-  return OUTSIDE_CONSTRUCT[type]?.has(path) ?? false
-}
-
-/**
- * Whether a redaction rule reaches the path a secret change names: the two
- * agree segment for segment as far as the shorter goes, a rule's `*` standing
- * for any one segment. A rule under the path blanks inside the list the
- * change reports whole; a rule above it blanks the object that holds it.
- */
-function ruleReaches (rulePath: string, changePath: string): boolean {
-  const rule = pointerSegments(rulePath)
-  const change = pointerSegments(changePath)
-  const shared = Math.min(rule.length, change.length)
-  for (let index = 0; index < shared; index += 1) {
-    if (rule[index] !== '*' && rule[index] !== change[index]) {
-      return false
-    }
-  }
-  return true
-}
-
-function isHash (value: unknown): boolean {
-  return typeof value === 'object' && value !== null && !Array.isArray(value) && '$hash' in value
-}
-
-/** A marker spelled the way the construct prints it. */
-const spellMarker = (_key: string, member: unknown): unknown =>
-  (isMaskedMarker(member) ? (member.$masked === 'changed' ? `${MASK} (changed)` : MASK) : member)
-
-function inline (value: unknown): string {
-  if (value === undefined) {
-    return '(absent)'
-  }
-  if (isHash(value)) {
-    return '(content)'
-  }
-  const text = JSON.stringify(value, spellMarker)
-  return text.length > INLINE_VALUE_CAP ? `${text.slice(0, INLINE_VALUE_CAP)}…` : text
-}
-
-/** The value at an RFC 6901 pointer, or undefined when the path does not resolve. */
-const valueAt = (root: unknown, pointer: string): unknown => nodeAt(root, pointerSegments(pointer))
-
 function originNote (change: DiffChange): string {
   switch (change.origin) {
     case 'remote':
@@ -155,89 +63,6 @@ function originNote (change: DiffChange): string {
     default:
       return ''
   }
-}
-
-/** One change as a line of the listing: path, values, and where it came from. */
-function listChange (change: DiffChange): string {
-  if (change.cause !== undefined) {
-    return `${change.path}: changed (${change.cause})${originNote(change)}`
-  }
-  return `${change.path}: ${inline(change.before)} -> ${inline(change.after)}${originNote(change)}`
-}
-
-function listing (changes: readonly DiffChange[], reason?: string): RenderedLine[] {
-  const lines: RenderedLine[] = reason === undefined ? [] : [{ kind: 'reason', text: `(${reason})` }]
-  for (const change of changes) {
-    lines.push(note(listChange(change)))
-  }
-  return lines
-}
-
-/**
- * The import codegen, with the rendered construct's own variable named as in
- * the user's code, or else after its logical id, on both sides.
- */
-class SideCodegen extends ConstructCodegen {
-  constructor (program: Program, private readonly variableNames: VariableNames | undefined) {
-    super(program)
-  }
-
-  prepare (logicalId: string, resource: Resource, context: Context): void {
-    super.prepare(logicalId, resource, context)
-    registerUnderCodeName(context, resource, this.variableNames)
-  }
-}
-
-/** A side of the comparison rendered to source text, with its relations registered first. */
-function renderSide (
-  resource: Resource,
-  relations: readonly Resource[],
-  project: Project,
-  ids: PhysicalIds,
-  maskedValues: ReadonlySet<string>,
-  variableNames: VariableNames | undefined,
-  spelledOut: ReadonlySet<string> | undefined,
-): string {
-  const program = new Program({
-    rootDirectory: '.',
-    constructFileSuffix: '.check',
-    specFileSuffix: '.spec',
-    language: 'typescript',
-  })
-  // The code is compared as it would read in the deployed project, so
-  // a property its defaults supply reads as left out.
-  const context = new Context({ maskedValues, spelledOut, projectDefaults: Session.projectDefaults() })
-  const codegen = new SideCodegen(program, variableNames)
-  registerProject(context, program, project, ids, variableNames)
-  for (const relation of relations) {
-    codegen.prepare(relation.logicalId, relation, context)
-  }
-  return renderConstruct(codegen, resource.logicalId, resource, { context })
-}
-
-/**
- * The text diff of a change whose values are content (a script, a body): the
- * deployed text read from `before` at the same pointer, the local text from
- * the local payload. Either side missing means the pointer is spelled
- * differently in the two vocabularies, and only the fact is reported.
- */
-function contentDiff (
-  change: DiffChange,
-  before: unknown,
-  local: unknown,
-  maxLines: number | undefined,
-): RenderedLine[] {
-  const deployed = valueAt(before, change.path)
-  const current = valueAt(local, change.path)
-  if (typeof deployed !== 'string' || typeof current !== 'string') {
-    return [note(`${change.path}: content changed${originNote(change)}`)]
-  }
-  const lines = diffLines(deployed, current, { maxLines })
-  if (lines === undefined) {
-    return [note(`${change.path}: content changed (too large to show)${originNote(change)}`)]
-  }
-  const nested = lines.map((line): RenderedLine => ({ kind: 'nested', line }))
-  return [note(`${change.path}:${originNote(change)}`), ...nested]
 }
 
 /**
@@ -280,7 +105,7 @@ export function renderResourceDiff (input: RenderResourceInput): RenderedLine[] 
       ? cause.message
       : `could not render this resource: ${cause instanceof Error ? cause.message : cause}`
     if (shown.length > 0) {
-      lines.push(...listing(shown, reason))
+      lines.push(...listing(shown, originNote, reason))
     }
   }
   for (const change of changes) {
@@ -339,10 +164,10 @@ function renderShown (
       || carriesMarker(change.before) || carriesMarker(change.after) || carriesMarker(change.remote),
   )
   if (!guarded.every(change => (entry.redactions ?? []).some(rule => ruleReaches(rule.path, change.path)))) {
-    return listing(shown)
+    return listing(shown, originNote)
   }
   if (entry.before === undefined || local === undefined || local.payload === null || local.payload === undefined) {
-    return listing(shown)
+    return listing(shown, originNote)
   }
   const { type, logicalId } = entry
   // The deployed side is the import format already, straight from the API,
@@ -366,76 +191,44 @@ function renderShown (
   const shaped = toImportResource(deployed.type, logicalId, local.payload, ids)
   fillUnchangedFromBefore(shaped.payload as Record<string, unknown>, before, entry.changes ?? [])
   const after: Resource = { ...shaped, payload: blankRedacted(shaped.payload, entry.redactions) }
-  // Then the marks: the element whose secret moved reads `(changed)` on the
-  // side that moved it, so the diff names the secret beside its key. Each
-  // change writes its own sentinel, unguessable by any value the account or
-  // the code could hold, so only a change whose sentinel reached the returned
-  // lines counts as marked; the sentinels read `(changed)` in the output.
-  // The codegen prints a secret only as one of these strings. The two labels
-  // end alike (`#<nonce>-<index>)`): a codegen that names a file or variable
-  // after the tail of a credential (an unnamed Slack or PagerDuty channel
-  // takes the last four characters of its URL or key) then derives the same
-  // name on both sides, and the diff stays free of a spurious rename.
-  const nonce = randomUUID()
-  const sentinels = new Map<DiffChange, { local: string, deployed: string }>()
-  secrets.forEach((change, index) => {
-    const localLabel = `${MASK} (changed#${nonce}-${index})`
-    const deployedLabel = `${MASK} (changed in Checkly#${nonce}-${index})`
-    const onLocal = markChanged(after.payload, change.path, reportedFor(change, 'local'), localLabel)
-    const onDeployed = markChanged(deployed.payload, change.path, reportedFor(change, 'deployed'), deployedLabel)
-    if (onLocal || onDeployed) {
-      sentinels.set(change, { local: localLabel, deployed: deployedLabel })
-    }
-  })
-  const maskedValues = new Set([MASK, ...[...sentinels.values()].flatMap(pair => [pair.local, pair.deployed])])
-  const showing = (lines: RenderedLine[]): RenderedLine[] => {
-    for (const [change, pair] of sentinels) {
-      if (lines.some(line => textOf(line).includes(pair.local) || textOf(line).includes(pair.deployed))) {
-        marked.add(change)
-      }
-    }
-    const sentinel = new RegExp(` \\(changed( in Checkly)?#${nonce}-\\d+\\)`, 'g')
-    return lines.map(line => mapText(line, text => text.replace(sentinel, ' (changed$1)')))
-  }
   const afterRelations = relationResourcesForAfter({ ids, local: localResources, entry, diff, pruneRelations })
   const beforeRelations = relationResourcesFromBefore(type, entry.before)
-  const beforeText = renderSide(deployed, beforeRelations, project, ids, maskedValues, variableNames, spelledOut)
-  const afterText = renderSide(after, afterRelations, project, ids, maskedValues, variableNames, spelledOut)
-  const rendered = diffLines(beforeText, afterText, { maxLines, pairProperties: true })
-  if (rendered === undefined) {
-    return shown.length > 0 ? listing(shown, 'the construct diff is too large to show') : []
-  }
-  if (rendered.length > 0) {
-    // The constructs differ. What they cannot show follows: a property kept
-    // in a file of its own as a text diff, and a change that is only a cause
-    // (a new code bundle, a dependency list) as a line.
-    const lines: RenderedLine[] = [...rendered]
-    for (const change of shown) {
-      if (isOutsideConstruct(type, change.path)) {
-        lines.push(...contentDiff(change, entry.before, local.payload, maxLines))
-      } else if (change.cause !== undefined) {
-        lines.push(note(listChange(change)))
-      }
-    }
-    return showing(lines)
-  }
-  // The renderings agree. When every change is a known shape change, that is
-  // the CLI upgrade spelling the same construct differently; the paths alone
-  // cannot tell an upgrade from a user editing the same property, so a real
-  // edit shows up as construct lines above and never gets here.
-  if (shown.length > 0 && shown.every(change => change.origin === 'code' && isShapeChangePath(change.path, type))) {
-    return [note('payload format changed (CLI upgrade)')]
-  }
-  // Otherwise what changed lives outside the construct (a script in its own
-  // file, a request body), or is a value the codegen elides.
-  const lines: RenderedLine[] = []
-  for (const change of shown) {
-    const hashed = isHash(change.before) || isHash(change.after) || isHash(change.remote?.after)
-    if (hashed || isOutsideConstruct(type, change.path)) {
-      lines.push(...contentDiff(change, entry.before, local.payload, maxLines))
-    } else {
-      lines.push(note(listChange(change)))
-    }
-  }
-  return lines
+  return diffSides({
+    type,
+    shown,
+    secrets,
+    marked,
+    before: {
+      resource: deployed,
+      relations: beforeRelations,
+      markFrom: change => reportedFor(change, 'deployed'),
+      label: ' (changed in Checkly)',
+      textAt: change => valueAt(entry.before, change.path),
+    },
+    after: {
+      resource: after,
+      relations: afterRelations,
+      markFrom: change => reportedFor(change, 'local'),
+      label: ' (changed)',
+      textAt: change => valueAt(local.payload, change.path),
+    },
+    render: {
+      variableNames,
+      spelledOut,
+      // The code is compared as it would read in the deployed project, so
+      // a property its defaults supply reads as left out.
+      projectDefaults: Session.projectDefaults(),
+      register: (context, program) => registerProject(context, program, project, ids, variableNames),
+    },
+    originNote,
+    maxLines,
+    // When every change is a known shape change, agreeing renderings are the
+    // CLI upgrade spelling the same construct differently; the paths alone
+    // cannot tell an upgrade from a user editing the same property, so a real
+    // edit shows up as construct lines and never gets here.
+    agreeingNote: changes => changes.length > 0
+      && changes.every(change => change.origin === 'code' && isShapeChangePath(change.path, type))
+      ? [note('payload format changed (CLI upgrade)')]
+      : undefined,
+  })
 }

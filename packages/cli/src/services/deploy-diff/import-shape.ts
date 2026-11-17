@@ -55,7 +55,7 @@ export function pointerSegments (pointer: string): string[] {
 export class UnshapeableError extends Error {}
 
 /** Types whose physical id is a number; every other type's is a string. */
-const NUMERIC_ID_TYPES: ReadonlySet<string> = new Set(['check-group', 'alert-channel', 'alert-channel-subscription'])
+export const NUMERIC_ID_TYPES: ReadonlySet<string> = new Set(['check-group', 'alert-channel', 'alert-channel-subscription'])
 
 /**
  * Above every real numeric id, so a synthetic one can never be mistaken for
@@ -113,7 +113,7 @@ export function physicalIdsFromPlan (diff: readonly DiffEntry[], local: readonly
  * reads each element's `id`, so it is substituted to `{ id }` objects rather
  * than bare ids.
  */
-const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
+export const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
   alertChannelId: 'alert-channel',
   checkId: 'check',
   componentId: 'status-page-component',
@@ -213,7 +213,7 @@ function resolveRef (ids: PhysicalIds, key: string, ref: { ref: string }): strin
  * serializes itself (`toJSON`) is taken as what it serializes to, which is
  * what the deploy sends.
  */
-function substitute (value: unknown, key: string | undefined, ids: PhysicalIds): unknown {
+export function substitute (value: unknown, key: string | undefined, ids: PhysicalIds): unknown {
   if (value === null || value === undefined) {
     return value
   }
