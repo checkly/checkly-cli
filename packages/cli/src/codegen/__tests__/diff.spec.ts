@@ -143,10 +143,13 @@ describe('generateConstructDiff', () => {
     ])
   })
 
-  it('leaves out an unchanged default, unless the given project defaults make it one to write', () => {
+  it('writes an unchanged default without project defaults, leaves it out with defaults that agree', () => {
     const changes = [{ path: '/name', before: 'Old', after: 'Orders API' }]
+    // Unknown defaults: every property, as the code generated for the resource reads.
     const bare = plain(drift(apiCheck(), changes, {}, { context: Infinity }))
-    expect(bare.join('\n')).not.toContain('muted')
+    expect(bare).toContain('   muted: false,')
+    const none = plain(drift(apiCheck(), changes, {}, { context: Infinity, projectDefaults: {} }))
+    expect(none.join('\n')).not.toContain('muted')
     const withDefaults = plain(drift(apiCheck(), changes, {}, {
       context: Infinity,
       projectDefaults: { checks: { muted: true } },
@@ -368,7 +371,6 @@ describe('generateConstructDiff', () => {
     const current = lines.filter(line => line.startsWith(' ') || line.startsWith('+')).map(line => line.slice(1))
     const { files } = generateConstructFiles(
       { resources: [{ type: 'check', logicalId: 'orders-api', payload: { ...payload, groupId: undefined } }] },
-      { projectDefaults: {} },
     )
     const content = files.find(file => file.path.endsWith('.check.ts'))?.content ?? ''
     expect(content).toContain(current.join('\n'))
