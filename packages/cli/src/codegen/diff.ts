@@ -86,10 +86,10 @@ export interface GenerateDiffInput {
 
 export interface GenerateDiffOptions {
   /**
-   * The check defaults of the project the code lives in. Defaults to `{}`,
-   * a project without defaults, so a property at its default value is left
-   * out unless it changed (unlike `generateConstructFiles`, which writes
-   * every property when no defaults are given).
+   * The check defaults of the project the code lives in. Absent, the
+   * project's defaults are unknown and every property is written out, as
+   * `generateConstructFiles` does, so both sides read like the code it
+   * generates for the resource. Pass `{}` for a project without defaults.
    */
   projectDefaults?: ProjectDefaults
   /**
@@ -181,7 +181,7 @@ export function generateConstructDiff (
   // Only the fields the entry documents are passed on, whatever a caller
   // from plain JavaScript hands in.
   const { resource, deployed, changes, redactions, references = [] } = input
-  const { projectDefaults = {}, referencedNames, context, maxLines } = options
+  const { projectDefaults, referencedNames, context, maxLines } = options
   const valid = Array.isArray(changes) ? changes.filter(change => pathOf(change) !== undefined) : []
   if (valid.length === 0) {
     return []
