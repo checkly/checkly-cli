@@ -73,7 +73,14 @@ export interface GenerateDiffInput {
   deployed: Record<string, unknown>
   /** What changed since the last deploy: the authority on where the two sides differ. */
   changes: GenerateDiffChange[]
-  /** The resource type's whole redaction table, applied to both sides. */
+  /**
+   * The resource type's whole redaction table, applied to both sides: a
+   * value a rule reaches is masked. A rule without a condition (a password,
+   * a header value) leaves an empty value (`''`, `null` or absent) as it is,
+   * since masking it would invent a credential, so a caller that blanks such
+   * credentials itself blanks them to a non-empty placeholder, never to `''`.
+   * A conditional rule (a locked or secret variable) masks whatever the value.
+   */
   redactions: GenerateDiffRedaction[]
   /**
    * Every resource the changes or `deployed` refer to by logical id. A
@@ -228,6 +235,8 @@ export function generateConstructDiff (
       referencedNames: Object.fromEntries(names) as Partial<Record<ReferencedResourceType, Record<string, string>>>,
       context,
       maxLines,
+      // Its caller blanks a set credential to a placeholder, so an empty value is one the resource has.
+      keepEmpty: true,
     })
   } catch (cause) {
     // The renderer lists what it cannot render; this is the last resort for
