@@ -358,10 +358,8 @@ describe('generateConstructDiff', () => {
   })
 
   it('shows the whole construct in one hunk with an infinite context', () => {
+    // An empty password stays empty, as the code generated on its own has it.
     const payload = apiCheck({ name: 'New', muted: true })
-    // Without credentials: the diff masks an empty password, which code
-    // generated on its own leaves out.
-    delete (payload.request as Record<string, unknown>).basicAuth
     const lines = plain(drift(payload, [
       { path: '/name', before: 'Old', after: 'New' },
       { path: '/muted', before: false, after: true },
@@ -375,6 +373,21 @@ describe('generateConstructDiff', () => {
     const content = files.find(file => file.path.endsWith('.check.ts'))?.content ?? ''
     expect(content).toContain(current.join('\n'))
     expect(current[0]).toBe('new ApiCheck(\'orders-api\', {')
+  })
+
+  it('leaves an empty password as it is, and masks a set one and every locked variable', () => {
+    const changes = [{ path: '/name', before: 'Old', after: 'New' }]
+    const empty = plain(drift(apiCheck({ name: 'New' }), changes, {}, { context: Infinity }))
+    expect(empty.join('\n')).not.toContain('basicAuth')
+    const set = apiCheck({
+      name: 'New',
+      environmentVariables: [{ key: 'EMPTY', value: '', locked: true, secret: false }],
+    })
+    ;(set.request as Record<string, unknown>).basicAuth = { username: 'admin', password: '********' }
+    const lines = plain(drift(set, changes, {}, { context: Infinity }))
+    expect(lines).toContain('       password: \'********\',')
+    // A locked value is masked even empty: read without decrypting, it is null whatever it holds.
+    expect(lines).toContain('       value: \'********\',')
   })
 
   it('lists the changes when the construct diff is too large', () => {

@@ -770,6 +770,8 @@ export interface DriftDiffInput {
   context?: number
   /** The most lines a diff may take before the listing is printed instead. */
   maxLines?: number
+  /** See `BlankOptions.keepEmpty`: only for a payload that never blanks a credential to an empty value. */
+  keepEmpty?: boolean
 }
 
 /**
@@ -804,7 +806,7 @@ export function renderDriftDiff (input: DriftDiffInput): RenderedLine[] {
 }
 
 function renderShown (input: DriftDiffInput, shown: readonly DiffChange[], marked: Set<DiffChange>): RenderedLine[] {
-  const { entry, deployed: then, ids, projectDefaults, referencedNames, context, maxLines } = input
+  const { entry, deployed: then, ids, projectDefaults, referencedNames, context, maxLines, keepEmpty = false } = input
   const changes = entry.changes ?? []
   const secrets = changes.filter(change => change.secret === true)
   if (shown.length === 0 && secrets.length === 0) {
@@ -837,12 +839,12 @@ function renderShown (input: DriftDiffInput, shown: readonly DiffChange[], marke
   const deployed: Resource = {
     type: type as ResourceType,
     logicalId,
-    payload: blankRedacted(rebuilt.payload, entry.redactions),
+    payload: blankRedacted(rebuilt.payload, entry.redactions, { keepEmpty }),
   }
   const live: Resource = {
     type: type as ResourceType,
     logicalId,
-    payload: blankRedacted(structuredClone(current), entry.redactions),
+    payload: blankRedacted(structuredClone(current), entry.redactions, { keepEmpty }),
   }
   // A hashed value inside the construct is noted on its own; one kept in a
   // file of its own gets the same words from the text diff it would have had.

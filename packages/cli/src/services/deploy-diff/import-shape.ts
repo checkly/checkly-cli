@@ -487,7 +487,29 @@ function qualifies (rule: DiffRedaction, element: unknown): boolean {
   return condition === undefined || (element !== null && typeof element === 'object' && condition(element as Record<string, unknown>))
 }
 
-function blank (node: unknown, segments: readonly string[], rule: DiffRedaction): unknown {
+/**
+ * A value with nothing in it: no credential to hide, and masking it would
+ * invent one. Only an unconditional rule's value can be read this way: a
+ * locked or secret variable read without decrypting holds `null` whatever its
+ * value is, so a conditional rule always masks.
+ */
+const isEmptyValue = (value: unknown): boolean => value === undefined || value === null || value === ''
+
+const keptEmpty = (rule: DiffRedaction, value: unknown, keepEmpty: boolean): boolean =>
+  keepEmpty && rule.when === undefined && isEmptyValue(value)
+
+export interface BlankOptions {
+  /**
+   * Leave an empty value (`''`, `null` or absent) of an unconditional rule as
+   * it is instead of masking it; a conditional rule (a locked or secret
+   * variable) masks regardless. Only for a caller whose payload never blanks a credential to an empty
+   * value, so an empty value there is one the resource really has; the deploy
+   * preview's payload is blanked to `''` by the API and must not use it.
+   */
+  keepEmpty?: boolean
+}
+
+function blank (node: unknown, segments: readonly string[], rule: DiffRedaction, keepEmpty: boolean): unknown {
   if (segments.length === 0) {
     return node
   }
@@ -497,7 +519,9 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
     // A trailing `*` names the positions themselves, each blanked when it
     // qualifies.
     const each = (element: unknown) =>
-      (rest.length === 0 ? (qualifies(rule, element) ? placeholderOf(rule) : element) : blank(element, rest, rule))
+      (rest.length === 0
+        ? (qualifies(rule, element) && !keptEmpty(rule, element, keepEmpty) ? placeholderOf(rule) : element)
+        : blank(element, rest, rule, keepEmpty))
     if (Array.isArray(node)) {
       return node.map(each)
     }
@@ -512,7 +536,7 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
   const object = node as Record<string, unknown>
   const key = segment
   if (rest.length > 0) {
-    const replaced = blank(object[key], rest, rule)
+    const replaced = blank(object[key], rest, rule, keepEmpty)
     return replaced === object[key] ? node : { ...object, [key]: replaced }
   }
   if (rule.when === undefined) {
@@ -524,6 +548,9 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
     // Conditional: the element's own flags decide, and the API blanks a
     // qualifying element whether or not the value is there, so this side
     // does too.
+    return node
+  }
+  if (keptEmpty(rule, object[key], keepEmpty)) {
     return node
   }
   // The placeholder the rule names, which is what the API wrote on its side.
@@ -541,13 +568,17 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
  *
  * @throws UnshapeableError when the API reported no rule table.
  */
-export function blankRedacted<T> (payload: T, redactions: readonly DiffRedaction[] | undefined): T {
+export function blankRedacted<T> (
+  payload: T,
+  redactions: readonly DiffRedaction[] | undefined,
+  { keepEmpty = false }: BlankOptions = {},
+): T {
   if (redactions === undefined) {
     throw new UnshapeableError('the preview reports no redaction rules for this resource')
   }
   let result: unknown = payload
   for (const rule of redactions) {
-    result = blank(result, pointerSegments(rule.path), rule)
+    result = blank(result, pointerSegments(rule.path), rule, keepEmpty)
   }
   return result as T
 }
