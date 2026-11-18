@@ -126,7 +126,7 @@ export const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
 }
 
 /** Keys only a deploy reads; the import format has no counterpart and the codegen would ignore them. */
-const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 'v'] as const
+export const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 'v'] as const
 
 /**
  * Keys of a deployed row that neither side renders: a setup or teardown
@@ -138,7 +138,7 @@ const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 
 export const UNRENDERED_KEYS = ['setupSnippetId', 'tearDownSnippetId'] as const
 
 /** Keys of a deployed row that are not properties of the local payload: its id, and the relation rows it carries. */
-const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
+export const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
 
 const escapeSegment = (segment: string) => segment.replace(/~/g, '~0').replace(/\//g, '~1')
 

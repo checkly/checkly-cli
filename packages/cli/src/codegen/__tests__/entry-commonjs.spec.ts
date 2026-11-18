@@ -40,6 +40,13 @@ const diff = generateConstructDiff({
       request: { url: 'https://www.example.com' },
     },
   },
+  deployed: {
+    checkType: 'URL',
+    name: 'Homepage',
+    frequency: 10,
+    groupId: { ref: 'old-group' },
+    request: { url: 'https://www.example.com' },
+  },
   changes: [{ path: '/groupId', before: { $ref: 'old-group' }, after: { $ref: 'backend' } }],
   redactions: [],
   references: [
