@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -165,7 +166,7 @@ describe('rebuildDeployed', () => {
     expect(failed.payload.groupId).toBeNull()
   })
 
-  it('creates a parent only under a reported container, never from a null or absent node alone', () => {
+  it('creates a null parent only under a reported container', () => {
     const { payload, unapplied } = rebuildDeployed('check', check({ retryStrategy: null }), [
       remote({ path: '/retryStrategy', after: null }),
       remote({ path: '/retryStrategy/type', before: 'FIXED' }),
@@ -181,13 +182,65 @@ describe('rebuildDeployed', () => {
     const bare = rebuildDeployed('check', check({ retryStrategy: null }), leaves, ids)
     expect(bare.unapplied).toEqual(leaves)
     expect(bare.payload.retryStrategy).toBeNull()
+  })
 
+  it('rebuilds an object removed since the deploy from its leaves, under an object the payload holds', () => {
+    const live = check({ alertSettings: { escalationType: 'RUN_BASED' } })
+    const { payload, unapplied } = rebuildDeployed('check', live, [
+      remote({ path: '/alertSettings/reminders/amount', before: 2 }),
+      remote({ path: '/alertSettings/reminders/interval', before: 10 }),
+      remote({ path: '/alertSettings/runBasedEscalation/failedRunThreshold', before: 1 }),
+      remote({ path: '/alertSettings/parallelRunFailureThreshold/enabled', before: true }),
+      remote({ path: '/alertSettings/parallelRunFailureThreshold/percentage', before: 25 }),
+    ], ids)
+    expect(unapplied).toEqual([])
+    expect(payload.alertSettings).toEqual({
+      escalationType: 'RUN_BASED',
+      reminders: { amount: 2, interval: 10 },
+      runBasedEscalation: { failedRunThreshold: 1 },
+      parallelRunFailureThreshold: { enabled: true, percentage: 25 },
+    })
+  })
+
+  it('creates no absent object for a set element or a value it cannot decode, nor rebuilds one in part', () => {
+    const key = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('base64url').slice(0, 6)
     const live = check()
-    delete live.retryStrategy
-    const absent = remote({ path: '/retryStrategy/type', before: 'FIXED' })
-    const result = rebuildDeployed('check', live, [absent], ids)
-    expect(result.unapplied).toEqual([absent])
-    expect(result.payload).not.toHaveProperty('retryStrategy')
+    delete live.tags
+    const tag = remote({ path: `/tags/${key('prod')}`, before: 'prod' })
+    const skill = remote({ path: `/agentRuntime/skills/${key('search')}`, before: 'search' })
+    const beside = remote({ path: '/agentRuntime/model', before: 'small' })
+    const sets = rebuildDeployed('check', live, [tag, skill, beside], ids)
+    expect(sets.unapplied).toEqual([tag, beside, skill])
+    expect(sets.payload).not.toHaveProperty('tags')
+    expect(sets.payload).not.toHaveProperty('agentRuntime')
+
+    const reference = remote({ path: `/subscriptions/${key({ $ref: 'grp-a' })}`, before: { $ref: 'grp-a' } })
+    const opaque = remote({ path: '/playwrightConfig/expect/toHaveScreenshot', before: { $json: '{"maxDiffPixels":10}' } })
+    const others = rebuildDeployed('check', check({ playwrightConfig: {} }), [reference, opaque], ids)
+    expect(others.unapplied).toEqual([reference, opaque])
+    expect(others.payload).not.toHaveProperty('subscriptions')
+    expect(others.payload.playwrightConfig).toEqual({})
+
+    const listed = [
+      remote({ path: '/playwrightConfig/projects/0/name', before: 'chromium' }),
+      remote({ path: '/playwrightConfig/use/args/0', before: '--headless' }),
+    ]
+    const lists = rebuildDeployed('check', check({ playwrightConfig: { use: { baseURL: 'https://example.com' } } }), listed, ids)
+    expect(lists.unapplied).toEqual(listed)
+    expect(lists.payload.playwrightConfig).toEqual({ use: { baseURL: 'https://example.com' } })
+
+    const unknown = remote({ path: '/alertSettings/reminders/group', before: { $ref: 'grp-unknown' } })
+    const sibling = remote({ path: '/alertSettings/reminders/amount', before: 2 })
+    const undecodable = rebuildDeployed('check', check({ alertSettings: {} }), [unknown, sibling], ids)
+    expect(undecodable.unapplied).toEqual([unknown, sibling])
+    expect(undecodable.payload.alertSettings).toEqual({})
+
+    const kept = remote({ path: '/alertSettings/reminders/amount', before: 2, after: 3 })
+    const removed = remote({ path: '/alertSettings/reminders/interval', before: 10 })
+    const element = remote({ path: '/alertSettings/reminders/list', before: ['a'] })
+    const partial = rebuildDeployed('check', check({ alertSettings: {} }), [kept, removed, element], ids)
+    expect(partial.unapplied).toEqual([kept, removed, element])
+    expect(partial.payload.alertSettings).toEqual({})
   })
 
   it('never turns a set element\'s digest under a null list into a property', () => {

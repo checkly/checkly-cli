@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
@@ -64,6 +65,9 @@ const FORBIDDEN_KEYS: ReadonlySet<string> = new Set(['__proto__', 'constructor',
 /** A `$hash` inside a compound value: the change cannot be undone without its text. */
 class HashedInsideError extends Error {}
 
+/** A list index, as the backend writes a list element's position in a pointer. */
+const LIST_INDEX = /^(0|[1-9]\d*)$/
+
 /**
  * The node at `segments`, descending only through own properties (and list
  * positions), or undefined where the path does not resolve.
@@ -72,7 +76,7 @@ function ownNodeAt (root: unknown, segments: readonly string[]): unknown {
   let node = root
   for (const segment of segments) {
     if (Array.isArray(node)) {
-      node = /^(0|[1-9]\d*)$/.test(segment) ? node[Number(segment)] : undefined
+      node = LIST_INDEX.test(segment) ? node[Number(segment)] : undefined
     } else if (isPlainObject(node) && Object.hasOwn(node, segment)) {
       node = node[segment]
     } else {
@@ -140,7 +144,7 @@ export interface RebuiltDeployed {
   payload: Record<string, unknown>
   /**
    * Changes the rebuild did not apply: a path the import format does not
-   * hold, a set of objects, a reference it cannot resolve, a hash inside a
+   * hold (other than an object removed since the deploy), a set of objects, a reference it cannot resolve, a hash inside a
    * compound value, a key that names a prototype. The deployed side keeps
    * the current value there.
    */
@@ -200,6 +204,8 @@ interface Structure {
   covered: Set<DiffChange>
   /** Pointers under which a missing or `null` parent may be created, each with the changes that build it. */
   creatable: Array<{ segments: string[], changes: Planned[] }>
+  /** Every change that has a place to apply. */
+  planned: readonly Planned[]
 }
 
 function structure (planned: readonly Planned[]): Structure {
@@ -222,24 +228,92 @@ function structure (planned: readonly Planned[]): Structure {
       creatable.push({ segments: parent.segments, changes: leaves })
     }
   }
-  return { covered, creatable }
+  return { covered, creatable, planned }
 }
 
 /**
- * Whether a parent missing at `segments` (absent, or `null`) may be
- * created for the deployed value: only under a reported container (see
+ * Whether a parent missing at `segments` may be created for the deployed
+ * value, rebuilt whole from the changes under it: every one restores a value
+ * the current payload lacks.
+ *
+ * A `null` node is created only under a reported container (see
  * `Structure`), the change the backend reports beside the leaves of an
- * object that became a leaf. A `null` or absent node without one is not
- * taken for an object: under a list that is `null` now, the next segment is
- * a set element's digest, not a property. And only when every change under
- * the container restores a value the current payload lacks, so the object
- * is rebuilt whole rather than in part.
+ * object that became a leaf: under a list that is `null` now, the next
+ * segment is a set element's key, not a property.
+ *
+ * An absent node, under an object the current payload holds, is an object
+ * removed since the deploy, which the backend reports by its leaves alone.
+ * It is not one when a change under it passes through a list: the backend
+ * walks a list by index (`/projects/0/name`), and keys an element of a set
+ * by a prefix of its value's digest (see `isSetElement`). Its leaves are
+ * values the backend reports as one, a scalar, an empty object or a
+ * marker, and each must decode, so no leaf is left out of the object.
  */
-function mayCreate (segments: readonly string[], { creatable }: Structure): boolean {
+function mayCreate (
+  segments: readonly string[],
+  absent: boolean,
+  { creatable, planned }: Structure,
+  ids: PhysicalIds,
+): boolean {
   const container = creatable.find(entry => entry.segments.every((segment, index) => segments[index] === segment))
-  return container !== undefined && container.changes.every(other =>
+  const under = container?.changes ?? (absent ? planned.filter(other => isUnder(other.segments, segments)) : [])
+  return under.length > 0 && under.every(other =>
     other.kind === 'property' && other.change.after === undefined && other.change.before !== undefined
-    && !isHash(other.change.before))
+    && !isHash(other.change.before)
+    && (container !== undefined || isRemovedLeaf(other, segments.length, ids)))
+}
+
+/** Whether a change under an absent node at `depth` restores one leaf of an object removed there. */
+function isRemovedLeaf (target: Planned, depth: number, ids: PhysicalIds): boolean {
+  const { change, segments } = target
+  if (!isLeafValue(change.before) || isSetElement(target)
+    || segments.slice(depth).some(segment => LIST_INDEX.test(segment))) {
+    return false
+  }
+  try {
+    decode(change.before, segments[segments.length - 1], ids)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/** The shortest key the backend gives an element of a set (its `SET_IDENTITY_KEY_LENGTH`). */
+const SET_KEY_MIN_LENGTH = 6
+
+/** The markers `decode` turns back into the value they stand for. */
+const DECODED_MARKERS: ReadonlySet<string> = new Set(['$ref', '$id', '$masked'])
+
+/** A single-key `$ref`, `$id` or `$masked` marker. */
+const isDecodedMarker = (value: unknown): boolean => {
+  if (!isPlainObject(value)) {
+    return false
+  }
+  const keys = Object.keys(value)
+  return keys.length === 1 && DECODED_MARKERS.has(keys[0])
+}
+
+/**
+ * A value the backend reports as one leaf and `decode` restores: a scalar,
+ * an empty object, or a `$ref`, `$id` or `$masked` marker. Other stand-ins,
+ * such as an opaque value's `$json`, are not.
+ */
+const isLeafValue = (value: unknown): boolean =>
+  isScalar(value) || isDecodedMarker(value) || (isPlainObject(value) && Object.keys(value).length === 0)
+
+/**
+ * Whether a change names an element of a set rather than a property: the
+ * backend keys an element by a prefix, at least `SET_KEY_MIN_LENGTH`
+ * characters long, of the base64url SHA-256 of its value as canonical JSON,
+ * which for a leaf value (`isLeafValue`, the caller's precondition) is its
+ * `JSON.stringify`.
+ */
+function isSetElement ({ change, segments }: Planned): boolean {
+  const key = segments[segments.length - 1]
+  if (key.length < SET_KEY_MIN_LENGTH) {
+    return false
+  }
+  return createHash('sha256').update(JSON.stringify(change.before)).digest('base64url').startsWith(key)
 }
 
 /**
@@ -286,14 +360,15 @@ function apply (
   let parent: Record<string, unknown> = payload
   for (let index = 0; index < segments.length - 1; index += 1) {
     const segment = segments[index]
-    const node = created === undefined && Object.hasOwn(parent, segment) ? parent[segment] : undefined
+    const absent = !Object.hasOwn(parent, segment)
+    const node = created === undefined && !absent ? parent[segment] : undefined
     if (created === undefined && isPlainObject(node)) {
       parent = node
       continue
     }
     if (created === undefined) {
       if (value === undefined || (node !== null && node !== undefined)
-        || !mayCreate(segments.slice(0, index + 1), shape)) {
+        || !mayCreate(segments.slice(0, index + 1), absent, shape, ids)) {
         return false
       }
       const root: Record<string, unknown> = {}

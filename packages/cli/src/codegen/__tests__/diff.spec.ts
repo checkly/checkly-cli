@@ -391,6 +391,22 @@ describe('generateConstructDiff', () => {
     expect(lines.at(-1)).toBe('note: /request/headers/9a8b: {"key":"X-Trace","value":"1","locked":false} -> (absent)')
   })
 
+  it('renders an object removed in Checkly under one that stays, as the backend reports it by its leaves', () => {
+    const alertSettings = { escalationType: 'RUN_BASED', runBasedEscalation: { failedRunThreshold: 1 } }
+    const lines = plain(drift(apiCheck({ useGlobalAlertSettings: false, alertSettings }), [
+      { path: '/alertSettings/reminders/amount', before: 2 },
+      { path: '/alertSettings/reminders/interval', before: 10 },
+    ]))
+    expect(lines.filter(line => line.startsWith('note:') || line.startsWith('reason:'))).toEqual([])
+    expect(changedLines(lines)).toEqual([
+      '-  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1, {',
+      '-    amount: 2,',
+      '-    interval: 10,',
+      '-  }),',
+      '+  alertEscalationPolicy: AlertEscalationBuilder.runBasedEscalation(1),',
+    ])
+  })
+
   it('renders a retry strategy removed in Checkly as the backend reports it, the parent beside its leaves', () => {
     const lines = plain(drift(apiCheck({ retryStrategy: null }), [
       { path: '/retryStrategy', after: null },
