@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { isDeepStrictEqual } from 'node:util'
 
 import type { Resource, ResourceType } from '../../constructs/construct-codegen.js'
@@ -17,13 +16,14 @@ import {
   ruleReaches,
   valueAt,
 } from './construct-diff.js'
-import { asStoredRetryStrategy } from './double-check.js'
 import {
   blankRedacted,
   carriesMarker,
+  DEPLOY_ONLY_KEYS,
   idKey,
   isMaskedMarker,
   MASK,
+  NOT_FILLED,
   NUMERIC_ID_TYPES,
   type PhysicalIds,
   pointerSegments,
@@ -36,11 +36,13 @@ import {
 
 /**
  * A resource's drift as a construct diff: the construct as its last deploy
- * left it (`-`) against the construct as Checkly has it now (`+`). Only the
- * current state is stored, in the import format; the deployed state is
- * rebuilt from it by undoing each reported change, whose `before` is the
- * value the deploy left. Nothing here reads the loaded project or the
- * process's configuration: whatever the rendering depends on is passed in.
+ * left it (`-`) against the construct as Checkly has it now (`+`). The
+ * current state comes in the import format, the deployed one in the
+ * vocabulary of the deploy payload; the deployed side is converted to the
+ * import format where a reported change reaches it and is the current state
+ * everywhere else, so that the two sides differ only where something
+ * changed. Nothing here reads the loaded project or the process's
+ * configuration: whatever the rendering depends on is passed in.
  */
 
 /** Drift is a change made in Checkly; the diff says so once, not per line. */
@@ -53,56 +55,72 @@ const textUnavailable = (change: DiffChange): string =>
 const isPlainObject = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 
-const isScalar = (value: unknown): boolean =>
-  value === null || typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean'
-
 /**
  * Keys a reported path or value may never name: writing through them would
  * reach an object's prototype rather than a property of the payload.
  */
 const FORBIDDEN_KEYS: ReadonlySet<string> = new Set(['__proto__', 'constructor', 'prototype'])
 
-/** A `$hash` inside a compound value: the change cannot be undone without its text. */
-class HashedInsideError extends Error {}
-
-/** A list index, as the backend writes a list element's position in a pointer. */
+/** A list index, as a pointer names a list element's position. */
 const LIST_INDEX = /^(0|[1-9]\d*)$/
 
 /**
- * The node at `segments`, descending only through own properties (and list
- * positions), or undefined where the path does not resolve.
+ * Top-level keys the deployed side never renders from the deployed value:
+ * the resource's id and the relation rows it carries, and the keys no side
+ * renders, all taken from the current payload, and the keys only a deploy
+ * reads. A change under one is noted instead.
  */
-function ownNodeAt (root: unknown, segments: readonly string[]): unknown {
-  let node = root
-  for (const segment of segments) {
-    if (Array.isArray(node)) {
-      node = LIST_INDEX.test(segment) ? node[Number(segment)] : undefined
-    } else if (isPlainObject(node) && Object.hasOwn(node, segment)) {
-      node = node[segment]
-    } else {
-      return undefined
+const NOT_RENDERED_ROOT_KEYS: ReadonlySet<string> = new Set([...NOT_FILLED, ...UNRENDERED_KEYS, ...DEPLOY_ONLY_KEYS])
+
+/**
+ * Top-level keys whose deployed value is taken whole wherever a change
+ * reaches it, never merged with the current one: the deploy payload and the
+ * import format spell the value differently, and the codegen renders either
+ * spelling alike. An intent is `{ goal, requiredOutcomes, mustPreserve }` in
+ * a deploy and `{ goal, constraints }` in the import format.
+ */
+const ATOMIC_ROOT_KEYS: ReadonlySet<string> = new Set(['intent'])
+
+/**
+ * Resource types whose import format spells a null retry strategy beside
+ * the legacy `doubleCheck` flag as the flag's single retry: a change to the
+ * flag alone moves the rendered strategy.
+ */
+const LEGACY_RETRY_TYPES: ReadonlySet<string> = new Set(['check', 'check-group'])
+
+/** Sets the value at `segments` inside `root`, creating objects on the way; `undefined` removes it. */
+function setAt (root: Record<string, unknown>, segments: readonly string[], value: unknown): void {
+  let node: unknown = root
+  for (const segment of segments.slice(0, -1)) {
+    const holder = node as Record<string, unknown>
+    if (typeof holder[segment] !== 'object' || holder[segment] === null) {
+      setOwn(holder, segment, {})
     }
+    node = holder[segment]
   }
-  return node
+  const holder = node as Record<string, unknown>
+  const last = segments[segments.length - 1]
+  if (value === undefined) {
+    delete holder[last]
+  } else {
+    setOwn(holder, last, value)
+  }
 }
 
 /**
- * A reported value decoded into the import format: a masked position as
- * the mask (never null, which a locked variable's codegen refuses under
- * masking), a reference by logical id (`{ $ref }`) or by physical id
- * (`{ $id }`) placed the way the import format places one (`substitute`).
- * An unknown reference, one under a key that holds none, or a key that
- * names a prototype throws `UnshapeableError`; a hash anywhere inside
- * throws `HashedInsideError`.
+ * A value in the deploy payload's vocabulary decoded into the import
+ * format: a masked position as the mask (never null, which a locked
+ * variable's codegen refuses under masking), a reference by logical id
+ * (`{ $ref }` or `{ ref }`) or by physical id (`{ $id }`) placed the way the
+ * import format places one (`substitute`). An unknown reference, one under
+ * a key that holds none, or a key that names a prototype throws
+ * `UnshapeableError`.
  */
 function decode (value: unknown, key: string | undefined, ids: PhysicalIds): unknown {
   const byId = new Map(ids)
   const toRefs = (node: unknown, nodeKey: string | undefined): unknown => {
     if (isMaskedMarker(node)) {
       return MASK
-    }
-    if (isHash(node)) {
-      throw new HashedInsideError()
     }
     if (Array.isArray(node)) {
       return node.map(element => toRefs(element, nodeKey))
@@ -121,7 +139,7 @@ function decode (value: unknown, key: string | undefined, ids: PhysicalIds): unk
     if (keys.length === 1 && (typeof node.$id === 'string' || typeof node.$id === 'number')) {
       const type = nodeKey !== undefined && Object.hasOwn(REFERENCE_KEYS, nodeKey) ? REFERENCE_KEYS[nodeKey] : undefined
       if (type === undefined) {
-        throw new UnshapeableError(`'${nodeKey}' holds an id this rebuild does not know how to place`)
+        throw new UnshapeableError(`'${nodeKey}' holds an id this rendering does not know how to place`)
       }
       const id = NUMERIC_ID_TYPES.has(type) ? Number(node.$id) : String(node.$id)
       if (typeof id === 'number' && !Number.isFinite(id)) {
@@ -138,310 +156,468 @@ function decode (value: unknown, key: string | undefined, ids: PhysicalIds): unk
   return substitute(refs, key, byId)
 }
 
-/** What could not be undone, and what was undone only in part. */
+/** Whether a `{ $hash }` stands anywhere in a value. */
+function containsHash (value: unknown): boolean {
+  if (isHash(value)) {
+    return true
+  }
+  if (Array.isArray(value)) {
+    return value.some(containsHash)
+  }
+  return isPlainObject(value) && Object.values(value).some(containsHash)
+}
+
+/** The elements of a list by their `key`, for each key exactly one element of the list holds. */
+function elementsByUniqueKey (list: unknown): Map<string, Record<string, unknown>> {
+  const found = new Map<string, Record<string, unknown> | null>()
+  for (const element of Array.isArray(list) ? list : []) {
+    if (isPlainObject(element) && typeof element.key === 'string') {
+      found.set(element.key, found.has(element.key) ? null : element)
+    }
+  }
+  const unique = new Map<string, Record<string, unknown>>()
+  for (const [key, element] of found) {
+    if (element !== null) {
+      unique.set(key, element)
+    }
+  }
+  return unique
+}
+
+/** Stands for a value no change reports beside the one being decoded. */
+const UNREPORTED: unique symbol = Symbol('unreported')
+
+const childOf = (node: unknown, key: string): unknown =>
+  (isPlainObject(node) && Object.hasOwn(node, key) ? node[key] : undefined)
+
+/**
+ * A deployed value with each `{ $hash }` field of a key-value list element
+ * (a variable, a header) replaced by the same field of the current element:
+ * both lists hold exactly one element with that `key`, and the element's
+ * other fields are equal, a masked field matching whatever the current side
+ * holds there. Such a field kept its value, which the deployed side knows
+ * only by its hash. When the value is a change's `before`, the change's
+ * `after` must also hold that element with the same hash there, or the
+ * field changed. Elements are matched by key, never by position. Any other
+ * hash stays.
+ */
+function withKnownHashes (value: unknown, current: unknown, reported: unknown): unknown {
+  if (isPlainObject(value)) {
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [
+      key,
+      withKnownHashes(child, childOf(current, key), reported === UNREPORTED ? UNREPORTED : childOf(reported, key)),
+    ]))
+  }
+  if (!Array.isArray(value)) {
+    return value
+  }
+  const ours = elementsByUniqueKey(value)
+  const theirs = elementsByUniqueKey(current)
+  const after = reported === UNREPORTED ? undefined : elementsByUniqueKey(reported)
+  return value.map(element => {
+    const key = isPlainObject(element) && typeof element.key === 'string' ? element.key : undefined
+    const match = key !== undefined && ours.get(key) === element ? theirs.get(key) : undefined
+    if (match === undefined || key === undefined || !isPlainObject(element)) {
+      return element
+    }
+    const now = after === undefined ? UNREPORTED : after.get(key)
+    const fields = Object.keys(element)
+    if (!fields.some(field => isHash(element[field]))) {
+      return withKnownHashes(element, match, now)
+    }
+    const same = fields.every(field => isHash(element[field])
+      ? Object.hasOwn(match, field) && (now === UNREPORTED || isDeepStrictEqual(childOf(now, field), element[field]))
+      : isMaskedMarker(element[field]) || isDeepStrictEqual(element[field], match[field]))
+    return same
+      ? Object.fromEntries(fields.map(field =>
+          [field, isHash(element[field]) ? structuredClone(match[field]) : element[field]]))
+      : element
+  })
+}
+
+/** What the deployed side holds, and what could not be shown on it. */
 export interface RebuiltDeployed {
   /** The resource as its last deploy left it, in the import format. */
   payload: Record<string, unknown>
   /**
-   * Changes the rebuild did not apply: a path the import format does not
-   * hold (other than an object removed since the deploy), a set of objects, a reference it cannot resolve, a hash inside a
-   * compound value, a key that names a prototype. The deployed side keeps
-   * the current value there.
+   * Changes the deployed side does not show: one under a key no rendering
+   * holds (the deploy-only private location list, the relation rows), a
+   * reference it cannot resolve, a key that names a prototype. The
+   * deployed side keeps the current value there.
    */
   unapplied: DiffChange[]
-  /** Changes whose deployed value is reported only by its hash; the deployed side keeps the current value. */
+  /**
+   * Changes whose deployed value is known only by its hash, or reaches a
+   * value that is: the deployed side keeps the current value there.
+   */
   hashed: DiffChange[]
 }
 
-/** A change with its pointer split, and where it applies. */
-interface Planned {
+/** A reported change with its pointer split. */
+interface Reaching {
   change: DiffChange
   segments: string[]
-  /** `set` for an element of a set of scalars, `property` for an object's key. */
-  kind: 'set' | 'property'
 }
 
-/** Whether `inner` lies strictly under `outer`. */
-const isUnder = (inner: readonly string[], outer: readonly string[]): boolean =>
-  inner.length > outer.length && outer.every((segment, index) => inner[index] === segment)
+/** A position's value on one side, and whether that side holds the position at all. */
+interface Slot {
+  has: boolean
+  value: unknown
+}
+
+const ABSENT: unique symbol = Symbol('absent')
+
+const slotOf = (node: unknown, segment: string | number): Slot => {
+  if (Array.isArray(node)) {
+    const index = Number(segment)
+    return index < node.length ? { has: true, value: node[index] } : { has: false, value: undefined }
+  }
+  return isPlainObject(node) && Object.hasOwn(node, segment)
+    ? { has: true, value: node[segment] }
+    : { has: false, value: undefined }
+}
+
+/** Sets an own property, whatever its name: an assignment to `__proto__` would replace the prototype. */
+const setOwn = (target: Record<string, unknown>, key: string, value: unknown): void => {
+  Object.defineProperty(target, key, { value, enumerable: true, writable: true, configurable: true })
+}
+
+/** Whether `outer` is `inner` or one of its ancestors. */
+const isPrefix = (outer: readonly string[], inner: readonly string[]): boolean =>
+  outer.length <= inner.length && outer.every((segment, index) => inner[index] === segment)
+
+const isCompound = (value: unknown): boolean => typeof value === 'object' && value !== null && !isHash(value)
 
 /**
- * Where a change applies, or undefined when it cannot be applied. A path
- * through a list is applied only as an element of a set of scalars (`tags`,
- * `locations`), whose element key is an identity digest: a set of objects,
- * a path under one of its elements, and the deploy-only `privateLocations`
- * (assignments are rows of their own in the import format) are not guessed
- * at, nor is a path through a key that names a prototype.
- */
-function plan (payload: unknown, change: DiffChange): Planned | undefined {
-  const segments = pointerSegments(change.path)
-  if (segments.length === 0 || segments[0] === 'privateLocations' || segments.some(segment => FORBIDDEN_KEYS.has(segment))) {
-    return undefined
-  }
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    const node = ownNodeAt(payload, segments.slice(0, index + 1))
-    if (!Array.isArray(node)) {
-      continue
-    }
-    const element = index === segments.length - 2
-    return element && node.every(isScalar) ? { change, segments, kind: 'set' } : undefined
-  }
-  return { change, segments, kind: 'property' }
-}
-
-/**
- * How the changes of one rebuild relate. The backend reports a value that
- * turned from an object into a leaf (a retry strategy removed: `null`), or
- * the reverse, as a change at the parent's own path plus one per leaf of
- * the object under it. A parent change whose leaves carry the deployed
- * values (`before`) is a container: the leaves rebuild the object, and the
- * parent change itself is not applied. One whose leaves carry no deployed
- * value is applied, and its deployed value (`null`) already accounts for
- * them.
- */
-interface Structure {
-  /** Changes neither applied nor unapplied: a container, or a leaf its parent's value covers. */
-  covered: Set<DiffChange>
-  /** Pointers under which a missing or `null` parent may be created, each with the changes that build it. */
-  creatable: Array<{ segments: string[], changes: Planned[] }>
-  /** Every change that has a place to apply. */
-  planned: readonly Planned[]
-}
-
-function structure (planned: readonly Planned[]): Structure {
-  const covered = new Set<DiffChange>()
-  const creatable: Structure['creatable'] = []
-  for (const parent of planned) {
-    if (parent.kind !== 'property') {
-      continue
-    }
-    const leaves = planned.filter(other => isUnder(other.segments, parent.segments))
-    if (leaves.length === 0) {
-      continue
-    }
-    if (leaves.every(leaf => leaf.change.before === undefined)) {
-      for (const leaf of leaves) {
-        covered.add(leaf.change)
-      }
-    } else {
-      covered.add(parent.change)
-      creatable.push({ segments: parent.segments, changes: leaves })
-    }
-  }
-  return { covered, creatable, planned }
-}
-
-/**
- * Whether a parent missing at `segments` may be created for the deployed
- * value, rebuilt whole from the changes under it: every one restores a value
- * the current payload lacks.
+ * The resource as its last deploy left it, in the import format.
  *
- * A `null` node is created only under a reported container (see
- * `Structure`), the change the backend reports beside the leaves of an
- * object that became a leaf: under a list that is `null` now, the next
- * segment is a set element's key, not a property.
+ * `deployed` is the resource as that deploy left it, in the vocabulary of
+ * the deploy payload; `current` the resource now, in the import format;
+ * `changes` what changed between them, each `before` the deployed value at
+ * its path. The changes decide where the two sides differ: a position no
+ * change reaches (the change's path is it, lies under it or above it) takes
+ * the current value, so values the comparison skips, a set's order and the
+ * two formats' spelling of an unchanged value read alike on both sides.
+ * Where a change reaches, the deployed side is decoded into the import
+ * format:
  *
- * An absent node, under an object the current payload holds, is an object
- * removed since the deploy, which the backend reports by its leaves alone.
- * It is not one when a change under it passes through a list: the backend
- * walks a list by index (`/projects/0/name`), and keys an element of a set
- * by a prefix of its value's digest (see `isSetElement`). Its leaves are
- * values the backend reports as one, a scalar, an empty object or a
- * marker, and each must decode, so no leaf is left out of the object.
+ * - A change whose `before` is absent while changes under it carry one is
+ *   an object or a set that turned into a leaf (`null`, an empty set): its
+ *   position is rebuilt from the deployed value, each change under it
+ *   filled from its own `before`.
+ * - A position a change names takes that change's `before`, absent when it
+ *   has none: a masked value is masked alike in a change's `before` and
+ *   `after`, which the deployed value cannot promise.
+ * - A set (a change names an element under a key that is not a list index:
+ *   the identity digest an element of a set is reported by) takes the
+ *   deployed elements, those equal to a current element in the current
+ *   order, the rest after them. A list is never reordered.
+ * - An intent takes the deployed value whole (`ATOMIC_ROOT_KEYS`).
+ * - A position the current resource no longer holds (an object or a list
+ *   removed since the deploy, reported by its leaves) is rebuilt from the
+ *   deployed value, each change under it filled from its own `before`.
+ * - Otherwise objects are merged property by property, and a list by
+ *   index, under the same rules.
+ *
+ * A value that holds a reference the given ids cannot resolve keeps the
+ * current value, and the changes reaching it are returned as `unapplied`;
+ * one that still holds a `{ $hash }` (see `withKnownHashes`) keeps the
+ * current value, and its changes are returned as `hashed`. A change named
+ * only by its cause has no value to show.
  */
-function mayCreate (
-  segments: readonly string[],
-  absent: boolean,
-  { creatable, planned }: Structure,
-  ids: PhysicalIds,
-): boolean {
-  const container = creatable.find(entry => entry.segments.every((segment, index) => segments[index] === segment))
-  const under = container?.changes ?? (absent ? planned.filter(other => isUnder(other.segments, segments)) : [])
-  return under.length > 0 && under.every(other =>
-    other.kind === 'property' && other.change.after === undefined && other.change.before !== undefined
-    && !isHash(other.change.before)
-    && (container !== undefined || isRemovedLeaf(other, segments.length, ids)))
-}
-
-/** Whether a change under an absent node at `depth` restores one leaf of an object removed there. */
-function isRemovedLeaf (target: Planned, depth: number, ids: PhysicalIds): boolean {
-  const { change, segments } = target
-  if (!isLeafValue(change.before) || isSetElement(target)
-    || segments.slice(depth).some(segment => LIST_INDEX.test(segment))) {
-    return false
-  }
-  try {
-    decode(change.before, segments[segments.length - 1], ids)
-    return true
-  } catch {
-    return false
-  }
-}
-
-/** The shortest key the backend gives an element of a set (its `SET_IDENTITY_KEY_LENGTH`). */
-const SET_KEY_MIN_LENGTH = 6
-
-/** The markers `decode` turns back into the value they stand for. */
-const DECODED_MARKERS: ReadonlySet<string> = new Set(['$ref', '$id', '$masked'])
-
-/** A single-key `$ref`, `$id` or `$masked` marker. */
-const isDecodedMarker = (value: unknown): boolean => {
-  if (!isPlainObject(value)) {
-    return false
-  }
-  const keys = Object.keys(value)
-  return keys.length === 1 && DECODED_MARKERS.has(keys[0])
-}
-
-/**
- * A value the backend reports as one leaf and `decode` restores: a scalar,
- * an empty object, or a `$ref`, `$id` or `$masked` marker. Other stand-ins,
- * such as an opaque value's `$json`, are not.
- */
-const isLeafValue = (value: unknown): boolean =>
-  isScalar(value) || isDecodedMarker(value) || (isPlainObject(value) && Object.keys(value).length === 0)
-
-/**
- * Whether a change names an element of a set rather than a property: the
- * backend keys an element by a prefix, at least `SET_KEY_MIN_LENGTH`
- * characters long, of the base64url SHA-256 of its value as canonical JSON,
- * which for a leaf value (`isLeafValue`, the caller's precondition) is its
- * `JSON.stringify`.
- */
-function isSetElement ({ change, segments }: Planned): boolean {
-  const key = segments[segments.length - 1]
-  if (key.length < SET_KEY_MIN_LENGTH) {
-    return false
-  }
-  return createHash('sha256').update(JSON.stringify(change.before)).digest('base64url').startsWith(key)
-}
-
-/**
- * Undo one change in place. Returns false, having written nothing, when the
- * change cannot be applied.
- */
-function apply (
-  payload: Record<string, unknown>,
-  target: Planned,
-  ids: PhysicalIds,
-  shape: Structure,
-): boolean {
-  const { change, segments } = target
-  const key = segments[segments.length - 1]
-  if (target.kind === 'set') {
-    const set = ownNodeAt(payload, segments.slice(0, -1))
-    if (!Array.isArray(set)) {
-      return false
-    }
-    // An element of a list is decoded under the list's key, as `substitute` does.
-    const listKey = segments[segments.length - 2]
-    const added = change.before === undefined ? undefined : decode(change.before, listKey, ids)
-    const removed = change.after === undefined ? undefined : decode(change.after, listKey, ids)
-    const index = removed === undefined ? -1 : set.findIndex(element => isDeepStrictEqual(element, removed))
-    if (removed !== undefined && index === -1) {
-      return false
-    }
-    if (added !== undefined && !isScalar(added)) {
-      return false
-    }
-    if (index !== -1) {
-      set.splice(index, 1)
-    }
-    if (added !== undefined) {
-      set.push(added)
-    }
-    return true
-  }
-  const value = change.before === undefined ? undefined : decode(change.before, key, ids)
-  // The parents: an own object at every step, or a missing one the deployed
-  // value nests under (see `mayCreate`), built aside and attached only once
-  // nothing can fail.
-  let created: { holder: Record<string, unknown>, segment: string, root: Record<string, unknown> } | undefined
-  let parent: Record<string, unknown> = payload
-  for (let index = 0; index < segments.length - 1; index += 1) {
-    const segment = segments[index]
-    const absent = !Object.hasOwn(parent, segment)
-    const node = created === undefined && !absent ? parent[segment] : undefined
-    if (created === undefined && isPlainObject(node)) {
-      parent = node
-      continue
-    }
-    if (created === undefined) {
-      if (value === undefined || (node !== null && node !== undefined)
-        || !mayCreate(segments.slice(0, index + 1), absent, shape, ids)) {
-        return false
-      }
-      const root: Record<string, unknown> = {}
-      created = { holder: parent, segment, root }
-      parent = root
-      continue
-    }
-    const fresh: Record<string, unknown> = {}
-    parent[segment] = fresh
-    parent = fresh
-  }
-  if (!Object.hasOwn(parent, key) && change.after !== undefined) {
-    return false
-  }
-  if (created !== undefined) {
-    created.holder[created.segment] = created.root
-  }
-  if (value === undefined) {
-    delete parent[key]
-  } else {
-    parent[key] = value
-  }
-  return true
-}
-
-/** One rebuild on one view of the current payload. */
-function rebuildOn (
-  view: Record<string, unknown>,
+export function deployedSide (
+  type: string,
+  deployed: Record<string, unknown>,
+  current: Record<string, unknown>,
   changes: readonly DiffChange[],
   ids: PhysicalIds,
 ): RebuiltDeployed {
-  const payload = structuredClone(view)
-  const unapplied: DiffChange[] = []
-  const hashed: DiffChange[] = []
-  const planned: Planned[] = []
-  // Decided against the current payload before anything is written.
+  const unapplied = new Set<DiffChange>()
+  const hashed = new Set<DiffChange>()
+  const active: Reaching[] = []
   for (const change of changes) {
     if (change.cause !== undefined) {
       continue
     }
-    let target: Planned | undefined
+    let segments: string[]
     try {
-      target = plan(payload, change)
+      segments = pointerSegments(change.path)
     } catch {
-      target = undefined
+      unapplied.add(change)
+      continue
     }
-    if (target === undefined) {
-      unapplied.push(change)
+    if (segments.length === 0 || NOT_RENDERED_ROOT_KEYS.has(segments[0])
+      || segments.some(segment => FORBIDDEN_KEYS.has(segment))) {
+      unapplied.add(change)
+    } else if (isHash(change.before)) {
+      hashed.add(change)
     } else {
-      planned.push(target)
+      active.push({ change, segments })
     }
   }
-  const shape = structure(planned)
-  const ordered = [...planned].sort((a, b) => a.segments.length - b.segments.length)
-  for (const target of ordered) {
-    const { change } = target
-    if (shape.covered.has(change)) {
-      continue
+
+  /** Every change at or under `segments` goes to `into`. */
+  const give = (into: Set<DiffChange>, segments: readonly string[], reach: readonly Reaching[]) => {
+    for (const { change, segments: path } of reach) {
+      if (isPrefix(segments, path)) {
+        into.add(change)
+      }
     }
-    if (isHash(change.before)) {
-      hashed.push(change)
-      continue
+  }
+  const keep = (now: Slot): unknown => (now.has ? structuredClone(now.value) : ABSENT)
+
+  /**
+   * A deployed or reported value decoded at `segments`, or the current one
+   * where it cannot be. A list element (its `key` the list's, not its own
+   * index) is decoded as the only element of its list: the import format
+   * places some elements differently from a lone value under the same key
+   * (a status page card's service is `{ id }`, a card always holds its
+   * `services`).
+   */
+  const take = (
+    segments: string[],
+    key: string,
+    raw: unknown,
+    now: Slot,
+    reach: readonly Reaching[],
+    reported: unknown = UNREPORTED,
+  ): unknown => {
+    if (raw === undefined) {
+      return ABSENT
+    }
+    const element = key !== segments[segments.length - 1]
+    const known = element
+      ? (withKnownHashes([raw], [now.value], reported === UNREPORTED ? UNREPORTED : [reported]) as unknown[])[0]
+      : withKnownHashes(raw, now.value, reported)
+    if (containsHash(known)) {
+      give(hashed, segments, reach)
+      return keep(now)
     }
     try {
-      if (!apply(payload, target, ids, shape)) {
-        unapplied.push(change)
-      }
+      return element ? (decode([known], key, ids) as unknown[])[0] : decode(known, key, ids)
     } catch (cause) {
-      if (!(cause instanceof UnshapeableError) && !(cause instanceof HashedInsideError)) {
+      if (!(cause instanceof UnshapeableError)) {
         throw cause
       }
-      unapplied.push(change)
+      give(unapplied, segments, reach)
+      return keep(now)
     }
+  }
+
+  /** The deployed elements of a set, those equal to a current element first, in the current order. */
+  const ordered = (value: unknown, now: Slot): unknown => {
+    if (!Array.isArray(value) || !Array.isArray(now.value)) {
+      return value
+    }
+    const used = new Set<number>()
+    const first: unknown[] = []
+    for (const element of now.value) {
+      const index = value.findIndex((candidate, at) => !used.has(at) && isDeepStrictEqual(candidate, element))
+      if (index !== -1) {
+        used.add(index)
+        first.push(value[index])
+      }
+    }
+    return [...first, ...value.filter((_, at) => !used.has(at))]
+  }
+
+  /**
+   * Whether a change under the position names an element of a set: by the
+   * identity digest the element is reported under, which is any segment
+   * that is not a valid index into the position's list on either side. A
+   * digest may consist of digits alone.
+   */
+  const isSetAt = (depth: number, under: readonly Reaching[], lists: readonly unknown[]) =>
+    under.some(({ segments }) => {
+      const segment = segments[depth]
+      return !LIST_INDEX.test(segment)
+        || !lists.some(list => Array.isArray(list) && Number(segment) < list.length)
+    })
+
+  /**
+   * How the changes reaching a position relate to it: the one at its path,
+   * those under it, and whether the one at its path is a container (an
+   * object or a set that turned into a leaf, its `before` absent while the
+   * changes under it carry one).
+   */
+  const relation = (depth: number, reach: readonly Reaching[]) => {
+    const exact = reach.find(({ segments: path }) => path.length === depth)
+    const under = reach.filter(({ segments: path }) => path.length > depth)
+    const container = exact !== undefined && exact.change.before === undefined
+      && under.some(({ change }) => change.before !== undefined)
+    return { exact, under, container }
+  }
+
+  /**
+   * The deployed value at `segments` in the deploy payload's vocabulary,
+   * rebuilt from `then` (the deployed value there): each position a change
+   * names takes that change's `before`, any other keeps the deployed value.
+   */
+  const restore = (segments: string[], then: Slot, reach: readonly Reaching[]): unknown => {
+    const depth = segments.length
+    const { exact, under, container } = relation(depth, reach)
+    const at = (segment: string) => under.filter(({ segments: path }) => path[depth] === segment)
+    if (exact !== undefined && !container) {
+      return exact.change.before
+    }
+    if (Array.isArray(then.value) && (isSetAt(depth, under, [then.value]) || under.length === 0)) {
+      return then.value
+    }
+    if (Array.isArray(then.value)) {
+      return then.value.map((element, index) =>
+        restore([...segments, String(index)], { has: true, value: element }, at(String(index))))
+    }
+    const named = under.filter(({ change }) => change.before !== undefined).map(({ segments: path }) => path[depth])
+    if (!isPlainObject(then.value) && named.length === 0) {
+      return then.has ? then.value : undefined
+    }
+    const source = isPlainObject(then.value) ? then.value : {}
+    const result: Record<string, unknown> = {}
+    for (const key of new Set([...Object.keys(source), ...named])) {
+      if (FORBIDDEN_KEYS.has(key)) {
+        continue
+      }
+      const value = restore([...segments, key], slotOf(source, key), at(key))
+      if (value !== undefined) {
+        setOwn(result, key, value)
+      }
+    }
+    return result
+  }
+
+  /**
+   * The deployed value of an atomic key, in the deploy payload's vocabulary:
+   * a `{ $hash }` no change reaches is a value that stayed as it was, the
+   * current value under the same key, and each change under the key
+   * overlays its `before`.
+   */
+  const atomic = (segments: string[], then: Slot, now: Slot, reach: readonly Reaching[]): unknown => {
+    if (!then.has) {
+      return undefined
+    }
+    const depth = segments.length
+    const unhashed = (node: unknown, current: unknown, path: string[]): unknown => {
+      if (isHash(node)) {
+        const reached = reach.some(({ segments: other }) => isPrefix(path, other))
+        return reached || current === undefined ? node : structuredClone(current)
+      }
+      if (isPlainObject(node)) {
+        return Object.fromEntries(Object.entries(node).map(([childKey, child]) =>
+          [childKey, unhashed(child, childOf(current, childKey), [...path, childKey])]))
+      }
+      return Array.isArray(node)
+        ? node.map((element, index) => unhashed(element, undefined, [...path, String(index)]))
+        : node
+    }
+    const raw = unhashed(then.value, now.value, segments)
+    if (!isPlainObject(raw)) {
+      return raw
+    }
+    for (const { change, segments: path } of reach) {
+      if (path.length > depth) {
+        // A copy: a later, deeper change is written into the value this one sets.
+        setAt(raw, path.slice(depth), structuredClone(change.before))
+      }
+    }
+    // A list element removed by an overlay leaves a hole, which a list never holds.
+    const compact = (node: unknown): unknown => {
+      if (Array.isArray(node)) {
+        return node.filter(() => true).map(compact)
+      }
+      return isPlainObject(node)
+        ? Object.fromEntries(Object.entries(node).map(([childKey, child]) => [childKey, compact(child)]))
+        : node
+    }
+    return compact(raw)
+  }
+
+  /** The deployed side's value at `segments`, `key` naming the property (a list's, for its elements), or `ABSENT`. */
+  const build = (segments: string[], key: string, now: Slot, then: Slot, above: readonly Reaching[]): unknown => {
+    const reach = above.filter(({ segments: path }) => isPrefix(path, segments) || isPrefix(segments, path))
+    if (reach.length === 0 && segments.length === 1 && implied.has(key)) {
+      return then.has ? take(segments, key, then.value, now, reach) : keep(now)
+    }
+    if (reach.length === 0) {
+      return keep(now)
+    }
+    const depth = segments.length
+    const { exact, under, container } = relation(depth, reach)
+    const isSet = (Array.isArray(now.value) || Array.isArray(then.value))
+      && isSetAt(depth, under, [now.value, then.value])
+    // A set's container change, or a set whose elements alone are reported.
+    if (isSet && (container || exact === undefined)) {
+      return ordered(take(segments, key, then.has ? then.value : undefined, now, reach), now)
+    }
+    if (container) {
+      return take(segments, key, restore(segments, then, reach), now, reach)
+    }
+    if (exact !== undefined) {
+      return take(segments, key, exact.change.before, now, reach, exact.change.after)
+    }
+    if (depth === 1 && ATOMIC_ROOT_KEYS.has(key)) {
+      return take(segments, key, atomic(segments, then, now, reach), now, reach)
+    }
+    if (!now.has || (!isCompound(now.value) && isCompound(then.value))) {
+      return take(segments, key, restore(segments, then, reach), now, reach)
+    }
+    if (isPlainObject(now.value)) {
+      const source = isPlainObject(then.value) ? then.value : {}
+      const result = mergeObject(segments, now.value, source, reach)
+      // An object the deploy did not leave, whose every property was added since.
+      return !then.has && Object.keys(result).length === 0 ? ABSENT : result
+    }
+    if (Array.isArray(now.value)) {
+      const elements = Array.isArray(then.value) ? then.value : now.value
+      const result: unknown[] = []
+      elements.forEach((_, index) => {
+        const segment = String(index)
+        const value = build([...segments, segment], key, slotOf(now.value, segment), slotOf(then.value, segment), reach)
+        if (value !== ABSENT) {
+          result.push(value)
+        }
+      })
+      // A list the deploy did not leave, whose every element was added since.
+      return !then.has && result.length === 0 ? ABSENT : result
+    }
+    // A change under a value that holds no properties: nothing to show it on.
+    give(unapplied, segments, reach)
+    return keep(now)
+  }
+
+  const mergeObject = (
+    segments: string[],
+    now: Record<string, unknown>,
+    then: Record<string, unknown>,
+    reach: readonly Reaching[],
+  ): Record<string, unknown> => {
+    const result: Record<string, unknown> = {}
+    const depth = segments.length
+    const root = depth === 0
+    // A property neither side holds may still be named by a change.
+    const named = reach.filter(({ segments: path }) => path.length > depth).map(({ segments: path }) => path[depth])
+    for (const key of new Set([...Object.keys(now), ...Object.keys(then), ...named])) {
+      const fixed = FORBIDDEN_KEYS.has(key) || (root && NOT_RENDERED_ROOT_KEYS.has(key))
+      const value = fixed
+        ? keep(slotOf(now, key))
+        : build([...segments, key], key, slotOf(now, key), slotOf(then, key), reach)
+      if (value !== ABSENT) {
+        setOwn(result, key, value)
+      }
+    }
+    return result
+  }
+
+  // A change to the legacy flag alone reaches the strategy: the deployed
+  // strategy is taken, and the flag's single retry spelled after the merge.
+  const flagged = LEGACY_RETRY_TYPES.has(type)
+    && active.some(({ segments }) => segments.length === 1 && segments[0] === 'doubleCheck')
+  const implied: ReadonlySet<string> = new Set(flagged ? ['retryStrategy'] : [])
+  const payload = mergeObject([], current, deployed, active)
+  // A check or v1 group that retries through the legacy `doubleCheck` flag
+  // alone has a null strategy, which the import format spells as the flag's
+  // single retry.
+  if ((type === 'check' || type === 'check-group') && payload.doubleCheck === true && payload.retryStrategy === null) {
+    payload.retryStrategy = { ...SINGLE_RETRY_ELSEWHERE }
   }
   // Noted shallowest first, in the order the changes were reported within a depth.
   const depthOf = (change: DiffChange) => {
@@ -452,40 +628,13 @@ function rebuildOn (
     }
   }
   const order = new Map(changes.map((change, index) => [change, index]))
-  unapplied.sort((a, b) => depthOf(a) - depthOf(b) || (order.get(a) ?? 0) - (order.get(b) ?? 0))
-  return { payload, unapplied, hashed }
-}
-
-/**
- * The resource as its last deploy left it: the current payload with each
- * reported change undone, shallowest first, at the change's path. A change
- * named only by its cause has no value to restore. Where a change cannot be
- * undone, the current value stays and the change is returned for a note.
- */
-export function rebuildDeployed (
-  type: string,
-  live: Record<string, unknown>,
-  changes: readonly DiffChange[],
-  ids: PhysicalIds,
-): RebuiltDeployed {
-  const current = structuredClone(live)
-  for (const key of UNRENDERED_KEYS) {
-    delete current[key]
+  const byDepth = (a: DiffChange, b: DiffChange) => depthOf(a) - depthOf(b) || (order.get(a) ?? 0) - (order.get(b) ?? 0)
+  const inOrder = (a: DiffChange, b: DiffChange) => (order.get(a) ?? 0) - (order.get(b) ?? 0)
+  return {
+    payload,
+    unapplied: [...unapplied].sort(byDepth),
+    hashed: [...hashed].filter(change => !unapplied.has(change)).sort(inOrder),
   }
-  // Changes are computed from the stored row, which keeps a null retry
-  // strategy where the import format spells the legacy `doubleCheck` retry
-  // as a strategy object; a stored strategy of exactly that shape reads the
-  // same, so the changes are undone on both views and the one that applies
-  // more of them is kept, the stored view on a tie.
-  const stored = asStoredRetryStrategy(current) as Record<string, unknown>
-  const views = stored === current ? [current] : [stored, current]
-  const results = views.map(view => rebuildOn(view, changes, ids))
-  const best = results.reduce((kept, result) => (result.unapplied.length < kept.unapplied.length ? result : kept))
-  const { payload } = best
-  if ((type === 'check' || type === 'check-group') && payload.doubleCheck === true && payload.retryStrategy === null) {
-    payload.retryStrategy = { ...SINGLE_RETRY_ELSEWHERE }
-  }
-  return best
 }
 
 /** The dotted path's ancestors and itself; a bracketed element key is one segment, dots and all. */
@@ -607,6 +756,11 @@ export interface DriftDiffInput {
    * value now, and `redactions` the type's rule table.
    */
   entry: DiffEntry
+  /**
+   * The resource as its last deploy left it, in the vocabulary of the
+   * deploy payload (see `deployedSide`).
+   */
+  deployed: unknown
   /** Physical ids by `idKey(type, logicalId)`, for the references the changes name by logical id. */
   ids: PhysicalIds
   /** See `ContextOptions.projectDefaults`. */
@@ -621,7 +775,7 @@ export interface DriftDiffInput {
 /**
  * The lines describing a resource's drift: the construct diff of the
  * deployed and the current state, the text diffs and notes of what the
- * construct cannot show, notes for changes the rebuild could not undo, and
+ * construct cannot show, notes for changes the deployed side cannot show, and
  * a note for each secret change whose mark could not be placed. Never
  * throws: a resource that cannot be rendered is listed change by change,
  * after the reason.
@@ -650,7 +804,7 @@ export function renderDriftDiff (input: DriftDiffInput): RenderedLine[] {
 }
 
 function renderShown (input: DriftDiffInput, shown: readonly DiffChange[], marked: Set<DiffChange>): RenderedLine[] {
-  const { entry, ids, projectDefaults, referencedNames, context, maxLines } = input
+  const { entry, deployed: then, ids, projectDefaults, referencedNames, context, maxLines } = input
   const changes = entry.changes ?? []
   const secrets = changes.filter(change => change.secret === true)
   if (shown.length === 0 && secrets.length === 0) {
@@ -670,12 +824,16 @@ function renderShown (input: DriftDiffInput, shown: readonly DiffChange[], marke
   if (!isPlainObject(entry.before)) {
     throw new UnshapeableError('the resource has no payload to render')
   }
+  if (!isPlainObject(then)) {
+    throw new UnshapeableError('the resource as deployed is not available')
+  }
   const { type, logicalId } = entry
   const current = structuredClone(entry.before)
   for (const key of UNRENDERED_KEYS) {
     delete current[key]
   }
-  const rebuilt = rebuildDeployed(type, current, changes, ids)
+  const rebuilt = deployedSide(type, then, current, changes, ids)
+  const hashed = new Set(rebuilt.hashed)
   const deployed: Resource = {
     type: type as ResourceType,
     logicalId,
@@ -702,7 +860,7 @@ function renderShown (input: DriftDiffInput, shown: readonly DiffChange[], marke
       relations,
       markFrom: change => change.before,
       label: '',
-      textAt: change => (isHash(change.before) ? undefined : valueAt(rebuilt.payload, change.path)),
+      textAt: change => (hashed.has(change) ? undefined : valueAt(rebuilt.payload, change.path)),
     },
     after: {
       resource: live,

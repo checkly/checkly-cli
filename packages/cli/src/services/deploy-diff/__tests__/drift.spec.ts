@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto'
 import { readdirSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -6,21 +5,26 @@ import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
 
 import type { DiffChange } from '../../../rest/projects.js'
-import { rebuildDeployed, spelledOutFromDifference } from '../drift.js'
+import { SINGLE_RETRY_ELSEWHERE } from '../../../constructs/internal/default-retry-strategy.js'
+import { deployedSide, spelledOutFromDifference } from '../drift.js'
 import { idKey, MASK } from '../import-shape.js'
 
 /**
  * The parts of a drift diff (`drift.ts`) that the rendered output does not
- * pin down on its own: how the deployed state is rebuilt from the current
- * one, and which construct properties are spelled out on both sides.
+ * pin down on its own: how the deployed side is built from the deployed
+ * value and the current one, and which construct properties are spelled
+ * out on both sides.
  */
 
 const remote = (change: Omit<DiffChange, 'origin'>): DiffChange => ({ origin: 'remote', ...change })
+
+const SAME = { $masked: 'same' }
 
 const ids = new Map<string, string | number>([
   [idKey('check-group', 'grp-a'), 41],
 ])
 
+/** An API check as Checkly has it now, in the import format. */
 function check (overrides: Record<string, unknown> = {}): Record<string, unknown> {
   return {
     id: 'chk-uuid',
@@ -37,62 +41,366 @@ function check (overrides: Record<string, unknown> = {}): Record<string, unknown
       basicAuth: { username: '', password: '' },
       assertions: [{ source: 'STATUS_CODE', comparison: 'EQUALS', target: '200', property: '' }],
     },
+    alertChannelSubscriptions: [{ id: 1, alertChannelId: 7, checkId: 'chk-uuid', activated: true }],
+    privateLocationAssignments: [],
     ...overrides,
   }
 }
 
-describe('rebuildDeployed', () => {
-  it('rebuilds an object removed in Checkly from its leaves, the parent change standing for the container', () => {
-    // A stored strategy cleared with the legacy flag set: the import format
-    // spells it as the flag's single retry, the stored row as null.
-    const live = check({ doubleCheck: true, retryStrategy: { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false } })
-    const { payload, unapplied } = rebuildDeployed('check', live, [
-      remote({ path: '/retryStrategy', after: null }),
-      remote({ path: '/retryStrategy/type', before: 'FIXED' }),
-      remote({ path: '/retryStrategy/maxRetries', before: 2 }),
-    ], ids)
-    expect(unapplied).toEqual([])
-    expect(payload.retryStrategy).toEqual({ type: 'FIXED', maxRetries: 2 })
+/** The same check as its last deploy left it, in the vocabulary of the deploy payload. */
+function deployedCheck (overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    checkType: 'API',
+    name: 'Orders API',
+    tags: ['api', 'web'],
+    groupId: null,
+    retryStrategy: null,
+    doubleCheck: false,
+    environmentVariables: [{ key: 'API_KEY', value: SAME, locked: true, secret: false }],
+    request: {
+      url: 'https://api.example.com',
+      followRedirects: true,
+      basicAuth: { username: '', password: SAME },
+      assertions: [{ source: 'STATUS_CODE', comparison: 'EQUALS', target: '200', property: '' }],
+    },
+    ...overrides,
+  }
+}
 
-    const nulled = rebuildDeployed('check', check({ retryStrategy: null }), [
-      remote({ path: '/retryStrategy', after: null }),
-      remote({ path: '/retryStrategy/type', before: 'FIXED' }),
-    ], ids)
-    expect(nulled.unapplied).toEqual([])
-    expect(nulled.payload.retryStrategy).toEqual({ type: 'FIXED' })
+const side = (live: Record<string, unknown>, deployed: Record<string, unknown>, changes: DiffChange[]) =>
+  deployedSide('check', deployed, live, changes, ids)
+
+describe('deployedSide', () => {
+  it('shows the current value wherever no change reaches, whatever the deployed value holds there', () => {
+    const live = check({ description: 'only on the current side', tags: ['web', 'api'] })
+    const deployed = deployedCheck({
+      name: 'Old',
+      tags: ['api', 'web'],
+      setupScriptDependencies: { $hash: 'h1' },
+      privateLocations: [{ $ref: 'office' }],
+      sourceFile: 'orders.check.ts',
+    })
+    const { payload, unapplied, hashed } = side(live, deployed, [remote({ path: '/name', before: 'Old', after: 'Orders API' })])
+    expect(unapplied).toEqual([])
+    expect(hashed).toEqual([])
+    expect(payload).toEqual({ ...live, name: 'Old' })
   })
 
-  it('applies a parent change whose deployed value is a leaf, which accounts for the leaves under it', () => {
-    const { payload, unapplied } = rebuildDeployed('check', check({ retryStrategy: { type: 'FIXED', maxRetries: 2 } }), [
+  it('restores an object removed since the deploy from the deployed value, each named leaf from its change', () => {
+    const live = check({ alertSettings: { escalationType: 'RUN_BASED' } })
+    const deployed = deployedCheck({
+      alertSettings: { escalationType: 'RUN_BASED', reminders: { amount: 2, interval: 10 } },
+    })
+    const { payload, unapplied } = side(live, deployed, [
+      remote({ path: '/alertSettings/reminders/amount', before: 3 }),
+    ])
+    expect(unapplied).toEqual([])
+    // A deployed leaf no change names stays as deployed; a named one takes the change's `before`.
+    expect(payload.alertSettings).toEqual({ escalationType: 'RUN_BASED', reminders: { amount: 3, interval: 10 } })
+  })
+
+  it('restores a list removed since the deploy, reported by the leaves of its elements', () => {
+    const live = check({ playwrightConfig: { use: { baseURL: 'https://example.com' } } })
+    const deployed = deployedCheck({
+      playwrightConfig: { use: { baseURL: 'https://example.com' }, projects: [{ name: 'chromium' }, { name: 'firefox' }] },
+    })
+    const { payload, unapplied } = side(live, deployed, [
+      remote({ path: '/playwrightConfig/projects/0/name', before: 'chromium' }),
+      remote({ path: '/playwrightConfig/projects/1/name', before: 'firefox' }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.playwrightConfig).toEqual({
+      use: { baseURL: 'https://example.com' },
+      projects: [{ name: 'chromium' }, { name: 'firefox' }],
+    })
+  })
+
+  it('takes a list reported at its own path from the change, an unchanged hashed field matched by key', () => {
+    const long = 'x'.repeat(300)
+    const live = check()
+    ;(live.request as Record<string, unknown>).headers = [
+      { key: 'X-New', value: '1', locked: false },
+      { key: 'X-Long', value: long, locked: false },
+      { key: 'X-Trace', value: 'off', locked: false },
+    ]
+    const change = remote({
+      path: '/request/headers',
+      before: [{ key: 'X-Long', value: { $hash: 'h1' }, locked: false }, { key: 'X-Trace', value: 'on', locked: false }],
+      after: [
+        { key: 'X-New', value: '1', locked: false },
+        { key: 'X-Long', value: { $hash: 'h1' }, locked: false },
+        { key: 'X-Trace', value: 'off', locked: false },
+      ],
+    })
+    const { payload, hashed } = side(live, deployedCheck(), [change])
+    expect(hashed).toEqual([])
+    expect((payload.request as Record<string, unknown>).headers).toEqual([
+      { key: 'X-Long', value: long, locked: false },
+      { key: 'X-Trace', value: 'on', locked: false },
+    ])
+
+    // A hashed field whose element now holds another value changed: its deployed text is unknown.
+    const moved = remote({ ...change, after: [{ key: 'X-Long', value: { $hash: 'h2' }, locked: false }] })
+    const unknown = side(live, deployedCheck(), [moved])
+    expect(unknown.hashed).toEqual([moved])
+    const headersOf = (payload: Record<string, unknown>) => (payload.request as Record<string, unknown>).headers
+    expect(headersOf(unknown.payload)).toEqual(headersOf(live))
+  })
+
+  it('takes a set\'s deployed elements, those still there in the current order, the rest after', () => {
+    const live = check({ tags: ['web', 'new', 'api'] })
+    const { payload, unapplied } = side(live, deployedCheck({ tags: ['old', 'api', 'web'] }), [
+      remote({ path: '/tags/a1b2c3', after: 'new' }),
+      remote({ path: '/tags/d4e5f6', before: 'old' }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.tags).toEqual(['web', 'api', 'old'])
+  })
+
+  it('takes an element digest made of digits alone as a set element, not a list index', () => {
+    const live = check({ tags: ['web', 'new'] })
+    const { payload, unapplied } = side(live, deployedCheck({ tags: ['api', 'web'] }), [
+      remote({ path: '/tags/583920', before: 'api' }),
+      remote({ path: '/tags/104857', after: 'new' }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.tags).toEqual(['web', 'api'])
+
+    // A digit-only digest under a set emptied since the deploy.
+    const emptied = side(check({ tags: [] }), deployedCheck({ tags: ['api'] }), [
+      remote({ path: '/tags', after: [] }),
+      remote({ path: '/tags/583920', before: 'api' }),
+    ])
+    expect(emptied.payload.tags).toEqual(['api'])
+  })
+
+  it('never reorders a list, so a reordered list shows as a change', () => {
+    const live = check({ browsers: ['firefox', 'chromium'] })
+    const { payload } = side(live, deployedCheck({ browsers: ['chromium', 'firefox'] }), [
+      remote({ path: '/browsers', before: ['chromium', 'firefox'], after: ['firefox', 'chromium'] }),
+    ])
+    expect(payload.browsers).toEqual(['chromium', 'firefox'])
+  })
+
+  it('keeps the current value for a value reported only by its hash', () => {
+    const live = check({ script: 'now' })
+    const scalar = remote({ path: '/script', before: { $hash: 'a' }, after: { $hash: 'b' } })
+    const cause = remote({ path: '/codeBundle', cause: 'code bundle' })
+    const { payload, hashed, unapplied } = side(live, deployedCheck({ script: { $hash: 'a' } }), [scalar, cause])
+    expect(payload.script).toBe('now')
+    expect(hashed).toEqual([scalar])
+    expect(unapplied).toEqual([])
+  })
+
+  it('keeps the current value where a reference cannot be resolved, and shows the rest', () => {
+    const unknown = remote({ path: '/groupId', before: { $ref: 'grp-unknown' }, after: null })
+    const misplaced = remote({ path: '/name', before: { $id: 'x' }, after: 'Orders API' })
+    const muted = remote({ path: '/muted', before: true, after: false })
+    const { payload, unapplied } = side(check({ muted: false }), deployedCheck(), [unknown, misplaced, muted])
+    expect(unapplied).toEqual([unknown, misplaced])
+    expect(payload.groupId).toBeNull()
+    expect(payload.name).toBe('Orders API')
+    expect(payload.muted).toBe(true)
+  })
+
+  it('resolves a reference by logical id, and places one by physical id as the import format holds it', () => {
+    const { payload } = side(check({ groupId: 42 }), deployedCheck({ groupId: { ref: 'grp-a' } }), [
+      remote({ path: '/groupId', before: { $ref: 'grp-a' }, after: { $id: '42' } }),
+    ])
+    expect(payload.groupId).toBe(41)
+    const component = deployedSide('status-page-component', { parentId: { $id: 'p-then' } }, { id: 'c', parentId: 'p-now' }, [
+      remote({ path: '/parentId', before: { $id: 'p-then' }, after: { $id: 'p-now' } }),
+    ], ids)
+    expect(component.payload.parentId).toBe('p-then')
+  })
+
+  it('notes a change under a key the deployed side never renders', () => {
+    const location = remote({ path: '/privateLocations/f6a7b8', before: { $ref: 'office' } })
+    const subscription = remote({ path: '/alertChannelSubscriptions/0/activated', before: false, after: true })
+    const live = check()
+    const { payload, unapplied } = side(live, deployedCheck({ privateLocations: [{ $ref: 'office' }] }), [location, subscription])
+    expect(unapplied).toEqual([location, subscription])
+    expect(payload).toEqual(live)
+  })
+
+  it('takes a deployed intent whole where a change reaches it, in either vocabulary', () => {
+    const live = check({
+      intent: {
+        goal: 'Orders load quickly',
+        constraints: [
+          { type: 'REQUIRED_OUTCOME', statement: 'Lists every order' },
+          { type: 'MUST_PRESERVE', statement: 'Read only' },
+        ],
+      },
+    })
+    const intent = { goal: 'Orders load', requiredOutcomes: ['Lists an order'], mustPreserve: ['Read only'] }
+    const { payload, unapplied } = side(live, deployedCheck({ intent }), [
+      remote({ path: '/intent/goal', before: 'Orders load', after: 'Orders load quickly' }),
+      remote({ path: '/intent/requiredOutcomes', before: ['Lists an order'], after: ['Lists every order'] }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.intent).toEqual(intent)
+  })
+
+  it('takes a long unchanged value of a deployed intent from the current one, and overlays each change', () => {
+    const goal = `Orders load ${'quickly '.repeat(40)}`
+    const live = check({
+      intent: { goal, constraints: [{ type: 'REQUIRED_OUTCOME', statement: 'Lists every order' }] },
+    })
+    const deployed = deployedCheck({
+      intent: { goal: { $hash: 'h1' }, requiredOutcomes: ['Lists a stale order'], mustPreserve: [] },
+    })
+    const { payload, hashed, unapplied } = side(live, deployed, [
+      remote({ path: '/intent/requiredOutcomes', before: ['Lists an order'], after: ['Lists every order'] }),
+    ])
+    expect(hashed).toEqual([])
+    expect(unapplied).toEqual([])
+    expect(payload.intent).toEqual({ goal, requiredOutcomes: ['Lists an order'], mustPreserve: [] })
+  })
+
+  it('keeps a deployed intent value reported only by its hash out, where a change reaches it', () => {
+    const live = check({ intent: { goal: 'now', constraints: [] } })
+    const change = remote({ path: '/intent/goal', before: { $hash: 'h1' }, after: 'now' })
+    const { payload, hashed } = side(live, deployedCheck({ intent: { goal: { $hash: 'h1' }, requiredOutcomes: [] } }), [change])
+    expect(hashed).toEqual([change])
+    expect(payload.intent).toEqual(live.intent)
+  })
+
+  it.each([
+    { from: false, to: true, expected: null },
+    { from: true, to: false, expected: SINGLE_RETRY_ELSEWHERE },
+  ])('takes the deployed strategy when the legacy retry flag alone moved from $from to $to', ({ from, to, expected }) => {
+    // The import format spells a null strategy beside the flag as its single retry.
+    const live = check({ doubleCheck: to, retryStrategy: to ? { ...SINGLE_RETRY_ELSEWHERE } : null })
+    const { payload, unapplied } = side(live, deployedCheck({ doubleCheck: from, retryStrategy: null }), [
+      remote({ path: '/doubleCheck', before: from, after: to }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.doubleCheck).toBe(from)
+    expect(payload.retryStrategy).toEqual(expected)
+  })
+
+  it('masks every masked position of a list, a variable locked since the deploy included', () => {
+    const live = check({
+      environmentVariables: [
+        { key: 'API_KEY', value: MASK, locked: true, secret: false },
+        { key: 'LATER', value: MASK, locked: true, secret: false },
+      ],
+    })
+    // The deployed value holds the variable's text, unlocked at the time; the change masks it.
+    const deployed = deployedCheck({
+      environmentVariables: [
+        { key: 'API_KEY', value: SAME, locked: true, secret: false },
+        { key: 'LATER', value: 'plain-at-deploy', locked: false, secret: false },
+      ],
+    })
+    const { payload } = side(live, deployed, [remote({
+      path: '/environmentVariables',
+      secret: true,
+      before: [{ key: 'API_KEY', value: SAME, locked: true, secret: false }, { key: 'LATER', value: { $masked: 'changed' }, locked: false, secret: false }],
+      after: [{ key: 'API_KEY', value: SAME, locked: true, secret: false }, { key: 'LATER', value: { $masked: 'changed' }, locked: true, secret: false }],
+    })])
+    expect(payload.environmentVariables).toEqual([
+      { key: 'API_KEY', value: MASK, locked: true, secret: false },
+      { key: 'LATER', value: MASK, locked: false, secret: false },
+    ])
+  })
+
+  it('masks a locked header list as the change reports it', () => {
+    const live = check()
+    ;(live.request as Record<string, unknown>).headers = [
+      { key: 'X-Key', value: '', locked: true },
+      { key: 'X-Added', value: '', locked: true },
+    ]
+    const { payload } = side(live, deployedCheck(), [remote({
+      path: '/request/headers',
+      secret: true,
+      before: [{ key: 'X-Key', value: SAME, locked: true }],
+      after: [{ key: 'X-Key', value: SAME, locked: true }, { key: 'X-Added', value: SAME, locked: true }],
+    })])
+    expect((payload.request as Record<string, unknown>).headers).toEqual([{ key: 'X-Key', value: MASK, locked: true }])
+  })
+
+  it('spells a deployed null strategy beside the legacy retry flag as the flag\'s single retry', () => {
+    const live = check({ doubleCheck: false, retryStrategy: { type: 'FIXED', maxRetries: 2 } })
+    const { payload } = side(live, deployedCheck({ doubleCheck: true, retryStrategy: null }), [
+      remote({ path: '/doubleCheck', before: true, after: false }),
       remote({ path: '/retryStrategy', before: null }),
       remote({ path: '/retryStrategy/type', after: 'FIXED' }),
       remote({ path: '/retryStrategy/maxRetries', after: 2 }),
-    ], ids)
-    expect(unapplied).toEqual([])
-    expect(payload.retryStrategy).toBeNull()
+    ])
+    expect(payload.doubleCheck).toBe(true)
+    expect(payload.retryStrategy).toEqual(SINGLE_RETRY_ELSEWHERE)
   })
 
-  it('rebuilds a strategy stored as the flag\'s single retry in full, rather than in part on the stored view', () => {
-    const single = { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false }
-    const { payload, unapplied } = rebuildDeployed('check', check({ doubleCheck: true, retryStrategy: single }), [
-      remote({ path: '/retryStrategy/type', before: 'FIXED', after: 'SINGLE_RETRY' }),
-      remote({ path: '/retryStrategy/maxRetries', before: 2 }),
-      remote({ path: '/retryStrategy/baseBackoffSeconds', before: 60, after: 0 }),
-    ], ids)
-    expect(unapplied).toEqual([])
-    expect(payload.retryStrategy).toEqual({ type: 'FIXED', baseBackoffSeconds: 60, sameRegion: false, maxRetries: 2 })
-  })
-
-  it('creates no parent when a change under it cannot be applied, rather than writing part of it', () => {
-    const odd = remote({ path: '/retryStrategy/type', before: 'FIXED', after: 'LINEAR' })
-    const leaf = remote({ path: '/retryStrategy/maxRetries', before: 2 })
-    const { payload, unapplied } = rebuildDeployed('check', check({ retryStrategy: null }), [
+  it('restores a retry strategy removed in Checkly from the deployed value, the container change first', () => {
+    // Stored as null beside the legacy flag, which the import format spells as its single retry.
+    const live = check({ doubleCheck: true, retryStrategy: { ...SINGLE_RETRY_ELSEWHERE } })
+    const strategy = { type: 'FIXED', baseBackoffSeconds: 60, maxRetries: 2, maxDurationSeconds: 600, sameRegion: true }
+    const { payload, unapplied } = side(live, deployedCheck({ retryStrategy: strategy }), [
+      remote({ path: '/doubleCheck', before: false, after: true }),
       remote({ path: '/retryStrategy', after: null }),
-      odd,
-      leaf,
+      remote({ path: '/retryStrategy/type', before: 'FIXED' }),
+      remote({ path: '/retryStrategy/baseBackoffSeconds', before: 60 }),
+      remote({ path: '/retryStrategy/maxRetries', before: 2 }),
+      remote({ path: '/retryStrategy/maxDurationSeconds', before: 600 }),
+      remote({ path: '/retryStrategy/sameRegion', before: true }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.doubleCheck).toBe(false)
+    expect(payload.retryStrategy).toEqual(strategy)
+  })
+
+  it('restores credentials set to null in Checkly, the password masked', () => {
+    const live = check()
+    ;(live.request as Record<string, unknown>).basicAuth = null
+    const deployed = deployedCheck()
+    ;(deployed.request as Record<string, unknown>).basicAuth = { username: 'svc', password: SAME }
+    const { payload, unapplied } = side(live, deployed, [
+      remote({ path: '/request/basicAuth', after: null }),
+      remote({ path: '/request/basicAuth/username', before: 'svc' }),
+      remote({ path: '/request/basicAuth/password', before: SAME, secret: true }),
+    ])
+    expect(unapplied).toEqual([])
+    expect((payload.request as Record<string, unknown>).basicAuth).toEqual({ username: 'svc', password: MASK })
+  })
+
+  it.each([[[]], [null]])('restores a set emptied to %j in Checkly from the deployed elements', emptied => {
+    const { payload, unapplied } = side(check({ tags: emptied }), deployedCheck({ tags: ['api', 'web'] }), [
+      remote({ path: '/tags', after: emptied }),
+      remote({ path: '/tags/a1b2c3', before: 'api' }),
+      remote({ path: '/tags/d4e5f6', before: 'web' }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.tags).toEqual(['api', 'web'])
+  })
+
+  it('restores a set emptied to null in Checkly, its element named by a digest of digits alone', () => {
+    const { payload, unapplied } = side(check({ tags: null }), deployedCheck({ tags: ['api'] }), [
+      remote({ path: '/tags', after: null }),
+      remote({ path: '/tags/583920', before: 'api' }),
+    ])
+    expect(unapplied).toEqual([])
+    expect(payload.tags).toEqual(['api'])
+  })
+
+  it('leaves out a list the deploy did not leave, whose elements were added since', () => {
+    const { payload, unapplied } = side(
+      check({ playwrightConfig: { use: { baseURL: 'u' }, projects: [{ name: 'chromium' }] } }),
+      deployedCheck({ playwrightConfig: { use: { baseURL: 'u' } } }),
+      [remote({ path: '/playwrightConfig/projects/0/name', after: 'chromium' })],
+    )
+    expect(unapplied).toEqual([])
+    expect(payload.playwrightConfig).toEqual({ use: { baseURL: 'u' } })
+  })
+
+  it('keeps the current strategy when the legacy flag moved and the deployed resource has no strategy', () => {
+    const live = { id: 41, name: 'Backend', doubleCheck: true, retryStrategy: { ...SINGLE_RETRY_ELSEWHERE } }
+    const { payload } = deployedSide('check-group', { name: 'Backend', doubleCheck: false }, live, [
+      remote({ path: '/doubleCheck', before: false, after: true }),
     ], ids)
-    expect(unapplied).toEqual([odd, leaf])
-    expect(payload.retryStrategy).toBeNull()
+    expect(payload.doubleCheck).toBe(false)
+    expect(payload.retryStrategy).toEqual(SINGLE_RETRY_ELSEWHERE)
   })
 
   it('refuses a path or value that names a prototype, leaving Object.prototype alone', () => {
@@ -101,220 +409,32 @@ describe('rebuildDeployed', () => {
       remote({ path: '/constructor/prototype/polluted', before: 'yes' }),
       remote({ path: '/request/__proto__', before: { polluted: 'yes' }, after: {} }),
       remote({ path: '/name', before: JSON.parse('{"__proto__": {"polluted": "yes"}}'), after: 'Orders API' }),
-      remote({ path: '/tags/__proto__', before: 'yes' }),
     ]
-    const { payload, unapplied } = rebuildDeployed('check', check(), changes, ids)
+    const deployed = { ...deployedCheck(), ...JSON.parse('{"__proto__": {"polluted": "yes"}}') }
+    const { payload, unapplied } = side(check(), deployed, changes)
     expect(new Set(unapplied)).toEqual(new Set(changes))
     expect(({} as Record<string, unknown>).polluted).toBeUndefined()
     expect(Object.prototype).not.toHaveProperty('polluted')
     expect(payload.name).toBe('Orders API')
   })
 
-  it('applies an element of a set of scalars by value, and leaves one it cannot find unapplied', () => {
-    const missing = remote({ path: '/tags/c3', after: 'not-there' })
-    const { payload, unapplied } = rebuildDeployed('check', check(), [
-      remote({ path: '/tags/a1', after: 'web' }),
-      remote({ path: '/tags/b2', before: 'mobile' }),
-      missing,
-    ], ids)
-    expect(payload.tags).toEqual(['api', 'mobile'])
-    expect(unapplied).toEqual([missing])
+  it('notes a change under a value that holds no properties', () => {
+    const change = remote({ path: '/name/first', before: 'Old' })
+    const { payload, unapplied } = side(check(), deployedCheck(), [change])
+    expect(unapplied).toEqual([change])
+    expect(payload.name).toBe('Orders API')
   })
 
-  it('leaves a change in a set of objects, or under one of its elements, unapplied', () => {
+  it('leaves both inputs as they were', () => {
     const live = check()
-    const element = remote({ path: '/request/assertions/d4', before: { source: 'TEXT_BODY' } })
-    const under = remote({ path: '/request/assertions/d4/target', before: '201', after: '200' })
-    const { payload, unapplied } = rebuildDeployed('check', live, [element, under], ids)
-    expect(unapplied).toEqual([element, under])
-    expect(payload.request).toEqual(live.request)
-  })
-
-  it('decides what it cannot apply against the current payload, before writing anything', () => {
-    const live = check({ components: [{ componentId: 'component-uuid' }] })
-    const whole = remote({ path: '/components', before: ['a'], after: [{ componentId: 'component-uuid' }] })
-    const element = remote({ path: '/components/e5', before: 'b' })
-    const { payload, unapplied } = rebuildDeployed('check', live, [element, whole], ids)
-    expect(payload.components).toEqual(['a'])
-    expect(unapplied).toEqual([element])
-  })
-
-  it('leaves a change to the deploy-only private location list unapplied', () => {
-    const change = remote({ path: '/privateLocations/f6', before: { $ref: 'office' } })
-    expect(rebuildDeployed('check', check(), [change], ids).unapplied).toEqual([change])
-  })
-
-  it('places a reference by physical id as the import format holds it', () => {
-    const { payload } = rebuildDeployed('check', check({ groupId: 42 }), [
-      remote({ path: '/groupId', before: { $id: '41' }, after: { $id: '42' } }),
-    ], ids)
-    expect(payload.groupId).toBe(41)
-    const component = rebuildDeployed('status-page-component', { id: 'c', parentId: 'p-now' }, [
-      remote({ path: '/parentId', before: { $id: 'p-then' }, after: { $id: 'p-now' } }),
-    ], ids)
-    expect(component.payload.parentId).toBe('p-then')
-  })
-
-  it('resolves a reference by logical id, and leaves an unknown one unapplied', () => {
-    const unknown = remote({ path: '/groupId', before: { $ref: 'grp-unknown' }, after: null })
-    const known = rebuildDeployed('check', check(), [
+    const deployed = deployedCheck({ tags: ['api'], groupId: { ref: 'grp-a' } })
+    const before = JSON.stringify([live, deployed])
+    side(live, deployed, [
+      remote({ path: '/tags/a1b2c3', after: 'web' }),
       remote({ path: '/groupId', before: { $ref: 'grp-a' }, after: null }),
-    ], ids)
-    expect(known.payload.groupId).toBe(41)
-    const failed = rebuildDeployed('check', check(), [unknown], ids)
-    expect(failed.unapplied).toEqual([unknown])
-    expect(failed.payload.groupId).toBeNull()
-  })
-
-  it('creates a null parent only under a reported container', () => {
-    const { payload, unapplied } = rebuildDeployed('check', check({ retryStrategy: null }), [
-      remote({ path: '/retryStrategy', after: null }),
-      remote({ path: '/retryStrategy/type', before: 'FIXED' }),
-      remote({ path: '/retryStrategy/maxRetries', before: 2 }),
-    ], ids)
-    expect(unapplied).toEqual([])
-    expect(payload.retryStrategy).toEqual({ type: 'FIXED', maxRetries: 2 })
-
-    const leaves = [
-      remote({ path: '/retryStrategy/type', before: 'FIXED' }),
-      remote({ path: '/retryStrategy/maxRetries', before: 2 }),
-    ]
-    const bare = rebuildDeployed('check', check({ retryStrategy: null }), leaves, ids)
-    expect(bare.unapplied).toEqual(leaves)
-    expect(bare.payload.retryStrategy).toBeNull()
-  })
-
-  it('rebuilds an object removed since the deploy from its leaves, under an object the payload holds', () => {
-    const live = check({ alertSettings: { escalationType: 'RUN_BASED' } })
-    const { payload, unapplied } = rebuildDeployed('check', live, [
-      remote({ path: '/alertSettings/reminders/amount', before: 2 }),
-      remote({ path: '/alertSettings/reminders/interval', before: 10 }),
-      remote({ path: '/alertSettings/runBasedEscalation/failedRunThreshold', before: 1 }),
-      remote({ path: '/alertSettings/parallelRunFailureThreshold/enabled', before: true }),
-      remote({ path: '/alertSettings/parallelRunFailureThreshold/percentage', before: 25 }),
-    ], ids)
-    expect(unapplied).toEqual([])
-    expect(payload.alertSettings).toEqual({
-      escalationType: 'RUN_BASED',
-      reminders: { amount: 2, interval: 10 },
-      runBasedEscalation: { failedRunThreshold: 1 },
-      parallelRunFailureThreshold: { enabled: true, percentage: 25 },
-    })
-  })
-
-  it('creates no absent object for a set element or a value it cannot decode, nor rebuilds one in part', () => {
-    const key = (value: unknown) => createHash('sha256').update(JSON.stringify(value)).digest('base64url').slice(0, 6)
-    const live = check()
-    delete live.tags
-    const tag = remote({ path: `/tags/${key('prod')}`, before: 'prod' })
-    const skill = remote({ path: `/agentRuntime/skills/${key('search')}`, before: 'search' })
-    const beside = remote({ path: '/agentRuntime/model', before: 'small' })
-    const sets = rebuildDeployed('check', live, [tag, skill, beside], ids)
-    expect(sets.unapplied).toEqual([tag, beside, skill])
-    expect(sets.payload).not.toHaveProperty('tags')
-    expect(sets.payload).not.toHaveProperty('agentRuntime')
-
-    const reference = remote({ path: `/subscriptions/${key({ $ref: 'grp-a' })}`, before: { $ref: 'grp-a' } })
-    const opaque = remote({ path: '/playwrightConfig/expect/toHaveScreenshot', before: { $json: '{"maxDiffPixels":10}' } })
-    const others = rebuildDeployed('check', check({ playwrightConfig: {} }), [reference, opaque], ids)
-    expect(others.unapplied).toEqual([reference, opaque])
-    expect(others.payload).not.toHaveProperty('subscriptions')
-    expect(others.payload.playwrightConfig).toEqual({})
-
-    const listed = [
-      remote({ path: '/playwrightConfig/projects/0/name', before: 'chromium' }),
-      remote({ path: '/playwrightConfig/use/args/0', before: '--headless' }),
-    ]
-    const lists = rebuildDeployed('check', check({ playwrightConfig: { use: { baseURL: 'https://example.com' } } }), listed, ids)
-    expect(lists.unapplied).toEqual(listed)
-    expect(lists.payload.playwrightConfig).toEqual({ use: { baseURL: 'https://example.com' } })
-
-    const unknown = remote({ path: '/alertSettings/reminders/group', before: { $ref: 'grp-unknown' } })
-    const sibling = remote({ path: '/alertSettings/reminders/amount', before: 2 })
-    const undecodable = rebuildDeployed('check', check({ alertSettings: {} }), [unknown, sibling], ids)
-    expect(undecodable.unapplied).toEqual([unknown, sibling])
-    expect(undecodable.payload.alertSettings).toEqual({})
-
-    const kept = remote({ path: '/alertSettings/reminders/amount', before: 2, after: 3 })
-    const removed = remote({ path: '/alertSettings/reminders/interval', before: 10 })
-    const element = remote({ path: '/alertSettings/reminders/list', before: ['a'] })
-    const partial = rebuildDeployed('check', check({ alertSettings: {} }), [kept, removed, element], ids)
-    expect(partial.unapplied).toEqual([kept, removed, element])
-    expect(partial.payload.alertSettings).toEqual({})
-  })
-
-  it('never turns a set element\'s digest under a null list into a property', () => {
-    const tag = remote({ path: '/tags/9a8b', before: 'prod' })
-    const header = remote({ path: '/request/headers/7c6d', before: { key: 'X-Trace', value: '1', locked: false } })
-    const live = check({ tags: null })
-    ;(live.request as Record<string, unknown>).headers = null
-    const { payload, unapplied } = rebuildDeployed('check', live, [header, tag], ids)
-    expect(unapplied).toEqual([tag, header])
-    expect(payload.tags).toBeNull()
-    expect((payload.request as Record<string, unknown>).headers).toBeNull()
-  })
-
-  it('leaves a path the current payload does not hold unapplied, rather than inventing it', () => {
-    const nested = remote({ path: '/request/notInTheImportFormat/value', before: 1, after: 2 })
-    const leaf = remote({ path: '/notInTheImportFormat', before: 1, after: 2 })
-    const { payload, unapplied } = rebuildDeployed('check', check(), [nested, leaf], ids)
-    expect(unapplied).toEqual([leaf, nested])
-    expect(payload).not.toHaveProperty('notInTheImportFormat')
-  })
-
-  it('restores a property removed since the deploy, and removes one added since', () => {
-    const live = check({ description: 'added in Checkly' })
-    delete (live.request as Record<string, unknown>).followRedirects
-    const { payload, unapplied } = rebuildDeployed('check', live, [
-      remote({ path: '/description', after: 'added in Checkly' }),
-      remote({ path: '/request/followRedirects', before: false }),
-    ], ids)
-    expect(unapplied).toEqual([])
-    expect(payload).not.toHaveProperty('description')
-    expect((payload.request as Record<string, unknown>).followRedirects).toBe(false)
-  })
-
-  it('writes the mask for every masked position, never null', () => {
-    const { payload } = rebuildDeployed('check', check(), [remote({
-      path: '/environmentVariables',
-      secret: true,
-      before: [{ key: 'API_KEY', value: { $masked: 'same' }, locked: true, secret: false }, { key: 'OLD', value: { $masked: 'changed' }, locked: true, secret: false }],
-      after: [{ key: 'API_KEY', value: { $masked: 'same' }, locked: true, secret: false }],
-    })], ids)
-    expect(payload.environmentVariables).toEqual([
-      { key: 'API_KEY', value: MASK, locked: true, secret: false },
-      { key: 'OLD', value: MASK, locked: true, secret: false },
-    ])
-  })
-
-  it('keeps the current value for a hashed one, and leaves a hash inside a compound value unapplied', () => {
-    const live = check({ script: 'now' })
-    const scalar = remote({ path: '/script', before: { $hash: 'a' }, after: { $hash: 'b' } })
-    const compound = remote({ path: '/request/basicAuth', before: { username: { $hash: 'c' }, password: '' }, after: { username: '', password: '' } })
-    const cause = remote({ path: '/codeBundle', cause: 'code bundle' })
-    const { payload, hashed, unapplied } = rebuildDeployed('check', live, [scalar, compound, cause], ids)
-    expect(payload.script).toBe('now')
-    expect((payload.request as Record<string, unknown>).basicAuth).toEqual({ username: '', password: '' })
-    expect(hashed).toEqual([scalar])
-    expect(unapplied).toEqual([compound])
-  })
-
-  it('spells a strategy the legacy retry flag implies as the import format does', () => {
-    const single = { type: 'SINGLE_RETRY', baseBackoffSeconds: 0, sameRegion: false }
-    const { payload } = rebuildDeployed('check', check({ doubleCheck: true, retryStrategy: single }), [
-      remote({ path: '/name', before: 'Old', after: 'Orders API' }),
-    ], ids)
-    expect(payload.retryStrategy).toEqual(single)
-  })
-
-  it('leaves the current payload as it was', () => {
-    const live = check()
-    const snapshot = JSON.stringify(live)
-    rebuildDeployed('check', live, [
-      remote({ path: '/tags/a1', after: 'web' }),
       remote({ path: '/request/basicAuth/username', before: 'deployer', after: '' }),
-    ], ids)
-    expect(JSON.stringify(live)).toBe(snapshot)
+    ])
+    expect(JSON.stringify([live, deployed])).toBe(before)
   })
 })
 

@@ -75,6 +75,7 @@ describe('the checkly/codegen entry', () => {
           request: { url: 'https://www.example.com' },
         },
       },
+      deployed: { checkType: 'URL', name: 'Old homepage', frequency: 10, request: { url: 'https://www.example.com' } },
       changes: [{ path: '/name', before: 'Old homepage', after: 'Homepage' }],
       redactions: [],
     })

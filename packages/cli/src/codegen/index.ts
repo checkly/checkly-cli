@@ -11,7 +11,8 @@
  *
  * `generateConstructDiff` renders a resource's drift (what changed in
  * Checkly since its last deploy) as a diff of the same generated code, from
- * the resource as it is now and the changes a deploy plan reports.
+ * the resource as it is now, the resource as its last deploy left it (in
+ * the deploy payload's vocabulary) and the changes a deploy plan reports.
  *
  * @experimental Intended for Checkly's own services. Its API is not covered
  * by semver guarantees until stated otherwise, and may change in any
