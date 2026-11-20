@@ -12,6 +12,7 @@ const SKILL_FILENAME = 'SKILL.md'
 
 export const PLATFORM_TARGETS: Record<string, string> = {
   'amp': '.agents/skills/checkly',
+  'antigravity': '.agents/skills/checkly',
   'claude': '.claude/skills/checkly',
   'cline': '.agents/skills/checkly',
   'codex': '.agents/skills/checkly',
