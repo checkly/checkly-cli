@@ -20,6 +20,7 @@ export const PLATFORM_TARGETS: Record<string, string> = {
   'gemini-cli': '.agents/skills/checkly',
   'github-copilot': '.agents/skills/checkly',
   'goose': '.goose/skills/checkly',
+  'kiro': '.kiro/skills/checkly',
   'opencode': '.agents/skills/checkly',
   'roo': '.roo/skills/checkly',
   'windsurf': '.windsurf/skills/checkly',

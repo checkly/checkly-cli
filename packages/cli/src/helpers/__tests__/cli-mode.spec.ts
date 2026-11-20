@@ -384,6 +384,8 @@ describe('platformForOperator', () => {
   it('maps known operators directly', () => {
     expect(platformForOperator('claude-code')).toBe('claude')
     expect(platformForOperator('codex-cli')).toBe('codex')
+    expect(platformForOperator('kiro-agent')).toBe('kiro')
+    expect(platformForOperator('kiro')).toBe('kiro')
   })
 
   it('maps versioned wrapper operators by their known prefix', () => {

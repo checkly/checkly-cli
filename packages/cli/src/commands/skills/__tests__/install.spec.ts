@@ -126,6 +126,19 @@ describe('skills install', () => {
       )
     })
 
+    it('installs to kiro target', async () => {
+      const cmd = createCommand('--target', 'kiro', '--force')
+
+      await cmd.run()
+
+      const expectedDir = join(process.cwd(), '.kiro/skills/checkly')
+      expect(writeFile).toHaveBeenCalledWith(
+        join(expectedDir, 'SKILL.md'),
+        SKILL_CONTENT,
+        'utf8',
+      )
+    })
+
     it('installs to continue target', async () => {
       const cmd = createCommand('--target', 'continue', '--force')
 

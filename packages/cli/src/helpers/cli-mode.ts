@@ -142,6 +142,8 @@ export const OPERATOR_TO_PLATFORM: Record<string, string> = {
   'claude-cowork': 'claude',
   'amp': 'amp',
   'goose': 'goose',
+  'kiro-agent': 'kiro',
+  'kiro': 'kiro',
 }
 
 // Explicit agent markers may carry a suffix: Claude Code sets
