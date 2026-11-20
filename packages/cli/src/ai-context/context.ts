@@ -96,6 +96,10 @@ export const MANAGE_REFERENCES = [
     id: 'manage-account-members',
     description: 'List account members and pending invites (`members`), update member roles, and delete members',
   },
+  {
+    id: 'manage-spending-limit',
+    description: 'Show, set, and remove the overage spending limit (`account spending-limit`)',
+  },
 ] as const
 
 export const SKILL = {
@@ -125,7 +129,7 @@ export const ACTIONS = [
   },
   {
     id: 'manage',
-    description: 'Understand your account plan, entitlements, feature limits, members, and pending invites.',
+    description: 'Understand your account plan, entitlements, feature limits, members, pending invites, and spending limit.',
     references: MANAGE_REFERENCES,
   },
 ] as const

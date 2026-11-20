@@ -32,6 +32,7 @@ import AlertNotifications from './alert-notifications.js'
 import Rca from './rca.js'
 import Cancel from './cancel.js'
 import Usage from './usage.js'
+import SpendingLimits from './spending-limit.js'
 import { ForbiddenError, handleErrorResponse, NotFoundError, UnauthorizedError } from './errors.js'
 import { createRetryInterceptor } from './retry.js'
 import { detectCliMode, detectOperator } from '../helpers/cli-mode.js'
@@ -199,3 +200,4 @@ export const alertNotifications = new AlertNotifications(getApi)
 export const rca = new Rca(getApi)
 export const cancel = new Cancel(getApi)
 export const usage = new Usage(getApi)
+export const spendingLimit = new SpendingLimits(getApi)
