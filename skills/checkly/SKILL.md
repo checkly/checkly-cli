@@ -160,4 +160,4 @@ Access check and test-session status, analyze failures, inspect attempts/assets,
 Open incidents and lead customer communications via status pages.
 
 ### `npx checkly skills manage`
-Understand your account plan, entitlements, feature limits, members, and pending invites.
+Understand your account plan, entitlements, feature limits, members, pending invites, and spending cap.
