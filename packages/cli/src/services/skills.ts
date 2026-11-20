@@ -23,6 +23,7 @@ export const PLATFORM_TARGETS: Record<string, string> = {
   'github-copilot': '.agents/skills/checkly',
   'goose': '.goose/skills/checkly',
   'kiro': '.kiro/skills/checkly',
+  'mistral-vibe': '.agents/skills/checkly',
   'opencode': '.agents/skills/checkly',
   'roo': '.roo/skills/checkly',
   'windsurf': '.windsurf/skills/checkly',
