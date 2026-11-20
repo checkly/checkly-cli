@@ -18,6 +18,7 @@ export const PLATFORM_TARGETS: Record<string, string> = {
   'codex': '.agents/skills/checkly',
   'continue': '.continue/skills/checkly',
   'cursor': '.cursor/skills/checkly',
+  'devin': '.agents/skills/checkly',
   'gemini-cli': '.agents/skills/checkly',
   'github-copilot': '.agents/skills/checkly',
   'goose': '.goose/skills/checkly',

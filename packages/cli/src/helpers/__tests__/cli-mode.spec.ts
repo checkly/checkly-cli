@@ -386,6 +386,7 @@ describe('platformForOperator', () => {
     expect(platformForOperator('codex-cli')).toBe('codex')
     expect(platformForOperator('kiro-agent')).toBe('kiro')
     expect(platformForOperator('kiro')).toBe('kiro')
+    expect(platformForOperator('devin')).toBe('devin')
     expect(platformForOperator('antigravity')).toBe('antigravity')
   })
 
