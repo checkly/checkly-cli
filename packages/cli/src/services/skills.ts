@@ -27,6 +27,7 @@ export const PLATFORM_TARGETS: Record<string, string> = {
   'opencode': '.agents/skills/checkly',
   'roo': '.roo/skills/checkly',
   'windsurf': '.windsurf/skills/checkly',
+  'zed': '.agents/skills/checkly',
 }
 
 // Multiple platforms share the same target dir (e.g. .agents/skills/checkly),
