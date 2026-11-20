@@ -1,6 +1,6 @@
 # Account Management
 
-Understand your account's plan, entitlements, limits, members, pending invites, and overage spending limit.
+Understand your account's plan, entitlements, limits, members, pending invites, and overage spending cap.
 
 ## Plan-aware workflow
 

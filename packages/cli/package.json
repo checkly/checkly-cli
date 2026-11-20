@@ -80,8 +80,8 @@
       "account:usage": {
         "description": "Report organization contract usage, credits, and projections."
       },
-      "account:spending-limit": {
-        "description": "Show and manage the overage spending limit."
+      "account:spending-cap": {
+        "description": "Show and manage the overage spending cap."
       },
       "alert-channels": {
         "description": "List and inspect alert channels in your Checkly account."

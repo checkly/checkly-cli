@@ -1,5 +1,5 @@
 import chalk from 'chalk'
-import type { SpendingLimit, SpendingLimitState } from '../rest/spending-limit.js'
+import type { SpendingCap, SpendingCapState } from '../rest/spending-cap.js'
 import { type DetailField, type OutputFormat, formatDate, renderDetailFields } from './render.js'
 
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' })
@@ -9,21 +9,21 @@ export function formatDollars (cents: number): string {
   return usd.format(cents / 100)
 }
 
-const STATE_LABELS: Record<SpendingLimitState, string> = {
-  UNDER: 'Under the limit',
-  CLOSE: 'Close to the limit',
-  REACHED: 'Limit reached',
+const STATE_LABELS: Record<SpendingCapState, string> = {
+  UNDER: 'Under the cap',
+  CLOSE: 'Close to the cap',
+  REACHED: 'Cap reached',
 }
 
 function color (format: OutputFormat, paint: (s: string) => string, value: string) {
   return format === 'terminal' ? paint(value) : value
 }
 
-const fields: DetailField<SpendingLimit>[] = [
+const fields: DetailField<SpendingCap>[] = [
   {
-    label: 'Spending limit',
+    label: 'Spending cap',
     value: ({ spendingCapCents: cap }) => {
-      if (cap === null) return 'No limit'
+      if (cap === null) return 'No cap'
       return cap === 0 ? `${formatDollars(0)} (no overage allowed)` : formatDollars(cap)
     },
   },
@@ -50,7 +50,7 @@ const fields: DetailField<SpendingLimit>[] = [
     value: ({ standing }, format) => {
       if (!standing) return null
       return standing.limit?.state === 'REACHED'
-        ? color(format, chalk.red, 'Yes, the spending limit is reached')
+        ? color(format, chalk.red, 'Yes, the spending cap is reached')
         : 'No'
     },
   },
@@ -60,6 +60,6 @@ const fields: DetailField<SpendingLimit>[] = [
   },
 ]
 
-export function formatSpendingLimit (data: SpendingLimit, format: OutputFormat): string {
-  return renderDetailFields('Spending limit', fields, data, format)
+export function formatSpendingCap (data: SpendingCap, format: OutputFormat): string {
+  return renderDetailFields('Spending cap', fields, data, format)
 }
