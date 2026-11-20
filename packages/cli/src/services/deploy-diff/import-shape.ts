@@ -55,7 +55,7 @@ export function pointerSegments (pointer: string): string[] {
 export class UnshapeableError extends Error {}
 
 /** Types whose physical id is a number; every other type's is a string. */
-const NUMERIC_ID_TYPES: ReadonlySet<string> = new Set(['check-group', 'alert-channel', 'alert-channel-subscription'])
+export const NUMERIC_ID_TYPES: ReadonlySet<string> = new Set(['check-group', 'alert-channel', 'alert-channel-subscription'])
 
 /**
  * Above every real numeric id, so a synthetic one can never be mistaken for
@@ -113,7 +113,7 @@ export function physicalIdsFromPlan (diff: readonly DiffEntry[], local: readonly
  * reads each element's `id`, so it is substituted to `{ id }` objects rather
  * than bare ids.
  */
-const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
+export const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
   alertChannelId: 'alert-channel',
   checkId: 'check',
   componentId: 'status-page-component',
@@ -126,7 +126,7 @@ const REFERENCE_KEYS: Readonly<Record<string, ResourceType>> = {
 }
 
 /** Keys only a deploy reads; the import format has no counterpart and the codegen would ignore them. */
-const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 'v'] as const
+export const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 'v'] as const
 
 /**
  * Keys of a deployed row that neither side renders: a setup or teardown
@@ -138,7 +138,7 @@ const DEPLOY_ONLY_KEYS = ['sourceFile', 'codeBundleSha256', 'privateLocations', 
 export const UNRENDERED_KEYS = ['setupSnippetId', 'tearDownSnippetId'] as const
 
 /** Keys of a deployed row that are not properties of the local payload: its id, and the relation rows it carries. */
-const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
+export const NOT_FILLED: ReadonlySet<string> = new Set(['id', 'alertChannelSubscriptions', 'privateLocationAssignments'])
 
 const escapeSegment = (segment: string) => segment.replace(/~/g, '~0').replace(/\//g, '~1')
 
@@ -213,7 +213,7 @@ function resolveRef (ids: PhysicalIds, key: string, ref: { ref: string }): strin
  * serializes itself (`toJSON`) is taken as what it serializes to, which is
  * what the deploy sends.
  */
-function substitute (value: unknown, key: string | undefined, ids: PhysicalIds): unknown {
+export function substitute (value: unknown, key: string | undefined, ids: PhysicalIds): unknown {
   if (value === null || value === undefined) {
     return value
   }
@@ -487,7 +487,29 @@ function qualifies (rule: DiffRedaction, element: unknown): boolean {
   return condition === undefined || (element !== null && typeof element === 'object' && condition(element as Record<string, unknown>))
 }
 
-function blank (node: unknown, segments: readonly string[], rule: DiffRedaction): unknown {
+/**
+ * A value with nothing in it: no credential to hide, and masking it would
+ * invent one. Only an unconditional rule's value can be read this way: a
+ * locked or secret variable read without decrypting holds `null` whatever its
+ * value is, so a conditional rule always masks.
+ */
+const isEmptyValue = (value: unknown): boolean => value === undefined || value === null || value === ''
+
+const keptEmpty = (rule: DiffRedaction, value: unknown, keepEmpty: boolean): boolean =>
+  keepEmpty && rule.when === undefined && isEmptyValue(value)
+
+export interface BlankOptions {
+  /**
+   * Leave an empty value (`''`, `null` or absent) of an unconditional rule as
+   * it is instead of masking it; a conditional rule (a locked or secret
+   * variable) masks regardless. Only for a caller whose payload never blanks a credential to an empty
+   * value, so an empty value there is one the resource really has; the deploy
+   * preview's payload is blanked to `''` by the API and must not use it.
+   */
+  keepEmpty?: boolean
+}
+
+function blank (node: unknown, segments: readonly string[], rule: DiffRedaction, keepEmpty: boolean): unknown {
   if (segments.length === 0) {
     return node
   }
@@ -497,7 +519,9 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
     // A trailing `*` names the positions themselves, each blanked when it
     // qualifies.
     const each = (element: unknown) =>
-      (rest.length === 0 ? (qualifies(rule, element) ? placeholderOf(rule) : element) : blank(element, rest, rule))
+      (rest.length === 0
+        ? (qualifies(rule, element) && !keptEmpty(rule, element, keepEmpty) ? placeholderOf(rule) : element)
+        : blank(element, rest, rule, keepEmpty))
     if (Array.isArray(node)) {
       return node.map(each)
     }
@@ -512,7 +536,7 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
   const object = node as Record<string, unknown>
   const key = segment
   if (rest.length > 0) {
-    const replaced = blank(object[key], rest, rule)
+    const replaced = blank(object[key], rest, rule, keepEmpty)
     return replaced === object[key] ? node : { ...object, [key]: replaced }
   }
   if (rule.when === undefined) {
@@ -524,6 +548,9 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
     // Conditional: the element's own flags decide, and the API blanks a
     // qualifying element whether or not the value is there, so this side
     // does too.
+    return node
+  }
+  if (keptEmpty(rule, object[key], keepEmpty)) {
     return node
   }
   // The placeholder the rule names, which is what the API wrote on its side.
@@ -541,13 +568,17 @@ function blank (node: unknown, segments: readonly string[], rule: DiffRedaction)
  *
  * @throws UnshapeableError when the API reported no rule table.
  */
-export function blankRedacted<T> (payload: T, redactions: readonly DiffRedaction[] | undefined): T {
+export function blankRedacted<T> (
+  payload: T,
+  redactions: readonly DiffRedaction[] | undefined,
+  { keepEmpty = false }: BlankOptions = {},
+): T {
   if (redactions === undefined) {
     throw new UnshapeableError('the preview reports no redaction rules for this resource')
   }
   let result: unknown = payload
   for (const rule of redactions) {
-    result = blank(result, pointerSegments(rule.path), rule)
+    result = blank(result, pointerSegments(rule.path), rule, keepEmpty)
   }
   return result as T
 }
@@ -725,6 +756,11 @@ export function registerUnderCodeName (
   const lookup = LOOKUPS[resource.type]
   const registrar = REGISTRARS.find(entry => entry.type === resource.type)
   if (lookup === undefined || registrar === undefined) {
+    return
+  }
+  // Only a v3 status page is a construct other code refers to; the codegen
+  // of an older one registers no variable.
+  if (resource.type === 'status-page' && (resource.payload as { version?: unknown }).version !== 3) {
     return
   }
   const id = (resource.payload as { id: string | number }).id

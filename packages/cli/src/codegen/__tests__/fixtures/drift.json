@@ -1,0 +1,759 @@
+[
+  {
+    "resource": {
+      "type": "check",
+      "logicalId": "api-chk",
+      "physicalId": "beefbfc6-3ce0-465c-9658-04cb2acb2dee",
+      "payload": {
+        "id": "beefbfc6-3ce0-465c-9658-04cb2acb2dee",
+        "checkType": "API",
+        "name": "Drift API",
+        "frequency": 10,
+        "frequencyOffset": 19,
+        "activated": false,
+        "muted": true,
+        "shouldFail": false,
+        "locations": [
+          "us-east-1",
+          "eu-west-1"
+        ],
+        "accountId": "00000000-0000-4000-8000-000000000001",
+        "script": null,
+        "created_at": "2026-11-17T11:25:12.879Z",
+        "updated_at": "2026-11-18T06:55:57.116Z",
+        "environmentVariables": [
+          {
+            "key": "PLAIN",
+            "value": "visible",
+            "locked": false,
+            "secret": false
+          },
+          {
+            "key": "TOKEN",
+            "value": "",
+            "locked": true,
+            "secret": false
+          },
+          {
+            "key": "LATER",
+            "value": "",
+            "locked": true,
+            "secret": false
+          }
+        ],
+        "doubleCheck": true,
+        "tags": [
+          "critical"
+        ],
+        "sslCheckDomain": "api.example.com",
+        "setupSnippetId": null,
+        "tearDownSnippetId": null,
+        "localSetupScript": "// Prepares the request: signs it with a fixed test header.\nrequest.headers['X-Step-0'] = 'step-0-of-the-setup-script'\nrequest.headers['X-Step-1'] = 'step-1-of-the-setup-script'\nrequest.headers['X-Step-2'] = 'step-2-of-the-setup-script'\nrequest.headers['X-Step-3'] = 'step-3-edited-in-the-web-app'\nrequest.headers['X-Step-4'] = 'step-4-of-the-setup-script'\nrequest.headers['X-Step-5'] = 'step-5-of-the-setup-script'\nrequest.headers['X-Step-6'] = 'step-6-of-the-setup-script'\nrequest.headers['X-Step-7'] = 'step-7-of-the-setup-script'\n",
+        "localTearDownScript": null,
+        "alertSettings": {
+          "escalationType": "RUN_BASED",
+          "runBasedEscalation": {
+            "failedRunThreshold": 1
+          },
+          "parallelRunFailureThreshold": {
+            "enabled": false,
+            "percentage": 10
+          }
+        },
+        "useGlobalAlertSettings": false,
+        "isSample": false,
+        "degradedResponseTime": 5000,
+        "maxResponseTime": 20000,
+        "groupId": 2409,
+        "groupOrder": null,
+        "runtimeId": null,
+        "importedFrom": "CLI",
+        "scriptPath": null,
+        "setupScriptPath": null,
+        "tearDownScriptPath": null,
+        "retryStrategy": {
+          "type": "SINGLE_RETRY",
+          "baseBackoffSeconds": 0,
+          "sameRegion": false
+        },
+        "requestCount": 0,
+        "runParallel": false,
+        "playwrightConfig": null,
+        "tracing": null,
+        "codeBundlePath": null,
+        "testCommand": null,
+        "installCommand": null,
+        "browsers": null,
+        "triggerIncident": false,
+        "cacheHash": null,
+        "playwrightVersion": null,
+        "workingDir": null,
+        "prompt": null,
+        "degradedPacketLossThreshold": null,
+        "maxPacketLossThreshold": null,
+        "agenticCheckData": null,
+        "cacheRefreshedAt": null,
+        "description": null,
+        "engine": null,
+        "engineVersion": null,
+        "intent": {
+          "goal": "The orders list loads quickly",
+          "constraints": [
+            {
+              "type": "REQUIRED_OUTCOME",
+              "statement": "Responds with 200"
+            },
+            {
+              "type": "REQUIRED_OUTCOME",
+              "statement": "Lists every open order"
+            },
+            {
+              "type": "MUST_PRESERVE",
+              "statement": "Read-only requests"
+            }
+          ]
+        },
+        "aiAutoRepairEnabled": null,
+        "codeBundleSha256": null,
+        "request": {
+          "id": 16199,
+          "method": "GET",
+          "url": "https://api.example.com/orders",
+          "protocol": null,
+          "port": null,
+          "body": "",
+          "bodyType": "NONE",
+          "headers": [
+            {
+              "key": "X-Trace",
+              "value": "off",
+              "locked": false
+            },
+            {
+              "key": "X-Key",
+              "value": "",
+              "locked": true
+            },
+            {
+              "key": "X-Added",
+              "value": "",
+              "locked": true
+            }
+          ],
+          "queryParameters": [],
+          "assertions": [],
+          "basicAuth": {
+            "password": "",
+            "username": "svc"
+          },
+          "checkId": "beefbfc6-3ce0-465c-9658-04cb2acb2dee",
+          "created_at": "2026-11-18T06:54:57.512Z",
+          "updated_at": "2026-11-18T06:55:57.126Z",
+          "followRedirects": true,
+          "skipSSL": false,
+          "ipFamily": "IPv4",
+          "recordType": null,
+          "nameServer": null,
+          "pingCount": null,
+          "maxHops": 30,
+          "maxUnknownHops": 15,
+          "ptrLookup": true,
+          "timeout": 10
+        },
+        "privateLocationAssignments": [],
+        "alertChannelSubscriptions": [
+          {
+            "id": 2147488951,
+            "checkId": "beefbfc6-3ce0-465c-9658-04cb2acb2dee",
+            "alertChannelId": 2432,
+            "activated": true,
+            "groupId": null,
+            "accountId": "00000000-0000-4000-8000-000000000001"
+          }
+        ],
+        "heartbeat": null
+      }
+    },
+    "changes": [
+      {
+        "path": "/alertSettings/reminders/amount",
+        "origin": "remote",
+        "before": 2
+      },
+      {
+        "path": "/alertSettings/reminders/interval",
+        "origin": "remote",
+        "before": 10
+      },
+      {
+        "path": "/doubleCheck",
+        "origin": "remote",
+        "before": false,
+        "after": true
+      },
+      {
+        "path": "/environmentVariables",
+        "origin": "remote",
+        "before": [
+          {
+            "key": "PLAIN",
+            "locked": false,
+            "secret": false,
+            "value": "visible"
+          },
+          {
+            "key": "TOKEN",
+            "locked": true,
+            "secret": false,
+            "value": {
+              "$masked": "same"
+            }
+          },
+          {
+            "key": "LATER",
+            "locked": false,
+            "secret": false,
+            "value": {
+              "$masked": "changed"
+            }
+          }
+        ],
+        "after": [
+          {
+            "key": "PLAIN",
+            "locked": false,
+            "secret": false,
+            "value": "visible"
+          },
+          {
+            "key": "TOKEN",
+            "locked": true,
+            "secret": false,
+            "value": {
+              "$masked": "same"
+            }
+          },
+          {
+            "key": "LATER",
+            "locked": true,
+            "secret": false,
+            "value": {
+              "$masked": "changed"
+            }
+          }
+        ],
+        "secret": true
+      },
+      {
+        "path": "/groupId",
+        "origin": "remote",
+        "before": {
+          "$ref": "grp-a"
+        },
+        "after": {
+          "$ref": "grp-b"
+        }
+      },
+      {
+        "path": "/intent/goal",
+        "origin": "remote",
+        "before": "The orders list loads",
+        "after": "The orders list loads quickly"
+      },
+      {
+        "path": "/intent/requiredOutcomes",
+        "origin": "remote",
+        "before": [
+          "Responds with 200",
+          "Lists at least one order"
+        ],
+        "after": [
+          "Responds with 200",
+          "Lists every open order"
+        ]
+      },
+      {
+        "path": "/localSetupScript",
+        "origin": "remote",
+        "before": {
+          "$hash": "uaVMLpxgvqeAzT5aiabb-w"
+        },
+        "after": {
+          "$hash": "7rky8LF63_OXmounzvEPEg"
+        }
+      },
+      {
+        "path": "/locations/zako9U",
+        "origin": "remote",
+        "after": "eu-west-1"
+      },
+      {
+        "path": "/request/headers",
+        "origin": "remote",
+        "before": [
+          {
+            "key": "X-Trace",
+            "locked": false,
+            "value": "on"
+          },
+          {
+            "key": "X-Key",
+            "locked": true,
+            "value": {
+              "$masked": "same"
+            }
+          }
+        ],
+        "after": [
+          {
+            "key": "X-Trace",
+            "locked": false,
+            "value": "off"
+          },
+          {
+            "key": "X-Key",
+            "locked": true,
+            "value": {
+              "$masked": "same"
+            }
+          },
+          {
+            "key": "X-Added",
+            "locked": true,
+            "value": {
+              "$masked": "same"
+            }
+          }
+        ],
+        "secret": true
+      },
+      {
+        "path": "/retryStrategy",
+        "origin": "remote",
+        "after": null
+      },
+      {
+        "path": "/retryStrategy/baseBackoffSeconds",
+        "origin": "remote",
+        "before": 30
+      },
+      {
+        "path": "/retryStrategy/maxDurationSeconds",
+        "origin": "remote",
+        "before": 600
+      },
+      {
+        "path": "/retryStrategy/maxRetries",
+        "origin": "remote",
+        "before": 3
+      },
+      {
+        "path": "/retryStrategy/sameRegion",
+        "origin": "remote",
+        "before": false
+      },
+      {
+        "path": "/retryStrategy/type",
+        "origin": "remote",
+        "before": "LINEAR"
+      },
+      {
+        "path": "/tags/01TsWm",
+        "origin": "remote",
+        "after": "critical"
+      },
+      {
+        "path": "/tags/sBXUqg",
+        "origin": "remote",
+        "before": "drift"
+      }
+    ],
+    "deployed": {
+      "activated": false,
+      "aiAutoRepairEnabled": null,
+      "alertSettings": {
+        "escalationType": "RUN_BASED",
+        "parallelRunFailureThreshold": {
+          "enabled": false,
+          "percentage": 10
+        },
+        "reminders": {
+          "amount": 2,
+          "interval": 10
+        },
+        "runBasedEscalation": {
+          "failedRunThreshold": 1
+        }
+      },
+      "checkType": "API",
+      "degradedResponseTime": 5000,
+      "description": null,
+      "doubleCheck": false,
+      "environmentVariables": [
+        {
+          "key": "PLAIN",
+          "locked": false,
+          "secret": false,
+          "value": "visible"
+        },
+        {
+          "key": "TOKEN",
+          "locked": true,
+          "secret": false,
+          "value": {
+            "$masked": "same"
+          }
+        },
+        {
+          "key": "LATER",
+          "locked": false,
+          "secret": false,
+          "value": {
+            "$masked": "same"
+          }
+        }
+      ],
+      "frequency": 10,
+      "groupId": {
+        "ref": "grp-a"
+      },
+      "intent": {
+        "goal": "The orders list loads",
+        "mustPreserve": [
+          "Read-only requests"
+        ],
+        "requiredOutcomes": [
+          "Responds with 200",
+          "Lists at least one order"
+        ]
+      },
+      "localSetupScript": {
+        "$hash": "uaVMLpxgvqeAzT5aiabb-w"
+      },
+      "localTearDownScript": null,
+      "locations": [
+        "us-east-1"
+      ],
+      "maxResponseTime": 20000,
+      "muted": true,
+      "name": "Drift API",
+      "request": {
+        "assertions": [],
+        "basicAuth": {
+          "password": {
+            "$masked": "same"
+          },
+          "username": "svc"
+        },
+        "body": "",
+        "bodyType": "NONE",
+        "followRedirects": true,
+        "headers": [
+          {
+            "key": "X-Trace",
+            "locked": false,
+            "value": "on"
+          },
+          {
+            "key": "X-Key",
+            "locked": true,
+            "value": {
+              "$masked": "same"
+            }
+          }
+        ],
+        "ipFamily": "IPv4",
+        "method": "GET",
+        "queryParameters": [],
+        "skipSSL": false,
+        "url": "https://api.example.com/orders"
+      },
+      "retryStrategy": {
+        "baseBackoffSeconds": 30,
+        "maxDurationSeconds": 600,
+        "maxRetries": 3,
+        "sameRegion": false,
+        "type": "LINEAR"
+      },
+      "runParallel": false,
+      "runtimeId": null,
+      "setupScriptDependencies": {
+        "$hash": "5wVZev7Yp8w_enHW9qnBGg"
+      },
+      "shouldFail": false,
+      "sslCheckDomain": "api.example.com",
+      "tags": [
+        "drift"
+      ],
+      "tearDownScriptDependencies": {
+        "$hash": "-FOdM3JtHP6R0V9diilI9g"
+      },
+      "useGlobalAlertSettings": false
+    },
+    "redactions": [
+      {
+        "path": "/environmentVariables/*/value",
+        "kind": "value",
+        "when": "lockedOrSecret"
+      },
+      {
+        "path": "/request/headers/*/value",
+        "kind": "value",
+        "when": "locked"
+      },
+      {
+        "path": "/request/basicAuth/password",
+        "kind": "value"
+      },
+      {
+        "path": "/request/grpcConfig/metadata/*/value",
+        "kind": "value"
+      },
+      {
+        "path": "/playwrightConfig/use/launchOptions",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/contextOptions",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/extraHTTPHeaders",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/httpCredentials",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/proxy/password",
+        "kind": "value"
+      }
+    ],
+    "references": [
+      {
+        "type": "check-group",
+        "logicalId": "grp-a",
+        "physicalId": 2408,
+        "name": "Group A"
+      },
+      {
+        "type": "check-group",
+        "logicalId": "grp-b",
+        "physicalId": 2409,
+        "name": "Group B"
+      }
+    ]
+  },
+  {
+    "resource": {
+      "type": "check",
+      "logicalId": "web-chk",
+      "physicalId": "b6ce31bf-f94d-42e8-b9f7-6e3eeb390172",
+      "payload": {
+        "id": "b6ce31bf-f94d-42e8-b9f7-6e3eeb390172",
+        "checkType": "BROWSER",
+        "name": "Drift browser",
+        "frequency": 10,
+        "frequencyOffset": 34,
+        "activated": false,
+        "muted": false,
+        "shouldFail": false,
+        "locations": [
+          "us-east-1"
+        ],
+        "accountId": "00000000-0000-4000-8000-000000000001",
+        "script": "const { test, expect } = require('@playwright/test')\ntest('home page', async ({ page }) => {\n  await page.goto('https://www.example.com')\n  await expect(page.locator('#section-0')).toBeVisible()\n  await expect(page.locator('#section-1')).toBeVisible()\n  await expect(page.locator('#section-2-edited')).toBeVisible()\n  await expect(page.locator('#section-3')).toBeVisible()\n  await expect(page.locator('#section-4')).toBeVisible()\n  await expect(page.locator('#section-5')).toBeVisible()\n})\n",
+        "created_at": "2026-11-17T11:25:12.865Z",
+        "updated_at": "2026-11-18T06:55:57.128Z",
+        "environmentVariables": [],
+        "doubleCheck": true,
+        "tags": [],
+        "sslCheckDomain": "",
+        "setupSnippetId": null,
+        "tearDownSnippetId": null,
+        "localSetupScript": null,
+        "localTearDownScript": null,
+        "alertSettings": {
+          "reminders": {
+            "amount": 0,
+            "interval": 5
+          },
+          "escalationType": "RUN_BASED",
+          "runBasedEscalation": {
+            "failedRunThreshold": 1
+          },
+          "parallelRunFailureThreshold": {
+            "enabled": false,
+            "percentage": 10
+          }
+        },
+        "useGlobalAlertSettings": true,
+        "isSample": false,
+        "degradedResponseTime": 10000,
+        "maxResponseTime": 20000,
+        "groupId": null,
+        "groupOrder": null,
+        "runtimeId": null,
+        "importedFrom": "CLI",
+        "scriptPath": null,
+        "setupScriptPath": null,
+        "tearDownScriptPath": null,
+        "retryStrategy": {
+          "type": "SINGLE_RETRY",
+          "baseBackoffSeconds": 0,
+          "sameRegion": false
+        },
+        "requestCount": 0,
+        "runParallel": false,
+        "playwrightConfig": null,
+        "tracing": null,
+        "codeBundlePath": null,
+        "testCommand": null,
+        "installCommand": null,
+        "browsers": null,
+        "triggerIncident": false,
+        "cacheHash": null,
+        "playwrightVersion": null,
+        "workingDir": null,
+        "prompt": null,
+        "degradedPacketLossThreshold": null,
+        "maxPacketLossThreshold": null,
+        "agenticCheckData": null,
+        "cacheRefreshedAt": null,
+        "description": null,
+        "engine": null,
+        "engineVersion": null,
+        "intent": null,
+        "aiAutoRepairEnabled": null,
+        "codeBundleSha256": null,
+        "request": null,
+        "privateLocationAssignments": [],
+        "alertChannelSubscriptions": [],
+        "heartbeat": null
+      }
+    },
+    "changes": [
+      {
+        "path": "/script",
+        "origin": "remote",
+        "before": {
+          "$hash": "WVUIIZUrlDG5HyjU4m4gWg"
+        },
+        "after": {
+          "$hash": "0mrdOvS2_gHMjPioj3veew"
+        }
+      }
+    ],
+    "deployed": {
+      "activated": false,
+      "aiAutoRepairEnabled": null,
+      "alertSettings": {
+        "escalationType": "RUN_BASED",
+        "parallelRunFailureThreshold": {
+          "enabled": false,
+          "percentage": 10
+        },
+        "reminders": {
+          "amount": 0,
+          "interval": 5
+        },
+        "runBasedEscalation": {
+          "failedRunThreshold": 1
+        }
+      },
+      "checkType": "BROWSER",
+      "degradedResponseTime": 10000,
+      "dependencies": {
+        "$hash": "cFyvNOLkpcrAZdD3GUi3xQ"
+      },
+      "description": null,
+      "doubleCheck": true,
+      "environmentVariables": [],
+      "frequency": 10,
+      "groupId": null,
+      "intent": null,
+      "localSetupScript": null,
+      "localTearDownScript": null,
+      "locations": [
+        "us-east-1"
+      ],
+      "maxResponseTime": 20000,
+      "muted": false,
+      "name": "Drift browser",
+      "retryStrategy": null,
+      "runParallel": false,
+      "runtimeId": null,
+      "script": {
+        "$hash": "WVUIIZUrlDG5HyjU4m4gWg"
+      },
+      "setupScriptDependencies": {
+        "$hash": "1ak8-8WKsD_Fk2nqQHY3OA"
+      },
+      "shouldFail": false,
+      "snapshots": {
+        "$hash": "1xt0wMtdcGOja_SnqHMqEA"
+      },
+      "sslCheckDomain": "",
+      "tags": [],
+      "tearDownScriptDependencies": {
+        "$hash": "HyA7HiBv3WT8Jrxu8mg4sA"
+      },
+      "useGlobalAlertSettings": true
+    },
+    "redactions": [
+      {
+        "path": "/environmentVariables/*/value",
+        "kind": "value",
+        "when": "lockedOrSecret"
+      },
+      {
+        "path": "/request/headers/*/value",
+        "kind": "value",
+        "when": "locked"
+      },
+      {
+        "path": "/request/basicAuth/password",
+        "kind": "value"
+      },
+      {
+        "path": "/request/grpcConfig/metadata/*/value",
+        "kind": "value"
+      },
+      {
+        "path": "/playwrightConfig/use/launchOptions",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/contextOptions",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/extraHTTPHeaders",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/httpCredentials",
+        "kind": "object"
+      },
+      {
+        "path": "/playwrightConfig/use/proxy/password",
+        "kind": "value"
+      }
+    ],
+    "references": [
+      {
+        "type": "check-group",
+        "logicalId": "grp-a",
+        "physicalId": 2408,
+        "name": "Group A"
+      },
+      {
+        "type": "check-group",
+        "logicalId": "grp-b",
+        "physicalId": 2409,
+        "name": "Group B"
+      }
+    ]
+  }
+]
