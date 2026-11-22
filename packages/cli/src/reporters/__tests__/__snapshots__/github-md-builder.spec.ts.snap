@@ -27,7 +27,7 @@ Ran **1** checks in **eu-west-1**.
 [View detailed test session summary](https://app.checklyhq.com/accounts/test-account-123/test-sessions/0c4c64b3-79c5-44a6-ae07-b580ce73f328)
 |Result|Name|Check Type|Filename|Duration|Link|
 |:-|:-|:-|:-|:-|:-|
-|❌ Fail|Timed out check|-|\`folder/timeout.check.ts\`|- |
+|❌ Fail|Timed out check|-|\`folder/timeout.check.ts\`|- ||
 
 ## Execution Errors
 

@@ -83,12 +83,13 @@ export class GithubMdBuilder {
         const retries = numRetries ? ` (${numRetries} ${numRetries === 1 ? 'retry' : 'retries'})` : ''
         if (!result) {
           // Only a run that stopped early leaves checks without a result.
+          const sourceFile = check?.getSourceFile?.()
           this.tableRows.push(this.tableSeparator + [
             `⏹️ Not finished${retries}`,
             escapeCell((check as any)?.name),
             // Checks fetched for `checkly trigger` carry their type; local constructs do not.
             escapeCell((check as any)?.checkType ?? '-'),
-            this.hasFilenames ? `\`${escapeCell(check?.getSourceFile?.())}\`` : undefined,
+            this.hasFilenames ? (sourceFile ? `\`${escapeCell(sourceFile)}\`` : '-') : undefined,
             '- ',
             this.testSessionId ? '' : undefined,
           ].filter(nonNullable).join(this.tableSeparator) + this.tableSeparator)
@@ -104,13 +105,15 @@ export class GithubMdBuilder {
           // A check that failed with a run error (e.g. the CLI timing out while waiting for
           // a result) has no check type or response time, so fall back to a placeholder.
           escapeCell(result.checkType ?? '-'),
-          this.hasFilenames ? `\`${escapeCell(result.sourceFile)}\`` : undefined,
+          this.hasFilenames ? (result.sourceFile ? `\`${escapeCell(result.sourceFile)}\`` : '-') : undefined,
           `${result.responseTime != null ? formatDuration(result.responseTime) : '-'} `,
         ].filter(nonNullable)
 
         if (this.testSessionId && testResultId) {
           const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
           tableRow.push(linkColumn)
+        } else if (this.testSessionId) {
+          tableRow.push('')
         }
 
         this.tableRows.push(this.tableSeparator + tableRow.join(this.tableSeparator) + this.tableSeparator)
