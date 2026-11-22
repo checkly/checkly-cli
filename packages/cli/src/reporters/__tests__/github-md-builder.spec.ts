@@ -65,6 +65,12 @@ describe('GithubMdBuilder', () => {
     expect(markdown).not.toContain('NaN')
     expect(markdown).toContain('## Execution Errors')
     expect(markdown).toContain(runError)
+
+    const tableLines = markdown.split('\n').filter(line => line.startsWith('|'))
+    // 6 columns (including Link) -> 7 delimiters per line
+    for (const line of tableLines) {
+      expect(line.match(/(?<!\\)\|/g)).toHaveLength(7)
+    }
   })
   test('labels a check the CLI stopped waiting for as timed out, not failed', () => {
     const row = (name: string, timedOut: boolean) => [`seq-${name}`, {
@@ -198,5 +204,50 @@ describe('GithubMdBuilder', () => {
       // Count unescaped pipes: 5 columns -> 6 delimiters
       expect(line.match(/(?<!\\)\|/g)).toHaveLength(6)
     }
+  })
+
+  test('renders - instead of `undefined` when a check lacks sourceFile in a mixed map', () => {
+    const map: checkFilesMap = new Map([
+      ['folder/api.check.ts', new Map([
+        ['seq-with-file', {
+          result: {
+            name: 'File Check',
+            sourceFile: 'folder/api.check.ts',
+            checkType: 'API',
+            responseTime: 10,
+          } as any,
+          titleString: 'File Check',
+          numRetries: 0,
+        }],
+      ])],
+      [undefined, new Map([
+        ['seq-remote-done', {
+          result: {
+            name: 'Remote Finished',
+            checkType: 'API',
+            responseTime: 25,
+          } as any,
+          titleString: 'Remote Finished',
+          numRetries: 0,
+        }],
+        ['seq-remote-pending', {
+          check: { name: 'Remote Pending', checkType: 'API' } as any,
+          titleString: 'Remote Pending',
+          numRetries: 0,
+        }],
+      ])],
+    ])
+
+    const markdown = new GithubMdBuilder({
+      testSessionId,
+      numChecks: 3,
+      runLocation,
+      checkFilesMap: map,
+    }).render()
+
+    expect(markdown).not.toContain('undefined')
+    expect(markdown).toContain('|✅ Pass|File Check|API|`folder/api.check.ts`|10ms ||')
+    expect(markdown).toContain('|✅ Pass|Remote Finished|API|-|25ms ||')
+    expect(markdown).toContain('|⏹️ Not finished|Remote Pending|API|-|- ||')
   })
 })
