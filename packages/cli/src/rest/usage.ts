@@ -7,7 +7,8 @@ export type UsageGroupDimension = typeof USAGE_GROUP_DIMENSIONS[number]
 export const USAGE_SERIES_INCLUDES = ['calculations', 'runs'] as const
 export type UsageSeriesInclude = typeof USAGE_SERIES_INCLUDES[number]
 export const USAGE_PRICING_RULE_KEYS = [
-  'apiChecks', 'multistepChecks', 'browserChecks', 'playwrightCheckSuites', 'uptimeMonitors', 'aiInvocations',
+  'apiChecks', 'multistepChecks', 'browserChecks', 'playwrightCheckSuites',
+  'apiAndMultistepChecks', 'browserAndPlaywrightChecks', 'uptimeMonitors', 'aiInvocations',
   'statusPages', 'statusPageAdditionalServices', 'statusPageAdditionalSubscribers', 'additionalSms', 'additionalPhoneAlerts',
 ] as const
 export type UsagePricingRuleKey = typeof USAGE_PRICING_RULE_KEYS[number]

@@ -56,6 +56,11 @@ function noun (unit: UsageUnit | null | undefined): string {
   return unit === 'usdCents' ? 'USD' : 'credits'
 }
 
+/** Rates in pricing rules are credits on a contract term and US cents (a price) on a Stripe-billed term. */
+function rateNoun (unit: UsageUnit | null | undefined): string {
+  return unit === 'usdCents' ? 'price' : 'credits'
+}
+
 function capitalize (value: string): string {
   return value.charAt(0).toUpperCase() + value.slice(1)
 }
@@ -93,23 +98,26 @@ export function formatUsageTermsList (terms: UsageTerm[], format: OutputFormat):
   return renderAdaptiveTable(columns, terms, format)
 }
 
-function formatPricingRule (rule: UsagePricingRule | null, format: OutputFormat, level: 3 | 4): string {
+function formatPricingRule (
+  rule: UsagePricingRule | null, format: OutputFormat, level: 3 | 4, unit: UsageUnit | null,
+): string {
   if (rule === null) return 'Pricing rule unavailable.'
+  const rate = rateNoun(unit)
   switch (rule.method) {
     case 'per_unit': {
       const fields: DetailField<typeof rule>[] = [
         { label: 'Method', value: value => value.method },
         { label: 'Quantity', value: value => number(value.quantity) },
         { label: 'Unit', value: value => value.unit },
-        { label: 'Credits', value: value => number(value.credits) },
+        { label: capitalize(rate), value: value => amount(value.credits, unit) },
         { label: 'Included quantity', value: value => number(value.included?.quantity) },
         { label: 'Included period', value: value => value.included?.period ?? '-' },
       ]
       const output = [renderDetailFields('Pricing rule', fields, rule, format, level)]
       if (rule.rates !== undefined) {
         output.push(section('Conditional rates', renderAdaptiveTable([
-          { header: 'Condition', value: rate => rate.when },
-          { header: 'Credits', align: 'right', value: rate => number(rate.credits) },
+          { header: 'Condition', value: value => value.when },
+          { header: capitalize(rate), align: 'right', value: value => amount(value.credits, unit) },
         ], rule.rates, format), format, level === 3 ? 4 : 5))
       }
       return output.join('\n\n')
@@ -118,7 +126,7 @@ function formatPricingRule (rule: UsagePricingRule | null, format: OutputFormat,
       return renderDetailFields('Pricing rule', [
         { label: 'Method', value: value => value.method },
         { label: 'Period', value: value => value.period },
-        { label: 'Annual credits', value: value => number(value.price.annualCredits) },
+        { label: `Annual ${rate}`, value: value => amount(value.price.annualCredits, unit) },
       ], rule, format, level)
     case 'capacity_blocks_per_period':
       return renderDetailFields('Pricing rule', [
@@ -127,7 +135,7 @@ function formatPricingRule (rule: UsagePricingRule | null, format: OutputFormat,
         { label: 'Unit', value: value => value.unit },
         { label: 'Included quantity', value: value => number(value.included.quantity) },
         { label: 'Block quantity', value: value => number(value.block.quantity) },
-        { label: 'Annual credits per block', value: value => number(value.block.annualCredits) },
+        { label: `Annual ${rate} per block`, value: value => amount(value.block.annualCredits, unit) },
       ], rule, format, level)
     default: {
       const exhaustive: never = rule
@@ -144,9 +152,14 @@ export function formatUsageTermDetail (term: UsageTerm, format: OutputFormat): s
     { label: 'Unit', value: value => value.unit },
     { label: 'Budget', value: value => amount(value.unitBudget, value.unit) },
     { label: 'Package model', value: value => value.packageModel ?? '-' },
-    { label: 'Standard credits / unit', value: value => number(value.standardCreditsPerUnit) },
-    { label: 'Premium credits / unit', value: value => number(value.premiumCreditsPerUnit) },
   ]
+  // Credit conversion rates belong to contracts; a Stripe-billed term has none.
+  if (term.unit !== 'usdCents') {
+    fields.push(
+      { label: 'Standard credits / unit', value: value => number(value.standardCreditsPerUnit) },
+      { label: 'Premium credits / unit', value: value => number(value.premiumCreditsPerUnit) },
+    )
+  }
   const output = [renderDetailFields(`Usage term: ${term.name}`, fields, term, format, 1)]
   output.push(section('Accounts', renderAdaptiveTable([
     { header: 'Name', minWidth: 15, maxWidth: 40, value: account => account.name },
@@ -155,7 +168,7 @@ export function formatUsageTermDetail (term: UsageTerm, format: OutputFormat): s
   if (term.pricingRules === null) output.push(section('Pricing rules', 'Pricing rules unavailable.', format))
   else {
     for (const [key, rule] of Object.entries(term.pricingRules)) {
-      output.push(section(key, formatPricingRule(rule, format, 3), format))
+      output.push(section(key, formatPricingRule(rule, format, 3, term.unit), format))
     }
     if (Object.keys(term.pricingRules).length === 0) output.push(section('Pricing rules', 'No pricing rules.', format))
   }
@@ -177,6 +190,7 @@ function formatCalculation (
 ): string {
   const title = `Calculation ${index + 1}`
   const used = `${capitalize(noun(unit))} used`
+  const rate = rateNoun(unit)
   if ('rateCondition' in calculation) {
     return renderDetailFields(title, [
       { label: 'Rate condition', value: value => value.rateCondition ?? 'Default rate' },
@@ -192,14 +206,14 @@ function formatCalculation (
       { label: 'Measured quantity', value: value => number(value.measuredQuantity) },
       { label: 'Included quantity', value: value => number(value.includedQuantity) },
       { label: 'Billable block days', value: value => number(value.billableBlockDays) },
-      { label: 'Applied daily credits per block', value: value => number(value.appliedDailyCreditsPerBlock) },
+      { label: `Applied daily ${rate} per block`, value: value => amount(value.appliedDailyCreditsPerBlock, unit) },
       { label: 'Proration days per year', value: value => String(value.proration.daysPerYear) },
       { label: used, value: value => amount(value.unitsUsed, unit) },
     ], calculation, format, level)
   }
   return renderDetailFields(title, [
     { label: 'Billable resource days', value: value => number(value.billableResourceDays) },
-    { label: 'Applied daily credits', value: value => number(value.appliedDailyCredits) },
+    { label: `Applied daily ${rate}`, value: value => amount(value.appliedDailyCredits, unit) },
     { label: 'Proration days per year', value: value => String(value.proration.daysPerYear) },
     { label: used, value: value => amount(value.unitsUsed, unit) },
   ], calculation, format, level)
@@ -302,7 +316,7 @@ export function formatUsageSeries (
               ]
               return [
                 renderDetailFields('Contribution', fields, contribution, format, 3),
-                formatPricingRule(contribution.pricingRule ?? null, format, 4),
+                formatPricingRule(contribution.pricingRule ?? null, format, 4, unit),
                 contribution.calculations === undefined
                   ? 'Calculations unavailable.'
                   : contribution.calculations.length === 0 ? 'No calculations.' : '',

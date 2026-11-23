@@ -274,6 +274,30 @@ describe('usdCents display', () => {
     expect(detail).toContain('| Budget | $500.00 |')
   })
 
+  it('prices pricing rules in dollars and hides contract credit conversion rates', () => {
+    const detail = formatUsageTermDetail({ ...termFixture, ...cents }, 'md')
+    expect(detail).toContain('| Price | $0.001234 |')
+    expect(detail).toContain('| Condition | Price |')
+    expect(detail).toContain('| premium | $0.005678 |')
+    expect(detail).toContain('| Annual price | $3.650123 |')
+    expect(detail).toContain('| Annual price per block | $0.365012 |')
+    expect(detail).not.toContain('credits / unit')
+    expect(detail).not.toMatch(/\| (Credits|Annual credits)/)
+    const contract = formatUsageTermDetail(termFixture, 'md')
+    expect(contract).toContain('| Credits | 0.1234 |')
+    expect(contract).toContain('| Standard credits / unit | 0.0001 |')
+  })
+
+  it('prices calculation daily rates in dollars', () => {
+    const row = { ...seriesFixture.data[0], contributions: summaryFixture.breakdown }
+    const output = formatUsageSeries([row], 'md', {
+      interval: 'day', groupBy: [], include: ['calculations'], ...cents,
+    })
+    expect(output).toContain('| Applied daily price | $0.010001 |')
+    expect(output).toContain('| Applied daily price per block | $0.001 |')
+    expect(output).not.toContain('Applied daily credits')
+  })
+
   it('labels summary, series and coverage in USD and keeps sub-cent precision', () => {
     const summary = formatUsageSummary({ ...summaryFixture, ...cents }, 'md')
     expect(summary).toContain('Coverage gaps (USD unavailable)')

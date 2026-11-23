@@ -78,6 +78,8 @@ describe('usage input validation', () => {
 
   it('rejects unknown enum values', () => {
     expect(() => usageRangeParams({ 'pricing-rule': ['API'] })).toThrow('--pricing-rule must be one of')
+    expect(usageRangeParams({ 'pricing-rule': ['apiAndMultistepChecks,browserAndPlaywrightChecks'] }).pricingRuleKeys)
+      .toEqual(['apiAndMultistepChecks', 'browserAndPlaywrightChecks'])
     expect(() => usageSeriesParams({ ...seriesFlags, include: ['meters'] })).toThrow('--include must be one of')
   })
 
