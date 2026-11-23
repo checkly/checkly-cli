@@ -190,7 +190,7 @@ describe('usage series', () => {
     await Reflect.apply(UsageSeriesCommand.prototype.run, ctx, [])
     expect(JSON.parse(ctx.logged[0])).toEqual({
       data: seriesFixture.data, pagination: { nextId: 'opaque cursor', length: 1 },
-      period: { from: '2026-07-02', to: '2026-07-03' }, usageTermsIds: [RENEWAL_ID],
+      period: { from: '2026-07-02', to: '2026-07-03' }, usageTermsIds: [RENEWAL_ID], unit: 'credits',
       interval: 'day', groupBy: ['account', 'usageTerm', 'pricingRule', 'checkType'], coverage: { gaps: [] },
     })
     expect(api.usage.getTerm).not.toHaveBeenCalled()
@@ -264,14 +264,31 @@ describe('usage series', () => {
 })
 
 describe('usage projections', () => {
-  it('requires an explicit term ID at the CLI parser boundary', async () => {
-    await expect(Parser.parse([], {
-      args: UsageProjectionsCommand.args, flags: UsageProjectionsCommand.flags,
-    })).rejects.toThrow('Missing 1 required arg')
-    const parsed = await Parser.parse([TERM_ID], {
+  it('accepts an optional term ID at the CLI parser boundary', async () => {
+    const parse = (argv: string[]) => Parser.parse(argv, {
       args: UsageProjectionsCommand.args, flags: UsageProjectionsCommand.flags,
     })
-    expect(parsed.args).toEqual({ id: TERM_ID })
+    expect((await parse([])).args).toEqual({})
+    expect((await parse([TERM_ID])).args).toEqual({ id: TERM_ID })
+  })
+
+  it('projects the term in force today without an ID and names the term the API chose', async () => {
+    const ctx = context({ args: {}, flags: { output: 'md' } })
+    await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
+    expect(api.usage.getProjections).toHaveBeenCalledExactlyOnceWith({})
+    expect(api.usage.getTerm).toHaveBeenCalledExactlyOnceWith(TERM_ID)
+    expect(ctx.logged[0]).toContain(`Acme Corp (${TERM_ID})`)
+  })
+
+  it('explains how to pick a term when none is in force today', async () => {
+    vi.mocked(api.usage.getProjections).mockRejectedValue(new NotFoundError({
+      statusCode: 404, error: 'Not Found', message: 'No usage terms found', code: 'NO_USAGE_TERMS',
+    }))
+    const ctx = context({ args: {}, flags: { output: 'json' } })
+    await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
+    expect(ctx.style.longError).toHaveBeenCalledWith('Failed to load usage projections.',
+      expect.stringContaining('No usage term is in force today.'))
+    expect(process.exitCode).toBe(1)
   })
 
   it('identifies a requested term that returns the coded no-terms error', async () => {
@@ -288,7 +305,7 @@ describe('usage projections', () => {
   it('requests the completed default without asOf and prints resource JSON without names', async () => {
     const ctx = context({ args: { id: TERM_ID }, flags: { output: 'json' } })
     await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
-    expect(api.usage.getProjections).toHaveBeenCalledExactlyOnceWith(TERM_ID, {})
+    expect(api.usage.getProjections).toHaveBeenCalledExactlyOnceWith({ usageTermsId: TERM_ID })
     expect(api.usage.listTerms).not.toHaveBeenCalled()
     expect(JSON.parse(ctx.logged[0])).toEqual(projectionsFixture)
     expect(api.usage.getTerm).not.toHaveBeenCalled()
@@ -297,7 +314,7 @@ describe('usage projections', () => {
   it('maps an explicit completed day and renders human forecast precision with one detail lookup', async () => {
     const ctx = context({ args: { id: TERM_ID }, flags: { 'as-of': '2026-06-01', 'output': 'md' } })
     await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
-    expect(api.usage.getProjections).toHaveBeenCalledExactlyOnceWith(TERM_ID, { asOf: '2026-06-01' })
+    expect(api.usage.getProjections).toHaveBeenCalledExactlyOnceWith({ usageTermsId: TERM_ID, asOf: '2026-06-01' })
     expect(api.usage.getTerm).toHaveBeenCalledExactlyOnceWith(TERM_ID)
     expect(ctx.logged[0]).toContain('Acme Corp')
     expect(ctx.logged[0]).toContain('-311.2584')
@@ -313,14 +330,21 @@ describe('usage projections', () => {
     expect(process.exitCode).toBeUndefined()
   })
 
-  it('rejects today before calling the API', async () => {
-    const ctx = context({ args: { id: TERM_ID }, flags: {
+  it.each([{ id: TERM_ID }, {}])('rejects today before calling the API (args %o)', async args => {
+    const ctx = context({ args, flags: {
       'as-of': new Date().toISOString().slice(0, 10), 'output': 'json',
     } })
     await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
     expect(api.usage.getProjections).not.toHaveBeenCalled()
     expect(ctx.style.longError).toHaveBeenCalledWith('Failed to load usage projections.',
       expect.objectContaining({ message: expect.stringContaining('completed UTC date') }))
+  })
+
+  it('rejects a malformed term ID before calling the API', async () => {
+    const ctx = context({ args: { id: '../term' }, flags: { output: 'json' } })
+    await Reflect.apply(UsageProjectionsCommand.prototype.run, ctx, [])
+    expect(api.usage.getProjections).not.toHaveBeenCalled()
+    expect(process.exitCode).toBe(2)
   })
 })
 

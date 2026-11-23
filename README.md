@@ -93,10 +93,11 @@ Official docs are over at [checklyhq.com/docs/cli](https://checklyhq.com/docs/cl
 
 Migration from v9:
 
-- Summary JSON renames `totals.credits.used` to `totals.creditsUsed` and removes `totals.credits.percentOfBudget` and embedded `projections`. Get forecasts with `checkly account usage projections <id>`.
+- Summary JSON renames `totals.credits.used` to `totals.creditsUsed` and removes `totals.credits.percentOfBudget` and embedded `projections`. Get forecasts with `checkly account usage projections [id]`; without an ID it projects the term in force today.
 - Summary and series expose `usageTermsIds` instead of `usageTermsId`. Series replaces `warnings` with `coverage.gaps`.
 - Terms and series JSON use `{ data, pagination: { nextId, length } }`. Terms default to table output; use `term <id>` for detail.
 - `--from` and `--to` bound an inclusive UTC range. On `terms`, they select overlapping contracts rather than one contract covering `--to`.
+- Amounts are in the term's `unit` (`credits` for contracts, `usdCents` for self-service plans): `unitsUsed`, `unitBudget`, `unitsRemaining` and the other `units*` fields replace the deprecated `credit*` fields. Human output prints `usdCents` amounts as dollars.
 - `--check-type` is removed. Use `--pricing-rule` to select charges or `series --group-by checkType` for a check-type breakdown.
 
 # AI Agents & Coding Assistants

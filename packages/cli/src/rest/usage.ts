@@ -14,7 +14,9 @@ export type UsagePricingRuleKey = typeof USAGE_PRICING_RULE_KEYS[number]
 export type UsageCheckType =
   | 'AGENTIC' | 'API' | 'BROWSER' | 'HEARTBEAT' | 'ICMP' | 'MULTI_STEP' | 'TCP' | 'PLAYWRIGHT'
   | 'URL' | 'DNS' | 'SSL' | 'GRPC' | 'TRACEROUTE'
-export type UsageCreditsUsed = number | null
+/** What a term's amounts count: contract credits, or US cents for a Stripe-billed account. */
+export type UsageUnit = 'credits' | 'usdCents'
+export type UsageUnitsUsed = number | null
 export type UsagePackageModel = 'limits' | 'credits'
 
 export interface UsagePeriod { from: string, to: string }
@@ -49,7 +51,8 @@ export interface UsageTerm {
   contractStartDate: string
   contractEndDate: string
   usageStartDate: string
-  creditBudget: number | null
+  unit: UsageUnit
+  unitBudget: number | null
   standardCreditsPerUnit: number | null
   premiumCreditsPerUnit: number | null
   packageModel: UsagePackageModel | null
@@ -61,13 +64,13 @@ export interface UnitUsageCalculation {
   measuredQuantity: number
   includedQuantity: number | null
   billableQuantity: number | null
-  creditsUsed: UsageCreditsUsed
+  unitsUsed: UsageUnitsUsed
 }
 export interface PeriodUsageCalculation {
   billableResourceDays: number
   appliedDailyCredits: number
   proration: { daysPerYear: 365 }
-  creditsUsed: UsageCreditsUsed
+  unitsUsed: UsageUnitsUsed
 }
 export interface CapacityBlockUsageCalculation {
   scope: 'statusPage'
@@ -76,7 +79,7 @@ export interface CapacityBlockUsageCalculation {
   billableBlockDays: number
   appliedDailyCreditsPerBlock: number
   proration: { daysPerYear: 365 }
-  creditsUsed: UsageCreditsUsed
+  unitsUsed: UsageUnitsUsed
 }
 export type UsageCalculation = UnitUsageCalculation | PeriodUsageCalculation | CapacityBlockUsageCalculation
 export interface UsageBreakdown {
@@ -86,19 +89,20 @@ export interface UsageBreakdown {
   period: UsagePeriod
   pricingRule: UsagePricingRule | null
   calculations: UsageCalculation[]
-  creditsUsed: UsageCreditsUsed
+  unitsUsed: UsageUnitsUsed
 }
 export interface UsageSummary {
   period: UsagePeriod
   usageTermsIds: string[]
-  totals: { creditsUsed: UsageCreditsUsed }
+  unit: UsageUnit | null
+  totals: { unitsUsed: UsageUnitsUsed }
   breakdown: UsageBreakdown[]
   coverage: UsageCoverage
 }
 export interface UsageContribution {
   usageTermsId: string
   pricingRuleKey: UsagePricingRuleKey
-  creditsUsed: UsageCreditsUsed
+  unitsUsed: UsageUnitsUsed
   period?: UsagePeriod
   pricingRule?: UsagePricingRule | null
   calculations?: UsageCalculation[]
@@ -123,13 +127,14 @@ export interface UsageSeriesRow {
     pricingRuleKey?: UsagePricingRuleKey
     checkType?: UsageCheckType | null
   }
-  creditsUsed: UsageCreditsUsed
+  unitsUsed: UsageUnitsUsed
   contributions: UsageContribution[]
   runs?: UsageRunCounts | null
 }
 export interface UsageSeries {
   period: UsagePeriod
   usageTermsIds: string[]
+  unit: UsageUnit | null
   interval: UsageInterval
   groupBy: UsageGroupDimension[]
   data: UsageSeriesRow[]
@@ -139,11 +144,11 @@ export interface UsageSeries {
 export interface UsageProjectionWindow {
   period: UsagePeriod | null
   observedDays: number
-  creditsUsed: UsageCreditsUsed
-  averageDailyCredits: number | null
+  unitsUsed: UsageUnitsUsed
+  averageDailyUnits: number | null
   projectedAnnualPercentOfBudget: number | null
-  projectedCreditsAtContractEnd: number | null
-  projectedRemainingCredits: number | null
+  projectedUnitsAtContractEnd: number | null
+  projectedUnitsRemaining: number | null
   projectedPercentAtContractEnd: number | null
   projectedWeeksUntilExhausted: number | null
 }
@@ -153,9 +158,10 @@ export interface UsageProjections {
   period: UsagePeriod | null
   weeksSinceStart: number
   weeksRemaining: number
-  creditsUsed: UsageCreditsUsed
-  remainingCredits: number | null
-  budgetedDailyCredits: number | null
+  unit: UsageUnit
+  unitsUsed: UsageUnitsUsed
+  unitsRemaining: number | null
+  budgetedDailyUnits: number | null
   windows: {
     sinceStart: UsageProjectionWindow
     last30Days: UsageProjectionWindow
@@ -183,7 +189,11 @@ export interface UsageSeriesParams extends UsageRangeParams {
   limit?: number
   nextId?: string
 }
-export interface UsageProjectionsParams { asOf?: string }
+export interface UsageProjectionsParams {
+  /** The term to project. Without it, the API projects the term in force today. */
+  usageTermsId?: string
+  asOf?: string
+}
 
 function toQuery (params: UsageSeriesParams): Record<string, string | number> {
   const query: Record<string, string | number> = {}
@@ -221,8 +231,8 @@ class Usage extends RestResource {
     return this.api.get<UsageSeries>('/v2/usage/series', { params: toQuery(params) })
   }
 
-  getProjections (id: string, params: UsageProjectionsParams = {}) {
-    return this.api.get<UsageProjections>(`/v2/usage/terms/${encodeURIComponent(id)}/projections`, { params })
+  getProjections (params: UsageProjectionsParams = {}) {
+    return this.api.get<UsageProjections>('/v2/usage/projections', { params })
   }
 }
 

@@ -236,7 +236,11 @@ export async function loadUsageNames (ids: string[], period: UsagePeriod): Promi
   return { terms, accounts }
 }
 
-export interface UsageErrorContext { termId?: string }
+export interface UsageErrorContext {
+  termId?: string
+  /** Without a termId, the request asked for the term in force today rather than a date range. */
+  inForceTerm?: boolean
+}
 
 export function describeUsageError (err: unknown, context: UsageErrorContext = {}): string | Error {
   if (!(err instanceof ApiError)) return err instanceof Error ? err : String(err)
@@ -245,6 +249,10 @@ export function describeUsageError (err: unknown, context: UsageErrorContext = {
       if (context.termId) {
         return `Usage term ${context.termId} was not found. `
           + 'Run "checkly account usage terms" to discover available term IDs.'
+      }
+      if (context.inForceTerm) {
+        return 'No usage term is in force today. '
+          + 'Run "checkly account usage terms" to find a term ID, then pass it to "checkly account usage projections <id>".'
       }
       return 'No usage terms are available for the requested selection. '
         + 'Run "checkly account usage terms" to inspect contracts and choose term IDs or a covered date range.'

@@ -53,18 +53,21 @@ describe('Usage REST client', () => {
     expect(requests).toEqual([{ method: 'GET', path: '/v2/usage/terms', params: {} }])
   })
 
-  it('encodes the term path segment for detail and projections', async () => {
+  it('encodes the term path segment for detail', async () => {
     await usage.getTerm('id/with space')
-    await usage.getProjections('id/with space', { asOf: '2026-03-31' })
+    expect(requests).toEqual([{ method: 'GET', path: '/v2/usage/terms/id%2Fwith%20space', params: {} }])
+  })
+
+  it('sends the projection term and day as query parameters', async () => {
+    await usage.getProjections({ usageTermsId: 'term', asOf: '2026-03-31' })
     expect(requests).toEqual([
-      { method: 'GET', path: '/v2/usage/terms/id%2Fwith%20space', params: {} },
-      { method: 'GET', path: '/v2/usage/terms/id%2Fwith%20space/projections', params: { asOf: '2026-03-31' } },
+      { method: 'GET', path: '/v2/usage/projections', params: { usageTermsId: 'term', asOf: '2026-03-31' } },
     ])
   })
 
-  it('leaves the projection default with the server', async () => {
-    await usage.getProjections('term')
-    expect(requests).toEqual([{ method: 'GET', path: '/v2/usage/terms/term/projections', params: {} }])
+  it('leaves the projection term and day defaults with the server', async () => {
+    await usage.getProjections()
+    expect(requests).toEqual([{ method: 'GET', path: '/v2/usage/projections', params: {} }])
   })
 
   it('comma-joins all report selections without extra query parameters', async () => {
