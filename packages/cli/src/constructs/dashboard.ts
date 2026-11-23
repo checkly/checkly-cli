@@ -204,6 +204,27 @@ export interface DashboardProps {
    * @defaultValue true
    */
   showP99?: boolean
+
+  /**
+   * Sort checks by status, with failing checks shown first.
+   *
+   * @defaultValue false
+   */
+  sortByStatus?: boolean
+
+  /**
+   * Show or hide links to check runs on the bar chart of each check.
+   *
+   * @defaultValue false
+   */
+  showCheckRunLinks?: boolean
+
+  /**
+   * Show or hide group names on the dashboard.
+   *
+   * @defaultValue true
+   */
+  showGroupNames?: boolean
 }
 
 /**
@@ -236,6 +257,9 @@ export class Dashboard extends Construct {
   readonly isPrivate?: boolean
   readonly showP95?: boolean
   readonly showP99?: boolean
+  readonly sortByStatus?: boolean
+  readonly showCheckRunLinks?: boolean
+  readonly showGroupNames?: boolean
 
   static readonly __checklyType = 'dashboard'
 
@@ -270,6 +294,9 @@ export class Dashboard extends Construct {
     this.isPrivate = props.isPrivate
     this.showP95 = props.showP95
     this.showP99 = props.showP99
+    this.sortByStatus = props.sortByStatus
+    this.showCheckRunLinks = props.showCheckRunLinks
+    this.showGroupNames = props.showGroupNames
     this.customCSS = props.customCSS
 
     Session.registerConstruct(this)
@@ -365,6 +392,9 @@ export class Dashboard extends Construct {
       isPrivate: this.isPrivate,
       showP95: this.showP95,
       showP99: this.showP99,
+      sortByStatus: this.sortByStatus,
+      showCheckRunLinks: this.showCheckRunLinks,
+      showGroupNames: this.showGroupNames,
     }
   }
 }

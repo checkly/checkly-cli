@@ -462,7 +462,7 @@ const PRIVATE_LOCATION_KEYS = ['name', 'slugName', 'icon', 'proxyUrl'] as const 
 const DASHBOARD_KEYS = [
   'customUrl', 'customDomain', 'logo', 'favicon', 'link', 'header', 'description', 'width', 'refreshRate', 'paginate',
   'paginationRate', 'checksPerPage', 'useTagsAndOperator', 'hideTags', 'enableIncidents', 'expandChecks', 'showHeader',
-  'isPrivate', 'showP95', 'showP99',
+  'isPrivate', 'showP95', 'showP99', 'sortByStatus', 'showCheckRunLinks', 'showGroupNames',
 ] as const satisfies readonly (keyof DashboardProps)[]
 const DASHBOARD_SET_KEYS = ['tags'] as const satisfies readonly (keyof DashboardProps)[]
 const DASHBOARD_RULES: Rule[] = [
