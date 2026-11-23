@@ -52,6 +52,9 @@ import UsageTermCommand from '../account/usage/term.js'
 import UsageProjectionsCommand from '../account/usage/projections.js'
 import UsageSummaryCommand from '../account/usage/summary.js'
 import UsageSeriesCommand from '../account/usage/series.js'
+import AccountSpendingCap from '../account/spending-cap.js'
+import AccountSpendingCapSet from '../account/spending-cap/set.js'
+import AccountSpendingCapRemove from '../account/spending-cap/remove.js'
 
 const commands: Array<[string, typeof BaseCommand]> = [
   ['api', Api],
@@ -77,6 +80,9 @@ const commands: Array<[string, typeof BaseCommand]> = [
   ['account usage projections', UsageProjectionsCommand],
   ['account usage summary', UsageSummaryCommand],
   ['account usage series', UsageSeriesCommand],
+  ['account spending-cap', AccountSpendingCap],
+  ['account spending-cap set', AccountSpendingCapSet],
+  ['account spending-cap remove', AccountSpendingCapRemove],
   ['incidents list', IncidentsList],
   ['incidents create', IncidentsCreate],
   ['incidents update', IncidentsUpdate],
