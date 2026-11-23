@@ -11,7 +11,7 @@ export default class UsageSummaryCommand extends AuthCommand {
   static readOnly = true
   static destructive = false
   static idempotent = true
-  static description = 'Show usage credits, pricing breakdowns, and coverage gaps across selected terms.'
+  static description = 'Show usage, pricing breakdowns, and coverage gaps across selected terms.'
   static flags = { ...usageRangeFlags(), output: outputFlag({ default: 'detail' }) }
 
   async run (): Promise<void> {
