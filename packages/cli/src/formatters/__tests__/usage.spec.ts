@@ -16,7 +16,7 @@ afterEach(() => Object.defineProperty(process.stdout, 'columns', { configurable:
 describe('usage terms display', () => {
   it('lists term identity, dates, budget, model and account count', () => {
     const output = formatUsageTermsList([termFixture], 'md')
-    expect(output).toContain('| Name | ID | Contract start | Contract end | Usage start | Credit budget | Package model |')
+    expect(output).toContain('| Name | ID | Contract start | Contract end | Usage start | Budget | Package model |')
     expect(output).toContain(`| Acme Corp | ${TERM_ID} | 2026-01-01 | 2026-06-30 | 2026-01-02 | 1,000 | credits | 1 |`)
     expect(formatUsageTermsList([], 'terminal')).toBe('No usage terms found.')
   })
@@ -35,9 +35,9 @@ describe('usage terms display', () => {
 
   it('escapes Markdown cells and distinguishes missing pricing from empty pricing', () => {
     const output = formatUsageTermDetail({ ...termFixture, accounts: [{ id: ACCOUNT_ID, name: 'Production | East' }],
-      creditBudget: null, pricingRules: null }, 'md')
+      unitBudget: null, pricingRules: null }, 'md')
     expect(output).toContain('Production \\| East')
-    expect(output).toContain('| Credit budget | - |')
+    expect(output).toContain('| Budget | - |')
     expect(output).toContain('Pricing rules unavailable.')
     expect(formatUsageTermDetail({ ...termFixture, pricingRules: {} }, 'md')).toContain('No pricing rules.')
   })
@@ -101,7 +101,7 @@ describe('usage reports display', () => {
   it.each(['terminal', 'md'] as const)('keeps summary gaps, identities and precise charges in compact %s output', format => {
     Object.defineProperty(process.stdout, 'columns', { configurable: true, value: 100 })
     const summary = { ...summaryFixture, breakdown: summaryFixture.breakdown.map((row, index) => ({
-      ...row, creditsUsed: index === 2 ? null : row.creditsUsed,
+      ...row, unitsUsed: index === 2 ? null : row.unitsUsed,
     })) }
     const output = stripAnsi(formatUsageSummary(summary, format))
     expect(output).toContain('Coverage gaps (credits unavailable)')
@@ -138,7 +138,7 @@ describe('usage reports display', () => {
 
   it('uses the summary context for a single term and omits unattributed account columns', () => {
     const summary = { ...summaryFixture, usageTermsIds: [TERM_ID], breakdown: [{
-      ...summaryFixture.breakdown[0], accountId: undefined, creditsUsed: 0,
+      ...summaryFixture.breakdown[0], accountId: undefined, unitsUsed: 0,
     }] }
     const output = formatUsageSummary(summary, 'md')
     expect(output).toContain(`| Usage term IDs | ${TERM_ID} |`)
@@ -252,14 +252,70 @@ describe('projections display', () => {
   })
 
   it('shows a pre-start unavailable period with zero observed usage', () => {
-    const window = { period: null, observedDays: 0, creditsUsed: 0, averageDailyCredits: null,
-      projectedAnnualPercentOfBudget: null, projectedCreditsAtContractEnd: null, projectedRemainingCredits: null,
+    const window = { period: null, observedDays: 0, unitsUsed: 0, averageDailyUnits: null,
+      projectedAnnualPercentOfBudget: null, projectedUnitsAtContractEnd: null, projectedUnitsRemaining: null,
       projectedPercentAtContractEnd: null, projectedWeeksUntilExhausted: null }
-    const output = formatUsageProjections({ ...projectionsFixture, period: null, creditsUsed: 0,
+    const output = formatUsageProjections({ ...projectionsFixture, period: null, unitsUsed: 0,
       windows: { sinceStart: window, last30Days: window, last7Days: window, last1Day: window } }, 'md')
     expect(output).toContain('| Period | - |')
     expect(output).toContain('| Observed days | 0 |')
     expect(output).toContain('| Credits used | 0 |')
+  })
+})
+
+describe('usdCents display', () => {
+  const cents = { unit: 'usdCents' } as const
+
+  it('shows a self-service budget and term in dollars', () => {
+    const term = { ...termFixture, ...cents, unitBudget: 50000 }
+    expect(formatUsageTermsList([term], 'md')).toContain('| 2026-01-02 | $500.00 | credits | 1 |')
+    const detail = formatUsageTermDetail(term, 'md')
+    expect(detail).toContain('| Unit | usdCents |')
+    expect(detail).toContain('| Budget | $500.00 |')
+  })
+
+  it('prices pricing rules in dollars and hides contract credit conversion rates', () => {
+    const detail = formatUsageTermDetail({ ...termFixture, ...cents }, 'md')
+    expect(detail).toContain('| Price | $0.001234 |')
+    expect(detail).toContain('| Condition | Price |')
+    expect(detail).toContain('| premium | $0.005678 |')
+    expect(detail).toContain('| Annual price | $3.650123 |')
+    expect(detail).toContain('| Annual price per block | $0.365012 |')
+    expect(detail).not.toContain('credits / unit')
+    expect(detail).not.toMatch(/\| (Credits|Annual credits)/)
+    const contract = formatUsageTermDetail(termFixture, 'md')
+    expect(contract).toContain('| Credits | 0.1234 |')
+    expect(contract).toContain('| Standard credits / unit | 0.0001 |')
+  })
+
+  it('prices calculation daily rates in dollars', () => {
+    const row = { ...seriesFixture.data[0], contributions: summaryFixture.breakdown }
+    const output = formatUsageSeries([row], 'md', {
+      interval: 'day', groupBy: [], include: ['calculations'], ...cents,
+    })
+    expect(output).toContain('| Applied daily price | $0.010001 |')
+    expect(output).toContain('| Applied daily price per block | $0.001 |')
+    expect(output).not.toContain('Applied daily credits')
+  })
+
+  it('labels summary, series and coverage in USD and keeps sub-cent precision', () => {
+    const summary = formatUsageSummary({ ...summaryFixture, ...cents }, 'md')
+    expect(summary).toContain('Coverage gaps (USD unavailable)')
+    expect(summary).toContain('| Pricing rule | USD used |')
+    expect(summary).toContain('| apiChecks | $0.006047 |')
+    const series = formatUsageSeries(seriesFixture.data, 'md', {
+      interval: 'day', groupBy: [], include: ['calculations'], ...cents,
+    })
+    expect(series).toContain('| Period | USD used |')
+    expect(series).toContain('| USD used | $0.001234 |')
+  })
+
+  it('labels projections in USD, including negative remaining amounts', () => {
+    const output = formatUsageProjections({ ...projectionsFixture, ...cents }, 'md')
+    expect(output).toContain('| USD used | $11.000001 |')
+    expect(output).toContain('| Remaining USD | -$1.000001 |')
+    expect(output).toContain('| Remaining USD at contract end | -$3.112584 |')
+    expect(output).not.toContain('credits')
   })
 })
 

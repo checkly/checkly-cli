@@ -13,7 +13,7 @@ export default class UsageSeriesCommand extends AuthCommand {
   static readOnly = true
   static destructive = false
   static idempotent = true
-  static description = 'List usage credits per period with composable grouping and optional runs or calculations.'
+  static description = 'List usage per period with composable grouping and optional runs or calculations.'
   static flags = { ...usageSeriesFlags(), output: outputFlag({ default: 'table' }) }
 
   async run (): Promise<void> {
@@ -28,6 +28,7 @@ export default class UsageSeriesCommand extends AuthCommand {
           pagination: { nextId: series.nextId, length: series.data.length },
           period: series.period,
           usageTermsIds: series.usageTermsIds,
+          unit: series.unit,
           interval: series.interval,
           groupBy: series.groupBy,
           coverage: series.coverage,
@@ -41,10 +42,10 @@ export default class UsageSeriesCommand extends AuthCommand {
       const pinned = { ...params, ...series.period, interval: series.interval, groupBy: series.groupBy }
       this.log([
         fmt === 'md' ? heading('Usage series', 1, fmt) : '',
-        formatUsageCoverage(series.coverage, fmt),
+        formatUsageCoverage(series.coverage, fmt, series.unit),
         fmt === 'md' ? heading('Usage rows', 2, fmt) : '',
         formatUsageSeries(series.data, fmt, {
-          interval: series.interval, groupBy: series.groupBy, include: params.include ?? [], names,
+          interval: series.interval, groupBy: series.groupBy, include: params.include ?? [], unit: series.unit, names,
         }),
         formatUsagePaginationInfo(series.data.length, series.nextId, 'usage row'),
         formatUsageNavigationHints(series.nextId, usageListCommand('series', pinned, fmt), fmt),
