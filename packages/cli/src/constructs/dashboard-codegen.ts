@@ -24,6 +24,9 @@ export interface DashboardResource {
   isPrivate?: boolean
   showP95?: boolean
   showP99?: boolean
+  sortByStatus?: boolean
+  showCheckRunLinks?: boolean
+  showGroupNames?: boolean
 }
 
 const construct = 'Dashboard'
@@ -148,6 +151,18 @@ export class DashboardCodegen extends Codegen<DashboardResource> {
 
           if (resource.showP99 !== undefined) {
             builder.boolean('showP99', resource.showP99)
+          }
+
+          if (resource.sortByStatus !== undefined) {
+            builder.boolean('sortByStatus', resource.sortByStatus)
+          }
+
+          if (resource.showCheckRunLinks !== undefined) {
+            builder.boolean('showCheckRunLinks', resource.showCheckRunLinks)
+          }
+
+          if (resource.showGroupNames !== undefined) {
+            builder.boolean('showGroupNames', resource.showGroupNames)
           }
         })
       })

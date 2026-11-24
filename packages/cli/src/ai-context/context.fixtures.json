@@ -906,7 +906,9 @@
           "isPrivate": false,
           "showP99": true,
           "showP95": true,
-          "showCheckRunLinks": false
+          "showCheckRunLinks": false,
+          "showGroupNames": true,
+          "sortByStatus": false
         }
       },
       {

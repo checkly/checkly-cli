@@ -77,5 +77,22 @@ describe('Dashboard', () => {
         header: 'Status',
       })
     })
+
+    it('sends sortByStatus, showCheckRunLinks and showGroupNames', async () => {
+      Session.project = new Project('project-id', { name: 'Test Project' })
+      const dashboard = new Dashboard('test-dashboard', {
+        customUrl: 'my-status',
+        sortByStatus: true,
+        showCheckRunLinks: true,
+        showGroupNames: false,
+      })
+      const bundler = await Bundler.create({ cacheHash: 'foo' })
+      const bundle = await dashboard.bundle(bundler)
+      expect(bundle.synthesize()).toMatchObject({
+        sortByStatus: true,
+        showCheckRunLinks: true,
+        showGroupNames: false,
+      })
+    })
   })
 })
