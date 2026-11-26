@@ -183,9 +183,18 @@ describe('detectEngine', () => {
       expect(await detectedNode(root)).toEqual({ version: '^24.11.0', source: 'package.json devEngines.runtime' })
     })
 
-    it('should take the first node entry with a string version', async () => {
+    it('should take the first node entry with a non-empty string version', async () => {
       await writeFiles(root, {
-        'package.json': { devEngines: { runtime: [{ name: 'node' }, { name: 'node', version: '^24' }] } },
+        'package.json': {
+          devEngines: {
+            runtime: [
+              { name: 'node' },
+              { name: 'node', version: '' },
+              { name: 'node', version: '  ' },
+              { name: 'node', version: '^24' },
+            ],
+          },
+        },
       })
       expect(await detectedNode(root)).toEqual({ version: '^24', source: 'package.json devEngines.runtime' })
     })

@@ -75,14 +75,15 @@ function parseToolVersions (content: string): { nodeVersion?: string, bunVersion
 }
 
 /**
- * The `version` of the first `node` entry with a string version in a
- * `devEngines.runtime` or `engines.runtime` field, which holds one entry or an
- * array of them.
+ * The `version` of the first `node` entry whose version is a non-empty string
+ * in a `devEngines.runtime` or `engines.runtime` field, which holds one entry
+ * or an array of them.
  */
 function runtimeNodeVersion (runtime: any): string | undefined {
   const entries: any[] = Array.isArray(runtime) ? runtime : [runtime]
   return entries.find(entry =>
-    typeof entry === 'object' && entry !== null && entry.name === 'node' && typeof entry.version === 'string',
+    typeof entry === 'object' && entry !== null && entry.name === 'node'
+    && typeof entry.version === 'string' && entry.version.trim() !== '',
   )?.version
 }
 

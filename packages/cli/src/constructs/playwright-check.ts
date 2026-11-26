@@ -395,7 +395,11 @@ export class PlaywrightCheck extends RuntimeCheck {
       if (version !== undefined && version !== this.engine.version) {
         this.engine = Engine.node(version)
       }
-      recordRequestedNodeVersion(this, { version: this.engine.version, source })
+      // Checkly refuses an engine without a usable version. It gets no
+      // Node.js line.
+      if (version) {
+        recordRequestedNodeVersion(this, { version, source })
+      }
     } else if (this.engine) {
       const res = await resolveEngineVersion(this.engine.version, this.engine.name)
       const Diagnostic = res.denied

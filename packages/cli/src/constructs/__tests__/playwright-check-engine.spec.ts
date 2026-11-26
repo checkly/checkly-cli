@@ -75,6 +75,16 @@ describe('PlaywrightCheck engine', () => {
       expect(engineDiagnostics).toEqual([])
     })
 
+    it.each([
+      ['no version', { name: 'node' }],
+      ['NaN', { name: 'node', version: NaN }],
+      ['an empty string', { name: 'node', version: '  ' }],
+    ])('names no request for a plain object with %s', async (_, engine) => {
+      const { check } = await validatedCheck({ engine: engine as unknown as Engine })
+
+      expect(requestedNodeVersion(check)).toBeUndefined()
+    })
+
     it('names the file that declares the check when the call site is not known', async () => {
       const { check } = await validatedCheck({ engine: Engine.node('^24.11.0') })
 
