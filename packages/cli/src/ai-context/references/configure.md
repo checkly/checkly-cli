@@ -72,6 +72,7 @@ Run `npx checkly skills manage plan` for the full reference.
 
 ## Testing and Debugging
 
+- Validate the project using the `npx checkly validate` command. It reports configuration errors and warnings without running or deploying any checks.
 - Test checks using the `npx checkly test` command. Pass environment variables with the `-e` flag, results are recorded by default (use `--no-record` to skip), and use `--verbose` to see all errors.
 
 ## Deploying
