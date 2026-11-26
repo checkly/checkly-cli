@@ -1,4 +1,18 @@
 import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import {
+  AlertChannelIntegration,
+  CORALOGIX_INTEGRATION,
+  DISCORD_INTEGRATION,
+  FIREHYDRANT_INTEGRATION,
+  GITLAB_INTEGRATION,
+  ILERT_INTEGRATION,
+  INCIDENTIO_INTEGRATION,
+  MSTEAMS_INTEGRATION,
+  ROOTLY_INTEGRATION,
+  SPIKE_INTEGRATION,
+  SPLUNK_INTEGRATION,
+  TELEGRAM_INTEGRATION,
+} from './internal/integrations.js'
 import { HttpHeader } from './http-header.js'
 import { HttpRequestMethod } from './http-request.js'
 import { QueryParam } from './query-param.js'
@@ -42,6 +56,26 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
 }
 
 /**
+ * The integration each webhook type delivers through. The integration types
+ * must match the ones the Checkly API reports in the account's `integrations`
+ * list (see `internal/integrations.ts`). A plain webhook, or one whose type is
+ * not listed here, is not checked against the account's plan.
+ */
+const WEBHOOK_INTEGRATIONS = new Map<string, AlertChannelIntegration>([
+  ['WEBHOOK_MSTEAMS', MSTEAMS_INTEGRATION],
+  ['WEBHOOK_DISCORD', DISCORD_INTEGRATION],
+  ['WEBHOOK_TELEGRAM', TELEGRAM_INTEGRATION],
+  ['WEBHOOK_FIREHYDRANT', FIREHYDRANT_INTEGRATION],
+  ['WEBHOOK_GITLAB_ALERT', GITLAB_INTEGRATION],
+  ['WEBHOOK_SPIKESH', SPIKE_INTEGRATION],
+  ['WEBHOOK_SPLUNK', SPLUNK_INTEGRATION],
+  ['WEBHOOK_CORALOGIX', CORALOGIX_INTEGRATION],
+  ['WEBHOOK_ILERT', ILERT_INTEGRATION],
+  ['WEBHOOK_INCIDENTIO', INCIDENTIO_INTEGRATION],
+  ['WEBHOOK_ROOTLY', ROOTLY_INTEGRATION],
+])
+
+/**
  * Creates an Webhook Alert Channel
  *
  * @remarks
@@ -80,6 +114,10 @@ export class WebhookAlertChannel extends AlertChannel {
 
   describe (): string {
     return `WebhookAlertChannel:${this.logicalId}`
+  }
+
+  protected integration (): AlertChannelIntegration | undefined {
+    return this.webhookType === undefined ? undefined : WEBHOOK_INTEGRATIONS.get(this.webhookType)
   }
 
   synthesize () {

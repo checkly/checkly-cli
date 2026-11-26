@@ -18,16 +18,26 @@ export interface Account {
    */
   features?: string[]
   /**
-   * Every integration type the API reports, each marked connected or not, e.g.
-   * `SLACK` for the Checkly Slack app. A type missing from the list is one the
-   * API does not report. Absent when the API predates it.
+   * Every integration type the API reports, e.g. `SLACK` or `PAGERDUTY`, with
+   * whether it is connected to the account and whether the account's plan
+   * includes it. A type missing from the list is one the API does not report.
+   * Absent when the API predates it.
    */
   integrations?: AccountIntegration[]
 }
 
 export interface AccountIntegration {
   type: string
+  /**
+   * Whether the integration is connected to the account. Always true for an
+   * integration that needs no per-account connection.
+   */
   connected: boolean
+  /**
+   * Whether the account may use the integration. Absent when the API predates
+   * it, in which case nothing is known about it.
+   */
+  entitled?: boolean
 }
 
 class Accounts extends RestResource {

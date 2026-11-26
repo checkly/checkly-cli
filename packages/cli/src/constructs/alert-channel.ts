@@ -1,5 +1,7 @@
 import { Construct } from './construct.js'
+import { IntegrationNotEntitledDiagnostic } from './construct-diagnostics.js'
 import { Diagnostics } from './diagnostics.js'
+import type { AlertChannelIntegration } from './internal/integrations.js'
 import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics.js'
 import { Session } from './session.js'
 
@@ -165,6 +167,41 @@ export abstract class AlertChannel extends Construct {
 
   allowInChecklyConfig () {
     return true
+  }
+
+  /**
+   * The integration the channel delivers its alerts through, or undefined
+   * when it uses none the account reports (e.g. email).
+   *
+   * @internal Overridden by the built-in alert channel constructs. Not part of
+   * the public constructs API.
+   */
+  protected integration (): AlertChannelIntegration | undefined {
+    return undefined
+  }
+
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    this.#validateIntegrationEntitlement(diagnostics)
+  }
+
+  /**
+   * Refuses the channel when the account reports its integration as not
+   * included in the plan: its alerts would never be sent, whether the channel
+   * is new or was deployed before. Skipped when the API does not report the
+   * integration or whether the account may use it.
+   */
+  #validateIntegrationEntitlement (diagnostics: Diagnostics): void {
+    const integration = this.integration()
+    if (integration === undefined) {
+      return
+    }
+    const reported = Session.account?.integrations?.find(({ type }) => type === integration.type)
+    if (reported?.entitled !== false) {
+      return
+    }
+    diagnostics.add(new IntegrationNotEntitledDiagnostic(integration.name, Session.account?.id))
   }
 
   synthesize (): any | null {

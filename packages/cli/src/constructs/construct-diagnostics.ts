@@ -18,6 +18,30 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
   }
 }
 
+/**
+ * A construct that uses an integration the account's plan doesn't include.
+ */
+export class IntegrationNotEntitledDiagnostic extends ErrorDiagnostic {
+  integrationName: string
+
+  constructor (integrationName: string, accountId: string | undefined) {
+    const error = new Error(
+      `This feature uses ${integrationName}, which your plan doesn't include.`,
+    )
+    super({
+      title: `Integration not included in your plan`,
+      message:
+        `${error.message}`
+        + `\n\n`
+        + `Hint: Upgrade your plan at https://app.checklyhq.com/accounts/${accountId}/billing,`
+        + ` or stop using ${integrationName} in your project.`,
+      error,
+    })
+
+    this.integrationName = integrationName
+  }
+}
+
 export class SubstitutedPropertyValueDiagnostic extends WarningDiagnostic {
   property: string
 

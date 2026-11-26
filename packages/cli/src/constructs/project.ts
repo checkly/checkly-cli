@@ -4,7 +4,7 @@ import PQueue from 'p-queue'
 
 import { Construct } from './construct.js'
 import {
-  Check, AlertChannelSubscription, AlertChannel, CheckGroup, MaintenanceWindow, Dashboard,
+  Check, AlertChannelSubscription, AlertChannel, AlertChannelRef, CheckGroup, MaintenanceWindow, Dashboard,
   PrivateLocation, HeartbeatMonitor, PrivateLocationCheckAssignment, PrivateLocationGroupAssignment,
   StatusPage, StatusPageService, PlaywrightCheck,
   StatusPageV3, StatusPageV3Component, StatusPageV3AutomationRule,
@@ -41,7 +41,7 @@ export interface ProjectProps {
 export type Resources = {
   'check': Check
   'check-group': CheckGroup
-  'alert-channel': AlertChannel
+  'alert-channel': AlertChannel | AlertChannelRef
   'alert-channel-subscription': AlertChannelSubscription
   'maintenance-window': MaintenanceWindow
   'private-location': PrivateLocation
