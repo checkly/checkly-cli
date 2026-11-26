@@ -9,6 +9,7 @@ import { loadChecklyConfig } from '../../services/checkly-config-loader.js'
 import { Ok } from '../../services/check-parser/package-files/result.js'
 import { Diagnostics } from '../diagnostics.js'
 import { Engine } from '../engine.js'
+import { requestedNodeVersion } from '../internal/node-version-request.js'
 import { PlaywrightCheck, type PlaywrightCheckProps } from '../playwright-check.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
@@ -65,10 +66,19 @@ describe('PlaywrightCheck engine', () => {
       expect(engineDiagnostics).toEqual([])
     })
 
+    it('sends a number in a plain object as its string form', async () => {
+      const engine = { name: 'node', version: 22 } as unknown as Engine
+      const { check, engineDiagnostics } = await validatedCheck({ engine })
+
+      expect(check.synthesize()).toMatchObject({ engine: 'node', engineVersion: '22' })
+      expect(requestedNodeVersion(check)?.version).toBe('22')
+      expect(engineDiagnostics).toEqual([])
+    })
+
     it('names the file that declares the check when the call site is not known', async () => {
       const { check } = await validatedCheck({ engine: Engine.node('^24.11.0') })
 
-      expect(check.nodeVersionRequest()).toEqual({
+      expect(requestedNodeVersion(check)).toEqual({
         version: '^24.11.0',
         source: 'Engine.node() in __checks__/suite.check.ts',
       })
@@ -88,7 +98,28 @@ describe('PlaywrightCheck engine', () => {
 
       const { check } = await validatedCheck({ engine })
 
-      expect(check.nodeVersionRequest()?.source).toBe('Engine.node() in shared/engine.mjs')
+      expect(requestedNodeVersion(check)?.source).toBe('Engine.node() in shared/engine.mjs')
+    })
+
+    it('names the Checkly config file for an Engine.node() called in it', async () => {
+      await fs.writeFile(path.join(dir, 'checkly.config.mjs'), [
+        `import { Engine } from ${JSON.stringify(pathToFileURL(ENGINE_MODULE).href)}`,
+        `export default {`,
+        `  projectName: 'Project',`,
+        `  logicalId: 'project',`,
+        `  checks: { playwrightChecks: [{ logicalId: 'suite', name: 'Suite', engine: Engine.node('^24.11.0') }] },`,
+        `}`,
+        '',
+      ].join('\n'))
+      const { config } = await loadChecklyConfig(dir, ['checkly.config.mjs'], false)
+      const [{ engine }] = config.checks!.playwrightChecks!
+
+      const { check } = await validatedCheck({ engine })
+
+      expect(requestedNodeVersion(check)).toEqual({
+        version: '^24.11.0',
+        source: 'Engine.node() in checkly.config.mjs',
+      })
     })
 
     it('names the Checkly config file for an engine written there as a plain object', async () => {
@@ -106,7 +137,7 @@ describe('PlaywrightCheck engine', () => {
       // entry: attributed to the Playwright config file.
       const { check } = await validatedCheck({ engine })
 
-      expect(check.nodeVersionRequest()).toEqual({
+      expect(requestedNodeVersion(check)).toEqual({
         version: '^24.11.0',
         source: 'Engine.node() in checkly.config.mjs',
       })
@@ -124,8 +155,39 @@ describe('PlaywrightCheck engine', () => {
       const { check, engineDiagnostics } = await validatedCheck()
 
       expect(check.synthesize()).toMatchObject({ engine: 'node', engineVersion: '26.13.0' })
-      expect(check.nodeVersionRequest()).toEqual({ version: '26.13.0', source: 'package.json devEngines.runtime' })
+      expect(requestedNodeVersion(check)).toEqual({ version: '26.13.0', source: 'package.json devEngines.runtime' })
       expect(engineDiagnostics).toEqual([])
+    })
+
+    it('keeps the detected source when the check is validated again', async () => {
+      await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+        engines: { runtime: { name: 'node', version: '^24.11.0' } },
+      }))
+      Session.basePath = dir
+      Session.contextPath = dir
+
+      const { check } = await validatedCheck()
+      await check.validate(new Diagnostics())
+
+      expect(requestedNodeVersion(check)).toEqual({ version: '^24.11.0', source: 'package.json engines.runtime' })
+    })
+
+    it('names a version file outside the config directory relative to it', async () => {
+      await fs.writeFile(path.join(dir, 'package.json'), JSON.stringify({
+        devEngines: { runtime: { name: 'node', version: '^24.11.0' } },
+      }))
+      const app = path.join(dir, 'packages', 'app')
+      await fs.mkdir(app, { recursive: true })
+      Session.basePath = dir
+      Session.contextPath = app
+      Session.checkFilesDirectory = app
+
+      const { check } = await validatedCheck()
+
+      expect(requestedNodeVersion(check)).toEqual({
+        version: '^24.11.0',
+        source: '../../package.json devEngines.runtime',
+      })
     })
 
     it('asks for no Node.js version without a source', async () => {
@@ -135,7 +197,7 @@ describe('PlaywrightCheck engine', () => {
       const { check } = await validatedCheck()
 
       expect(check.synthesize()).not.toHaveProperty('engineVersion')
-      expect(check.nodeVersionRequest()).toBeUndefined()
+      expect(requestedNodeVersion(check)).toBeUndefined()
     })
   })
 
@@ -144,7 +206,7 @@ describe('PlaywrightCheck engine', () => {
       const { check } = await validatedCheck({ engine: Engine.bun('1.4.2') })
 
       expect(check.synthesize()).toMatchObject({ engine: 'bun', engineVersion: '1.4' })
-      expect(check.nodeVersionRequest()).toBeUndefined()
+      expect(requestedNodeVersion(check)).toBeUndefined()
     })
 
     it('still remaps an unavailable minor with a notice', async () => {

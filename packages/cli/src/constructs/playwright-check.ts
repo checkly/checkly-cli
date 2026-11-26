@@ -19,6 +19,18 @@ import { detectEngine, normalizeNodeVersion } from '../services/engine-detector.
 import { resolveEngineVersion } from '../services/engine-resolver.js'
 import { Engine, EngineConfig } from './engine.js'
 import { engineDeclaringFile } from './internal/engine-declaring-file.js'
+import { recordRequestedNodeVersion, requestedNodeVersion } from './internal/node-version-request.js'
+
+/**
+ * The Node.js version to send for an explicit engine: a string trimmed and
+ * without a leading `v`, and a finite number in its string form, which a plain
+ * object in a JavaScript config can hold. Anything else is sent as it is.
+ */
+function explicitNodeVersion (raw: unknown): string | undefined {
+  if (typeof raw === 'string') return normalizeNodeVersion(raw)
+  if (typeof raw === 'number' && Number.isFinite(raw)) return String(raw)
+  return undefined
+}
 
 /** The check props a Playwright check does not take. */
 export type PlaywrightCheckOmittedProp = 'retryStrategy'
@@ -144,12 +156,6 @@ export class PlaywrightCheck extends RuntimeCheck {
   include: string[]
   engine?: Engine
   #removedGroupNameSet: boolean
-  /**
-   * Where the Node.js version came from: the project file or field it was
-   * detected in, or the `Engine.node()` that sets it. Only the CLI's own
-   * output names it; the payload never carries it.
-   */
-  #nodeVersionSource?: string
 
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
@@ -350,12 +356,17 @@ export class PlaywrightCheck extends RuntimeCheck {
 
   async #resolveEngine (diagnostics: Diagnostics): Promise<void> {
     if (!this.engine && Session.basePath) {
-      Session.detectedEnginePromise ??= detectEngine(Session.basePath, Session.contextPath)
-        .then(e => e ?? null)
+      Session.detectedEnginePromise ??= detectEngine(
+        Session.basePath,
+        Session.contextPath,
+        Session.checkFilesDirectory ?? Session.basePath,
+      ).then(e => e ?? null)
       const result = await Session.detectedEnginePromise
       if (result) {
         this.engine = result.engine
-        this.#nodeVersionSource = result.nodeVersionSource
+        if (result.engine !== undefined && result.nodeVersionSource !== undefined) {
+          recordRequestedNodeVersion(this, { version: result.engine.version, source: result.nodeVersionSource })
+        }
         const Diagnostic = result.engine
           ? SubstitutedPropertyValueDiagnostic
           : InvalidPropertyValueDiagnostic
@@ -373,15 +384,18 @@ export class PlaywrightCheck extends RuntimeCheck {
         }
       }
     } else if (this.engine?.name === 'node') {
+      // A check validated before keeps its source, a detected one included.
+      if (requestedNodeVersion(this) !== undefined) {
+        return
+      }
       // Checkly resolves the version, or refuses it with a message that names
       // the check, so the CLI sends it as written.
-      this.#nodeVersionSource = this.#explicitNodeVersionSource(this.engine)
-      if (typeof this.engine.version === 'string') {
-        const version = normalizeNodeVersion(this.engine.version)
-        if (version !== this.engine.version) {
-          this.engine = Engine.node(version)
-        }
+      const source = this.#explicitNodeVersionSource(this.engine)
+      const version = explicitNodeVersion(this.engine.version)
+      if (version !== undefined && version !== this.engine.version) {
+        this.engine = Engine.node(version)
       }
+      recordRequestedNodeVersion(this, { version: this.engine.version, source })
     } else if (this.engine) {
       const res = await resolveEngineVersion(this.engine.version, this.engine.name)
       const Diagnostic = res.denied
@@ -406,18 +420,6 @@ export class PlaywrightCheck extends RuntimeCheck {
   #explicitNodeVersionSource (engine: EngineConfig): string {
     const file = Session.relativeCheckFilePath(engineDeclaringFile(engine) ?? this.checkFileAbsolutePath)
     return file === undefined ? 'Engine.node()' : `Engine.node() in ${file}`
-  }
-
-  /**
-   * The Node.js version this check asks for and where it came from, once the
-   * check has been validated. Undefined for a check that runs on Bun or that
-   * asks for no engine.
-   */
-  nodeVersionRequest (): { version: string, source: string } | undefined {
-    if (this.engine?.name !== 'node' || this.#nodeVersionSource === undefined) {
-      return undefined
-    }
-    return { version: this.engine.version, source: this.#nodeVersionSource }
   }
 
   // eslint-disable-next-line require-await

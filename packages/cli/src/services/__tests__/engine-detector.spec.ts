@@ -15,8 +15,8 @@ async function writeFiles (root: string, files: Record<string, string | Record<s
 }
 
 /** The Node.js version detection sends and the source it names, or undefined. */
-async function detectedNode (root: string, contextPath?: string) {
-  const result = await detectEngine(root, contextPath)
+async function detectedNode (root: string, contextPath?: string, labelBase?: string) {
+  const result = await detectEngine(root, contextPath, labelBase)
   if (result?.engine?.name !== 'node') return undefined
   return { version: result.engine.version, source: result.nodeVersionSource }
 }
@@ -121,17 +121,41 @@ describe('detectEngine', () => {
       expect(await detectedNode(root)).toEqual({ version: '24.11.0', source: '.tool-versions' })
     })
 
-    it.each(['lts/*', 'lts/iron', 'lts', 'node', 'stable', 'latest'])(
-      'should fall through the .nvmrc alias %s to the next source',
-      async alias => {
-        await writeFiles(root, { '.nvmrc': `${alias}\n`, 'package.json': { engines: { node: '>=22' } } })
-        expect(await detectedNode(root)).toEqual({ version: '>=22', source: 'package.json engines.node' })
-      },
-    )
+    const aliases = ['lts/*', 'lts/iron', 'lts', 'node', 'stable', 'latest']
+    it.each([
+      ...aliases.map(alias => ['.node-version', alias, `${alias}\n`]),
+      ...aliases.map(alias => ['.nvmrc', alias, `${alias}\n`]),
+      ...aliases.map(alias => ['.tool-versions', alias, `nodejs ${alias}\n`]),
+    ])('should fall through the %s alias %s to the next source', async (file, _, contents) => {
+      await writeFiles(root, { [file]: contents, 'package.json': { engines: { node: '>=22' } } })
+      expect(await detectedNode(root)).toEqual({ version: '>=22', source: 'package.json engines.node' })
+    })
+
+    it('should send a .node-version or .tool-versions value that is not an alias as written', async () => {
+      await writeFiles(root, { '.node-version': 'iron\n', '.tool-versions': 'nodejs ref:v24.11.0\n' })
+      expect(await detectedNode(root)).toEqual({ version: 'iron', source: '.node-version' })
+
+      await fs.rm(path.join(root, '.node-version'))
+      expect(await detectedNode(root)).toEqual({ version: 'ref:v24.11.0', source: '.tool-versions' })
+    })
 
     it('should send a .nvmrc version without its leading v', async () => {
       await writeFiles(root, { '.nvmrc': 'v22.12.0\n' })
       expect(await detectedNode(root)).toEqual({ version: '22.12.0', source: '.nvmrc' })
+    })
+
+    it('should name each source relative to the config directory', async () => {
+      const app = path.join(root, 'packages', 'app')
+      await writeFiles(root, {
+        'package.json': { devEngines: { runtime: { name: 'node', version: '^24.11.0' } } },
+        '.node-version': '24.11.0\n',
+        'packages/app/package.json': { name: 'app' },
+      })
+      expect(await detectedNode(root, app, app))
+        .toEqual({ version: '^24.11.0', source: '../../package.json devEngines.runtime' })
+
+      await writeFiles(root, { 'package.json': { name: 'root' } })
+      expect(await detectedNode(root, app, app)).toEqual({ version: '24.11.0', source: '../../.node-version' })
     })
 
     it('should read the runtime fields from the project root package.json only', async () => {
@@ -157,6 +181,13 @@ describe('detectEngine', () => {
         },
       })
       expect(await detectedNode(root)).toEqual({ version: '^24.11.0', source: 'package.json devEngines.runtime' })
+    })
+
+    it('should take the first node entry with a string version', async () => {
+      await writeFiles(root, {
+        'package.json': { devEngines: { runtime: [{ name: 'node' }, { name: 'node', version: '^24' }] } },
+      })
+      expect(await detectedNode(root)).toEqual({ version: '^24', source: 'package.json devEngines.runtime' })
     })
 
     it('should take the entry whatever its onFail', async () => {

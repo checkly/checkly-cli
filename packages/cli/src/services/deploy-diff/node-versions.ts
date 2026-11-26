@@ -1,19 +1,17 @@
-import { PlaywrightCheck } from '../../constructs/playwright-check.js'
 import type { Construct } from '../../constructs/construct.js'
+import { requestedNodeVersion, type RequestedNodeVersion } from '../../constructs/internal/node-version-request.js'
 import type { DiffEntry } from '../../rest/projects.js'
 
 /** The Node.js version a deployed Playwright check asks for, and where it came from. */
-export interface NodeVersionRequest {
+export interface NodeVersionRequest extends RequestedNodeVersion {
   logicalId: string
-  version: string
-  source: string
 }
 
-/** The Node.js requests of the Playwright checks among `checks`, in their order. */
+/** The Node.js requests of the validated Playwright checks among `checks`, in their order. */
 export function nodeVersionRequests (checks: Iterable<Construct>): NodeVersionRequest[] {
   const requests: NodeVersionRequest[] = []
   for (const check of checks) {
-    const request = check instanceof PlaywrightCheck ? check.nodeVersionRequest() : undefined
+    const request = requestedNodeVersion(check)
     if (request !== undefined) {
       requests.push({ logicalId: check.logicalId, ...request })
     }

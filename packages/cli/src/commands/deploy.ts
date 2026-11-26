@@ -514,7 +514,10 @@ export default class Deploy extends AuthCommand {
         // version no runner offers. The deploy routes refuse the same payload,
         // so the refusal is the outcome, in Checkly's own words.
         if (err instanceof ValidationError) {
-          this.style.longError(`Your project could not be deployed.`, err)
+          this.style.longError(
+            preview ? 'Could not check what this deploy would change.' : 'Your project could not be deployed.',
+            err,
+          )
           this.exit(1)
         }
         // An API that has plans switched off is not one that predates them: it

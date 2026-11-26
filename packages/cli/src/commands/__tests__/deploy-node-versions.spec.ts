@@ -239,16 +239,16 @@ describe('deploy Node.js version lines', () => {
   })
 
   it.each([
-    ['deploy', {}],
-    ['deploy --preview', { force: false, preview: true }],
-  ])('reports a refused Node.js version in Checkly\'s words on %s, without falling back', async (_, flags) => {
+    ['deploy', {}, 'Your project could not be deployed.'],
+    ['deploy --preview', { force: false, preview: true }, 'Could not check what this deploy would change.'],
+  ])('reports a refused Node.js version in Checkly\'s words on %s, without falling back', async (_, flags, title) => {
     const refusal = new ValidationError({ statusCode: 400, error: 'Bad Request', message: REFUSAL })
     vi.mocked(api.projects.preview).mockRejectedValue(refusal)
     const ctx = createCommandContext(flags)
 
     await expect(Deploy.prototype.run.call(ctx as any)).rejects.toThrow('EXIT_1')
 
-    expect(ctx.style.longError).toHaveBeenCalledWith('Your project could not be deployed.', refusal)
+    expect(ctx.style.longError).toHaveBeenCalledWith(title, refusal)
     expect(ctx.style.longWarning).not.toHaveBeenCalled()
     expect(api.projects.deploy).not.toHaveBeenCalled()
   })

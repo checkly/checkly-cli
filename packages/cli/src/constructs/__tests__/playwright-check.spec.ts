@@ -782,10 +782,10 @@ describe('PlaywrightCheck', () => {
   })
 
   describe('engine version resolution', () => {
-    it('should send an auto-detected end-of-life Node.js version as written, without a notice', async () => {
+    it('should send a devEngines.runtime range as written, ahead of .node-version and without a notice', async () => {
       const fixt = await FixtureSandbox.create({
         template: 'playwright',
-        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-engine-node-eol'),
+        source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-engine-node-dev-engines-range'),
       })
 
       try {

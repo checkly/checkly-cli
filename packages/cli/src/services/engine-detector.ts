@@ -46,11 +46,18 @@ function resolveBunVersion (raw: string): string | undefined {
   return `${parts[0]}.${parts[1]}`
 }
 
-function parseNvmrc (content: string): string | undefined {
-  const s = content.trim()
-  if (!s) return undefined
-  if (s.startsWith('lts/') || s === 'lts' || s === 'node' || s === 'stable' || s === 'latest') return undefined
-  return s
+function isVersionManagerAlias (value: string): boolean {
+  return value.startsWith('lts/') || value === 'lts' || value === 'node' || value === 'stable' || value === 'latest'
+}
+
+/**
+ * The Node.js value of a version file. A version-manager alias such as
+ * `lts/*` is skipped, so detection falls through to the next source.
+ */
+function versionFileValue (raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined
+  const value = raw.trim()
+  return isVersionManagerAlias(value) ? undefined : value
 }
 
 function parseToolVersions (content: string): { nodeVersion?: string, bunVersion?: string } {
@@ -68,12 +75,24 @@ function parseToolVersions (content: string): { nodeVersion?: string, bunVersion
 }
 
 /**
- * The `version` of the first `node` entry of a `devEngines.runtime` or
- * `engines.runtime` field, which holds one entry or an array of them.
+ * The `version` of the first `node` entry with a string version in a
+ * `devEngines.runtime` or `engines.runtime` field, which holds one entry or an
+ * array of them.
  */
-function runtimeNodeVersion (runtime: any): unknown {
+function runtimeNodeVersion (runtime: any): string | undefined {
   const entries: any[] = Array.isArray(runtime) ? runtime : [runtime]
-  return entries.find(entry => typeof entry === 'object' && entry !== null && entry.name === 'node')?.version
+  return entries.find(entry =>
+    typeof entry === 'object' && entry !== null && entry.name === 'node' && typeof entry.version === 'string',
+  )?.version
+}
+
+/**
+ * Names a source by its file, relative to `labelBase` with posix separators,
+ * and the field the value was read from, if any.
+ */
+function sourceLabel (labelBase: string, file: string, field?: string): string {
+  const relative = path.relative(path.resolve(labelBase), path.resolve(file)).split(path.sep).join(path.posix.sep)
+  return field === undefined ? relative : `${relative} ${field}`
 }
 
 // semver.minVersion throws on values that are not a range at all (for
@@ -159,45 +178,57 @@ function detectedNode (raw: unknown, source: string): DetectedNodeVersion | unde
 async function detectNode (
   projectRoot: string,
   contextPath: string,
+  labelBase: string,
   pkg: any,
   toolVersions: string | undefined,
 ): Promise<DetectedNodeVersion | undefined> {
+  const packageJson = path.join(projectRoot, 'package.json')
+  const file = (name: string) => path.join(projectRoot, name)
+
   // 1. package.json devEngines.runtime
-  const devEnginesRuntime = detectedNode(runtimeNodeVersion(pkg?.devEngines?.runtime), 'package.json devEngines.runtime')
+  const devEnginesRuntime = detectedNode(
+    runtimeNodeVersion(pkg?.devEngines?.runtime),
+    sourceLabel(labelBase, packageJson, 'devEngines.runtime'),
+  )
   if (devEnginesRuntime) return devEnginesRuntime
 
   // 2. package.json engines.runtime
-  const enginesRuntime = detectedNode(runtimeNodeVersion(pkg?.engines?.runtime), 'package.json engines.runtime')
+  const enginesRuntime = detectedNode(
+    runtimeNodeVersion(pkg?.engines?.runtime),
+    sourceLabel(labelBase, packageJson, 'engines.runtime'),
+  )
   if (enginesRuntime) return enginesRuntime
 
-  // 3. .node-version
-  const nodeVersionFile = detectedNode(await readFileIfExists(path.join(projectRoot, '.node-version')), '.node-version')
+  // 3. .node-version; a version-manager alias falls through to the next source.
+  const nodeVersionFile = detectedNode(
+    versionFileValue(await readFileIfExists(file('.node-version'))),
+    sourceLabel(labelBase, file('.node-version')),
+  )
   if (nodeVersionFile) return nodeVersionFile
 
-  // 4. .nvmrc; an alias such as `lts/*` falls through to the next source.
-  const nvmrc = await readFileIfExists(path.join(projectRoot, '.nvmrc'))
-  const nvmrcVersion = detectedNode(nvmrc === undefined ? undefined : parseNvmrc(nvmrc), '.nvmrc')
-  if (nvmrcVersion) return nvmrcVersion
+  // 4. .nvmrc, with the same aliases
+  const nvmrc = detectedNode(
+    versionFileValue(await readFileIfExists(file('.nvmrc'))),
+    sourceLabel(labelBase, file('.nvmrc')),
+  )
+  if (nvmrc) return nvmrc
 
-  // 5. .tool-versions
+  // 5. .tool-versions, with the same aliases
   const toolVersionsNode = detectedNode(
-    toolVersions === undefined ? undefined : parseToolVersions(toolVersions).nodeVersion,
-    '.tool-versions',
+    versionFileValue(toolVersions === undefined ? undefined : parseToolVersions(toolVersions).nodeVersion),
+    sourceLabel(labelBase, file('.tool-versions')),
   )
   if (toolVersionsNode) return toolVersionsNode
 
   // 6. package.json volta.node, named by the manifest that holds the pin
   const voltaPin = await detectVoltaNode(projectRoot, contextPath)
   if (voltaPin) {
-    const manifest = path.relative(path.resolve(projectRoot), voltaPin.manifestPath)
-      .split(path.sep)
-      .join(path.posix.sep)
-    const volta = detectedNode(voltaPin.node, `${manifest} volta.node`)
+    const volta = detectedNode(voltaPin.node, sourceLabel(labelBase, voltaPin.manifestPath, 'volta.node'))
     if (volta) return volta
   }
 
   // 7. package.json engines.node
-  return detectedNode(pkg?.engines?.node, 'package.json engines.node')
+  return detectedNode(pkg?.engines?.node, sourceLabel(labelBase, packageJson, 'engines.node'))
 }
 
 interface ResolvedVersion {
@@ -253,15 +284,19 @@ async function detectBun (
  *   config. Only the Volta source uses it: mirroring Volta's own lookup, the
  *   pin is searched from here upwards to `projectRoot`. All other sources are
  *   read from `projectRoot` only.
+ * @param labelBase Directory the Node.js source is named relative to: the
+ *   directory of the Checkly config, which also names the files that call
+ *   `Engine.node()`.
  */
 export async function detectEngine (
   projectRoot: string,
   contextPath: string = projectRoot,
+  labelBase: string = projectRoot,
 ): Promise<EngineDetectionResult | undefined> {
   const pkg = await readJsonIfExists(path.join(projectRoot, 'package.json'))
   const toolVersions = await readFileIfExists(path.join(projectRoot, '.tool-versions'))
 
-  const node = await detectNode(projectRoot, contextPath, pkg, toolVersions)
+  const node = await detectNode(projectRoot, contextPath, labelBase, pkg, toolVersions)
   if (node) {
     return { engine: Engine.node(node.version), notices: [], nodeVersionSource: node.source }
   }
