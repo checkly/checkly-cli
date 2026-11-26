@@ -135,7 +135,7 @@ export interface DiffEntry extends Change {
    * release Checkly resolved the check's requested version to, or null when it
    * reports none. Absent from an API that predates it.
    */
-  resolvedNodeVersion?: string | null
+  resolvedEngineVersion?: string | null
 }
 
 /**

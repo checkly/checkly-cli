@@ -117,12 +117,12 @@ const PLAN_TOKEN = 'v1.AAAAAAAAAAAAAAAAAAAAAA'
 
 const REFUSAL = 'Check \'pinned\': No available Node.js release satisfies 27. The newest available release is 26.13.0.'
 
-function checkEntry (logicalId: string, resolvedNodeVersion?: string | null, action = 'UNCHANGED'): DiffEntry {
+function checkEntry (logicalId: string, resolvedEngineVersion?: string | null, action = 'UNCHANGED'): DiffEntry {
   return {
     type: 'check',
     logicalId,
     action,
-    ...resolvedNodeVersion !== undefined ? { resolvedNodeVersion } : {},
+    ...resolvedEngineVersion !== undefined ? { resolvedEngineVersion } : {},
   }
 }
 

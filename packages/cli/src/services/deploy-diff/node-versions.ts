@@ -22,15 +22,15 @@ export function nodeVersionRequests (checks: Iterable<Construct>): NodeVersionRe
 /**
  * One line per distinct request, source and release, in the order the checks
  * come: `Node.js ^26.13.0 (package.json devEngines.runtime) runs 26.13.0.`
- * The release is the `resolvedNodeVersion` Checkly reported on the check's
+ * The release is the `resolvedEngineVersion` Checkly reported on the check's
  * diff entry. Without one (an API that predates the field, or none resolved)
  * the line ends after the source.
  */
 export function nodeVersionLines (requests: readonly NodeVersionRequest[], diff: readonly DiffEntry[]): string[] {
   const releases = new Map<string, string>()
   for (const entry of diff) {
-    if (entry.type === 'check' && typeof entry.resolvedNodeVersion === 'string') {
-      releases.set(entry.logicalId, entry.resolvedNodeVersion)
+    if (entry.type === 'check' && typeof entry.resolvedEngineVersion === 'string') {
+      releases.set(entry.logicalId, entry.resolvedEngineVersion)
     }
   }
   const lines = new Set<string>()
