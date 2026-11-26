@@ -81,4 +81,25 @@ describe('SlackAppAlertChannel', () => {
 
     expect(diagnostics.isFatal()).toBe(false)
   })
+
+  it('reports both a missing Slack app and a plan without Slack', async () => {
+    Session.account = withIntegrations([{ type: 'SLACK', connected: false, entitled: false }])
+
+    const diagnostics = await validate(['#ops'])
+
+    expect(diagnostics.observations).toEqual([
+      expect.objectContaining({ title: 'Integration not included in your plan' }),
+      expect.objectContaining({ title: 'Checkly Slack app not connected' }),
+    ])
+  })
+
+  it('refuses the channel when the plan does not include Slack, even with the app connected', async () => {
+    Session.account = withIntegrations([{ type: 'SLACK', connected: true, entitled: false }])
+
+    const diagnostics = await validate(['#ops'])
+
+    expect(diagnostics.observations).toEqual([
+      expect.objectContaining({ title: 'Integration not included in your plan' }),
+    ])
+  })
 })

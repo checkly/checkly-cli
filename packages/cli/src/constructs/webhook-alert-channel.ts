@@ -1,4 +1,4 @@
-import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
 import { HttpHeader } from './http-header.js'
 import { HttpRequestMethod } from './http-request.js'
 import { QueryParam } from './query-param.js'
@@ -42,6 +42,26 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
 }
 
 /**
+ * The integration each webhook type delivers through. The integration types
+ * must match the ones the Checkly API reports in the account's `integrations`
+ * list. A plain webhook, or one whose type is not listed here, is not checked
+ * against the account's plan.
+ */
+const WEBHOOK_INTEGRATIONS = new Map<string, AlertChannelIntegration>([
+  ['WEBHOOK_MSTEAMS', { type: 'MSTEAMS', name: 'Microsoft Teams' }],
+  ['WEBHOOK_DISCORD', { type: 'DISCORD', name: 'Discord' }],
+  ['WEBHOOK_TELEGRAM', { type: 'TELEGRAM', name: 'Telegram' }],
+  ['WEBHOOK_FIREHYDRANT', { type: 'FIREHYDRANT', name: 'FireHydrant' }],
+  ['WEBHOOK_GITLAB_ALERT', { type: 'GITLAB', name: 'GitLab' }],
+  ['WEBHOOK_SPIKESH', { type: 'SPIKE', name: 'Spike.sh' }],
+  ['WEBHOOK_SPLUNK', { type: 'SPLUNK', name: 'Splunk' }],
+  ['WEBHOOK_CORALOGIX', { type: 'CORALOGIX', name: 'Coralogix' }],
+  ['WEBHOOK_ILERT', { type: 'ILERT', name: 'ilert' }],
+  ['WEBHOOK_INCIDENTIO', { type: 'INCIDENTIO', name: 'incident.io' }],
+  ['WEBHOOK_ROOTLY', { type: 'ROOTLY', name: 'Rootly' }],
+])
+
+/**
  * Creates an Webhook Alert Channel
  *
  * @remarks
@@ -80,6 +100,10 @@ export class WebhookAlertChannel extends AlertChannel {
 
   describe (): string {
     return `WebhookAlertChannel:${this.logicalId}`
+  }
+
+  protected integration (): AlertChannelIntegration | undefined {
+    return this.webhookType === undefined ? undefined : WEBHOOK_INTEGRATIONS.get(this.webhookType)
   }
 
   synthesize () {

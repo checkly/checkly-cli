@@ -11,6 +11,8 @@ All available alerts are described in the [Checkly docs](https://www.checklyhq.c
 
 For new Slack notifications, prefer `SlackAppAlertChannel`. It uses the Checkly Slack App and only needs Slack `#channel` names, channel IDs (such as `C0123456789`) or `@user` handles in `slackChannels`. It needs the Checkly Slack App connected to the Checkly account: without it, `npx checkly validate`, `test` and `deploy` fail with "Checkly Slack app not connected". If you can't confirm the app is connected, ask before adding one.
 
+Some alert channels need an integration that not every Checkly plan includes, such as PagerDuty, Opsgenie, SMS, phone calls or some webhook integrations. For a channel whose integration the account's plan doesn't include, `npx checkly validate`, `test` and `deploy` fail with "Integration not included in your plan". If that happens, ask whether to upgrade the plan or remove the channel instead of working around it.
+
 ## Email Alert Channel
 
 <!-- EXAMPLE: EMAIL_ALERT_CHANNEL -->

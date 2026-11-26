@@ -1,4 +1,4 @@
-import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
 import { Diagnostics, ErrorDiagnostic } from './diagnostics.js'
 import { Session } from './session.js'
 
@@ -39,6 +39,10 @@ export class SlackAppAlertChannel extends AlertChannel {
 
   describe (): string {
     return `SlackAppAlertChannel:${this.logicalId}`
+  }
+
+  protected integration (): AlertChannelIntegration {
+    return { type: SLACK_INTEGRATION, name: 'Slack' }
   }
 
   /**

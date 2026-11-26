@@ -1,5 +1,5 @@
 import { Construct } from './construct.js'
-import { Diagnostics } from './diagnostics.js'
+import { Diagnostics, ErrorDiagnostic } from './diagnostics.js'
 import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics.js'
 import { Session } from './session.js'
 
@@ -66,6 +66,24 @@ export interface AlertChannelProps {
    * ```
    */
   sslExpiryThreshold?: number
+}
+
+/**
+ * An integration an alert channel delivers its alerts through, identified by
+ * the type the account's `integrations` list reports it as.
+ *
+ * @internal Used by the built-in alert channel constructs to check the
+ * account's plan. Not part of the public constructs API.
+ */
+export interface AlertChannelIntegration {
+  /**
+   * The integration type, e.g. `PAGERDUTY`.
+   */
+  type: string
+  /**
+   * The integration's human-readable name, e.g. `PagerDuty`.
+   */
+  name: string
 }
 
 /**
@@ -165,6 +183,48 @@ export abstract class AlertChannel extends Construct {
 
   allowInChecklyConfig () {
     return true
+  }
+
+  /**
+   * The integration the channel delivers its alerts through, or undefined
+   * when it uses none the account reports (e.g. email).
+   *
+   * @internal Overridden by the built-in alert channel constructs. Not part of
+   * the public constructs API.
+   */
+  protected integration (): AlertChannelIntegration | undefined {
+    return undefined
+  }
+
+  /**
+   * Refuses the channel when the account reports its integration as not
+   * included in the plan: its alerts would never be sent, whether the channel
+   * is new or was deployed before. Skipped when the API does not report the
+   * integration or whether the account may use it.
+   */
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    const integration = this.integration()
+    if (integration === undefined) {
+      return
+    }
+    const reported = Session.account?.integrations?.find(({ type }) => type === integration.type)
+    if (reported?.entitled !== false) {
+      return
+    }
+    const error = new Error(
+      `${this.constructor.name} '${this.logicalId}' uses ${integration.name}, which your plan doesn't include,`
+      + ` so its alerts would never be sent.`,
+    )
+    diagnostics.add(new ErrorDiagnostic({
+      title: 'Integration not included in your plan',
+      message:
+        `${error.message}\n\n`
+        + `Hint: Upgrade your plan at https://app.checklyhq.com/accounts/${Session.account?.id}/billing,`
+        + ` or remove the channel.`,
+      error,
+    }))
   }
 
   synthesize (): any | null {

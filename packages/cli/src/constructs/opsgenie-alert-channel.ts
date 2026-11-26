@@ -1,4 +1,4 @@
-import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
 import { Session } from './session.js'
 
 export type OpsgeniePriority = 'P1' | 'P2' | 'P3' | 'P4' | 'P5'
@@ -56,6 +56,10 @@ export class OpsgenieAlertChannel extends AlertChannel {
 
   describe (): string {
     return `OpsgenieAlertChannel:${this.logicalId}`
+  }
+
+  protected integration (): AlertChannelIntegration {
+    return { type: 'OPSGENIE', name: 'Opsgenie' }
   }
 
   synthesize () {
