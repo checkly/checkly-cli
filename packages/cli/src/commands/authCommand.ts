@@ -134,15 +134,18 @@ export abstract class AuthCommand extends BaseCommand {
     diagnostics.extend(configDiagnostics)
     await project.validate(diagnostics)
 
-    this.style.diagnostics(diagnostics)
-
+    // Stop the spinner before printing: oclif holds back all output while a
+    // spinner runs, which would put the diagnostics above the blank line that
+    // separates them from the spinner's status line.
     if (diagnostics.isFatal()) {
       this.style.actionFailure()
+      this.style.diagnostics(diagnostics)
       this.style.shortError(failureMessage)
       this.exit(1)
     }
 
     this.style.actionSuccess()
+    this.style.diagnostics(diagnostics)
   }
 
   protected async confirmOrAbort (
