@@ -214,7 +214,7 @@ export abstract class AlertChannel extends Construct {
     if (reported?.entitled !== false) {
       return
     }
-    diagnostics.add(new IntegrationNotEntitledDiagnostic(this.logicalId, integration.name, Session.account?.id))
+    diagnostics.add(new IntegrationNotEntitledDiagnostic(integration.name, Session.account?.id))
   }
 
   synthesize (): any | null {

@@ -104,7 +104,7 @@ describe('alert channel integration entitlement', () => {
         expect.objectContaining({
           title: 'Integration not included in your plan',
           message: expect.stringContaining(
-            `Alert channel '${channel.logicalId}' uses ${name}, which your plan doesn't include,`
+            `This alert channel uses ${name}, which your plan doesn't include,`
             + ` so its alerts would never be sent.`,
           ),
         }),
@@ -159,7 +159,7 @@ describe('alert channel integration entitlement', () => {
       expect(diagnostics.observations).toEqual([
         expect.objectContaining({
           title: 'Integration not included in your plan',
-          message: expect.stringContaining(`Alert channel 'hook-1' uses ${name}, which your plan doesn't include`),
+          message: expect.stringContaining(`This alert channel uses ${name}, which your plan doesn't include`),
         }),
       ])
       expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
@@ -216,7 +216,7 @@ describe('alert channel integration entitlement', () => {
       observation instanceof ConstructDiagnostic && observation.underlying instanceof IntegrationNotEntitledDiagnostic)
     expect(refused).toHaveLength(2)
     const messages = diagnostics.observations.map(({ message }) => message).join('\n')
-    expect(messages).toContain(`Alert channel 'pagerduty-1' uses PagerDuty`)
-    expect(messages).toContain(`Alert channel 'sms-1' uses SMS`)
+    expect(messages).toContain('This alert channel uses PagerDuty')
+    expect(messages).toContain('This alert channel uses SMS')
   })
 })

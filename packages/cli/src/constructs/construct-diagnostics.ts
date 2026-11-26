@@ -23,12 +23,11 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
  * its alerts would never be sent.
  */
 export class IntegrationNotEntitledDiagnostic extends ErrorDiagnostic {
-  logicalId: string
   integrationName: string
 
-  constructor (logicalId: string, integrationName: string, accountId: string | undefined) {
+  constructor (integrationName: string, accountId: string | undefined) {
     const error = new Error(
-      `Alert channel '${logicalId}' uses ${integrationName}, which your plan doesn't include,`
+      `This alert channel uses ${integrationName}, which your plan doesn't include,`
       + ` so its alerts would never be sent.`,
     )
     super({
@@ -41,7 +40,6 @@ export class IntegrationNotEntitledDiagnostic extends ErrorDiagnostic {
       error,
     })
 
-    this.logicalId = logicalId
     this.integrationName = integrationName
   }
 }
