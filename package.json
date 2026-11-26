@@ -21,7 +21,7 @@
     "lint-staged": "^16.4.0",
     "rimraf": "^6.1.4",
     "simple-git-hooks": "^2.14.0",
-    "typescript-eslint": "^8.72.2"
+    "typescript-eslint": "^8.74.0"
   },
   "simple-git-hooks": {
     "commit-msg": "pnpm exec commitlint --edit",
@@ -36,7 +36,7 @@
   "devEngines": {
     "packageManager": {
       "name": "pnpm",
-      "version": "12.21.0",
+      "version": "12.23.0",
       "onFail": "download"
     }
   }

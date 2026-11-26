@@ -396,7 +396,7 @@ export function findConstructVariable (
 }
 
 /** The name of a plain `key: value` member, or undefined for a spread, method, accessor or computed key. */
-export function memberName (property: TSESTree.Property | TSESTree.SpreadElement): string | undefined {
+export function memberName (property: TSESTree.ObjectExpressionProperty | TSESTree.SpreadElement): string | undefined {
   if (property.type !== 'Property' || property.computed || property.kind !== 'init' || property.method) {
     return undefined
   }
@@ -451,7 +451,7 @@ export function spelledOutPaths (options: TSESTree.ObjectExpression): Set<string
         const keyProperty = unwrappedElement.properties.find(property => memberName(property) === 'key')
         const key = keyProperty === undefined
           ? undefined
-          : stringOf(unwrapped((keyProperty as TSESTree.Property).value))
+          : stringOf(unwrapped((keyProperty as TSESTree.ObjectExpressionProperty).value))
         if (key !== undefined) {
           visitObject(unwrappedElement, `${path}[${key}]`)
         }
@@ -466,7 +466,7 @@ export function spelledOutPaths (options: TSESTree.ObjectExpression): Set<string
       }
       const path = prefix === '' ? name : `${prefix}.${name}`
       paths.add(path)
-      visitValue((property as TSESTree.Property).value, path)
+      visitValue((property as TSESTree.ObjectExpressionProperty).value, path)
     }
   }
   visitObject(options, '')

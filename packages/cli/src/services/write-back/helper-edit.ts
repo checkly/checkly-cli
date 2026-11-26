@@ -310,8 +310,8 @@ export function isReplaceableByHelper (node: Node, locals: ReadonlySet<string>):
   if (node.type === 'ObjectExpression') {
     return node.properties.every(property =>
       memberName(property) !== undefined
-      && !(property as TSESTree.Property).shorthand
-      && isReplaceableByHelper((property as TSESTree.Property).value, locals))
+      && !(property as TSESTree.ObjectExpressionProperty).shorthand
+      && isReplaceableByHelper((property as TSESTree.ObjectExpressionProperty).value, locals))
   }
   return false
 }
@@ -436,7 +436,7 @@ export function matchesValue (node: Node, value: Value, locals: ReadonlyMap<stri
     }
     return value.value.every(property => {
       const member = node.properties.find(candidate => memberName(candidate) === property.name) as
-        TSESTree.Property | undefined
+        TSESTree.ObjectExpressionProperty | undefined
       return member !== undefined && !member.shorthand && matchesValue(member.value, property.value, locals)
     })
   }

@@ -80,7 +80,7 @@ export interface SourceStyle {
 }
 
 type ObjectNode = TSESTree.ObjectExpression
-type PropertyNode = TSESTree.Property
+type PropertyNode = TSESTree.ObjectExpressionProperty
 
 export type Resolution =
   | { kind: 'found', node: Node, parent: ObjectNode | TSESTree.ArrayExpression }
