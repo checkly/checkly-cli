@@ -78,18 +78,23 @@ export class GithubMdBuilder {
       this.tableHeaders = this.tableHeaders.concat(this.extraTableHeadersWithLinks)
     }
 
+    // Under a Filename column, checks without a source file (e.g. fetched by `checkly trigger`
+    // alongside local ones) get a placeholder.
+    const fileCell = (sourceFile?: string) => this.hasFilenames
+      ? (sourceFile ? `\`${escapeCell(sourceFile)}\`` : '-')
+      : undefined
+
     for (const [, checkMap] of this.checkFilesMap.entries()) {
       for (const [, { check, result, testResultId, numRetries }] of checkMap.entries()) {
         const retries = numRetries ? ` (${numRetries} ${numRetries === 1 ? 'retry' : 'retries'})` : ''
         if (!result) {
           // Only a run that stopped early leaves checks without a result.
-          const sourceFile = check?.getSourceFile?.()
           this.tableRows.push(this.tableSeparator + [
             `⏹️ Not finished${retries}`,
             escapeCell((check as any)?.name),
             // Checks fetched for `checkly trigger` carry their type; local constructs do not.
             escapeCell((check as any)?.checkType ?? '-'),
-            this.hasFilenames ? (sourceFile ? `\`${escapeCell(sourceFile)}\`` : '-') : undefined,
+            fileCell(check?.getSourceFile?.()),
             '- ',
             this.testSessionId ? '' : undefined,
           ].filter(nonNullable).join(this.tableSeparator) + this.tableSeparator)
@@ -105,15 +110,16 @@ export class GithubMdBuilder {
           // A check that failed with a run error (e.g. the CLI timing out while waiting for
           // a result) has no check type or response time, so fall back to a placeholder.
           escapeCell(result.checkType ?? '-'),
-          this.hasFilenames ? (result.sourceFile ? `\`${escapeCell(result.sourceFile)}\`` : '-') : undefined,
+          fileCell(result.sourceFile),
           `${result.responseTime != null ? formatDuration(result.responseTime) : '-'} `,
         ].filter(nonNullable)
 
-        if (this.testSessionId && testResultId) {
-          const linkColumn = `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
-          tableRow.push(linkColumn)
-        } else if (this.testSessionId) {
-          tableRow.push('')
+        if (this.testSessionId) {
+          // A check that failed with a run error has no test result to link to, but its row
+          // still needs the cell to stay aligned with the header.
+          tableRow.push(testResultId
+            ? `[Full test report](${getTestSessionUrl(this.testSessionId)}/results/${testResultId})`
+            : '')
         }
 
         this.tableRows.push(this.tableSeparator + tableRow.join(this.tableSeparator) + this.tableSeparator)
