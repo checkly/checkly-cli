@@ -1,6 +1,7 @@
 import { describe, it, expect, afterEach, beforeEach } from 'vitest'
 
 import { SlackAppAlertChannel } from '../index.js'
+import { IntegrationNotEntitledDiagnostic } from '../construct-diagnostics.js'
 import { Diagnostics } from '../diagnostics.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
@@ -91,6 +92,7 @@ describe('SlackAppAlertChannel', () => {
       expect.objectContaining({ title: 'Integration not included in your plan' }),
       expect.objectContaining({ title: 'Checkly Slack app not connected' }),
     ])
+    expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
   })
 
   it('refuses the channel when the plan does not include Slack, even with the app connected', async () => {
@@ -101,5 +103,6 @@ describe('SlackAppAlertChannel', () => {
     expect(diagnostics.observations).toEqual([
       expect.objectContaining({ title: 'Integration not included in your plan' }),
     ])
+    expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
   })
 })

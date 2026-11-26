@@ -14,6 +14,7 @@ import {
   TelegramAlertChannel,
   WebhookAlertChannel,
 } from '../index.js'
+import { ConstructDiagnostic, IntegrationNotEntitledDiagnostic } from '../construct-diagnostics.js'
 import { Diagnostics } from '../diagnostics.js'
 import { Project } from '../project.js'
 import { Session } from '../session.js'
@@ -108,6 +109,7 @@ describe('alert channel integration entitlement', () => {
           ),
         }),
       ])
+      expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
       expect(diagnostics.observations[0].message).toContain(
         'Hint: Upgrade your plan at https://app.checklyhq.com/accounts/acc-1/billing, or remove the channel.',
       )
@@ -160,6 +162,7 @@ describe('alert channel integration entitlement', () => {
           message: expect.stringContaining(`Alert channel 'hook-1' uses ${name}, which your plan doesn't include`),
         }),
       ])
+      expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
     })
 
     it(`accepts the channel when the plan includes ${type}`, async () => {
@@ -209,8 +212,9 @@ describe('alert channel integration entitlement', () => {
       '[PagerdutyAlertChannel:pagerduty-1] Integration not included in your plan',
       '[SmsAlertChannel:sms-1] Integration not included in your plan',
     ]))
-    expect(diagnostics.observations.filter(({ title }) => title.endsWith('Integration not included in your plan')))
-      .toHaveLength(2)
+    const refused = diagnostics.observations.filter(observation =>
+      observation instanceof ConstructDiagnostic && observation.underlying instanceof IntegrationNotEntitledDiagnostic)
+    expect(refused).toHaveLength(2)
     const messages = diagnostics.observations.map(({ message }) => message).join('\n')
     expect(messages).toContain(`Alert channel 'pagerduty-1' uses PagerDuty`)
     expect(messages).toContain(`Alert channel 'sms-1' uses SMS`)

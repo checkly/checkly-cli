@@ -1,5 +1,6 @@
 import { Construct } from './construct.js'
-import { Diagnostics, ErrorDiagnostic } from './diagnostics.js'
+import { IntegrationNotEntitledDiagnostic } from './construct-diagnostics.js'
+import { Diagnostics } from './diagnostics.js'
 import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics.js'
 import { Session } from './session.js'
 
@@ -213,18 +214,7 @@ export abstract class AlertChannel extends Construct {
     if (reported?.entitled !== false) {
       return
     }
-    const error = new Error(
-      `Alert channel '${this.logicalId}' uses ${integration.name}, which your plan doesn't include,`
-      + ` so its alerts would never be sent.`,
-    )
-    diagnostics.add(new ErrorDiagnostic({
-      title: 'Integration not included in your plan',
-      message:
-        `${error.message}\n\n`
-        + `Hint: Upgrade your plan at https://app.checklyhq.com/accounts/${Session.account?.id}/billing,`
-        + ` or remove the channel.`,
-      error,
-    }))
+    diagnostics.add(new IntegrationNotEntitledDiagnostic(this.logicalId, integration.name, Session.account?.id))
   }
 
   synthesize (): any | null {
