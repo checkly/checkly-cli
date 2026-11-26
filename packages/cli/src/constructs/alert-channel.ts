@@ -214,7 +214,7 @@ export abstract class AlertChannel extends Construct {
       return
     }
     const error = new Error(
-      `${this.constructor.name} '${this.logicalId}' uses ${integration.name}, which your plan doesn't include,`
+      `Alert channel '${this.logicalId}' uses ${integration.name}, which your plan doesn't include,`
       + ` so its alerts would never be sent.`,
     )
     diagnostics.add(new ErrorDiagnostic({
