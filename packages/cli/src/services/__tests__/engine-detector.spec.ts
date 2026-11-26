@@ -5,13 +5,20 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { detectEngine } from '../engine-detector.js'
 import { Engine } from '../../constructs/engine.js'
 
-async function writeFiles (root: string, files: Record<string, string | object>): Promise<void> {
+async function writeFiles (root: string, files: Record<string, string | Record<string, unknown>>): Promise<void> {
   for (const [relPath, contents] of Object.entries(files)) {
     const filePath = path.join(root, relPath)
     await fs.mkdir(path.dirname(filePath), { recursive: true })
     const data = typeof contents === 'string' ? contents : JSON.stringify(contents)
     await fs.writeFile(filePath, data)
   }
+}
+
+/** The Node.js version detection sends and the source it names, or undefined. */
+async function detectedNode (root: string, contextPath?: string) {
+  const result = await detectEngine(root, contextPath)
+  if (result?.engine?.name !== 'node') return undefined
+  return { version: result.engine.version, source: result.nodeVersionSource }
 }
 
 describe('detectEngine', () => {
@@ -25,85 +32,234 @@ describe('detectEngine', () => {
     await fs.rm(root, { recursive: true, force: true })
   })
 
-  it('should still detect Node from .node-version', async () => {
-    await writeFiles(root, { '.node-version': '24.1.0\n' })
-    const result = await detectEngine(root)
-    expect(result?.engine).toEqual(Engine.node('24'))
-    expect(result?.notices).toEqual([])
-  })
-
-  it('should detect Bun 1.4 from .bun-version', async () => {
-    await writeFiles(root, { '.bun-version': '1.4.2\n' })
-    const result = await detectEngine(root)
-    expect(result?.engine).toEqual(Engine.bun('1.4'))
-    expect(result?.notices).toEqual([])
-  })
-
-  it('should map a not-yet-available Bun minor from .bun-version to 1.4', async () => {
-    await writeFiles(root, { '.bun-version': '1.5.0\n' })
-    const result = await detectEngine(root)
-    expect(result?.engine).toEqual(Engine.bun('1.4'))
-    expect(result?.notices).toHaveLength(1)
-  })
-
-  it('should skip an engines.node value that is not a semver range', async () => {
-    await writeFiles(root, { 'package.json': { engines: { node: 'lts', bun: 'latest' } } })
-    expect(await detectEngine(root)).toBeUndefined()
-  })
-
   it('should return undefined when no source is present', async () => {
     await writeFiles(root, { 'package.json': { name: 'x' } })
     expect(await detectEngine(root)).toBeUndefined()
   })
 
-  describe('volta.node', () => {
-    it('should detect Node from a volta pin', async () => {
-      await writeFiles(root, { 'package.json': { volta: { node: '24.17.0', pnpm: '10.30.0' } } })
+  describe('Node.js sources', () => {
+    it.each([
+      ['package.json devEngines.runtime', { 'package.json': { devEngines: { runtime: { name: 'node', version: '^26.13.0' } } } }],
+      ['package.json engines.runtime', { 'package.json': { engines: { runtime: { name: 'node', version: '^26.13.0' } } } }],
+      ['.node-version', { '.node-version': '^26.13.0\n' }],
+      ['.nvmrc', { '.nvmrc': '^26.13.0\n' }],
+      ['.tool-versions', { '.tool-versions': 'nodejs ^26.13.0\n' }],
+      ['package.json volta.node', { 'package.json': { volta: { node: '^26.13.0' } } }],
+      ['package.json engines.node', { 'package.json': { engines: { node: '^26.13.0' } } }],
+    ])('should detect %s and name it', async (source, files) => {
+      await writeFiles(root, files)
       const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('24'))
-      expect(result?.notices).toEqual([])
+      expect(result).toEqual({ engine: Engine.node('^26.13.0'), notices: [], nodeVersionSource: source })
     })
 
+    it('should take the sources in order', async () => {
+      const pkg: Record<string, any> = {
+        devEngines: { runtime: { name: 'node', version: '22.0.0' } },
+        engines: { runtime: { name: 'node', version: '22.0.1' }, node: '22.5.0' },
+        volta: { node: '22.4.0' },
+      }
+      await writeFiles(root, { '.node-version': '22.1.0\n', '.nvmrc': '22.2.0\n', '.tool-versions': 'nodejs 22.3.0\n' })
+      // Each step removes the source that won it, so the next one is up.
+      const steps: Array<[string, string, () => unknown]> = [
+        ['22.0.0', 'package.json devEngines.runtime', () => delete pkg.devEngines],
+        ['22.0.1', 'package.json engines.runtime', () => delete pkg.engines.runtime],
+        ['22.1.0', '.node-version', () => fs.rm(path.join(root, '.node-version'))],
+        ['22.2.0', '.nvmrc', () => fs.rm(path.join(root, '.nvmrc'))],
+        ['22.3.0', '.tool-versions', () => fs.rm(path.join(root, '.tool-versions'))],
+        ['22.4.0', 'package.json volta.node', () => delete pkg.volta],
+        ['22.5.0', 'package.json engines.node', () => delete pkg.engines.node],
+      ]
+      for (const [version, source, remove] of steps) {
+        await writeFiles(root, { 'package.json': pkg })
+        expect(await detectedNode(root)).toEqual({ version, source })
+        await remove()
+      }
+      await writeFiles(root, { 'package.json': pkg })
+      expect(await detectEngine(root)).toBeUndefined()
+    })
+
+    it.each([
+      ['an exact version', '24.11.0', '24.11.0'],
+      ['a major', '24', '24'],
+      ['a range', '^24.11.0', '^24.11.0'],
+      ['a range with spaces', '>=22 <25', '>=22 <25'],
+      ['a leading v', 'v24.11.0', '24.11.0'],
+      ['surrounding whitespace', '  v26\n', '26'],
+      ['a value that is not a version', 'lts/iron', 'lts/iron'],
+    ])('should send %s as written', async (_, written, sent) => {
+      await writeFiles(root, { 'package.json': { devEngines: { runtime: { name: 'node', version: written } } } })
+      expect((await detectedNode(root))?.version).toBe(sent)
+    })
+
+    it('should not reduce .tool-versions, a Volta pin or engines.node to a major', async () => {
+      await writeFiles(root, { '.tool-versions': 'nodejs v24.11.1\n' })
+      expect(await detectedNode(root)).toEqual({ version: '24.11.1', source: '.tool-versions' })
+
+      await fs.rm(path.join(root, '.tool-versions'))
+      await writeFiles(root, { 'package.json': { volta: { node: '24.17.0' }, engines: { node: '>=22.12.0' } } })
+      expect(await detectedNode(root)).toEqual({ version: '24.17.0', source: 'package.json volta.node' })
+
+      await writeFiles(root, { 'package.json': { engines: { node: '>=22.12.0' } } })
+      expect(await detectedNode(root)).toEqual({ version: '>=22.12.0', source: 'package.json engines.node' })
+    })
+
+    it('should send an engines.node value that is not a version as written', async () => {
+      await writeFiles(root, { 'package.json': { engines: { node: 'lts' } } })
+      expect(await detectedNode(root)).toEqual({ version: 'lts', source: 'package.json engines.node' })
+    })
+
+    it('should skip a value that is not a string, or an empty one', async () => {
+      await writeFiles(root, {
+        'package.json': {
+          devEngines: { runtime: { name: 'node', version: 26 } },
+          engines: { runtime: { name: 'node', version: '  ' }, node: 22 },
+          volta: { node: '' },
+        },
+        '.node-version': '\n',
+        '.tool-versions': 'nodejs 24.11.0\n',
+      })
+      expect(await detectedNode(root)).toEqual({ version: '24.11.0', source: '.tool-versions' })
+    })
+
+    it.each(['lts/*', 'lts/iron', 'lts', 'node', 'stable', 'latest'])(
+      'should fall through the .nvmrc alias %s to the next source',
+      async alias => {
+        await writeFiles(root, { '.nvmrc': `${alias}\n`, 'package.json': { engines: { node: '>=22' } } })
+        expect(await detectedNode(root)).toEqual({ version: '>=22', source: 'package.json engines.node' })
+      },
+    )
+
+    it('should send a .nvmrc version without its leading v', async () => {
+      await writeFiles(root, { '.nvmrc': 'v22.12.0\n' })
+      expect(await detectedNode(root)).toEqual({ version: '22.12.0', source: '.nvmrc' })
+    })
+
+    it('should read the runtime fields from the project root package.json only', async () => {
+      await writeFiles(root, {
+        'package.json': { name: 'root' },
+        'apps/x/package.json': { devEngines: { runtime: { name: 'node', version: '^24.11.0' } } },
+      })
+      expect(await detectEngine(root, path.join(root, 'apps', 'x'))).toBeUndefined()
+    })
+  })
+
+  describe('devEngines.runtime and engines.runtime', () => {
+    it('should take the first node entry of an array', async () => {
+      await writeFiles(root, {
+        'package.json': {
+          devEngines: {
+            runtime: [
+              { name: 'bun', version: '1.3.0' },
+              { name: 'node', version: '^24.11.0', onFail: 'download' },
+              { name: 'node', version: '^26.13.0' },
+            ],
+          },
+        },
+      })
+      expect(await detectedNode(root)).toEqual({ version: '^24.11.0', source: 'package.json devEngines.runtime' })
+    })
+
+    it('should take the entry whatever its onFail', async () => {
+      await writeFiles(root, {
+        'package.json': { engines: { runtime: { name: 'node', version: '^24.11.0', onFail: 'ignore' } } },
+      })
+      expect(await detectedNode(root)).toEqual({ version: '^24.11.0', source: 'package.json engines.runtime' })
+    })
+
+    it('should ignore an entry for another runtime', async () => {
+      await writeFiles(root, {
+        'package.json': {
+          devEngines: { runtime: { name: 'deno', version: '^2.4.3' } },
+          engines: { runtime: [{ name: 'bun', version: '1.4.0' }] },
+        },
+        '.node-version': '24.11.0\n',
+      })
+      expect(await detectedNode(root)).toEqual({ version: '24.11.0', source: '.node-version' })
+    })
+
+    it('should take engines.runtime when devEngines.runtime names no Node.js', async () => {
+      await writeFiles(root, {
+        'package.json': {
+          devEngines: { runtime: [{ name: 'bun', version: '1.3.0' }] },
+          engines: { runtime: [{ name: 'node', version: '>=22.12.0' }] },
+        },
+      })
+      expect(await detectedNode(root)).toEqual({ version: '>=22.12.0', source: 'package.json engines.runtime' })
+    })
+
+    it('should not detect Bun from a bun runtime entry', async () => {
+      await writeFiles(root, { 'package.json': { devEngines: { runtime: { name: 'bun', version: '1.4.0' } } } })
+      expect(await detectEngine(root)).toBeUndefined()
+    })
+  })
+
+  describe('Bun', () => {
+    it('should detect Bun 1.4 from .bun-version', async () => {
+      await writeFiles(root, { '.bun-version': '1.4.2\n' })
+      expect(await detectEngine(root)).toEqual({ engine: Engine.bun('1.4'), notices: [] })
+    })
+
+    it('should map a not-yet-available Bun minor from .bun-version to 1.4', async () => {
+      await writeFiles(root, { '.bun-version': '1.5.0\n' })
+      const result = await detectEngine(root)
+      expect(result?.engine).toEqual(Engine.bun('1.4'))
+      expect(result?.notices).toEqual([expect.stringContaining('Bun 1.5')])
+    })
+
+    it('should deny Bun 2 with a notice', async () => {
+      await writeFiles(root, { '.bun-version': '2.0.0\n' })
+      const result = await detectEngine(root)
+      expect(result?.engine).toBeUndefined()
+      expect(result?.notices).toEqual([expect.stringContaining('Bun 2.0')])
+    })
+
+    it('should detect Bun from .tool-versions before .bun-version', async () => {
+      await writeFiles(root, { '.tool-versions': 'bun 1.3.5\n', '.bun-version': '1.4.0\n' })
+      expect((await detectEngine(root))?.engine).toEqual(Engine.bun('1.3'))
+    })
+
+    it('should detect Bun from the lowest version of an engines.bun range', async () => {
+      await writeFiles(root, { 'package.json': { engines: { bun: '>=1.3.0' } } })
+      expect((await detectEngine(root))?.engine).toEqual(Engine.bun('1.3'))
+    })
+
+    it('should skip an engines.bun value that is not a semver range', async () => {
+      await writeFiles(root, { 'package.json': { engines: { bun: 'latest' } } })
+      expect(await detectEngine(root)).toBeUndefined()
+    })
+
+    it('should let any Node.js source win over Bun', async () => {
+      await writeFiles(root, {
+        '.bun-version': '1.3.0\n',
+        '.tool-versions': 'bun 1.4.0\nnodejs 24.11.0\n',
+      })
+      expect(await detectedNode(root)).toEqual({ version: '24.11.0', source: '.tool-versions' })
+    })
+  })
+
+  describe('volta.node', () => {
     it('should let a version file win over the volta pin', async () => {
       await writeFiles(root, {
         '.nvmrc': '22\n',
         'package.json': { volta: { node: '24.17.0' } },
       })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('22'))
+      expect(await detectedNode(root)).toEqual({ version: '22', source: '.nvmrc' })
     })
 
     it('should let the volta pin win over engines.node', async () => {
       await writeFiles(root, {
         'package.json': { volta: { node: '24.17.0' }, engines: { node: '>=22' } },
       })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('24'))
+      expect(await detectedNode(root)).toEqual({ version: '24.17.0', source: 'package.json volta.node' })
     })
 
-    it('should accept a semver range as the pin value', async () => {
-      await writeFiles(root, { 'package.json': { volta: { node: '>=24' } } })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('24'))
-    })
-
-    it('should not affect Bun detection', async () => {
+    it('should follow a volta.extends chain and name the file that holds the pin', async () => {
       await writeFiles(root, {
-        '.bun-version': '1.3.0\n',
-        'package.json': { volta: { node: '24.17.0' } },
-      })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('24'))
-    })
-
-    it('should follow a volta.extends chain', async () => {
-      await writeFiles(root, {
-        'project/package.json': { volta: { extends: '../shared/volta.json' } },
+        'package.json': { volta: { extends: './shared/volta.json' } },
         'shared/volta.json': { volta: { extends: './base.json' } },
         'shared/base.json': { volta: { node: '24.17.0' } },
       })
-      const result = await detectEngine(path.join(root, 'project'))
-      expect(result?.engine).toEqual(Engine.node('24'))
+      expect(await detectedNode(root)).toEqual({ version: '24.17.0', source: 'shared/base.json volta.node' })
     })
 
     it('should prefer the manifest pin over the extended manifest', async () => {
@@ -111,16 +267,14 @@ describe('detectEngine', () => {
         'package.json': { volta: { node: '22.0.0', extends: './base.json' } },
         'base.json': { volta: { node: '24.17.0' } },
       })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('22'))
+      expect(await detectedNode(root)).toEqual({ version: '22.0.0', source: 'package.json volta.node' })
     })
 
     it('should terminate a cyclic volta.extends chain and fall through to engines', async () => {
       await writeFiles(root, {
         'package.json': { volta: { extends: './package.json' }, engines: { node: '>=22' } },
       })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('22'))
+      expect(await detectedNode(root)).toEqual({ version: '>=22', source: 'package.json engines.node' })
     })
 
     it('should skip a missing extended manifest', async () => {
@@ -130,10 +284,9 @@ describe('detectEngine', () => {
       expect(await detectEngine(root)).toBeUndefined()
     })
 
-    it('should skip a pin that is not a semver version or range', async () => {
+    it('should send a pin that is not a version as written', async () => {
       await writeFiles(root, { 'package.json': { volta: { node: 'lts' }, engines: { node: '>=22' } } })
-      const result = await detectEngine(root)
-      expect(result?.engine).toEqual(Engine.node('22'))
+      expect(await detectedNode(root)).toEqual({ version: 'lts', source: 'package.json volta.node' })
     })
 
     it('should ignore non-string pin values', async () => {
@@ -147,17 +300,17 @@ describe('detectEngine', () => {
           'package.json': { volta: { node: '24.17.0' } },
           'apps/x/package.json': { name: 'x' },
         })
-        const result = await detectEngine(root, path.join(root, 'apps', 'x'))
-        expect(result?.engine).toEqual(Engine.node('24'))
+        expect(await detectedNode(root, path.join(root, 'apps', 'x')))
+          .toEqual({ version: '24.17.0', source: 'package.json volta.node' })
       })
 
-      it('should find a pin in the nested context package', async () => {
+      it('should find a pin in the nested context package and name its manifest', async () => {
         await writeFiles(root, {
           'package.json': { name: 'root' },
-          'apps/x/package.json': { volta: { node: '24.17.0' } },
+          'packages/web/package.json': { volta: { node: '24.17.0' } },
         })
-        const contextPath = path.join(root, 'apps', 'x')
-        expect((await detectEngine(root, contextPath))?.engine).toEqual(Engine.node('24'))
+        expect(await detectedNode(root, path.join(root, 'packages', 'web')))
+          .toEqual({ version: '24.17.0', source: 'packages/web/package.json volta.node' })
         expect(await detectEngine(root)).toBeUndefined()
       })
 
@@ -166,8 +319,7 @@ describe('detectEngine', () => {
           'package.json': { volta: { node: '24.17.0' } },
           'apps/x/package.json': { volta: { pnpm: '10.30.0' } },
         })
-        const result = await detectEngine(root, path.join(root, 'apps', 'x'))
-        expect(result).toBeUndefined()
+        expect(await detectEngine(root, path.join(root, 'apps', 'x'))).toBeUndefined()
       })
 
       it('should not walk outside the project root', async () => {
@@ -175,8 +327,7 @@ describe('detectEngine', () => {
         try {
           await writeFiles(outside, { 'package.json': { volta: { node: '22.0.0' } } })
           await writeFiles(root, { 'package.json': { volta: { node: '24.17.0' } } })
-          const result = await detectEngine(root, outside)
-          expect(result?.engine).toEqual(Engine.node('24'))
+          expect(await detectedNode(root, outside)).toEqual({ version: '24.17.0', source: 'package.json volta.node' })
         } finally {
           await fs.rm(outside, { recursive: true, force: true })
         }

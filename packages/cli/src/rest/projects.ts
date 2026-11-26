@@ -130,6 +130,12 @@ export interface DiffEntry extends Change {
    * often than the minimum frequency for scheduling on deploy.
    */
   scheduleSkippedReason?: 'NOT_REQUESTED' | 'THRESHOLD' | 'UNCHANGED' | 'MIN_FREQUENCY'
+  /**
+   * On a Playwright check in a preview or a deploy's result: the exact Node.js
+   * release Checkly resolved the check's requested version to, or null when it
+   * reports none. Absent from an API that predates it.
+   */
+  resolvedNodeVersion?: string | null
 }
 
 /**

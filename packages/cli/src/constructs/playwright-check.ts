@@ -15,9 +15,10 @@ import { Session } from './session.js'
 import { ConfigDefaultsGetter, makeConfigDefaultsGetter } from './check-config.js'
 import { CheckConfigDefaults } from '../services/checkly-config-loader.js'
 import { Bundler } from '../services/check-parser/bundler.js'
-import { detectEngine } from '../services/engine-detector.js'
+import { detectEngine, normalizeNodeVersion } from '../services/engine-detector.js'
 import { resolveEngineVersion } from '../services/engine-resolver.js'
-import { Engine } from './engine.js'
+import { Engine, EngineConfig } from './engine.js'
+import { engineDeclaringFile } from './internal/engine-declaring-file.js'
 
 /** The check props a Playwright check does not take. */
 export type PlaywrightCheckOmittedProp = 'retryStrategy'
@@ -26,10 +27,12 @@ export interface PlaywrightCheckProps extends Omit<RuntimeCheckProps, Playwright
   /**
    * The JavaScript engine used to run the Playwright tests.
    * Use {@link Engine.node} or {@link Engine.bun} to create an engine instance.
-   * When omitted, the CLI auto-detects from project version files
-   * (.node-version, .nvmrc, .tool-versions, .bun-version, or package.json volta/engines).
+   * When omitted, the CLI auto-detects from the project's package.json
+   * (devEngines.runtime, engines.runtime), version files (.node-version,
+   * .nvmrc, .tool-versions, .bun-version), or package.json volta/engines.
    *
    * @example Engine.node('24')
+   * @example Engine.node('^24.11.0')
    * @example Engine.bun('1.4')
    */
   engine?: Engine
@@ -141,6 +144,12 @@ export class PlaywrightCheck extends RuntimeCheck {
   include: string[]
   engine?: Engine
   #removedGroupNameSet: boolean
+  /**
+   * Where the Node.js version came from: the project file or field it was
+   * detected in, or the `Engine.node()` that sets it. Only the CLI's own
+   * output names it; the payload never carries it.
+   */
+  #nodeVersionSource?: string
 
   constructor (logicalId: string, props: PlaywrightCheckProps) {
     super(logicalId, props)
@@ -346,6 +355,7 @@ export class PlaywrightCheck extends RuntimeCheck {
       const result = await Session.detectedEnginePromise
       if (result) {
         this.engine = result.engine
+        this.#nodeVersionSource = result.nodeVersionSource
         const Diagnostic = result.engine
           ? SubstitutedPropertyValueDiagnostic
           : InvalidPropertyValueDiagnostic
@@ -356,10 +366,20 @@ export class PlaywrightCheck extends RuntimeCheck {
               notice
               + '\n\n'
               + `Hint: The value was automatically detected from your `
-              + `project's version files (.node-version, .nvmrc, package.json volta/engines, etc.). `
+              + `project's version files (.tool-versions, .bun-version or package.json engines.bun). `
               + `To override, set "engine" explicitly using Engine.node() `
               + `or Engine.bun().`),
           ))
+        }
+      }
+    } else if (this.engine?.name === 'node') {
+      // Checkly resolves the version, or refuses it with a message that names
+      // the check, so the CLI sends it as written.
+      this.#nodeVersionSource = this.#explicitNodeVersionSource(this.engine)
+      if (typeof this.engine.version === 'string') {
+        const version = normalizeNodeVersion(this.engine.version)
+        if (version !== this.engine.version) {
+          this.engine = Engine.node(version)
         }
       }
     } else if (this.engine) {
@@ -373,9 +393,31 @@ export class PlaywrightCheck extends RuntimeCheck {
       if (res.denied) {
         this.engine = undefined
       } else if (res.version !== this.engine.version) {
-        this.engine = this.engine.name === 'node' ? Engine.node(res.version) : Engine.bun(res.version)
+        this.engine = Engine.bun(res.version)
       }
     }
+  }
+
+  /**
+   * `Engine.node()` and the file that sets the version: the caller of
+   * `Engine.node()`, the Checkly config file for an engine written there as a
+   * plain object, or else the file that declares the check.
+   */
+  #explicitNodeVersionSource (engine: EngineConfig): string {
+    const file = Session.relativeCheckFilePath(engineDeclaringFile(engine) ?? this.checkFileAbsolutePath)
+    return file === undefined ? 'Engine.node()' : `Engine.node() in ${file}`
+  }
+
+  /**
+   * The Node.js version this check asks for and where it came from, once the
+   * check has been validated. Undefined for a check that runs on Bun or that
+   * asks for no engine.
+   */
+  nodeVersionRequest (): { version: string, source: string } | undefined {
+    if (this.engine?.name !== 'node' || this.#nodeVersionSource === undefined) {
+      return undefined
+    }
+    return { version: this.engine.version, source: this.#nodeVersionSource }
   }
 
   // eslint-disable-next-line require-await

@@ -782,7 +782,7 @@ describe('PlaywrightCheck', () => {
   })
 
   describe('engine version resolution', () => {
-    it('should warn when auto-detected Node version is EOL', async () => {
+    it('should send an auto-detected end-of-life Node.js version as written, without a notice', async () => {
       const fixt = await FixtureSandbox.create({
         template: 'playwright',
         source: path.join(__dirname, 'fixtures', 'playwright-check', 'test-cases', 'test-engine-node-eol'),
@@ -791,13 +791,15 @@ describe('PlaywrightCheck', () => {
       try {
         const output = await parseProject(fixt)
 
-        expect(output.diagnostics.observations).toEqual(
-          expect.arrayContaining([
-            expect.objectContaining({
-              message: expect.stringContaining('Node.js 18'),
-            }),
-          ]),
-        )
+        // devEngines.runtime wins over .node-version, and its bun entry is
+        // not a Node.js version. Checkly resolves or refuses the range.
+        expect(output.diagnostics.observations).toEqual([])
+        expect(output.payload.resources).toEqual(expect.arrayContaining([
+          expect.objectContaining({
+            logicalId: 'sample-1',
+            payload: expect.objectContaining({ engine: 'node', engineVersion: '^18.20.0' }),
+          }),
+        ]))
       } finally {
         await fixt.destroy()
       }
