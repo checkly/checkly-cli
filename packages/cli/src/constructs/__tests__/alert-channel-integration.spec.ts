@@ -110,7 +110,7 @@ describe('alert channel integration entitlement', () => {
       ])
       expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
       expect(diagnostics.observations[0].message).toContain(
-        'Hint: Upgrade your plan at https://app.checklyhq.com/accounts/acc-1/billing, or remove it from your project.',
+        `Hint: Upgrade your plan at https://app.checklyhq.com/accounts/acc-1/billing, or stop using ${name} in your project.`,
       )
     })
 

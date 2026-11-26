@@ -34,7 +34,7 @@ export class IntegrationNotEntitledDiagnostic extends ErrorDiagnostic {
         `${error.message}`
         + `\n\n`
         + `Hint: Upgrade your plan at https://app.checklyhq.com/accounts/${accountId}/billing,`
-        + ` or remove it from your project.`,
+        + ` or stop using ${integrationName} in your project.`,
       error,
     })
 
