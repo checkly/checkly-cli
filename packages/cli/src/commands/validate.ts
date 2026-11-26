@@ -9,10 +9,10 @@ import { Runtime } from '../runtimes/index.js'
 
 export default class Validate extends AuthCommand {
   static coreCommand = true
-  static hidden = true // Expose when validation is more thorough.
+  static hidden = false
   static readOnly = true
   static idempotent = true
-  static description = 'Validate your project.'
+  static description = 'Validate your project without deploying it.'
 
   static flags = {
     'config': Flags.string({

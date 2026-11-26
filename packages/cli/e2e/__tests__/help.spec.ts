@@ -46,11 +46,12 @@ describe('help', () => {
   it('should print core and additional commands and topic', async () => {
     const { stdout } = await runCheckly(fixt, ['--help'])
     expect(stdout).toContain(`CORE COMMANDS
-  deploy   Deploy your project to your Checkly account.
-  init     Initialize Checkly in your project
-  pw-test  Test your Playwright Tests on Checkly.
-  test     Test your checks on Checkly.
-  trigger  Trigger your existing checks on Checkly.`)
+  deploy    Deploy your project to your Checkly account.
+  init      Initialize Checkly in your project
+  pw-test   Test your Playwright Tests on Checkly.
+  test      Test your checks on Checkly.
+  trigger   Trigger your existing checks on Checkly.
+  validate  Validate your project without deploying it.`)
 
     expect(stdout).toContain(`ADDITIONAL COMMANDS
   account          View and manage your Checkly account.
