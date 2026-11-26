@@ -180,15 +180,19 @@ export abstract class AlertChannel extends Construct {
     return undefined
   }
 
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    this.#validateIntegrationEntitlement(diagnostics)
+  }
+
   /**
    * Refuses the channel when the account reports its integration as not
    * included in the plan: its alerts would never be sent, whether the channel
    * is new or was deployed before. Skipped when the API does not report the
    * integration or whether the account may use it.
    */
-  async validate (diagnostics: Diagnostics): Promise<void> {
-    await super.validate(diagnostics)
-
+  #validateIntegrationEntitlement (diagnostics: Diagnostics): void {
     const integration = this.integration()
     if (integration === undefined) {
       return

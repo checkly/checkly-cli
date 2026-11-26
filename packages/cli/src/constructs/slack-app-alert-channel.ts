@@ -44,14 +44,18 @@ export class SlackAppAlertChannel extends AlertChannel {
     return SLACK_INTEGRATION
   }
 
+  async validate (diagnostics: Diagnostics): Promise<void> {
+    await super.validate(diagnostics)
+
+    this.#validateSlackAppConnected(diagnostics)
+  }
+
   /**
    * Refuses the channel when the account has no Checkly Slack app: its alerts
    * cannot be delivered, whether the channel is new or was deployed before the
    * app was disconnected. Skipped when the API does not report the Slack app.
    */
-  async validate (diagnostics: Diagnostics): Promise<void> {
-    await super.validate(diagnostics)
-
+  #validateSlackAppConnected (diagnostics: Diagnostics): void {
     const slack = Session.account?.integrations?.find(({ type }) => type === SLACK_INTEGRATION.type)
     if (slack === undefined || slack.connected || !this.slackChannels?.length) {
       return
