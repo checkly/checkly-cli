@@ -19,16 +19,14 @@ export class InvalidPropertyValueDiagnostic extends ErrorDiagnostic {
 }
 
 /**
- * An alert channel whose integration the account's plan doesn't include, so
- * its alerts would never be sent.
+ * A construct that uses an integration the account's plan doesn't include.
  */
 export class IntegrationNotEntitledDiagnostic extends ErrorDiagnostic {
   integrationName: string
 
   constructor (integrationName: string, accountId: string | undefined) {
     const error = new Error(
-      `This alert channel uses ${integrationName}, which your plan doesn't include,`
-      + ` so its alerts would never be sent.`,
+      `This feature uses ${integrationName}, which your plan doesn't include.`,
     )
     super({
       title: `Integration not included in your plan`,
@@ -36,7 +34,7 @@ export class IntegrationNotEntitledDiagnostic extends ErrorDiagnostic {
         `${error.message}`
         + `\n\n`
         + `Hint: Upgrade your plan at https://app.checklyhq.com/accounts/${accountId}/billing,`
-        + ` or remove the channel.`,
+        + ` or remove it from your project.`,
       error,
     })
 

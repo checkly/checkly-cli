@@ -104,14 +104,13 @@ describe('alert channel integration entitlement', () => {
         expect.objectContaining({
           title: 'Integration not included in your plan',
           message: expect.stringContaining(
-            `This alert channel uses ${name}, which your plan doesn't include,`
-            + ` so its alerts would never be sent.`,
+            `This feature uses ${name}, which your plan doesn't include.`,
           ),
         }),
       ])
       expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
       expect(diagnostics.observations[0].message).toContain(
-        'Hint: Upgrade your plan at https://app.checklyhq.com/accounts/acc-1/billing, or remove the channel.',
+        'Hint: Upgrade your plan at https://app.checklyhq.com/accounts/acc-1/billing, or remove it from your project.',
       )
     })
 
@@ -159,7 +158,7 @@ describe('alert channel integration entitlement', () => {
       expect(diagnostics.observations).toEqual([
         expect.objectContaining({
           title: 'Integration not included in your plan',
-          message: expect.stringContaining(`This alert channel uses ${name}, which your plan doesn't include`),
+          message: expect.stringContaining(`This feature uses ${name}, which your plan doesn't include`),
         }),
       ])
       expect(diagnostics.observations[0]).toBeInstanceOf(IntegrationNotEntitledDiagnostic)
@@ -216,7 +215,7 @@ describe('alert channel integration entitlement', () => {
       observation instanceof ConstructDiagnostic && observation.underlying instanceof IntegrationNotEntitledDiagnostic)
     expect(refused).toHaveLength(2)
     const messages = diagnostics.observations.map(({ message }) => message).join('\n')
-    expect(messages).toContain('This alert channel uses PagerDuty')
-    expect(messages).toContain('This alert channel uses SMS')
+    expect(messages).toContain('This feature uses PagerDuty')
+    expect(messages).toContain('This feature uses SMS')
   })
 })
