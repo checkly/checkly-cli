@@ -1,4 +1,5 @@
-import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannelIntegration, SMS_INTEGRATION } from './internal/integrations.js'
 import { Session } from './session.js'
 
 export interface SmsAlertChannelProps extends AlertChannelProps {
@@ -42,7 +43,7 @@ export class SmsAlertChannel extends AlertChannel {
   }
 
   protected integration (): AlertChannelIntegration {
-    return { type: 'SMS', name: 'SMS' }
+    return SMS_INTEGRATION
   }
 
   synthesize () {

@@ -1,4 +1,5 @@
-import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannelIntegration, SLACK_INTEGRATION } from './internal/integrations.js'
 import { Session } from './session.js'
 
 export interface SlackAlertChannelProps extends AlertChannelProps {
@@ -36,7 +37,7 @@ export class SlackAlertChannel extends AlertChannel {
   }
 
   protected integration (): AlertChannelIntegration {
-    return { type: 'SLACK', name: 'Slack' }
+    return SLACK_INTEGRATION
   }
 
   synthesize () {

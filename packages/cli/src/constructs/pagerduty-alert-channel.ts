@@ -1,4 +1,5 @@
-import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannelIntegration, PAGERDUTY_INTEGRATION } from './internal/integrations.js'
 import { Session } from './session.js'
 
 export interface PagerdutyAlertChannelProps extends AlertChannelProps {
@@ -50,7 +51,7 @@ export class PagerdutyAlertChannel extends AlertChannel {
   }
 
   protected integration (): AlertChannelIntegration {
-    return { type: 'PAGERDUTY', name: 'PagerDuty' }
+    return PAGERDUTY_INTEGRATION
   }
 
   synthesize () {

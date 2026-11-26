@@ -1,4 +1,5 @@
-import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannelIntegration, PHONE_CALL_INTEGRATION } from './internal/integrations.js'
 import { Session } from './session.js'
 
 export interface PhoneCallAlertChannelProps extends AlertChannelProps {
@@ -43,7 +44,7 @@ export class PhoneCallAlertChannel extends AlertChannel {
   }
 
   protected integration (): AlertChannelIntegration {
-    return { type: 'PHONE_CALL', name: 'phone calls' }
+    return PHONE_CALL_INTEGRATION
   }
 
   synthesize () {

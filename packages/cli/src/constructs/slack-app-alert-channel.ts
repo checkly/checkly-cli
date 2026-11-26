@@ -1,8 +1,7 @@
-import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import { AlertChannelIntegration, SLACK_INTEGRATION } from './internal/integrations.js'
 import { Diagnostics, ErrorDiagnostic } from './diagnostics.js'
 import { Session } from './session.js'
-
-const SLACK_INTEGRATION = 'SLACK'
 
 export interface SlackAppAlertChannelProps extends AlertChannelProps {
   /**
@@ -42,7 +41,7 @@ export class SlackAppAlertChannel extends AlertChannel {
   }
 
   protected integration (): AlertChannelIntegration {
-    return { type: SLACK_INTEGRATION, name: 'Slack' }
+    return SLACK_INTEGRATION
   }
 
   /**
@@ -53,7 +52,7 @@ export class SlackAppAlertChannel extends AlertChannel {
   async validate (diagnostics: Diagnostics): Promise<void> {
     await super.validate(diagnostics)
 
-    const slack = Session.account?.integrations?.find(({ type }) => type === SLACK_INTEGRATION)
+    const slack = Session.account?.integrations?.find(({ type }) => type === SLACK_INTEGRATION.type)
     if (slack === undefined || slack.connected || !this.slackChannels?.length) {
       return
     }

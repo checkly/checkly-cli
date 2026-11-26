@@ -1,4 +1,18 @@
-import { AlertChannel, AlertChannelIntegration, AlertChannelProps } from './alert-channel.js'
+import { AlertChannel, AlertChannelProps } from './alert-channel.js'
+import {
+  AlertChannelIntegration,
+  CORALOGIX_INTEGRATION,
+  DISCORD_INTEGRATION,
+  FIREHYDRANT_INTEGRATION,
+  GITLAB_INTEGRATION,
+  ILERT_INTEGRATION,
+  INCIDENTIO_INTEGRATION,
+  MSTEAMS_INTEGRATION,
+  ROOTLY_INTEGRATION,
+  SPIKE_INTEGRATION,
+  SPLUNK_INTEGRATION,
+  TELEGRAM_INTEGRATION,
+} from './internal/integrations.js'
 import { HttpHeader } from './http-header.js'
 import { HttpRequestMethod } from './http-request.js'
 import { QueryParam } from './query-param.js'
@@ -44,21 +58,21 @@ export interface WebhookAlertChannelProps extends AlertChannelProps {
 /**
  * The integration each webhook type delivers through. The integration types
  * must match the ones the Checkly API reports in the account's `integrations`
- * list. A plain webhook, or one whose type is not listed here, is not checked
- * against the account's plan.
+ * list (see `internal/integrations.ts`). A plain webhook, or one whose type is
+ * not listed here, is not checked against the account's plan.
  */
 const WEBHOOK_INTEGRATIONS = new Map<string, AlertChannelIntegration>([
-  ['WEBHOOK_MSTEAMS', { type: 'MSTEAMS', name: 'Microsoft Teams' }],
-  ['WEBHOOK_DISCORD', { type: 'DISCORD', name: 'Discord' }],
-  ['WEBHOOK_TELEGRAM', { type: 'TELEGRAM', name: 'Telegram' }],
-  ['WEBHOOK_FIREHYDRANT', { type: 'FIREHYDRANT', name: 'FireHydrant' }],
-  ['WEBHOOK_GITLAB_ALERT', { type: 'GITLAB', name: 'GitLab' }],
-  ['WEBHOOK_SPIKESH', { type: 'SPIKE', name: 'Spike.sh' }],
-  ['WEBHOOK_SPLUNK', { type: 'SPLUNK', name: 'Splunk' }],
-  ['WEBHOOK_CORALOGIX', { type: 'CORALOGIX', name: 'Coralogix' }],
-  ['WEBHOOK_ILERT', { type: 'ILERT', name: 'ilert' }],
-  ['WEBHOOK_INCIDENTIO', { type: 'INCIDENTIO', name: 'incident.io' }],
-  ['WEBHOOK_ROOTLY', { type: 'ROOTLY', name: 'Rootly' }],
+  ['WEBHOOK_MSTEAMS', MSTEAMS_INTEGRATION],
+  ['WEBHOOK_DISCORD', DISCORD_INTEGRATION],
+  ['WEBHOOK_TELEGRAM', TELEGRAM_INTEGRATION],
+  ['WEBHOOK_FIREHYDRANT', FIREHYDRANT_INTEGRATION],
+  ['WEBHOOK_GITLAB_ALERT', GITLAB_INTEGRATION],
+  ['WEBHOOK_SPIKESH', SPIKE_INTEGRATION],
+  ['WEBHOOK_SPLUNK', SPLUNK_INTEGRATION],
+  ['WEBHOOK_CORALOGIX', CORALOGIX_INTEGRATION],
+  ['WEBHOOK_ILERT', ILERT_INTEGRATION],
+  ['WEBHOOK_INCIDENTIO', INCIDENTIO_INTEGRATION],
+  ['WEBHOOK_ROOTLY', ROOTLY_INTEGRATION],
 ])
 
 /**

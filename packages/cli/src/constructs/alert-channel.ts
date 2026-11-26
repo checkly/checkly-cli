@@ -1,6 +1,7 @@
 import { Construct } from './construct.js'
 import { IntegrationNotEntitledDiagnostic } from './construct-diagnostics.js'
 import { Diagnostics } from './diagnostics.js'
+import type { AlertChannelIntegration } from './internal/integrations.js'
 import { validatePhysicalIdIsNumeric } from './internal/common-diagnostics.js'
 import { Session } from './session.js'
 
@@ -67,24 +68,6 @@ export interface AlertChannelProps {
    * ```
    */
   sslExpiryThreshold?: number
-}
-
-/**
- * An integration an alert channel delivers its alerts through, identified by
- * the type the account's `integrations` list reports it as.
- *
- * @internal Used by the built-in alert channel constructs to check the
- * account's plan. Not part of the public constructs API.
- */
-export interface AlertChannelIntegration {
-  /**
-   * The integration type, e.g. `PAGERDUTY`.
-   */
-  type: string
-  /**
-   * The integration's human-readable name, e.g. `PagerDuty`.
-   */
-  name: string
 }
 
 /**
