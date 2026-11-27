@@ -39,6 +39,7 @@ import {
   reducePlanForAgent,
   unbaselinedResources,
 } from '../services/deploy-diff/plan-summary.js'
+import { nodeVersionLines, nodeVersionRequests } from '../services/deploy-diff/node-versions.js'
 import { formatWriteBackSkipped, formatWriteBackUpdated } from '../services/write-back/output.js'
 import { applyWriteBack, hasWritableChanges, planWriteBack } from '../services/write-back/plan.js'
 import type { CommandAlternative } from '../helpers/command-preview.js'
@@ -382,6 +383,15 @@ export default class Deploy extends AuthCommand {
     const archive = await bundler.finalize()
     bundler.updateMarker(archive.archiveFile)
 
+    // The Node.js release each Playwright check runs on is part of the result,
+    // read off the diff the preview or the deploy answers with.
+    const nodeRequests = nodeVersionRequests(Object.values(projectBundle.data.check).map(({ construct }) => construct))
+    const logNodeVersions = (diff: readonly DiffEntry[]): void => {
+      for (const line of nodeVersionLines(nodeRequests, diff)) {
+        this.log(line)
+      }
+    }
+
     const browserBundles: BrowserCheckBundle[] = Object.values(projectBundle.data.check)
       .map(({ bundle }) => bundle)
       .filter((bundle): bundle is BrowserCheckBundle => bundle instanceof BrowserCheckBundle)
@@ -500,6 +510,16 @@ export default class Deploy extends AuthCommand {
         this.style.actionSuccess()
       } catch (err: any) {
         this.style.actionFailure()
+        // A 400 is Checkly refusing the payload itself, such as a Node.js
+        // version no runner offers. The deploy routes refuse the same payload,
+        // so the refusal is the outcome, in Checkly's own words.
+        if (err instanceof ValidationError) {
+          this.style.longError(
+            preview ? 'Could not check what this deploy would change.' : 'Your project could not be deployed.',
+            err,
+          )
+          this.exit(1)
+        }
         // An API that has plans switched off is not one that predates them: it
         // knows the payload fields that arrived with the preview endpoint, so
         // the payload is not stripped of them.
@@ -699,6 +719,7 @@ export default class Deploy extends AuthCommand {
 
     if (preview && !dryRun) {
       this.log(renderPlan(plan?.planToken))
+      logNodeVersions(plan?.diff ?? fallbackDiff?.diff ?? [])
       return
     }
 
@@ -873,6 +894,7 @@ export default class Deploy extends AuthCommand {
       } else {
         this.log(`Successfully deployed project "${project.name}" to account "${account.name}".`)
       }
+      logNodeVersions(data.diff)
       // Checkly schedules none of a deploy's checks when there are more than
       // the threshold allows, which is worth a warning. Otherwise it may still
       // leave some out, such as the ones that already run often; a notice

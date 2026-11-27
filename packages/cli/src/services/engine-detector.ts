@@ -9,6 +9,11 @@ import { resolveEngineVersion } from './engine-resolver.js'
 export interface EngineDetectionResult {
   engine: Engine | undefined
   notices: string[]
+  /**
+   * The version file or field a detected Node.js version was read from, such
+   * as `package.json devEngines.runtime`. Unset for Bun.
+   */
+  nodeVersionSource?: string
 }
 
 async function readFileIfExists (filePath: string): Promise<string | undefined> {
@@ -26,11 +31,12 @@ async function readJsonIfExists (filePath: string): Promise<any | undefined> {
   return file?.data
 }
 
-function resolveNodeMajor (raw: string): string | undefined {
-  const stripped = raw.trim().replace(/^v/, '')
-  const major = stripped.split('.')[0]
-  if (!major || !/^\d+$/.test(major)) return undefined
-  return major
+/**
+ * A Node.js version as the CLI sends it: trimmed and without a leading `v`.
+ * Checkly resolves the result, or refuses it, so it is not validated here.
+ */
+export function normalizeNodeVersion (raw: string): string {
+  return raw.trim().replace(/^v/, '')
 }
 
 function resolveBunVersion (raw: string): string | undefined {
@@ -40,11 +46,18 @@ function resolveBunVersion (raw: string): string | undefined {
   return `${parts[0]}.${parts[1]}`
 }
 
-function parseNvmrc (content: string): string | undefined {
-  const s = content.trim()
-  if (!s) return undefined
-  if (s.startsWith('lts/') || s === 'lts' || s === 'node' || s === 'stable' || s === 'latest') return undefined
-  return s.replace(/^v/, '')
+function isVersionManagerAlias (value: string): boolean {
+  return value.startsWith('lts/') || value === 'lts' || value === 'node' || value === 'stable' || value === 'latest'
+}
+
+/**
+ * The Node.js value of a version file. A version-manager alias such as
+ * `lts/*` is skipped, so detection falls through to the next source.
+ */
+function versionFileValue (raw: string | undefined): string | undefined {
+  if (raw === undefined) return undefined
+  const value = raw.trim()
+  return isVersionManagerAlias(value) ? undefined : value
 }
 
 function parseToolVersions (content: string): { nodeVersion?: string, bunVersion?: string } {
@@ -55,26 +68,43 @@ function parseToolVersions (content: string): { nodeVersion?: string, bunVersion
     if (!trimmed || trimmed.startsWith('#')) continue
     const parts = trimmed.split(/\s+/)
     if (parts.length < 2) continue
-    if (parts[0] === 'nodejs' && !nodeVersion) nodeVersion = parts[1].replace(/^v/, '')
+    if (parts[0] === 'nodejs' && !nodeVersion) nodeVersion = parts[1]
     if (parts[0] === 'bun' && !bunVersion) bunVersion = parts[1].replace(/^v/, '')
   }
   return { nodeVersion, bunVersion }
 }
 
+/**
+ * The `version` of the first `node` entry whose version is a non-empty string
+ * in a `devEngines.runtime` or `engines.runtime` field, which holds one entry
+ * or an array of them.
+ */
+function runtimeNodeVersion (runtime: any): string | undefined {
+  const entries: any[] = Array.isArray(runtime) ? runtime : [runtime]
+  return entries.find(entry =>
+    typeof entry === 'object' && entry !== null && entry.name === 'node'
+    && typeof entry.version === 'string' && entry.version.trim() !== '',
+  )?.version
+}
+
+/**
+ * Names a source by its file, relative to `labelBase` with posix separators,
+ * and the field the value was read from, if any.
+ */
+function sourceLabel (labelBase: string, file: string, field?: string): string {
+  const relative = path.relative(path.resolve(labelBase), path.resolve(file)).split(path.sep).join(path.posix.sep)
+  return field === undefined ? relative : `${relative} ${field}`
+}
+
 // semver.minVersion throws on values that are not a range at all (for
-// example "lts"); such values are skipped so that detection falls through to
-// the next source.
+// example "latest"); such values are skipped so that detection falls through
+// to the next source.
 function minVersionOfRange (range: string): semver.SemVer | undefined {
   try {
     return semver.minVersion(range) ?? undefined
   } catch {
     return undefined
   }
-}
-
-function resolveEngineFromSemverRange (range: string): string | undefined {
-  const min = minVersionOfRange(range)
-  return min ? String(min.major) : undefined
 }
 
 function resolveBunFromSemverRange (range: string): string | undefined {
@@ -87,15 +117,21 @@ function resolveBunFromSemverRange (range: string): string | undefined {
 // depth-bounded, which also terminates cyclic `extends` references.
 const MAX_VOLTA_EXTENDS_DEPTH = 10
 
+interface VoltaPin {
+  node: string
+  /** The manifest that holds the `node` pin. */
+  manifestPath: string
+}
+
 /**
  * Returns the raw `volta.node` value of an already-parsed Volta manifest,
  * following its `volta.extends` chain when the manifest itself carries no
  * `node` pin. Any JSON file can be extended, not only a package.json.
  */
-async function resolveVoltaNode (manifest: any, manifestPath: string, depth = 0): Promise<string | undefined> {
+async function resolveVoltaNode (manifest: any, manifestPath: string, depth = 0): Promise<VoltaPin | undefined> {
   const volta = manifest?.volta
   if (!volta || typeof volta !== 'object') return undefined
-  if (typeof volta.node === 'string') return volta.node
+  if (typeof volta.node === 'string') return { node: volta.node, manifestPath }
   if (typeof volta.extends === 'string' && depth < MAX_VOLTA_EXTENDS_DEPTH) {
     const extendedPath = path.resolve(path.dirname(manifestPath), volta.extends)
     return resolveVoltaNode(await readJsonIfExists(extendedPath), extendedPath, depth + 1)
@@ -110,7 +146,7 @@ async function resolveVoltaNode (manifest: any, manifestPath: string, depth = 0)
  * there even when it yields no Node version. The walk never leaves
  * `projectRoot`; a start path outside it falls back to `projectRoot` alone.
  */
-async function detectVoltaNode (projectRoot: string, startPath: string): Promise<string | undefined> {
+async function detectVoltaNode (projectRoot: string, startPath: string): Promise<VoltaPin | undefined> {
   const root = path.resolve(projectRoot)
   const start = path.resolve(startPath)
   const contained = start === root || start.startsWith(root + path.sep)
@@ -124,17 +160,82 @@ async function detectVoltaNode (projectRoot: string, startPath: string): Promise
   return undefined
 }
 
+interface DetectedNodeVersion {
+  version: string
+  source: string
+}
+
+/** A value that is not a string, or is empty once normalized, is skipped. */
+function detectedNode (raw: unknown, source: string): DetectedNodeVersion | undefined {
+  if (typeof raw !== 'string') return undefined
+  const version = normalizeNodeVersion(raw)
+  return version ? { version, source } : undefined
+}
+
+/**
+ * The Node.js version the project asks for, from the first source that holds
+ * one, as written. Every source but the Volta pin is read from `projectRoot`.
+ */
+async function detectNode (
+  projectRoot: string,
+  contextPath: string,
+  labelBase: string,
+  pkg: any,
+  toolVersions: string | undefined,
+): Promise<DetectedNodeVersion | undefined> {
+  const packageJson = path.join(projectRoot, 'package.json')
+  const file = (name: string) => path.join(projectRoot, name)
+
+  // 1. package.json devEngines.runtime
+  const devEnginesRuntime = detectedNode(
+    runtimeNodeVersion(pkg?.devEngines?.runtime),
+    sourceLabel(labelBase, packageJson, 'devEngines.runtime'),
+  )
+  if (devEnginesRuntime) return devEnginesRuntime
+
+  // 2. package.json engines.runtime
+  const enginesRuntime = detectedNode(
+    runtimeNodeVersion(pkg?.engines?.runtime),
+    sourceLabel(labelBase, packageJson, 'engines.runtime'),
+  )
+  if (enginesRuntime) return enginesRuntime
+
+  // 3. .node-version; a version-manager alias falls through to the next source.
+  const nodeVersionFile = detectedNode(
+    versionFileValue(await readFileIfExists(file('.node-version'))),
+    sourceLabel(labelBase, file('.node-version')),
+  )
+  if (nodeVersionFile) return nodeVersionFile
+
+  // 4. .nvmrc, with the same aliases
+  const nvmrc = detectedNode(
+    versionFileValue(await readFileIfExists(file('.nvmrc'))),
+    sourceLabel(labelBase, file('.nvmrc')),
+  )
+  if (nvmrc) return nvmrc
+
+  // 5. .tool-versions, with the same aliases
+  const toolVersionsNode = detectedNode(
+    versionFileValue(toolVersions === undefined ? undefined : parseToolVersions(toolVersions).nodeVersion),
+    sourceLabel(labelBase, file('.tool-versions')),
+  )
+  if (toolVersionsNode) return toolVersionsNode
+
+  // 6. package.json volta.node, named by the manifest that holds the pin
+  const voltaPin = await detectVoltaNode(projectRoot, contextPath)
+  if (voltaPin) {
+    const volta = detectedNode(voltaPin.node, sourceLabel(labelBase, voltaPin.manifestPath, 'volta.node'))
+    if (volta) return volta
+  }
+
+  // 7. package.json engines.node
+  return detectedNode(pkg?.engines?.node, sourceLabel(labelBase, packageJson, 'engines.node'))
+}
+
 interface ResolvedVersion {
   version: string
   notices: string[]
   denied: boolean
-}
-
-async function resolveNode (rawVersion: string): Promise<ResolvedVersion | undefined> {
-  const major = resolveNodeMajor(rawVersion)
-  if (!major) return undefined
-  const res = await resolveEngineVersion(major, 'node')
-  return { version: res.version, notices: res.notices, denied: res.denied }
 }
 
 async function resolveBun (rawVersion: string): Promise<ResolvedVersion | undefined> {
@@ -144,47 +245,20 @@ async function resolveBun (rawVersion: string): Promise<ResolvedVersion | undefi
   return { version: res.version, notices: res.notices, denied: res.denied }
 }
 
-/**
- * Detects the engine from the project's version files.
- *
- * @param projectRoot Directory holding the version files (the workspace root
- *   when the project is part of one).
- * @param contextPath Directory of the package that contains the Checkly
- *   config. Only the Volta source uses it: mirroring Volta's own lookup, the
- *   pin is searched from here upwards to `projectRoot`. All other sources are
- *   read from `projectRoot` only.
- */
-export async function detectEngine (
+async function detectBun (
   projectRoot: string,
-  contextPath: string = projectRoot,
-): Promise<EngineDetectionResult | undefined> {
-  let nodeResult: ResolvedVersion | undefined
+  pkg: any,
+  toolVersions: string | undefined,
+): Promise<ResolvedVersion | undefined> {
   let bunResult: ResolvedVersion | undefined
 
-  // 1. .node-version
-  const nodeVersionFile = await readFileIfExists(path.join(projectRoot, '.node-version'))
-  if (nodeVersionFile) {
-    nodeResult = await resolveNode(nodeVersionFile)
-  }
-
-  // 2. .nvmrc (only if no .node-version)
-  if (!nodeResult) {
-    const nvmrc = await readFileIfExists(path.join(projectRoot, '.nvmrc'))
-    if (nvmrc) {
-      const parsed = parseNvmrc(nvmrc)
-      if (parsed) nodeResult = await resolveNode(parsed)
-    }
-  }
-
-  // 3. .tool-versions
-  const toolVersions = await readFileIfExists(path.join(projectRoot, '.tool-versions'))
+  // 1. .tool-versions
   if (toolVersions) {
     const tv = parseToolVersions(toolVersions)
-    if (tv.nodeVersion && !nodeResult) nodeResult = await resolveNode(tv.nodeVersion)
-    if (tv.bunVersion && !bunResult) bunResult = await resolveBun(tv.bunVersion)
+    if (tv.bunVersion) bunResult = await resolveBun(tv.bunVersion)
   }
 
-  // 4. .bun-version
+  // 2. .bun-version
   if (!bunResult) {
     const bunVersionFile = await readFileIfExists(path.join(projectRoot, '.bun-version'))
     if (bunVersionFile) {
@@ -192,36 +266,46 @@ export async function detectEngine (
     }
   }
 
-  // 5. package.json volta.node (Volta pin; Volta does not manage Bun)
-  if (!nodeResult) {
-    const voltaNode = await detectVoltaNode(projectRoot, contextPath)
-    if (voltaNode) {
-      // Pins are normally exact versions, but Volta also accepts ranges.
-      const extracted = resolveEngineFromSemverRange(voltaNode)
-      if (extracted) nodeResult = await resolveNode(extracted)
-    }
+  // 3. package.json engines.bun
+  if (!bunResult && typeof pkg?.engines?.bun === 'string') {
+    const extracted = resolveBunFromSemverRange(pkg.engines.bun)
+    if (extracted) bunResult = await resolveBun(extracted)
   }
 
-  // 6. package.json engines
-  if (!nodeResult || !bunResult) {
-    const pkg = await readJsonIfExists(path.join(projectRoot, 'package.json'))
-    if (!nodeResult && typeof pkg?.engines?.node === 'string') {
-      const extracted = resolveEngineFromSemverRange(pkg.engines.node)
-      if (extracted) nodeResult = await resolveNode(extracted)
-    }
-    if (!bunResult && typeof pkg?.engines?.bun === 'string') {
-      const extracted = resolveBunFromSemverRange(pkg.engines.bun)
-      if (extracted) bunResult = await resolveBun(extracted)
-    }
+  return bunResult
+}
+
+/**
+ * Detects the engine from the project's version files. A Node.js version from
+ * any source wins over a Bun version.
+ *
+ * @param projectRoot Directory holding the version files (the workspace root
+ *   when the project is part of one).
+ * @param contextPath Directory of the package that contains the Checkly
+ *   config. Only the Volta source uses it: mirroring Volta's own lookup, the
+ *   pin is searched from here upwards to `projectRoot`. All other sources are
+ *   read from `projectRoot` only.
+ * @param labelBase Directory the Node.js source is named relative to: the
+ *   directory of the Checkly config, which also names the files that call
+ *   `Engine.node()`.
+ */
+export async function detectEngine (
+  projectRoot: string,
+  contextPath: string = projectRoot,
+  labelBase: string = projectRoot,
+): Promise<EngineDetectionResult | undefined> {
+  const pkg = await readJsonIfExists(path.join(projectRoot, 'package.json'))
+  const toolVersions = await readFileIfExists(path.join(projectRoot, '.tool-versions'))
+
+  const node = await detectNode(projectRoot, contextPath, labelBase, pkg, toolVersions)
+  if (node) {
+    return { engine: Engine.node(node.version), notices: [], nodeVersionSource: node.source }
   }
 
-  const selected = nodeResult ?? bunResult
-  if (!selected) return undefined
-  if (selected.denied) {
-    return { engine: undefined, notices: selected.notices }
+  const bun = await detectBun(projectRoot, pkg, toolVersions)
+  if (!bun) return undefined
+  if (bun.denied) {
+    return { engine: undefined, notices: bun.notices }
   }
-  const engine = selected === nodeResult
-    ? Engine.node(selected.version)
-    : Engine.bun(selected.version)
-  return { engine, notices: selected.notices }
+  return { engine: Engine.bun(bun.version), notices: bun.notices }
 }

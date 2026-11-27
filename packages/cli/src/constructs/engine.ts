@@ -1,3 +1,6 @@
+import { captureDeclaringFile } from './internal/declaring-file.js'
+import { recordEngineDeclaringFile } from './internal/engine-declaring-file.js'
+
 /**
  * Configuration for the JavaScript engine used to run Playwright tests.
  * Can be passed as a plain object in `checkly.config.ts`.
@@ -6,6 +9,9 @@ export interface EngineConfig {
   readonly name: string
   readonly version: string
 }
+
+// Known versions are listed for IDE autocomplete; any string is accepted.
+type BunVersion = '1' | '1.3' | '1.4' | (string & {})
 
 /**
  * Selects the JavaScript engine and version for a Playwright Check Suite.
@@ -21,10 +27,6 @@ export interface EngineConfig {
  * })
  * ```
  */
-// Known versions are listed for IDE autocomplete; any string is accepted.
-type NodeVersion = '22' | '24' | '26' | (string & {})
-type BunVersion = '1' | '1.3' | '1.4' | (string & {})
-
 export class Engine implements EngineConfig {
   readonly name: string
   readonly version: string
@@ -36,10 +38,17 @@ export class Engine implements EngineConfig {
 
   /**
    * Use Node.js as the test runner engine.
-   * @param version - The Node.js major version (e.g., `'22'`, `'24'`).
+   *
+   * Checkly resolves the version to one of the Node.js releases its runners
+   * offer, and refuses a version that none of them satisfies.
+   *
+   * @param version - A Node.js version or a semver range, e.g. `'24'`,
+   *   `'24.11.0'`, `'^24.11.0'` or `'>=22'`.
    */
-  static node (version: NodeVersion): Engine {
-    return new Engine('node', version)
+  static node (version: string): Engine {
+    const engine = new Engine('node', version)
+    recordEngineDeclaringFile(engine, captureDeclaringFile(0))
+    return engine
   }
 
   /**

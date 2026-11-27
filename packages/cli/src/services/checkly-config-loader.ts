@@ -14,6 +14,7 @@ import {
 } from '../constructs/construct-diagnostics.js'
 import { ConfigFileDiagnostics, InvalidConfigError } from './config-diagnostics.js'
 import { validateRemovedDoubleCheck } from '../constructs/internal/common-diagnostics.js'
+import { recordEngineDeclaringFile } from '../constructs/internal/engine-declaring-file.js'
 import type { Region } from '../index.js'
 import { ReporterType } from '../reporters/reporter.js'
 import { PlaywrightConfig } from '../constructs/playwright-config.js'
@@ -499,6 +500,12 @@ export async function loadChecklyConfig (
         config = await Session.loadFile<ChecklyConfig>(physicalPath)
       } finally {
         Session.checkFileAbsolutePath = previousCheckFileAbsolutePath
+      }
+      // An engine written here as a plain object has no `Engine.node()` call
+      // to record the file it came from.
+      const playwrightChecks = config?.checks?.playwrightChecks
+      for (const check of Array.isArray(playwrightChecks) ? playwrightChecks : []) {
+        recordEngineDeclaringFile(check?.engine, physicalPath)
       }
       configFileName = path.relative(process.cwd(), filePath)
       break
