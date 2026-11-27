@@ -152,6 +152,27 @@ describe('diffLines()', () => {
     ])
   })
 
+  it('shows the whole text in one hunk with an infinite context', () => {
+    const before = lines(30)
+    const after = before.replace('line3\n', 'three\n').replace('line20\n', 'twenty\n')
+
+    // Two changes that the default context keeps in separate hunks.
+    expect(unifiedDiff(before, after, { context: Infinity })).toEqual([
+      '--- deployed',
+      '+++ local',
+      '@@',
+      ...before.trimEnd().split('\n').flatMap(line => {
+        if (line === 'line3') {
+          return ['-line3', '+three']
+        }
+        if (line === 'line20') {
+          return ['-line20', '+twenty']
+        }
+        return [` ${line}`]
+      }),
+    ])
+  })
+
   it('declines a comparison larger than maxLines', () => {
     // The comparison is quadratic in the lines that differ, and a caller that
     // gets nothing back has a coarser listing to print instead.
